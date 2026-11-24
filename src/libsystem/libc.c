@@ -129,7 +129,7 @@ DX_FN(__isPlatformVersionAtLeast);
 #define D_RTLD_MAIN_ONLY ((void *)-5)
 static __thread char dl_error[512];
 static __thread int dl_error_set;
-static char shim_handle; /* stands for "a library provided by dmgbox" */
+static char shim_handle; /* stands for "a library provided by scion" */
 
 static void *d_dlopen(const char *path, int mode) {
     (void)mode;
@@ -144,7 +144,7 @@ static void *d_dlopen(const char *path, int mode) {
             return img;
         }
     }
-    /* System libraries and frameworks are implemented inside dmgbox. */
+    /* System libraries and frameworks are implemented inside scion. */
     if (!strncmp(path, "/usr/lib/", 9) || !strncmp(path, "/System/Library/", 16) ||
         (!strchr(path, '/') && strstr(path, ".dylib"))) {
         dx_log(1, "dlopen(%s) -> built-in shims", path);

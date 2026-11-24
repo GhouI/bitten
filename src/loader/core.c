@@ -22,7 +22,7 @@ void dx_log(int level, const char *fmt, ...) {
     if (n < 0) return;
     if ((size_t)n > sizeof buf - 2) n = sizeof buf - 2;
     buf[n++] = '\n';
-    static const char prefix[] = "dmgbox: ";
+    static const char prefix[] = "scion: ";
     ssize_t r = write(2, prefix, sizeof prefix - 1);
     r = write(2, buf, n);
     (void)r;
@@ -37,7 +37,7 @@ void dx_fatal(const char *fmt, ...) {
     if (n < 0) n = 0;
     if ((size_t)n > sizeof buf - 2) n = sizeof buf - 2;
     buf[n++] = '\n';
-    static const char prefix[] = "dmgbox: fatal: ";
+    static const char prefix[] = "scion: fatal: ";
     ssize_t r = write(2, prefix, sizeof prefix - 1);
     r = write(2, buf, n);
     (void)r;
@@ -96,12 +96,12 @@ const char *dx_path(const char *path, char *buf, size_t buflen) {
     static const char *root;
     static int root_checked;
     if (!root_checked) {
-        root = getenv("DMGBOX_ROOT");
+        root = getenv("SCION_ROOT");
         if (root && !*root) root = NULL;
         root_checked = 1;
     }
     if (!root || path[0] != '/') return path;
-    /* Darwin system locations live under the dmgbox root when they do not
+    /* Darwin system locations live under the scion root when they do not
      * exist on the host. */
     static const char *const prefixes[] = {"/System/", "/Library/", "/Applications/", "/Users/",
                                            "/Volumes/", "/private/", "/usr/lib/swift/", NULL};
@@ -148,20 +148,20 @@ static void usage(void) {
           "Runs an x86-64 macOS (Mach-O) executable on Linux without a VM.\n"
           "\n"
           "  --check          load and bind only; print dependencies and every\n"
-          "                   import dmgbox cannot satisfy, then exit\n"
-          "  --list-exports   print the Darwin symbols dmgbox implements\n"
+          "                   import scion cannot satisfy, then exit\n"
+          "  --list-exports   print the Darwin symbols scion implements\n"
           "\n"
           "environment:\n"
-          "  DMGBOX_DEBUG=1|2  loader diagnostics\n"
-          "  DMGBOX_STUBS=zero unimplemented functions return 0 instead of aborting\n"
-          "  DMGBOX_ROOT=dir   directory holding Darwin-only paths (/System, ...)\n",
+          "  SCION_DEBUG=1|2  loader diagnostics\n"
+          "  SCION_STUBS=zero unimplemented functions return 0 instead of aborting\n"
+          "  SCION_ROOT=dir   directory holding Darwin-only paths (/System, ...)\n",
           stderr);
 }
 
 int main(int argc, char **argv, char **envp) {
-    const char *dbg = getenv("DMGBOX_DEBUG");
+    const char *dbg = getenv("SCION_DEBUG");
     if (dbg) dx_verbose = atoi(dbg);
-    const char *stubs = getenv("DMGBOX_STUBS");
+    const char *stubs = getenv("SCION_STUBS");
     if (stubs && !strcmp(stubs, "zero")) dx_stub_mode = 1;
 
     int check = 0, i = 1;

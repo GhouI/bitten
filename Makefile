@@ -1,4 +1,4 @@
-# dmgbox: Mach-O loader + Darwin compatibility layer for Linux x86-64.
+# scion: Mach-O loader + Darwin compatibility layer for Linux x86-64.
 CC      ?= cc
 CFLAGS  ?= -O2 -g
 CFLAGS  += -std=gnu17 -Wall -Wextra -Wno-unused-parameter -fno-strict-aliasing \
@@ -27,7 +27,7 @@ build/obj/%.o: src/%.S
 
 # ---- tests ---------------------------------------------------------------
 # C tests are compiled to real Mach-O with clang + ld64.lld against a stub
-# libSystem generated from the symbols dmgbox implements. No Apple SDK.
+# libSystem generated from the symbols scion implements. No Apple SDK.
 TEST_C    := $(wildcard tests/c/*.c)
 TEST_BINS := $(patsubst tests/c/%.c,build/tests/c/%,$(TEST_C))
 MACHO_CC  ?= clang
