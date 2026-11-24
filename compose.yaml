@@ -1,0 +1,15 @@
+# Generic: inspect or run whatever is inside a .dmg.
+#
+#   DMG=/path/to/App.dmg docker compose run --rm app            # what is inside, what works
+#   DMG=/path/to/App.dmg docker compose run --rm app run        # run the main program
+#   DMG=/path/to/App.dmg docker compose run --rm app exec NAME  # run a helper tool
+#   DMG=/path/to/App.dmg docker compose run --rm app shell
+services:
+  app:
+    build: .
+    image: bitten
+    volumes:
+      - "${DMG:?set DMG to the path of a .dmg file}:/dmg/app.dmg:ro"
+    stdin_open: true
+    tty: true
+    init: true

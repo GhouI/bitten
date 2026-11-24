@@ -1,0 +1,22 @@
+# Rex terminal from Rex.dmg, in a container, no VM.
+#
+#   REX_DMG=/path/to/Rex.dmg docker compose -f examples/rex/compose.yaml up
+#   then open http://localhost:7680
+#
+# The Rex server and CLI are the unmodified macOS binaries from your disk
+# image. The page is bitten's own viewer: Rex's SwiftUI window does not run
+# yet (see docs/REX.md).
+services:
+  rex:
+    build: ../..
+    image: bitten
+    command: ["shell", "-c", "exec python3 /usr/share/bitten/examples/rex/terminal.py"]
+    volumes:
+      - "${REX_DMG:?set REX_DMG to the path of your Rex.dmg}:/dmg/app.dmg:ro"
+      - rex-home:/Users/mac
+    ports:
+      # localhost only: the page types into a shell and has no login
+      - "127.0.0.1:7680:7680"
+    init: true
+volumes:
+  rex-home:

@@ -121,3 +121,34 @@ working directory. `strace` showing `syscall_0x2000036` settled it.
   (a missing `<linux/sockios.h>` and the versioned path of `ld64.lld`).
 - This batch was written by a delegated Codex agent to a written spec and
   reviewed, built and run against the real target before merging.
+
+## 2026-11-24: container, Rex example, documentation (PR: docker)
+
+- `Dockerfile`: multi-stage. Build stage compiles `mrun`; an optional `test`
+  stage runs the whole suite; the runtime image is Debian slim with `mrun`,
+  `dmgx`, the entrypoint, zsh, the directories macOS programs expect and a
+  macOS-style `/usr/bin/login`. Runs as an unprivileged user with Docker's
+  default seccomp profile.
+- `docker/bitten` entrypoint: finds the mounted `.dmg`, unpacks it, picks the
+  app, and offers `info`, `run`, `exec`, `shell`, `check`. Generic: nothing
+  in it knows about Rex.
+- `compose.yaml` (any image) and `examples/rex/compose.yaml`.
+- `examples/rex/terminal.py`: a browser and `--tty` view of a Rex terminal,
+  driven only through the real CLI (`rex capture`, `rex send`). Found on the
+  way: Rex starts shells with `login -fpl user ...` (macOS option letters),
+  hence the login shim.
+- Verified from a clean state with the real disk image:
+  `docker run ... bitten info` (2 s including unpacking), `exec rex version`,
+  and `docker compose -f examples/rex/compose.yaml up` serving a zsh login
+  shell inside a Rex terminal on `http://localhost:7680`.
+- Docs: README rewritten with a support matrix; `ARCHITECTURE.md`,
+  `REX.md` (import coverage: helper 291/291, GUI 311/5,688) and
+  `DECISIONS.md`.
+- CI: a GitHub Actions workflow is written but not active. It sits in
+  `ci/github-actions.yml` because the token used here lacks the `workflow`
+  scope; copying it to `.github/workflows/ci.yml` enables it. Until then the
+  suite is run locally with `docker build --target test .` before each merge.
+
+Where it stops: the Rex window itself (`Contents/MacOS/Rex`) cannot start.
+It needs an Objective-C runtime, a Swift runtime and standard library,
+Foundation, AppKit, SwiftUI and Metal. `REX.md` sizes each.
