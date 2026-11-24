@@ -3,9 +3,19 @@
 
 #include "cf.h"
 
+/* Generic entry points accept three kinds of object: CF objects, constant
+ * strings emitted by the compiler, and ordinary Objective-C objects (which
+ * collections with the "CFType" callbacks may hold). */
+void *dx_objc_retain(void *);
+void dx_objc_release(void *);
+unsigned long cf_objc_hash(const void *object);
+Boolean cf_objc_equal(const void *left, const void *right);
+
 const void *d_CFRetain(const void *object) {
     struct cf_object *o = (struct cf_object *)object;
-    if (o && atomic_load_explicit(&o->refs, memory_order_relaxed) != LONG_MAX)
+    if (!o || cf_is_constant_string(o)) return object;
+    if (!cf_is_cf(o)) return dx_objc_retain(o);
+    if (atomic_load_explicit(&o->refs, memory_order_relaxed) != LONG_MAX)
         atomic_fetch_add_explicit(&o->refs, 1, memory_order_relaxed);
     return object;
 }
@@ -13,7 +23,12 @@ DX_FN(CFRetain);
 
 void d_CFRelease(const void *object) {
     struct cf_object *o = (struct cf_object *)object;
-    if (!o || atomic_load_explicit(&o->refs, memory_order_relaxed) == LONG_MAX) return;
+    if (!o || cf_is_constant_string(o)) return;
+    if (!cf_is_cf(o)) {
+        dx_objc_release(o);
+        return;
+    }
+    if (atomic_load_explicit(&o->refs, memory_order_relaxed) == LONG_MAX) return;
     if (atomic_fetch_sub_explicit(&o->refs, 1, memory_order_acq_rel) == 1) {
         if (o->ops && o->ops->destroy) o->ops->destroy(o);
         free(o);
@@ -22,33 +37,43 @@ void d_CFRelease(const void *object) {
 DX_FN(CFRelease);
 
 CFTypeID d_CFGetTypeID(const void *object) {
-    const struct cf_object *o = object;
-    return o ? o->type : 0;
+    const struct cf_object *o = cf_resolve(object);
+    if (!o) return 0;
+    return cf_is_cf(o) ? o->type : 1; /* foreign Objective-C objects report the generic type */
 }
 DX_FN(CFGetTypeID);
 
 static CFIndex d_CFGetRetainCount(const void *object) {
     const struct cf_object *o = object;
-    return o ? atomic_load_explicit(&o->refs, memory_order_relaxed) : 0;
+    if (!o) return 0;
+    if (cf_is_constant_string(o) || !cf_is_cf(o)) return LONG_MAX;
+    return atomic_load_explicit(&o->refs, memory_order_relaxed);
 }
 DX_FN(CFGetRetainCount);
 
 Boolean d_CFEqual(const void *left, const void *right) {
     if (left == right) return 1;
+    if (!left || !right) return 0;
+    left = cf_resolve(left);
+    right = cf_resolve(right);
+    if (left == right) return 1;
+    if (!cf_is_cf(left) || !cf_is_cf(right)) return cf_objc_equal(left, right);
     const struct cf_object *o = left;
-    return o && right && o->type == d_CFGetTypeID(right) && o->ops && o->ops->equal &&
+    return o->type == ((const struct cf_object *)right)->type && o->ops && o->ops->equal &&
            o->ops->equal(left, right);
 }
 DX_FN(CFEqual);
 
 CFHashCode d_CFHash(const void *object) {
-    const struct cf_object *o = object;
+    const struct cf_object *o = cf_resolve(object);
+    if (o && !cf_is_cf(o)) return cf_objc_hash(o);
     return o && o->ops && o->ops->hash ? o->ops->hash(o) : (uintptr_t)o;
 }
 DX_FN(CFHash);
 
 struct cf_string *d_CFCopyDescription(const void *object) {
-    const struct cf_object *o = object;
+    const struct cf_object *o = cf_resolve(object);
+    if (o && !cf_is_cf(o)) return d_CFStringCreateWithCString(NULL, "<Objective-C object>", CF_UTF8);
     if (o && o->ops && o->ops->describe) return o->ops->describe(o);
     static const char *const names[] = {
         [CF_ALLOCATOR] = "CFAllocator", [CF_BOOLEAN] = "CFBoolean", [CF_NULL] = "CFNull",

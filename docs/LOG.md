@@ -194,3 +194,32 @@ does on x86-64.
 
 Not done: Objective-C exceptions (`objc_exception_throw` aborts with the
 class name), `NSInvocation`-based forwarding, tagged pointers.
+
+## 2026-11-24: toll-free bridging and the first of Foundation (PR: cf-bridging)
+
+- CoreFoundation objects now start with an isa pointer. `bridge.c` creates
+  the public classes (`NSString`, `NSArray`, `NSDictionary`, `NSNumber`,
+  `NSData`, ...) and the CF-backed concrete classes inside `mrun`, with
+  retain/release/hash/isEqual wired to CF. Constant strings emitted by the
+  compiler are recognised and mapped to CF strings; CF functions accept
+  foreign Objective-C objects; the shared empty collections `__NSArray0__`
+  and `__NSDictionary0__` exist.
+- `sdk/include`: bitten's own headers (C subset, `objc/runtime.h`,
+  `CoreFoundation/CoreFoundation.h`, `Foundation/Foundation.h`).
+- `frameworks/Foundation`: written in Objective-C under ARC and built as a
+  Mach-O framework that `mrun` loads from its framework root. First slice:
+  `NSString`/`NSMutableString` (creation, formatting with `%@`, UTF-16
+  semantics, searching, splitting, case, numeric values, paths), `NSNumber`,
+  `NSArray`/`NSMutableArray`, `NSDictionary`/`NSMutableDictionary` (literals,
+  subscripts, fast enumeration, blocks, sorting, descriptions), `NSNull`,
+  `NSLog`, `NSAutoreleasePool`, `NSStringFromClass` and friends.
+- `tests/foundation/basics.m` compiles against the SDK headers and passes.
+  Suite: 14/14. Rex window imports unimplemented: 5,352 -> 5,340.
+- Docker: the build stage now needs clang and lld; the image carries the
+  framework root at `/usr/local/lib/bitten/root`.
+
+Bugs found on the way: a scripted edit that made CF string functions accept
+constant strings skipped a one-line function (`CFStringGetLength`), so
+non-ASCII literals reported length 0; caught by the test. Also noted for
+later: CFDictionary is a linear list, which is correct but slow for large
+tables.

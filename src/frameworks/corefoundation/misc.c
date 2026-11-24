@@ -106,6 +106,7 @@ CF_TYPE_ID(CFError, CF_ERROR);
 
 struct cf_error *d_CFErrorCreate(const void *allocator, const struct cf_string *domain,
                                CFIndex code, const struct cf_dict *info) {
+    domain = CF_STR(domain);
     if (d_CFGetTypeID(domain) != CF_STRING || (info && d_CFGetTypeID(info) != CF_DICTIONARY))
         return NULL;
     struct cf_error *e = cf_alloc(allocator, sizeof *e, CF_ERROR, &error_ops);
@@ -219,6 +220,7 @@ static const struct cf_string *d_CFLocaleGetIdentifier(const struct cf_locale *l
 DX_FN(CFLocaleGetIdentifier);
 
 static const void *d_CFLocaleGetValue(const struct cf_locale *locale, const struct cf_string *key) {
+    key = CF_STR(key);
     if (!locale || !key) return NULL;
     if (d_CFEqual(key, d_kCFLocaleLanguageCode)) return locale->language;
     if (d_CFEqual(key, d_kCFLocaleCountryCode)) return locale->country;
@@ -280,6 +282,7 @@ static struct cf_string *d_CFUUIDCreateString(const void *allocator, const struc
 DX_FN(CFUUIDCreateString);
 
 static struct cf_uuid *d_CFUUIDCreateFromString(const void *allocator, const struct cf_string *s) {
+    s = CF_STR(s);
     const char *p = d_CFStringGetCStringPtr(s, CF_ASCII);
     if (!p || strlen(p) != 36) return NULL;
     uint8_t bytes[16];
@@ -330,6 +333,7 @@ static const char *url_scheme_end(const char *p) {
 
 static struct cf_url *d_CFURLCreateWithString(const void *allocator, const struct cf_string *string,
                                               const struct cf_url *base) {
+    string = CF_STR(string);
     const char *s = d_CFStringGetCStringPtr(string, CF_UTF8);
     if (!s) return NULL;
     struct cf_url *url = cf_alloc(allocator, sizeof *url, CF_URL, &url_ops);
@@ -375,6 +379,7 @@ static struct cf_url *file_url(const void *allocator, const char *path, Boolean 
 static struct cf_url *d_CFURLCreateWithFileSystemPath(const void *allocator,
                                                       const struct cf_string *path, CFIndex style,
                                                       Boolean dir) {
+    path = CF_STR(path);
     const char *text = d_CFStringGetCStringPtr(path, CF_UTF8);
     if (style != 0 || !text || !*text) return NULL;
     if (*text == '/') return file_url(allocator, text, dir, NULL);

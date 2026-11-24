@@ -81,6 +81,22 @@ loader, the fixups and the ABI for real. Go programs are part of the suite
 because the Go runtime is a demanding client: it uses signals to rewrite
 register state, its own thread-local slot, kqueue, and `LC_UNIXTHREAD`.
 
+### Frameworks above CoreFoundation are Objective-C, built as Mach-O
+Foundation and everything after it (AppKit, ...) is thousands of methods on
+hundreds of classes. Writing those as C functions registered one by one
+would be slow to write and painful to read. Instead bitten compiles its own
+Objective-C sources for the macOS target and ships them as Mach-O
+frameworks that `mrun` loads like any app library. This costs a build-time
+dependency on clang and lld, and buys ARC, categories, literals and blocks
+in the implementation language. The C side keeps what must exist before any
+Mach-O image loads: the runtime, CoreFoundation and the bridged class
+objects.
+
+### Our own SDK headers
+Tests and frameworks compile against headers written for this project
+(`sdk/include`), not Apple's. They declare only what bitten implements, so
+"it compiles against the SDK" is a meaningful statement about support.
+
 ### Delegated work
 Three self-contained pieces were written by a second coding agent (Codex) to
 written specifications and then reviewed, built and verified here: the
