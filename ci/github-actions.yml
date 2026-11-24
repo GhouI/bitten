@@ -1,0 +1,21 @@
+# GitHub Actions workflow. To enable it, copy this file to
+# .github/workflows/ci.yml (pushing workflow files needs a token with the
+# "workflow" scope, which the automation that built this repo did not have).
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Builds mrun, compiles the Mach-O test programs (clang + ld64.lld, Go)
+      # and runs them, then the disk-image tests, all in a clean container.
+      - name: Build and test
+        run: docker build --target test .
+      - name: Build the runtime image
+        run: docker build -t bitten .
+      - name: Entrypoint answers without an image mounted
+        run: docker run --rm bitten help
