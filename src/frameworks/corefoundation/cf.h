@@ -32,14 +32,24 @@ struct cf_ops {
     CFHashCode (*hash)(const void *);
     struct cf_string *(*describe)(const void *);
 };
+/* Every CF object is also an Objective-C object ("toll-free bridging"):
+ * the first word is an isa pointer to the class for its CF type. The class
+ * objects live in cf_classes[], indexed by CF type (bridge.c). */
+struct cf_class_slot {
+    void *words[5];
+};
+#define CF_TYPE_MAX 32
+extern struct cf_class_slot cf_classes[CF_TYPE_MAX];
+
 struct cf_object {
+    void *isa;
     CFTypeID type;
     _Atomic CFIndex refs;
     const struct cf_ops *ops;
     const void *allocator;
 };
 
-#define CF_STATIC(type_id, methods) {type_id, ATOMIC_VAR_INIT(LONG_MAX), methods, NULL}
+#define CF_STATIC(type_id, methods) {&cf_classes[type_id], type_id, ATOMIC_VAR_INIT(LONG_MAX), methods, NULL}
 #define CF_TYPE_ID(name, type_id) \
     static CFTypeID d_##name##GetTypeID(void) { return type_id; } \
     DX_FN(name##GetTypeID)
@@ -56,6 +66,7 @@ static inline void *cf_alloc(const void *allocator, size_t size, CFTypeID type,
     if (allocator == d_kCFAllocatorNull) return NULL;
     struct cf_object *object = calloc(1, size);
     if (!object) return NULL;
+    object->isa = &cf_classes[type];
     object->type = type;
     atomic_init(&object->refs, 1);
     object->ops = ops;
@@ -88,6 +99,15 @@ static inline Boolean cf_grow(void *old, size_t *capacity, size_t needed, size_t
     *capacity = n;
     return 1;
 }
+
+/* bridge.c: tell CF objects, compiler-emitted constant strings and plain
+ * Objective-C objects apart. cf_resolve() maps a constant string to its CF
+ * shadow object and returns anything else unchanged. */
+int cf_is_cf(const void *object);
+int cf_is_constant_string(const void *object);
+const void *cf_resolve(const void *object);
+#define CF_STR(x) ((__typeof__(x))cf_resolve(x))
+struct cf_string *cf_string_from_constant(const void *constant);
 
 const void *d_CFRetain(const void *object);
 void d_CFRelease(const void *object);
