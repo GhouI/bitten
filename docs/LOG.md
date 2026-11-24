@@ -31,3 +31,26 @@
   libproc, CoreFoundation, Security, resolver).
 - Tests: `files`, `threads` (TSD destructors, static-initialised mutex/cond,
   TLV per thread, `SA_SIGINFO` delivery).
+
+## 2026-11-24: sockets, kqueue, Go binaries (PR: net-kqueue)
+
+- `net.c`: BSD `sockaddr` (length byte, `AF_INET6` = 30), socket-option and
+  `MSG_*` numbering, `msghdr`/control-message repacking (fd passing),
+  `getaddrinfo`/`getnameinfo` with Darwin's `addrinfo` layout and EAI codes,
+  `poll`, `select`.
+- `kqueue.c`: kqueue emulated on epoll. Read/write filters (level, `EV_CLEAR`,
+  `EV_ONESHOT`, `EV_DISPATCH`, `EV_EOF`), `EVFILT_USER` on an eventfd,
+  `EVFILT_TIMER` on timerfds, `EVFILT_PROC` exit on pidfds, `EVFILT_VNODE` on
+  inotify, `kevent64`.
+- Loader: `LC_UNIXTHREAD` entry. Go's own linker emits it for pure-Go macOS
+  executables and expects the kernel's start-of-process stack, so the loader
+  builds that stack and jumps instead of calling.
+- `sysctl`: name-to-MIB lookups (`sysctlnametomib` and the `{0,3}` request).
+- Tests: three Go programs cross-compiled to darwin/amd64 (`hello`: scheduler,
+  GC, signal-based preemption; `netio`: TCP/UDP/unix sockets, deadlines,
+  `net/http`; `procs`: `os/exec` of Linux and Mach-O children, signals,
+  files) plus C tests for kqueue filters and ptys. 8/8 pass.
+
+Dead end worth recording: the first attempt treated `LC_UNIXTHREAD` as
+"static binary, unsupported". Go binaries are dynamically linked against
+libSystem but still use that load command.

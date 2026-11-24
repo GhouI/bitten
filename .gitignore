@@ -4,3 +4,4 @@ build/
 *.app/
 /work/
 __pycache__/
+build-*/

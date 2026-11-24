@@ -386,9 +386,9 @@ static int out_bytes(void *oldp, size_t *oldlenp, const void *src, size_t n) {
 static int out_str(void *oldp, size_t *oldlenp, const char *s) { return out_bytes(oldp, oldlenp, s, strlen(s) + 1); }
 /* Integer results adapt to the caller's buffer: 4 or 8 bytes. */
 static int out_int(void *oldp, size_t *oldlenp, int64_t v, size_t natural) {
-    if (oldp && oldlenp && *oldlenp >= 8 && natural == 8) return out_bytes(oldp, oldlenp, &v, 8);
-    if (oldp && oldlenp && *oldlenp == 8 && natural == 4) { int32_t w = (int32_t)v; return out_bytes(oldp, oldlenp, &w, 4); }
-    if (natural == 8) return out_bytes(oldp, oldlenp, &v, 8);
+    size_t n = natural;
+    if (oldp && oldlenp && (*oldlenp == 4 || *oldlenp == 8)) n = *oldlenp;
+    if (n == 8) return out_bytes(oldp, oldlenp, &v, 8);
     int32_t w = (int32_t)v;
     return out_bytes(oldp, oldlenp, &w, 4);
 }
@@ -498,46 +498,78 @@ static int d_sysctlbyname(const char *name, void *oldp, size_t *oldlenp, void *n
 }
 DX_FN(sysctlbyname);
 
+/* MIB <-> name. Names without a classic numeric MIB get a synthetic one
+ * {SYNTH_MIB, index} so name-to-MIB lookups (sysctlnametomib, and the
+ * {0,3} "name2oid" request Go uses) round-trip. */
+static const struct {
+    int a, b;
+    const char *name;
+} mib_names[] = {
+    {1, 1, "kern.ostype"}, {1, 2, "kern.osrelease"}, {1, 3, "kern.osrevision"},
+    {1, 4, "kern.version"}, {1, 6, "kern.maxproc"}, {1, 7, "kern.maxfiles"},
+    {1, 8, "kern.argmax"}, {1, 10, "kern.hostname"}, {1, 18, "kern.ngroups"},
+    {1, 21, "kern.boottime"}, {1, 29, "kern.maxfilesperproc"}, {1, 65, "kern.osversion"},
+    {6, 1, "hw.machine"}, {6, 2, "hw.model"}, {6, 3, "hw.ncpu"}, {6, 4, "hw.byteorder"},
+    {6, 5, "hw.physmem"}, {6, 6, "hw.usermem"}, {6, 7, "hw.pagesize"},
+    {6, 15, "hw.cpufrequency"}, {6, 16, "hw.cachelinesize"}, {6, 17, "hw.l1icachesize"},
+    {6, 18, "hw.l1dcachesize"}, {6, 20, "hw.l2cachesize"}, {6, 22, "hw.l3cachesize"},
+    {6, 23, "hw.tbfrequency"}, {6, 24, "hw.memsize"}, {6, 25, "hw.availcpu"},
+};
+#define SYNTH_MIB 0x5cf
+static char *synth_names[256];
+static int synth_count;
+
+static int name_to_mib(const char *name, int *mib, size_t *len) {
+    if (*len < 2) return -1;
+    for (size_t i = 0; i < sizeof mib_names / sizeof mib_names[0]; i++)
+        if (!strcmp(mib_names[i].name, name)) {
+            mib[0] = mib_names[i].a;
+            mib[1] = mib_names[i].b;
+            *len = 2;
+            return 0;
+        }
+    /* only hand out a MIB for names we can actually answer */
+    size_t probe = 0;
+    int saved = dx_thread_self()->d_errno;
+    if (sysctl_by_name(name, NULL, &probe) < 0) return -1;
+    dx_thread_self()->d_errno = saved;
+    int idx = -1;
+    for (int i = 0; i < synth_count; i++)
+        if (!strcmp(synth_names[i], name)) idx = i;
+    if (idx < 0) {
+        if (synth_count >= 256) return -1;
+        idx = synth_count;
+        synth_names[synth_count++] = strdup(name);
+    }
+    mib[0] = SYNTH_MIB;
+    mib[1] = idx;
+    *len = 2;
+    return 0;
+}
+
 static int d_sysctl(const int *mib, unsigned miblen, void *oldp, size_t *oldlenp, void *newp, size_t newlen) {
-    (void)newp; (void)newlen;
     const char *name = NULL;
-    if (miblen >= 2 && mib[0] == 1) { /* CTL_KERN */
-        switch (mib[1]) {
-        case 1: name = "kern.ostype"; break;
-        case 2: name = "kern.osrelease"; break;
-        case 3: name = "kern.osrevision"; break;
-        case 4: name = "kern.version"; break;
-        case 6: name = "kern.maxproc"; break;
-        case 7: name = "kern.maxfiles"; break;
-        case 8: name = "kern.argmax"; break;
-        case 10: name = "kern.hostname"; break;
-        case 18: name = "kern.ngroups"; break;
-        case 21: name = "kern.boottime"; break;
-        case 29: name = "kern.maxfilesperproc"; break;
-        case 65: name = "kern.osversion"; break;
-        case 14: case 38: case 49: /* KERN_PROC, KERN_PROCARGS, KERN_PROCARGS2 */
-            if (dx_sysctl_proc) return dx_sysctl_proc(mib, miblen, oldp, oldlenp);
-            break;
+    if (miblen == 2 && mib[0] == 0 && mib[1] == 3 && newp) { /* name2oid */
+        char nm[256];
+        size_t n = newlen < sizeof nm - 1 ? newlen : sizeof nm - 1;
+        memcpy(nm, newp, n);
+        nm[n] = 0;
+        size_t cnt = oldlenp ? *oldlenp / sizeof(int) : 0;
+        if (name_to_mib(nm, oldp, &cnt) < 0) {
+            dx_set_errno(2);
+            return -1;
         }
-    } else if (miblen >= 2 && mib[0] == 6) { /* CTL_HW */
-        switch (mib[1]) {
-        case 1: name = "hw.machine"; break;
-        case 2: name = "hw.model"; break;
-        case 3: name = "hw.ncpu"; break;
-        case 4: name = "hw.byteorder"; break;
-        case 5: name = "hw.physmem"; break;
-        case 6: name = "hw.usermem"; break;
-        case 7: name = "hw.pagesize"; break;
-        case 15: name = "hw.cpufrequency"; break;
-        case 16: name = "hw.cachelinesize"; break;
-        case 17: name = "hw.l1icachesize"; break;
-        case 18: name = "hw.l1dcachesize"; break;
-        case 20: name = "hw.l2cachesize"; break;
-        case 22: name = "hw.l3cachesize"; break;
-        case 23: name = "hw.tbfrequency"; break;
-        case 24: name = "hw.memsize"; break;
-        case 25: name = "hw.availcpu"; break;
-        }
+        *oldlenp = cnt * sizeof(int);
+        return 0;
+    }
+    if (miblen >= 2 && mib[0] == SYNTH_MIB && mib[1] >= 0 && mib[1] < synth_count)
+        return sysctl_by_name(synth_names[mib[1]], oldp, oldlenp);
+    if (miblen >= 2 && mib[0] == 1 && (mib[1] == 14 || mib[1] == 38 || mib[1] == 49)) {
+        /* KERN_PROC, KERN_PROCARGS, KERN_PROCARGS2 */
+        if (dx_sysctl_proc) return dx_sysctl_proc(mib, miblen, oldp, oldlenp);
+    } else if (miblen >= 2) {
+        for (size_t i = 0; i < sizeof mib_names / sizeof mib_names[0]; i++)
+            if (mib_names[i].a == mib[0] && mib_names[i].b == mib[1]) name = mib_names[i].name;
     }
     if (!name) {
         dx_log(1, "sysctl: unsupported mib {%d, %d, ...} (len %u)", miblen > 0 ? mib[0] : -1,
@@ -545,16 +577,16 @@ static int d_sysctl(const int *mib, unsigned miblen, void *oldp, size_t *oldlenp
         dx_set_errno(2);
         return -1;
     }
-    /* Numeric HW/KERN integers accessed by MIB are 32-bit unless the caller
-     * supplies a 64-bit buffer. */
     return sysctl_by_name(name, oldp, oldlenp);
 }
 DX_FN(sysctl);
 
 static int d_sysctlnametomib(const char *name, int *mib, size_t *len) {
-    (void)name; (void)mib; (void)len;
-    dx_set_errno(2);
-    return -1;
+    if (name_to_mib(name, mib, len) < 0) {
+        dx_set_errno(2);
+        return -1;
+    }
+    return 0;
 }
 DX_FN(sysctlnametomib);
 

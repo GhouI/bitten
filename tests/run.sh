@@ -2,12 +2,13 @@
 # Run every built Mach-O test under mrun.
 set -u
 cd "$(dirname "$0")/.."
+B=${BUILD:-build}
 fail=0; n=0
-for t in build/tests/c/* build/tests/go/*; do
+for t in "$B"/tests/c/* "$B"/tests/go/*; do
     case "$t" in *.o|*'*') continue;; esac
     [ -x "$t" ] || continue
     n=$((n+1))
-    if out=$(timeout 60 build/mrun "$t" 2>&1); then
+    if out=$(timeout 60 "$B"/mrun "$t" 2>&1); then
         echo "ok   $t"
     else
         echo "FAIL $t (exit $?)"; echo "$out" | sed 's/^/     /' | tail -30

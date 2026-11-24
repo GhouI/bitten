@@ -52,6 +52,8 @@ struct dx_image {
     uint32_t chained_off, chained_size;
     uint64_t entryoff;
     int has_entry;
+    uint64_t thread_rip; /* LC_UNIXTHREAD entry (unslid), jumped to kernel-style */
+    int has_thread;
     uint32_t filetype, flags;
     int bound, inited, visiting;
     /* thread-local variables */
@@ -74,6 +76,8 @@ static const char *apple_strings[4];
 /* provided by thread.c / tlv.S */
 unsigned long dx_tsd_key_alloc(void (*destructor)(void *));
 void *dx_tlv_get_addr(struct tlv_descriptor *);
+void dx_jump_entry(void *pc, void *sp) __attribute__((noreturn));
+extern char **d_NXArgv;
 
 const char *dx_loader_path(void) {
     if (!loader_path[0]) {
@@ -907,10 +911,15 @@ static struct dx_image *map_image(const char *path, int is_main) {
             img->has_entry = 1;
             break;
         }
-        case LC_UNIXTHREAD:
-            if (is_main)
-                dx_fatal("%s: LC_UNIXTHREAD executables (static or pre-10.8) are not supported", real);
+        case LC_UNIXTHREAD: {
+            /* flavor, count, then x86_THREAD_STATE64: rip is register 16 */
+            uint32_t *w = (uint32_t *)(p + sizeof *lc);
+            if (lc->cmdsize >= sizeof *lc + 8 + 21 * 8 && w[0] == 4) {
+                memcpy(&img->thread_rip, (uint8_t *)w + 8 + 16 * 8, 8);
+                img->has_thread = 1;
+            }
             break;
+        }
         }
         p += lc->cmdsize;
     }
@@ -1079,7 +1088,7 @@ static void *loader_symbol(const char *name) {
 /* ---- entry ------------------------------------------------------------ */
 
 int dx_run_main(struct dx_image *img, int argc, char **argv, char **envp) {
-    if (!img->has_entry) dx_fatal("%s: no LC_MAIN entry point", img->path);
+    if (!img->has_entry && !img->has_thread) dx_fatal("%s: no entry point", img->path);
     static char exec_path[PATH_MAX + 32];
     snprintf(exec_path, sizeof exec_path, "executable_path=%s", img->path);
 
@@ -1105,6 +1114,21 @@ int dx_run_main(struct dx_image *img, int argc, char **argv, char **envp) {
     environ = nenv;
 
     dx_run_initializers();
+    if (!img->has_entry) {
+        /* LC_UNIXTHREAD: the program expects the kernel's process-start
+         * stack (argc, argv..., NULL, envp..., NULL, apple..., NULL) and is
+         * jumped to, not called. Build it on the real stack. */
+        int words = 1 + k;
+        uintptr_t *stk = __builtin_alloca((words + 2) * sizeof(uintptr_t));
+        stk = (uintptr_t *)(((uintptr_t)stk + 15) & ~(uintptr_t)15);
+        stk[0] = (uintptr_t)argc;
+        memcpy(&stk[1], vec, k * sizeof(char *));
+        /* keep environ pointing at the copy the program will see */
+        environ = (char **)&stk[1 + argc + 1];
+        void *entry_pc = (void *)(img->thread_rip + img->slide);
+        dx_log(1, "entering %s at %p (LC_UNIXTHREAD)", img->path, entry_pc);
+        dx_jump_entry(entry_pc, stk);
+    }
     int (*entry)(int, char **, char **, char **) = (void *)((uintptr_t)img->mh + img->entryoff);
     dx_log(1, "entering %s at %p", img->path, (void *)entry);
     return entry(argc, vec, nenv, apple);
