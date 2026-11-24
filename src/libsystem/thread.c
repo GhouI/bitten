@@ -27,6 +27,7 @@ static void (*destructors[DX_TSD_SLOTS])(void *);
 static unsigned char key_used[DX_TSD_SLOTS];
 static pthread_mutex_t key_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct dx_thread *main_thread;
+int dx_rawsys_enable_thread(void);
 
 void dx_thread_run_destructors(struct dx_thread *t) {
     for (int round = 0; round < 4; round++) {
@@ -73,6 +74,7 @@ static void install(struct dx_thread *t) {
     if (syscall(SYS_arch_prctl, ARCH_SET_GS, (unsigned long)t) != 0)
         dx_fatal("arch_prctl(ARCH_SET_GS) failed: %s", strerror(errno));
     self_block = t;
+    if (t != main_thread) dx_rawsys_enable_thread();
     pthread_once(&cleanup_once, cleanup_init);
     pthread_setspecific(cleanup_key, t);
 }
@@ -209,11 +211,13 @@ static int d_pthread_create(struct dx_thread **out, struct d_attr *attr, void *(
         int ds;
         if (!pthread_attr_getdetachstate(ha, &ds)) t->detached = ds == PTHREAD_CREATE_DETACHED;
     }
-    pthread_t h;
     /* Publish the handle before the thread can run so callers that read
-     * *out from the new thread see it. */
+     * *out from the new thread see it. glibc stores the host id through the
+     * pointer before the thread starts, so join/kill on a thread that has
+     * not run yet still find it. */
     if (out) *out = t;
-    int r = pthread_create(&h, ha, trampoline, t);
+    _Static_assert(sizeof(pthread_t) == sizeof t->host, "pthread_t size");
+    int r = pthread_create((pthread_t *)&t->host, ha, trampoline, t);
     if (r) {
         free(t);
         return dx_errno_to_darwin(r);

@@ -434,6 +434,8 @@ static int sysctl_by_name(const char *name, void *oldp, size_t *oldlenp) {
     if (!strcmp(name, "kern.maxfiles")) return out_int(oldp, oldlenp, 1048576, 4);
     if (!strcmp(name, "kern.maxfilesperproc")) return out_int(oldp, oldlenp, 1048576, 4);
     if (!strcmp(name, "kern.ngroups")) return out_int(oldp, oldlenp, 16, 4);
+    if (!strcmp(name, "kern.ipc.somaxconn")) return out_int(oldp, oldlenp, 4096, 4);
+    if (!strcmp(name, "kern.ipc.maxsockbuf")) return out_int(oldp, oldlenp, 8388608, 4);
     if (!strcmp(name, "kern.secure_kernel")) return out_int(oldp, oldlenp, 0, 4);
     if (!strcmp(name, "kern.boottime")) {
         struct sysinfo si;

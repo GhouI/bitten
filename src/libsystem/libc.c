@@ -250,8 +250,59 @@ static void *d_reallocf(void *p, size_t n) {
 }
 DX_FN(reallocf);
 
-/* malloc zones: one zone, backed by the host allocator. */
-static char default_zone[256];
+/* malloc zones: one zone, backed by the host allocator. Callers (sqlite
+ * among them) call through the zone's function table directly, so the zone
+ * is a real malloc_zone_t. */
+struct d_malloc_zone {
+    void *reserved1, *reserved2;
+    size_t (*size)(struct d_malloc_zone *, const void *);
+    void *(*malloc)(struct d_malloc_zone *, size_t);
+    void *(*calloc)(struct d_malloc_zone *, size_t, size_t);
+    void *(*valloc)(struct d_malloc_zone *, size_t);
+    void (*free)(struct d_malloc_zone *, void *);
+    void *(*realloc)(struct d_malloc_zone *, void *, size_t);
+    void (*destroy)(struct d_malloc_zone *);
+    const char *zone_name;
+    unsigned (*batch_malloc)(struct d_malloc_zone *, size_t, void **, unsigned);
+    void (*batch_free)(struct d_malloc_zone *, void **, unsigned);
+    void *introspect;
+    unsigned version;
+    void *(*memalign)(struct d_malloc_zone *, size_t, size_t);
+    void (*free_definite_size)(struct d_malloc_zone *, void *, size_t);
+    size_t (*pressure_relief)(struct d_malloc_zone *, size_t);
+    int (*claimed_address)(struct d_malloc_zone *, void *);
+};
+static size_t zone_size(struct d_malloc_zone *z, const void *p) { (void)z; return p ? malloc_usable_size((void *)p) : 0; }
+static void *zone_malloc(struct d_malloc_zone *z, size_t n) { (void)z; return malloc(n); }
+static void *zone_calloc(struct d_malloc_zone *z, size_t a, size_t b) { (void)z; return calloc(a, b); }
+static void *zone_valloc(struct d_malloc_zone *z, size_t n) { (void)z; return valloc(n); }
+static void zone_free(struct d_malloc_zone *z, void *p) { (void)z; free(p); }
+static void *zone_realloc(struct d_malloc_zone *z, void *p, size_t n) { (void)z; return realloc(p, n); }
+static void zone_destroy(struct d_malloc_zone *z) { (void)z; }
+static unsigned zone_batch_malloc(struct d_malloc_zone *z, size_t n, void **out, unsigned count) {
+    (void)z;
+    unsigned i = 0;
+    for (; i < count; i++)
+        if (!(out[i] = malloc(n))) break;
+    return i;
+}
+static void zone_batch_free(struct d_malloc_zone *z, void **p, unsigned count) {
+    (void)z;
+    for (unsigned i = 0; i < count; i++) free(p[i]);
+}
+static void *zone_memalign(struct d_malloc_zone *z, size_t a, size_t n) {
+    (void)z;
+    void *p = NULL;
+    return posix_memalign(&p, a < sizeof(void *) ? sizeof(void *) : a, n) ? NULL : p;
+}
+static void zone_free_sized(struct d_malloc_zone *z, void *p, size_t n) { (void)z; (void)n; free(p); }
+static size_t zone_pressure_relief(struct d_malloc_zone *z, size_t goal) { (void)z; (void)goal; return 0; }
+static int zone_claimed(struct d_malloc_zone *z, void *p) { (void)z; return p != NULL; }
+static struct d_malloc_zone default_zone_s = {
+    NULL, NULL, zone_size, zone_malloc, zone_calloc, zone_valloc, zone_free, zone_realloc,
+    zone_destroy, "DefaultMallocZone", zone_batch_malloc, zone_batch_free, NULL, 10,
+    zone_memalign, zone_free_sized, zone_pressure_relief, zone_claimed};
+#define default_zone (&default_zone_s)
 static void *d_malloc_default_zone(void) { return default_zone; }
 DX_FN(malloc_default_zone);
 static void *d_malloc_create_zone(size_t start, unsigned flags) { (void)start; (void)flags; return default_zone; }

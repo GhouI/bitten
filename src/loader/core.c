@@ -123,6 +123,8 @@ int dx_missing_count(void);
 void dx_missing_each(void (*cb)(const char *, const char *, const char *, void *), void *ctx);
 void dx_report_deps(void (*cb)(const char *, const char *, int, void *), void *ctx);
 void dx_libsystem_init(int argc, char **argv, char **envp);
+void dx_signal_init(void);
+void dx_rawsys_init(void);
 
 static void list_cb(const char *name, void *addr, void *ctx) {
     (void)addr;
@@ -191,6 +193,8 @@ int main(int argc, char **argv, char **envp) {
     if (argv0) dx_argv[0] = (char *)argv0;
     dx_envp = envp;
     dx_thread_attach();
+    dx_signal_init();
+    dx_rawsys_init();
     dx_libsystem_init(dx_argc, dx_argv, envp);
 
     struct dx_image *img = dx_load_image(image_path, 1);
