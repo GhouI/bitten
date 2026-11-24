@@ -159,6 +159,7 @@ linker.
 ## Documentation
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): design of the loader and the layer
+- [docs/NEXT.md](docs/NEXT.md): current state and exactly what to do next
 - [docs/ROADMAP.md](docs/ROADMAP.md): the layers still to build, in order
 - [docs/TARGET-APP.md](docs/TARGET-APP.md): what the Mac app imports, what is covered, what remains
 - [docs/DECISIONS.md](docs/DECISIONS.md): choices made, and approaches that were dropped

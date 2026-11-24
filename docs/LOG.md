@@ -328,3 +328,13 @@ getters returned garbage. They are held strongly now.
 Approximations to know about: character-set membership outside Latin-1 is
 by block, not by the Unicode character database; case mapping covers ASCII
 and Latin-1; `NSDate` descriptions are always UTC.
+
+## 2026-11-24: pause point (PR: resume-notes)
+
+Ran the Mac app window binary under `mrun` after PR #13. It now loads, registers
+its Objective-C metadata, runs `+load` and its initialisers, and stops at
+its first Swift runtime call, `swift_getSingletonMetadata`. Classified its
+5,307 missing imports by library and kind; 1,723 are Swift runtime and
+standard-library symbols, of which 149 are C-ABI runtime functions.
+`docs/NEXT.md` records the state, the checks to run, and the order of work
+for the Swift layer and for the smaller independent items.
