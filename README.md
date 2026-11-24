@@ -157,4 +157,8 @@ linker.
 
 MIT, see [LICENSE](LICENSE). bitten contains no Apple code. Format and
 interface knowledge comes from public documentation and from observing
-programs run.
+programs run. In a few places published open-source material was read as a
+reference for behaviour, not copied: Apple's open-source libproc wrapper for
+return-value conventions, the LZFSE reference implementation, and the HFS+
+technical note and decmpfs layouts cited in
+[docs/DMG-FORMAT.md](docs/DMG-FORMAT.md).
