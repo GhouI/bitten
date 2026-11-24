@@ -1,0 +1,1263 @@
+#!/usr/bin/env python3
+"""Read UDIF disk images and extract HFS+ volumes without mounting them."""
+
+import argparse
+from bisect import bisect_right
+import bz2
+from collections import Counter, OrderedDict, defaultdict
+from contextlib import contextmanager
+from dataclasses import dataclass
+import lzma
+import mmap
+import os
+import plistlib
+import stat
+import struct
+import sys
+import tempfile
+from uuid import UUID
+from xml.parsers.expat import ExpatError
+import zlib
+
+
+SECTOR = 512
+COPY_SIZE = 1024 * 1024
+HFS_EPOCH = 2082844800
+
+
+class ImageError(Exception):
+    """The image is malformed or requires a feature we do not support."""
+
+
+def require(condition, message):
+    if not condition:
+        raise ImageError(message)
+
+
+def unpack(fmt, data, offset=0):
+    try:
+        return struct.unpack_from(fmt, data, offset)
+    except struct.error as error:
+        raise ImageError("truncated image structure") from error
+
+
+def checked_slice(data, offset, size):
+    require(0 <= offset <= len(data) and 0 <= size <= len(data) - offset,
+            "truncated data")
+    return data[offset:offset + size]
+
+
+def copy_match(output, distance, length, limit):
+    if not length:
+        return
+    require(0 < distance <= len(output), "invalid compression match distance")
+    require(len(output) + length <= limit, "compressed data exceeds declared size")
+    # An overlapping copy repeats the bytes already present at this distance.
+    start = len(output) - distance
+    if length <= distance:
+        output.extend(output[start:start + length])
+    else:
+        pattern = output[start:]
+        repeats, tail = divmod(length, distance)
+        output.extend(pattern * repeats)
+        output.extend(pattern[:tail])
+
+
+def decode_adc(data, size, output=None):
+    if output is None:
+        output = bytearray()
+    pos = 0
+    while pos < len(data):
+        op = data[pos]
+        pos += 1
+        if op & 0x80:
+            length = (op & 0x7f) + 1
+            require(len(output) + length <= size, "ADC literals exceed declared size")
+            output.extend(checked_slice(data, pos, length))
+            pos += length
+        else:
+            if op & 0x40:
+                length = (op & 0x3f) + 4
+                distance = unpack(">H", data, pos)[0] + 1
+                pos += 2
+            else:
+                length = (op >> 2) + 3
+                distance = ((op & 3) << 8 | checked_slice(data, pos, 1)[0]) + 1
+                pos += 1
+            copy_match(output, distance, length, size)
+    require(len(output) == size, "ADC output size mismatch")
+    return output
+
+
+# The LZVN opcodes and LZFSE/FSE layout below follow Apple's reference format.
+# Copyright (c) 2015-2016, Apple Inc. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without modification,
+# are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice,
+#    this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+# 3. Neither the name of the copyright holder(s) nor the names of any contributors
+#    may be used to endorse or promote products derived from this software without
+#    specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+# AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+def decode_lzvn_into(data, output, size):
+    """Append a raw LZVN block and return the number of source bytes consumed."""
+    limit = len(output) + size
+    pos = 0
+    distance = 0
+    while pos < len(data):
+        op = data[pos]
+        pos += 1
+        if op == 6:
+            checked_slice(data, pos, 7)
+            require(len(output) == limit, "LZVN output size mismatch")
+            return pos + 7
+        if op in (14, 22):
+            continue
+        literal = match = 0
+        if op >= 0xe0:
+            length = op & 15
+            if not length:
+                length = checked_slice(data, pos, 1)[0] + 16
+                pos += 1
+            if op < 0xf0:
+                literal = length
+            else:
+                match = length
+        elif 0xa0 <= op < 0xc0:
+            operand = unpack("<H", data, pos)[0]
+            pos += 2
+            literal = (op >> 3) & 3
+            match = ((op & 7) << 2 | (operand & 3)) + 3
+            distance = operand >> 2
+        else:
+            require(not (0x70 <= op < 0x80 or 0xd0 <= op < 0xe0),
+                    f"invalid LZVN opcode 0x{op:02x}")
+            literal = op >> 6
+            match = ((op >> 3) & 7) + 3
+            operand = op & 7
+            if operand == 7:
+                distance = unpack("<H", data, pos)[0]
+                pos += 2
+            elif operand == 6:
+                require(op >= 0x40, f"invalid LZVN opcode 0x{op:02x}")
+            else:
+                distance = operand << 8 | checked_slice(data, pos, 1)[0]
+                pos += 1
+        require(len(output) + literal <= limit, "LZVN literals exceed declared size")
+        output.extend(checked_slice(data, pos, literal))
+        pos += literal
+        copy_match(output, distance, match, limit)
+    raise ImageError("missing LZVN end marker")
+
+
+def decode_lzvn(data, size):
+    output = bytearray()
+    decode_lzvn_into(data, output, size)
+    return output
+
+
+class ReverseBits:
+    """Read a little-endian entropy payload backwards, high bits first."""
+
+    def __init__(self, data, padding):
+        require(0 <= padding <= 7 and (not padding or len(data)),
+                "invalid LZFSE bit count")
+        require(not padding or data[-1] >> (8 - padding) == 0,
+                "invalid LZFSE padding")
+        self.data = data
+        self.cursor = len(data) * 8 - padding
+
+    def take(self, count):
+        if not count:
+            return 0
+        end = self.cursor
+        start = end - count
+        require(start >= 0, "truncated LZFSE entropy payload")
+        self.cursor = start
+        value = int.from_bytes(self.data[start // 8:(end + 7) // 8], "little")
+        return (value >> (start % 8)) & ((1 << count) - 1)
+
+
+def lzfse_frequencies(data):
+    value = int.from_bytes(data, "little")
+    remaining = len(data) * 8
+    frequencies = []
+    for _ in range(360):
+        if not value & 1:
+            width, frequency = 2, (value >> 1) & 1
+        elif value & 3 == 1:
+            width, frequency = 3, 2 + ((value >> 2) & 1)
+        elif value & 7 == 3:
+            width, frequency = 5, 4 + ((value >> 3) & 3)
+        elif value & 15 == 7:
+            width, frequency = 8, 8 + ((value >> 4) & 15)
+        else:
+            width, frequency = 14, 24 + ((value >> 4) & 1023)
+        remaining -= width
+        require(remaining >= 0, "truncated LZFSE frequency table")
+        frequencies.append(frequency)
+        value >>= width
+    require(remaining < 8, "oversized LZFSE frequency table")
+    return frequencies
+
+
+def fse_table(frequencies, states, extra_bits):
+    require(sum(frequencies) == states, "invalid LZFSE frequency total")
+    table = []
+    base = 0
+    for frequency, value_bits in zip(frequencies, extra_bits):
+        if frequency:
+            # Invert the encoder's normalization for this symbol's state range.
+            shift = states.bit_length() - frequency.bit_length()
+            split = ((2 * states) >> shift) - frequency
+            for index in range(frequency):
+                if index < split:
+                    bits, delta = shift, ((frequency + index) << shift) - states
+                else:
+                    bits, delta = shift - 1, (index - split) << (shift - 1)
+                table.append((bits + value_bits, delta, value_bits, base))
+        base += 1 << value_bits
+    return table
+
+
+def fse_value(bits, table, state):
+    width, delta, value_bits, base = table[state]
+    field = bits.take(width)
+    return delta + (field >> value_bits), base + (field & ((1 << value_bits) - 1))
+
+
+def field(value, shift, width):
+    return (value >> shift) & ((1 << width) - 1)
+
+
+def decode_fse_block(data, pos, magic, output, limit, previous_frequencies):
+    if magic == b"bvx1":
+        (count, encoded, literal_count, match_count, literal_size, match_size,
+         literal_bits, *literal_states) = unpack("<6Ii4H", data, pos + 4)
+        match_bits, *match_states = unpack("<i3H", data, pos + 40)
+        frequencies = unpack("<360H", data, pos + 50)
+        header_size = 772  # The fixed header ends with two alignment bytes.
+        require(encoded == literal_size + match_size, "invalid LZFSE payload size")
+    else:
+        count, first, second, third = unpack("<I3Q", data, pos + 4)
+        literal_count = field(first, 0, 20)
+        literal_size = field(first, 20, 20)
+        match_count = field(first, 40, 20)
+        literal_bits = field(first, 60, 3) - 7
+        literal_states = [field(second, shift, 10) for shift in (0, 10, 20, 30)]
+        match_size = field(second, 40, 20)
+        match_bits = field(second, 60, 3) - 7
+        header_size = field(third, 0, 32)
+        match_states = [field(third, shift, 10) for shift in (32, 42, 52)]
+        require(32 <= header_size <= 32 + 630, "invalid LZFSE header size")
+        if header_size == 32:
+            require(previous_frequencies is not None, "LZFSE block is missing frequency tables")
+            frequencies = previous_frequencies
+        else:
+            frequencies = lzfse_frequencies(checked_slice(data, pos + 32, header_size - 32))
+
+    require(count <= limit - len(output), "LZFSE block exceeds declared size")
+    require(literal_count <= 40000 and literal_count % 4 == 0
+            and match_count <= 10000, "invalid LZFSE symbol count")
+    require(all(state < size for state, size in zip(match_states, (64, 64, 256)))
+            and all(state < 1024 for state in literal_states), "invalid LZFSE initial state")
+    pos += header_size
+    literal_payload = checked_slice(data, pos, literal_size)
+    match_payload = checked_slice(data, pos + literal_size, match_size)
+
+    literals = bytearray()
+    if literal_count:
+        table = fse_table(frequencies[104:], 1024, [0] * 256)
+        bits = ReverseBits(literal_payload, -literal_bits)
+        for index in range(literal_count):
+            lane = index % 4
+            literal_states[lane], value = fse_value(bits, table, literal_states[lane])
+            literals.append(value)
+
+    tables = (
+        fse_table(frequencies[:20], 64, [0] * 16 + [2, 3, 5, 8]),
+        fse_table(frequencies[20:40], 64, [0] * 16 + [3, 5, 8, 11]),
+        fse_table(frequencies[40:104], 256, [index // 4 for index in range(64)]),
+    )
+    bits = ReverseBits(match_payload, -match_bits)
+    literal_pos = 0
+    distance = 0
+    end = len(output) + count
+    for _ in range(match_count):
+        match_states[0], literal = fse_value(bits, tables[0], match_states[0])
+        match_states[1], match = fse_value(bits, tables[1], match_states[1])
+        match_states[2], next_distance = fse_value(bits, tables[2], match_states[2])
+        distance = next_distance or distance
+        require(len(output) + literal <= end, "LZFSE literals exceed declared size")
+        output.extend(checked_slice(literals, literal_pos, literal))
+        literal_pos += literal
+        copy_match(output, distance, match, end)
+    require(len(output) == end and literal_count - literal_pos < 4,
+            "LZFSE block output size mismatch")
+    return pos + literal_size + match_size, frequencies
+
+
+def decode_lzfse(data, size, output=None):
+    data = memoryview(data)
+    if output is None:
+        output = bytearray()
+    pos = 0
+    frequencies = None
+    while pos < len(data):
+        magic = bytes(checked_slice(data, pos, 4))
+        if magic == b"bvx$":
+            require(len(output) == size, "LZFSE output size mismatch")
+            return output
+        if magic in (b"bvx1", b"bvx2"):
+            pos, frequencies = decode_fse_block(data, pos, magic, output, size, frequencies)
+            continue
+        count = unpack("<I", data, pos + 4)[0]
+        require(count <= size - len(output), "LZFSE block exceeds declared size")
+        if magic == b"bvx-":
+            output.extend(checked_slice(data, pos + 8, count))
+            pos += 8 + count
+        elif magic == b"bvxn":
+            payload_size = unpack("<I", data, pos + 8)[0]
+            payload = checked_slice(data, pos + 12, payload_size)
+            require(decode_lzvn_into(payload, output, count) == payload_size,
+                    "unexpected data after LZFSE LZVN block")
+            pos += 12 + payload_size
+        else:
+            raise ImageError(f"unknown LZFSE block magic {magic!r}")
+    raise ImageError("missing LZFSE end marker")
+
+
+def standard_decoder(codec):
+    if codec == "zlib":
+        return zlib.decompressobj()
+    if codec == "bzip2":
+        return bz2.BZ2Decompressor()
+    return lzma.LZMADecompressor(format=lzma.FORMAT_XZ, memlimit=128 * COPY_SIZE)
+
+
+def decode_standard(codec, data, size):
+    decoder = standard_decoder(codec)
+    output = decoder.decompress(data, size + 1)
+    require(decoder.eof and len(output) == size, f"{codec} output size mismatch")
+    return output
+
+
+def spool_standard(codec, pieces, output, size):
+    decoder = standard_decoder(codec)
+    for data in pieces:
+        while not decoder.eof:
+            limit = min(COPY_SIZE, size - len(output) + 1)
+            decoded = decoder.decompress(data, limit)
+            require(len(decoded) <= size - len(output), f"{codec} output size mismatch")
+            output.extend(decoded)
+            if codec == "zlib":
+                data = decoder.unconsumed_tail
+                if not data and len(decoded) < limit:
+                    break
+            elif decoder.needs_input:
+                break
+            else:
+                data = b""
+        if decoder.eof:
+            break
+    require(decoder.eof and len(output) == size, f"{codec} output size mismatch")
+
+
+class Spool:
+    """Disk-backed output with an in-memory window for LZ backreferences."""
+
+    HISTORY = 1 << 18  # Covers the largest LZFSE, LZVN or ADC distance.
+
+    def __init__(self):
+        self.file = tempfile.TemporaryFile()
+        self.tail = bytearray()
+        self.size = 0
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, span):
+        base = self.size - len(self.tail)
+        end = self.size if span.stop is None else span.stop
+        return self.tail[span.start - base:end - base]
+
+    def extend(self, data):
+        data = memoryview(data)
+        for offset in range(0, len(data), COPY_SIZE):
+            part = data[offset:offset + COPY_SIZE]
+            self.tail.extend(part)
+            self.size += len(part)
+            if len(self.tail) >= COPY_SIZE + self.HISTORY:
+                self.file.write(memoryview(self.tail)[:COPY_SIZE])
+                del self.tail[:COPY_SIZE]
+
+    def finish(self):
+        self.file.write(self.tail)
+        self.tail.clear()
+        self.file.flush()
+
+    def read(self, offset, length):
+        self.file.seek(offset)
+        return self.file.read(length)
+
+    def close(self):
+        self.file.close()
+
+
+CHUNK_TYPES = {
+    0: "zero", 1: "raw", 2: "ignore", 0x80000004: "ADC",
+    0x80000005: "zlib", 0x80000006: "bzip2", 0x80000007: "LZFSE",
+    0x80000008: "LZMA", 0x7ffffffe: "comment", 0xffffffff: "terminator",
+}
+
+
+@dataclass(frozen=True)
+class Chunk:
+    start: int
+    size: int
+    kind: int
+    offset: int
+    packed: int
+
+
+class FileReader:
+    def __init__(self, file):
+        self.file = file
+        self.size = os.fstat(file.fileno()).st_size
+
+    def read(self, offset, length):
+        require(0 <= offset <= self.size and 0 <= length <= self.size - offset,
+                "read outside image")
+        self.file.seek(offset)
+        data = self.file.read(length)
+        require(len(data) == length, "truncated image")
+        return data
+
+    def mapped(self, offset, length):
+        require(0 <= offset <= self.size and 0 < length <= self.size - offset,
+                "invalid compressed chunk source range")
+        start = offset - offset % mmap.ALLOCATIONGRANULARITY
+        prefix = offset - start
+        mapping = mmap.mmap(self.file.fileno(), prefix + length,
+                            access=mmap.ACCESS_READ, offset=start)
+        # The view keeps the mapping alive until the decoder releases it.
+        return memoryview(mapping)[prefix:]
+
+
+class SliceReader:
+    def __init__(self, parent, offset, size):
+        require(0 <= offset <= parent.size and 0 <= size <= parent.size - offset,
+                "partition extends beyond disk")
+        self.parent, self.offset, self.size = parent, offset, size
+
+    def read(self, offset, length):
+        require(0 <= offset <= self.size and 0 <= length <= self.size - offset,
+                "read outside partition")
+        return self.parent.read(self.offset + offset, length)
+
+
+class UDIFReader:
+    CACHE_BYTES = 32 * 1024 * 1024
+    CACHE_CHUNKS = 8
+
+    def __init__(self, reader, trailer):
+        self.reader = reader
+        self.chunks = []
+        self.chunk_types = Counter()
+        self.cache = OrderedDict()
+        self.cache_bytes = 0
+        self.spooled = None
+        self.size = unpack(">Q", trailer, 492)[0] * SECTOR
+        data_offset, data_size = unpack(">QQ", trailer, 24)
+        segment, segments = unpack(">II", trailer, 56)
+        require(segments in (0, 1) and segment in (0, 1),
+                "segmented UDIF images are not supported")
+        limit = reader.size - 512
+        require(data_offset <= limit and data_size <= limit - data_offset,
+                "invalid UDIF data fork")
+        plist_offset, plist_size = unpack(">QQ", trailer, 216)
+        require(0 < plist_size <= 64 * 1024 * 1024 and plist_offset <= limit
+                and plist_size <= limit - plist_offset, "invalid UDIF property list")
+        plist = plistlib.loads(reader.read(plist_offset, plist_size))
+        try:
+            tables = plist["resource-fork"]["blkx"]
+            require(isinstance(tables, list) and tables, "empty UDIF block map")
+            for table in tables:
+                self.add_table(table["Data"], data_offset, data_size)
+        except (KeyError, TypeError) as error:
+            raise ImageError("invalid UDIF block map property list") from error
+        self.chunks.sort(key=lambda chunk: chunk.start)
+        self.starts = [chunk.start for chunk in self.chunks]
+        end = 0
+        for chunk in self.chunks:
+            require(chunk.start >= end, "overlapping UDIF chunks")
+            end = chunk.start + chunk.size
+        require(end <= self.size, "UDIF chunks extend beyond disk")
+
+    def add_table(self, table, data_offset, data_size):
+        require(isinstance(table, bytes) and len(table) >= 204 and table[:4] == b"mish",
+                "invalid UDIF mish table")
+        first, sectors, base = unpack(">QQQ", table, 8)
+        count = unpack(">I", table, 200)[0]
+        require(count <= (len(table) - 204) // 40, "truncated UDIF chunk table")
+        require((first + sectors) * SECTOR <= self.size, "UDIF table extends beyond disk")
+        for index in range(count):
+            kind, _, start, length, offset, packed = unpack(">IIQQQQ", table, 204 + 40 * index)
+            self.chunk_types[kind] += 1
+            if kind == 0xffffffff:
+                return
+            if kind == 0x7ffffffe:
+                continue
+            require(start + length <= sectors, "UDIF chunk extends beyond mish table")
+            if kind in (0, 2):
+                packed = 0
+            else:
+                require(base + offset + packed <= data_size, "UDIF chunk extends beyond data fork")
+                if kind == 1:
+                    require(packed == length * SECTOR, "raw UDIF chunk size mismatch")
+            if length:
+                self.chunks.append(Chunk((first + start) * SECTOR, length * SECTOR,
+                                         kind, data_offset + base + offset, packed))
+        raise ImageError("missing UDIF chunk terminator")
+
+    def spool(self, chunk, codec):
+        if self.spooled is not None:
+            cached, output = self.spooled
+            if cached == chunk:
+                return output
+            output.close()
+            self.spooled = None
+
+        output = Spool()
+        try:
+            if codec in ("ADC", "LZFSE"):
+                decode = decode_adc if codec == "ADC" else decode_lzfse
+                with self.reader.mapped(chunk.offset, chunk.packed) as data:
+                    decode(data, chunk.size, output)
+            else:
+                pieces = (self.reader.read(chunk.offset + pos, min(COPY_SIZE, chunk.packed - pos))
+                          for pos in range(0, chunk.packed, COPY_SIZE))
+                spool_standard(codec, pieces, output, chunk.size)
+            output.finish()
+        except BaseException:
+            output.close()
+            raise
+        self.spooled = chunk, output
+        return output
+
+    def compressed(self, chunk, inner, take):
+        codec = CHUNK_TYPES.get(chunk.kind)
+        require(codec is not None, f"unsupported UDIF chunk type 0x{chunk.kind:08x}")
+        if chunk.size > self.CACHE_BYTES:
+            return self.spool(chunk, codec).read(inner, take)
+        if chunk in self.cache:
+            self.cache.move_to_end(chunk)
+            return memoryview(self.cache[chunk])[inner:inner + take]
+        data = self.reader.read(chunk.offset, chunk.packed)
+        if codec == "ADC":
+            output = decode_adc(data, chunk.size)
+        elif codec == "LZFSE":
+            output = decode_lzfse(data, chunk.size)
+        else:
+            output = decode_standard(codec, data, chunk.size)
+        while (len(self.cache) >= self.CACHE_CHUNKS
+               or self.cache_bytes + chunk.size > self.CACHE_BYTES):
+            _, previous = self.cache.popitem(last=False)
+            self.cache_bytes -= len(previous)
+        self.cache[chunk] = output
+        self.cache_bytes += chunk.size
+        return memoryview(output)[inner:inner + take]
+
+    def close(self):
+        if self.spooled is not None:
+            self.spooled[1].close()
+            self.spooled = None
+
+    def read(self, offset, length):
+        require(0 <= offset <= self.size and 0 <= length <= self.size - offset,
+                "read outside UDIF disk")
+        if not length:
+            return b""
+        result = bytearray()
+        index = max(0, bisect_right(self.starts, offset) - 1)
+        end = offset + length
+        while offset < end:
+            if index >= len(self.chunks):
+                result.extend(bytes(end - offset))
+                break
+            chunk = self.chunks[index]
+            if offset < chunk.start:
+                gap = min(end, chunk.start) - offset
+                result.extend(bytes(gap))
+                offset += gap
+                continue
+            inner = offset - chunk.start
+            take = min(end - offset, chunk.size - inner)
+            if take > 0:
+                if chunk.kind in (0, 2):
+                    result.extend(bytes(take))
+                elif chunk.kind == 1:
+                    result.extend(self.reader.read(chunk.offset + inner, take))
+                else:
+                    result.extend(self.compressed(chunk, inner, take))
+                offset += take
+            index += 1
+        return bytes(result)
+
+
+def disk_reader(file):
+    reader = FileReader(file)
+    if reader.size >= 512:
+        trailer = reader.read(reader.size - 512, 512)
+        if trailer[:4] == b"koly":
+            return UDIFReader(reader, trailer)
+    return reader
+
+
+@contextmanager
+def open_disk(path):
+    with open(path, "rb") as file:
+        disk = disk_reader(file)
+        try:
+            yield disk
+        finally:
+            if isinstance(disk, UDIFReader):
+                disk.close()
+
+
+PARTITION_TYPES = {
+    "48465300-0000-11aa-aa11-00306543ecac": "Apple_HFS",
+    "7c3457ef-0000-11aa-aa11-00306543ecac": "Apple_APFS",
+    "c12a7328-f81f-11d2-ba4b-00a0c93ec93b": "EFI System",
+}
+
+
+@dataclass(frozen=True)
+class Partition:
+    number: int
+    offset: int
+    size: int
+    kind: str
+    name: str = ""
+
+
+def gpt_partitions(disk, sector):
+    header = disk.read(sector, sector)
+    table, count, entry_size = unpack("<QII", header, 72)
+    require(128 <= entry_size <= 4096 and entry_size % 8 == 0,
+            "invalid GPT entry size")
+    require(0 < count <= 65536 and count * entry_size <= disk.size - table * sector,
+            "invalid GPT entry table")
+    entries = disk.read(table * sector, count * entry_size)
+    partitions = []
+    for index in range(count):
+        entry = entries[index * entry_size:(index + 1) * entry_size]
+        if entry[:16] == bytes(16):
+            continue
+        guid = str(UUID(bytes_le=entry[:16]))
+        first, last = unpack("<QQ", entry, 32)
+        require(first <= last < disk.size // sector, "invalid GPT partition bounds")
+        name = entry[56:128].decode("utf-16-le", errors="replace").split("\0", 1)[0]
+        partitions.append(Partition(index + 1, first * sector, (last - first + 1) * sector,
+                                    PARTITION_TYPES.get(guid, guid), name))
+    return partitions
+
+
+def apm_partitions(disk, sector):
+    count = unpack(">I", disk.read(sector, 16), 4)[0]
+    require(0 < count <= min(65536, disk.size // sector - 1),
+            "invalid Apple Partition Map size")
+    partitions = []
+    for index in range(1, count + 1):
+        entry = disk.read(index * sector, 80)
+        require(entry[:2] == b"PM", "invalid Apple Partition Map signature")
+        first, size = unpack(">II", entry, 8)
+        require(first + size <= disk.size // sector, "invalid APM partition bounds")
+        name, kind = (entry[pos:pos + 32].split(b"\0", 1)[0].decode("mac_roman")
+                      for pos in (16, 48))
+        partitions.append(Partition(index, first * sector, size * sector, kind, name))
+    return partitions
+
+
+def partitions_on(disk):
+    for sector in (512, 4096):
+        if disk.size >= 2 * sector and disk.read(sector, 8) == b"EFI PART":
+            return "GPT", gpt_partitions(disk, sector)
+    candidates = [SECTOR]
+    if disk.size >= 4 and disk.read(0, 2) == b"ER":
+        sector = unpack(">H", disk.read(2, 2))[0]
+        if sector >= SECTOR and sector & (sector - 1) == 0:
+            candidates.insert(0, sector)
+    for sector in candidates:
+        if disk.size >= 2 * sector and disk.read(sector, 2) == b"PM":
+            return "APM", apm_partitions(disk, sector)
+    return "bare", [Partition(1, 0, disk.size, "whole disk")]
+
+
+def filesystem(partition):
+    if partition.size >= 36 and partition.read(32, 4) == b"NXSB":
+        return "APFS", partition
+    if partition.size < 1536:
+        return "", partition
+    header = partition.read(1024, 512)
+    signatures = {b"H+": "HFS+", b"HX": "HFSX"}
+    if header[:2] in signatures:
+        return signatures[header[:2]], partition
+    if header[:2] == b"BD" and header[124:126] in signatures:
+        # HFS master directory block describing an embedded HFS+ volume.
+        block_size = unpack(">I", header, 20)[0]
+        alloc_start = unpack(">H", header, 28)[0]
+        first, length = unpack(">HH", header, 126)
+        require(block_size >= SECTOR and block_size % SECTOR == 0 and length,
+                "invalid HFS wrapper geometry")
+        partition = SliceReader(partition, alloc_start * SECTOR + first * block_size,
+                                length * block_size)
+        signature = partition.read(1024, 2)
+        require(signature in signatures, "invalid wrapped HFS+ volume")
+        return signatures[signature], partition
+    return "", partition
+
+
+def extents_at(data, offset):
+    values = unpack(">16I", data, offset)
+    extents = []
+    for start, count in zip(values[::2], values[1::2]):
+        if count == 0:
+            require(not start, "invalid empty HFS+ extent")
+        else:
+            extents.append((start, count))
+    return extents
+
+
+@dataclass(frozen=True)
+class Fork:
+    size: int
+    blocks: int
+    extents: list
+
+    @classmethod
+    def parse(cls, data, offset):
+        size, _, blocks = unpack(">QII", data, offset)
+        return cls(size, blocks, extents_at(data, offset + 16))
+
+
+class ForkReader:
+    def __init__(self, volume, fork, overflow):
+        self.volume = volume
+        self.size = fork.size
+        self.starts = []
+        self.ranges = []
+        block_size = volume.block_size
+        blocks = 0
+        extents = fork.extents
+        while True:
+            for start, count in extents:
+                require(start + count <= volume.blocks, "HFS+ extent extends beyond volume")
+                self.starts.append(blocks * block_size)
+                self.ranges.append((start * block_size, count * block_size))
+                blocks += count
+            if blocks >= fork.blocks:
+                break
+            extents = overflow.get(blocks)
+            require(extents, "missing HFS+ overflow extent")
+        require(blocks == fork.blocks and self.size <= blocks * block_size,
+                "invalid HFS+ fork length")
+
+    def read(self, offset, length):
+        require(0 <= offset <= self.size and 0 <= length <= self.size - offset,
+                "read outside HFS+ fork")
+        result = bytearray()
+        index = bisect_right(self.starts, offset) - 1
+        while length:
+            disk_offset, available = self.ranges[index]
+            inner = offset - self.starts[index]
+            take = min(length, available - inner)
+            result.extend(self.volume.reader.read(disk_offset + inner, take))
+            offset += take
+            length -= take
+            index += 1
+        return bytes(result)
+
+
+class BTree:
+    def __init__(self, fork):
+        self.fork = fork
+        header = fork.read(0, 56)
+        require(header[8] == 1, "invalid HFS+ B-tree header node")
+        self.records, self.first, self.last, self.node_size = unpack(">IIIH", header, 20)
+        self.nodes = unpack(">I", header, 36)[0]
+        self.key_compare = header[51]
+        require(512 <= self.node_size <= 32768 and self.node_size & (self.node_size - 1) == 0,
+                "invalid HFS+ B-tree node size")
+        require(self.nodes and self.nodes * self.node_size <= fork.size,
+                "invalid HFS+ B-tree length")
+
+    def leaves(self):
+        node, previous, records = self.first, 0, 0
+        visited = set()
+        while node:
+            require(node < self.nodes and node not in visited, "invalid HFS+ B-tree leaf chain")
+            visited.add(node)
+            data = self.fork.read(node * self.node_size, self.node_size)
+            next_node, back, kind, height, count = unpack(">IIbBH", data)
+            require(kind == -1 and height == 1 and back == previous,
+                    "invalid HFS+ B-tree leaf node")
+            table_start = self.node_size - 2 * (count + 1)
+            require(table_start >= 14, "invalid HFS+ B-tree node record count")
+            offsets = unpack(f">{count + 1}H", data, table_start)[::-1]
+            require(offsets[0] >= 14 and offsets[-1] <= table_start,
+                    "invalid HFS+ B-tree record offsets")
+            for start, end in zip(offsets, offsets[1:]):
+                require(start + 2 <= end, "invalid HFS+ B-tree record range")
+                key_size = unpack(">H", data, start)[0]
+                key_end = start + 2 + key_size
+                body = key_end + (key_size & 1)
+                require(body <= end, "invalid HFS+ B-tree key length")
+                records += 1
+                yield data[start + 2:key_end], data[body:end]
+            previous, node = node, next_node
+        require(previous == self.last and records == self.records,
+                "incomplete HFS+ B-tree leaf chain")
+
+
+PRIVATE_DIRS = {".HFS+ Private Directory Data\r", "[HFS+ Private Data]",
+                "\0\0\0\0HFS+ Private Data"}
+CLUTTER = {".ds_store", "__macosx", ".spotlight-v100", ".trashes", ".fseventsd",
+           ".temporaryitems", ".documentrevisions-v100"}
+
+
+@dataclass(frozen=True)
+class Entry:
+    cnid: int
+    parent: int
+    name: str
+    directory: bool
+    mode: int
+    mtime: int
+    flags: int
+    finder: bytes
+    link_id: int
+    data_fork: Fork = None
+    resource_fork: Fork = None
+
+    @property
+    def hardlink(self):
+        return not self.directory and self.finder == b"hlnkhfs+"
+
+    @property
+    def symlink(self):
+        return not self.directory and (stat.S_ISLNK(self.mode) or self.finder[:4] == b"slnk")
+
+    @property
+    def permissions(self):
+        if self.mode:
+            return self.mode & 0o777
+        return 0o755 if self.directory else 0o644
+
+
+class HFSVolume:
+    def __init__(self, reader):
+        self.reader = reader
+        header = reader.read(1024, 512)
+        self.block_size, self.blocks = unpack(">II", header, 40)
+        require(self.block_size >= SECTOR and self.block_size & (self.block_size - 1) == 0
+                and 0 < self.blocks * self.block_size <= reader.size,
+                "invalid HFS+ allocation geometry")
+        self.overflow = defaultdict(dict)
+        overflow = Fork.parse(header, 192)
+        if overflow.size:
+            require(sum(count for _, count in overflow.extents) == overflow.blocks,
+                    "overflow extents for the HFS+ extents tree are not supported")
+            for key, record in BTree(ForkReader(self, overflow, {})).leaves():
+                require(len(key) == 10, "invalid HFS+ extent key")
+                kind, cnid, start = unpack(">BxII", key)
+                group = self.overflow[cnid, kind]
+                require(start not in group, "duplicate HFS+ overflow extent")
+                group[start] = extents_at(record, 0)
+
+        catalog = BTree(self.fork(Fork.parse(header, 272), 4))
+        self.case_sensitive = header[:2] == b"HX" and catalog.key_compare == 0xbc
+        self.catalog = {}
+        self.children = defaultdict(dict)
+        for key, record in catalog.leaves():
+            kind, catalog_flags = unpack(">hH", record)
+            if kind in (3, 4):
+                continue
+            require(kind in (1, 2), "unknown HFS+ catalog record type")
+            parent, length = unpack(">IH", key)
+            name = checked_slice(key, 6, length * 2).decode("utf-16-be")
+            directory = kind == 1
+            require(len(record) >= (88 if directory else 248), "short HFS+ catalog record")
+            cnid = unpack(">I", record, 8)[0]
+            modified = unpack(">I", record, 16)[0]
+            epoch = 0 if catalog_flags & 0x1000 else HFS_EPOCH
+            mtime = modified - epoch if modified else None
+            flags, mode, link_id = unpack(">xBHI", record, 40)
+            data_fork = None if directory else Fork.parse(record, 88)
+            resource_fork = None if directory else Fork.parse(record, 168)
+            entry = Entry(cnid, parent, name, directory, mode, mtime, flags,
+                          record[48:56], link_id, data_fork, resource_fork)
+            require(cnid not in self.catalog and name not in self.children[parent],
+                    "duplicate HFS+ catalog entry")
+            self.catalog[cnid] = entry
+            self.children[parent][name] = entry
+
+        self.root = self.catalog.get(2)
+        require(self.root and self.root.directory and self.root.parent == 1,
+                "missing HFS+ catalog root")
+        self.validate_parents()
+        self.inodes = {}
+        for directory in self.children[2].values():
+            if directory.directory and directory.name in PRIVATE_DIRS:
+                for name, entry in self.children.get(directory.cnid, {}).items():
+                    if name.startswith("iNode") and not entry.directory:
+                        require(name not in self.inodes, "ambiguous HFS+ hard link inode")
+                        self.inodes[name] = entry
+
+        self.compression = {}
+        attributes = Fork.parse(header, 352)
+        if attributes.size:
+            self.read_attributes(BTree(self.fork(attributes, 8)))
+
+    def validate_parents(self):
+        known = {2}
+        for cnid in self.catalog:
+            chain = set()
+            while cnid not in known:
+                require(cnid not in chain, "cycle in HFS+ catalog parents")
+                chain.add(cnid)
+                cnid = self.catalog[cnid].parent
+                parent = self.catalog.get(cnid)
+                require(parent and parent.directory, "missing HFS+ catalog parent")
+            known.update(chain)
+
+    def fork(self, fork, cnid, kind=0):
+        return ForkReader(self, fork, self.overflow.get((cnid, kind), {}))
+
+    def read_attributes(self, tree):
+        forked = {}
+        overflow = defaultdict(dict)
+        for key, record in tree.leaves():
+            cnid, start, length = unpack(">2xIIH", key)
+            if checked_slice(key, 12, length * 2) != "com.apple.decmpfs".encode("utf-16-be"):
+                continue
+            kind = unpack(">I", record)[0]
+            if kind == 0x10 and start == 0:
+                size = unpack(">I", record, 12)[0]
+                require(cnid not in self.compression and cnid not in forked,
+                        "duplicate HFS+ compression attribute")
+                self.compression[cnid] = checked_slice(record, 16, size)
+            elif kind == 0x20 and start == 0:
+                require(cnid not in self.compression and cnid not in forked,
+                        "duplicate HFS+ compression attribute")
+                forked[cnid] = Fork.parse(record, 8)
+            elif kind == 0x30 and start > 0:
+                require(start not in overflow[cnid], "duplicate HFS+ attribute extent")
+                overflow[cnid][start] = extents_at(record, 8)
+            else:
+                raise ImageError("invalid HFS+ compression attribute record")
+        for cnid, fork in forked.items():
+            reader = ForkReader(self, fork, overflow.pop(cnid, {}))
+            require(reader.size <= 16 * COPY_SIZE, "HFS+ compression attribute is too large")
+            self.compression[cnid] = reader.read(0, reader.size)
+        require(not overflow, "orphan HFS+ compression attribute extent")
+
+    def resolve(self, entry):
+        if entry.hardlink:
+            inode = self.inodes.get(f"iNode{entry.link_id}")
+            require(inode and not inode.hardlink, f"missing HFS+ hard link inode {entry.link_id}")
+            return inode
+        require(entry.directory or entry.finder != b"fdrpMACS",
+                "HFS+ directory hard links are not supported")
+        return entry
+
+    def entries(self, no_metadata=False):
+        stack = [((), iter(sorted(self.children.get(2, {}).items())), set())]
+        while stack:
+            parent, siblings, names = stack[-1]
+            item = next(siblings, None)
+            if item is None:
+                stack.pop()
+                continue
+            name, entry = item
+            if entry.directory and name in PRIVATE_DIRS:
+                continue
+            if no_metadata and (name.lower() in CLUTTER or name.startswith("._")):
+                continue
+            # HFS stores a POSIX colon as a slash. Convert within the component.
+            component = name.replace("/", ":")
+            require(component and component not in (".", "..") and "\0" not in component,
+                    f"unsafe HFS+ path component {name!r}")
+            require(component not in names, f"colliding HFS+ path component {name!r}")
+            names.add(component)
+            path = parent + (component,)
+            yield path, entry
+            if entry.directory:
+                stack.append((path, iter(sorted(self.children.get(entry.cnid, {}).items())), set()))
+
+    def child(self, directory, name):
+        children = self.children.get(directory.cnid, {})
+        entry = children.get(name)
+        if entry is None and not self.case_sensitive:
+            entry = next((entry for key, entry in children.items()
+                          if key.casefold() == name.casefold()), None)
+        return entry
+
+    def contents(self, entry, limit=None):
+        attr = self.compression.get(entry.cnid)
+        if attr is not None:
+            require(attr[:4] == b"fpmc", "invalid decmpfs magic")
+            kind, size = unpack("<IQ", attr, 4)
+            require(limit is None or size <= limit, "HFS+ file is too large")
+            if kind in (3, 7, 11):
+                yield decode_decmpfs(kind, attr[16:], size)
+            elif kind in (4, 8, 12):
+                resource = self.fork(entry.resource_fork, entry.cnid, 0xff)
+                yield from resource_blocks(resource, kind, size)
+            else:
+                raise ImageError(f"unsupported HFS+ decmpfs type {kind}")
+            return
+        require(not entry.flags & 0x20, "HFS+ compressed file is missing its decmpfs attribute")
+        fork = self.fork(entry.data_fork, entry.cnid)
+        require(limit is None or fork.size <= limit, "HFS+ file is too large")
+        for offset in range(0, fork.size, COPY_SIZE):
+            yield fork.read(offset, min(COPY_SIZE, fork.size - offset))
+
+
+def decode_decmpfs(kind, data, size):
+    require(data or size == 0, "missing decmpfs block data")
+    if not data:
+        return b""
+    if ((kind == 3 and data[0] & 15 == 15)
+            or (kind == 7 and data[0] == 6 and len(data) == size + 1)
+            or (kind == 11 and data[0] == 0xff)):
+        require(len(data) == size + 1, "stored decmpfs block size mismatch")
+        return data[1:]
+    if kind == 3:
+        return decode_standard("zlib", data, size)
+    if kind == 7:
+        return decode_lzvn(data, size)
+    return decode_lzfse(data, size)
+
+
+def resource_blocks(resource, kind, size):
+    block_size = 65536
+    count = (size + block_size - 1) // block_size
+    if kind == 4:
+        data_offset, _, data_size, _ = unpack(">4I", resource.read(0, 16))
+        require(data_size >= 8 and data_offset + data_size <= resource.size,
+                "invalid decmpfs resource data area")
+        base = data_offset + 4
+        payload_size = unpack(">I", resource.read(data_offset, 4))[0]
+        minimum = 4 + count * 8
+        require(minimum <= payload_size <= data_size - 4,
+                "invalid decmpfs resource payload size")
+        require(unpack("<I", resource.read(base, 4))[0] == count,
+                "invalid decmpfs resource block count")
+        for index in range(count):
+            offset, length = unpack("<II", resource.read(base + 4 + index * 8, 8))
+            require(offset >= minimum and 0 < length <= block_size + 1
+                    and offset + length <= payload_size, "invalid decmpfs resource block range")
+            yield decode_decmpfs(3, resource.read(base + offset, length),
+                                 min(block_size, size - index * block_size))
+    else:
+        offset = unpack("<I", resource.read(0, 4))[0]
+        require(offset == (count + 1) * 4, "invalid decmpfs resource offset table size")
+        for index in range(count):
+            end = unpack("<I", resource.read(4 + index * 4, 4))[0]
+            require(0 < end - offset <= 2 * block_size and end <= resource.size,
+                    "invalid decmpfs resource block range")
+            yield decode_decmpfs(kind - 1, resource.read(offset, end - offset),
+                                 min(block_size, size - index * block_size))
+            offset = end
+
+
+OPEN_DIR = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+
+
+@contextmanager
+def open_directory(root, components):
+    fd = os.dup(root)
+    try:
+        for component in components:
+            child = os.open(component, OPEN_DIR, dir_fd=fd)
+            os.close(fd)
+            fd = child
+        yield fd
+    finally:
+        os.close(fd)
+
+
+def restore_time(file, entry, **kwargs):
+    if entry.mtime is not None:
+        os.utime(file, (entry.mtime, entry.mtime), **kwargs)
+
+
+def extract(volume, outdir, no_metadata):
+    require(outdir, "missing extraction directory")
+    outdir = os.fspath(outdir).rstrip(os.sep) or os.sep
+    os.makedirs(outdir, exist_ok=True)
+    root = os.open(outdir, OPEN_DIR)
+    directories = []
+    hardlinks = {}
+    try:
+        for path, entry in volume.entries(no_metadata):
+            parent, name = path[:-1], path[-1]
+            with open_directory(root, parent) as dest:
+                if entry.directory:
+                    os.mkdir(name, 0o700, dir_fd=dest)
+                    directories.append((path, entry))
+                    continue
+                inode = volume.resolve(entry)
+                if entry.hardlink and inode.cnid in hardlinks:
+                    source = hardlinks[inode.cnid]
+                    with open_directory(root, source[:-1]) as src:
+                        os.link(source[-1], name, src_dir_fd=src, dst_dir_fd=dest,
+                                follow_symlinks=False)
+                elif inode.symlink:
+                    target = b"".join(volume.contents(inode, limit=1024 * 1024))
+                    require(target and b"\0" not in target, "invalid HFS+ symlink target")
+                    os.symlink(target, name, dir_fd=dest)
+                    restore_time(name, inode, dir_fd=dest, follow_symlinks=False)
+                else:
+                    require(stat.S_IFMT(inode.mode) in (0, stat.S_IFREG),
+                            f"unsupported HFS+ file type at {'/'.join(path)!r}")
+                    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+                    fd = os.open(name, flags, 0o600, dir_fd=dest)
+                    try:
+                        with os.fdopen(fd, "wb") as file:
+                            for data in volume.contents(inode):
+                                file.write(data)
+                            file.flush()
+                            os.fchmod(file.fileno(), inode.permissions)
+                            restore_time(file.fileno(), inode)
+                    except (ImageError, OSError, ValueError, EOFError, zlib.error, lzma.LZMAError):
+                        os.unlink(name, dir_fd=dest)
+                        raise
+                if entry.hardlink:
+                    hardlinks.setdefault(inode.cnid, path)
+
+        for path, entry in reversed(directories):
+            with open_directory(root, path) as directory:
+                os.fchmod(directory, entry.permissions)
+                restore_time(directory, entry)
+    finally:
+        os.close(root)
+
+
+def find_apps(volume):
+    apps = []
+    for path, entry in volume.entries():
+        if not entry.directory or not path[-1].lower().endswith(".app"):
+            continue
+        contents = volume.child(entry, "Contents")
+        if contents is None or not contents.directory:
+            continue
+        info = volume.child(contents, "Info.plist")
+        if info is None or info.directory:
+            continue
+        info = volume.resolve(info)
+        if info.symlink:
+            continue
+        data = b"".join(volume.contents(info, limit=16 * COPY_SIZE))
+        try:
+            plist = plistlib.loads(data)
+        except (ValueError, OverflowError, TypeError, ExpatError):
+            continue
+        if isinstance(plist, dict):
+            executable = plist.get("CFBundleExecutable", "")
+            identifier = plist.get("CFBundleIdentifier", "")
+            apps.append((path, executable if isinstance(executable, str) else "",
+                         identifier if isinstance(identifier, str) else ""))
+    for path, executable, identifier in sorted(apps, key=lambda app: (len(app[0]), app[0])):
+        columns = ("/".join(path), executable, identifier)
+        print(*(column.translate(TSV_ESCAPES) for column in columns), sep="\t")
+
+
+TSV_ESCAPES = str.maketrans({"\\": "\\\\", "\t": "\\t", "\n": "\\n", "\r": "\\r"})
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    commands = parser.add_subparsers(dest="command", required=True)
+    for command in ("info", "list", "extract", "find-apps"):
+        action = commands.add_parser(command)
+        action.add_argument("image", metavar="IMAGE")
+        if command == "extract":
+            action.add_argument("outdir", metavar="OUTDIR")
+        if command in ("extract", "list"):
+            action.add_argument("--no-metadata", action="store_true",
+                                help="skip Finder and macOS housekeeping files")
+    args = parser.parse_args()
+    try:
+        with open_disk(args.image) as disk:
+            scheme, partitions = partitions_on(disk)
+            if args.command == "info":
+                print(f"Container: {'UDIF' if isinstance(disk, UDIFReader) else 'raw'}")
+                if isinstance(disk, UDIFReader):
+                    codecs = [f"{CHUNK_TYPES.get(kind, f'0x{kind:08x}')} ({count})"
+                              for kind, count in sorted(disk.chunk_types.items())]
+                    print(f"Block chunks: {', '.join(codecs)}")
+                print(f"Partition scheme: {scheme}")
+
+            selected = None
+            apfs = False
+            for partition in partitions:
+                part = SliceReader(disk, partition.offset, partition.size)
+                # Container signatures only apply to data partitions. An APM map
+                # entry can overlap other metadata by design.
+                kind, reader = filesystem(part)
+                if args.command == "info":
+                    name = f" {partition.name!r}" if partition.name else ""
+                    suffix = f", {kind}" if kind else ""
+                    print(f"Partition {partition.number}: {partition.kind}{name}, "
+                          f"offset {partition.offset}, {partition.size} bytes{suffix}")
+                if kind in ("HFS+", "HFSX") and selected is None:
+                    selected = kind, reader
+                elif kind == "APFS":
+                    apfs = True
+
+            if selected is None:
+                if apfs:
+                    raise ImageError("APFS images are not supported yet")
+                raise ImageError("no HFS+ or HFSX filesystem found")
+            kind, reader = selected
+            volume = HFSVolume(reader)
+            if args.command == "info":
+                print(f"Filesystem: {kind}")
+                print(f"Volume name: {volume.root.name!r}")
+            elif args.command == "list":
+                for path, _ in volume.entries(args.no_metadata):
+                    print("/".join(path))
+            elif args.command == "extract":
+                extract(volume, args.outdir, args.no_metadata)
+            else:
+                find_apps(volume)
+        return 0
+    except BrokenPipeError:
+        return 1
+    except (ImageError, OSError, ValueError, EOFError, ExpatError, zlib.error,
+            lzma.LZMAError) as error:
+        print(f"dmgx: {error}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

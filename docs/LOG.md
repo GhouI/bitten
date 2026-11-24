@@ -54,3 +54,15 @@
 Dead end worth recording: the first attempt treated `LC_UNIXTHREAD` as
 "static binary, unsupported". Go binaries are dynamically linked against
 libSystem but still use that load command.
+
+## 2026-11-24: DMG extractor (PR: dmgx)
+
+- `tools/dmgx`: our own disk-image reader in standard-library Python: UDIF
+  (zlib, bzip2, LZMA, LZFSE/LZVN, ADC, raw, zero chunks), GPT and Apple
+  partition maps, HFS+/HFSX with extents overflow, hard links, symlinks and
+  decmpfs transparent compression. `info`, `list`, `extract`, `find-apps`.
+- Checked against an independent extraction of a real 72 MB HFS+/LZMA image:
+  125 of 125 files byte-identical. Unit tests use synthetic images only.
+- Not supported yet: APFS volumes (clear error), encrypted or segmented
+  images. See `docs/DMG-FORMAT.md`.
+- Written by a delegated Codex agent to a spec, then reviewed and verified.
