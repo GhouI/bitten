@@ -1,0 +1,5 @@
+# Minimal shell setup for the container user.
+PROMPT='%F{cyan}%n@bitten%f %F{blue}%~%f %# '
+HISTFILE=~/.zsh_history
+HISTSIZE=2000
+SAVEHIST=2000

@@ -1,0 +1,156 @@
+#!/bin/sh
+# Container entrypoint: find the mounted .dmg, unpack it, and run what is
+# inside with mrun.
+set -eu
+
+usage() {
+    cat <<'USAGE'
+bitten: run macOS programs from a .dmg on Linux, without a VM.
+
+Mount a disk image and pick a command:
+
+  docker run --rm -it -v /path/App.dmg:/dmg/app.dmg:ro bitten [COMMAND]
+
+Commands:
+  info                 list the apps and programs in the image and how much
+                       of what each one needs is implemented (default)
+  run [ARGS...]        run the app's main program
+  exec NAME [ARGS...]  run a program from the bundle by name or path
+                       (a helper tool, for example)
+  shell                open a shell where every program in the bundle is on
+                       PATH under its own name
+  check NAME           print every import of NAME that is not implemented
+  help                 this text
+
+Environment:
+  BITTEN_DMG    path of the image inside the container (default: the first
+                *.dmg under /dmg)
+  BITTEN_APP    which .app to use when the image holds several
+  BITTEN_DEBUG  1 or 2 for loader diagnostics
+USAGE
+}
+
+die() { echo "bitten: $*" >&2; exit 1; }
+
+cmd=${1:-info}
+case "$cmd" in help|-h|--help) usage; exit 0 ;; esac
+
+# ---- locate and unpack the image ------------------------------------------
+dmg=${BITTEN_DMG:-}
+if [ -z "$dmg" ]; then
+    for f in /dmg/*.dmg /dmg/*.DMG; do
+        [ -f "$f" ] && { dmg=$f; break; }
+    done
+fi
+[ -n "$dmg" ] && [ -f "$dmg" ] ||
+    die "no disk image found. Mount one: -v /path/App.dmg:/dmg/app.dmg:ro (or set BITTEN_DMG)"
+
+root=/Applications
+stamp="$root/.bitten-extracted"
+key="$(stat -c '%s-%Y' "$dmg") $dmg"
+if [ ! -f "$stamp" ] || [ "$(cat "$stamp")" != "$key" ]; then
+    echo "bitten: unpacking $(basename "$dmg") ..." >&2
+    dmgx extract --no-metadata "$dmg" "$root" >/dev/null || die "could not unpack $dmg"
+    echo "$key" > "$stamp"
+fi
+
+# ---- pick the app -----------------------------------------------------------
+apps=$(dmgx find-apps "$dmg")
+[ -n "$apps" ] || die "no .app bundle found in $(basename "$dmg")"
+if [ -n "${BITTEN_APP:-}" ]; then
+    line=$(printf '%s\n' "$apps" | grep -F "$BITTEN_APP" | head -n 1) || true
+    [ -n "$line" ] || die "no app matching BITTEN_APP=$BITTEN_APP"
+else
+    line=$(printf '%s\n' "$apps" | head -n 1)
+fi
+tab=$(printf '\t')
+app_rel=${line%%"$tab"*}
+rest=${line#*"$tab"}
+app_exe=${rest%%"$tab"*}
+app_id=${rest#*"$tab"}
+app="$root/$app_rel"
+main="$app/Contents/MacOS/$app_exe"
+
+# every Mach-O executable in the bundle (main program and helper tools)
+programs() {
+    find "$app" -type f -perm -u+x 2>/dev/null | while IFS= read -r f; do
+        case "$(head -c 4 "$f" | od -An -tx1 | tr -d ' \n')" in
+            cffaedfe|cafebabe|cafebabf) ;;
+            *) continue ;;
+        esac
+        # executables only (file type 2), not dylibs or bundles
+        if mrun --check "$f" >/dev/null 2>&1 || [ $? -eq 1 ]; then
+            case "$f" in *.dylib|*.framework/*) continue ;; esac
+            printf '%s\n' "$f"
+        fi
+    done
+}
+
+resolve() {
+    name=$1
+    [ -f "$name" ] && { printf '%s\n' "$name"; return; }
+    [ -f "$app/$name" ] && { printf '%s\n' "$app/$name"; return; }
+    programs | while IFS= read -r f; do
+        [ "$(basename "$f")" = "$name" ] && { printf '%s\n' "$f"; break; }
+    done
+}
+
+missing() { mrun --check "$1" 2>/dev/null | awk -F'\t' '$1=="SUMMARY"{sub("missing=","",$2); print $2}'; }
+
+case "$cmd" in
+info)
+    echo "Image:       $(basename "$dmg")"
+    echo "App:         $app_rel"
+    echo "Bundle id:   $app_id"
+    echo "Programs:"
+    programs | while IFS= read -r f; do
+        m=$(missing "$f"); m=${m:-?}
+        rel=${f#"$app/"}
+        if [ "$m" = 0 ]; then state="ready (all imports implemented)"
+        else state="$m imports not implemented yet"; fi
+        [ "$f" = "$main" ] && rel="$rel  [main]"
+        printf '  %-58s %s\n' "$rel" "$state"
+    done
+    echo
+    echo "Next: 'run' starts the main program, 'exec NAME' a helper, 'shell' a shell"
+    echo "with every program on PATH, 'check NAME' lists what is missing."
+    ;;
+run)
+    shift
+    [ -f "$main" ] || die "main program not found: $main"
+    exec mrun "$main" "$@"
+    ;;
+exec)
+    shift
+    [ $# -ge 1 ] || die "exec needs a program name"
+    target=$(resolve "$1")
+    [ -n "$target" ] || die "no program named '$1' in $app_rel (try: info)"
+    shift
+    exec mrun "$target" "$@"
+    ;;
+check)
+    shift
+    target=$(resolve "${1:-$app_exe}")
+    [ -n "$target" ] || die "no program named '${1:-}' in $app_rel"
+    mrun --check "$target" | awk -F'\t' '
+        $1=="MISSING" { n=split($3, a, "/"); lib[a[n]]++; print "  " a[n] ": " $4 }
+        $1=="SUMMARY" { total=$2 }
+        END { print ""; for (k in lib) printf "%6d  %s\n", lib[k], k | "sort -rn"; close("sort -rn"); print total }'
+    ;;
+shell)
+    shift
+    bin=/tmp/bitten-bin
+    mkdir -p "$bin"
+    programs | while IFS= read -r f; do
+        w="$bin/$(basename "$f")"
+        printf '#!/bin/sh\nexec mrun "%s" "$@"\n' "$f" > "$w"
+        chmod +x "$w"
+    done
+    export PATH="$bin:$PATH" BITTEN_APP_DIR="$app"
+    echo "bitten: programs from $app_rel are on PATH: $(ls "$bin" | tr '\n' ' ')" >&2
+    exec "${SHELL:-/bin/sh}" "$@"
+    ;;
+*)
+    die "unknown command '$cmd' (try: help)"
+    ;;
+esac

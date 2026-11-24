@@ -1,0 +1,51 @@
+#!/bin/sh
+# macOS-style login(1) for the container.
+#
+# macOS terminal programs start shells with `login -fpl USER [PROG ARGS...]`.
+# Linux's login takes different options and wants to authenticate, so this
+# stands in with the macOS command line:
+#   -f  skip authentication (always the case here)
+#   -p  keep the caller's environment
+#   -l  the program is not a login session (no leading '-' in argv[0])
+#   -q  quiet
+#   -h  remote host name (ignored)
+preserve=0 nologin=0
+while getopts fplqh: opt; do
+    case "$opt" in
+        p) preserve=1 ;;
+        l) nologin=1 ;;
+        f|q|h) ;;
+        *) echo "usage: login [-fplq] [-h host] [user [prog [args...]]]" >&2; exit 1 ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+user=${1:-$(id -un)}
+[ $# -gt 0 ] && shift
+entry=$(getent passwd "$user") || { echo "login: unknown user $user" >&2; exit 1; }
+home=$(printf '%s' "$entry" | cut -d: -f6)
+shell=$(printf '%s' "$entry" | cut -d: -f7)
+[ -n "$shell" ] || shell=/bin/sh
+if [ "$(id -un)" != "$user" ] && [ "$(id -u)" != 0 ]; then
+    echo "login: cannot become $user" >&2
+    exit 1
+fi
+
+if [ "$preserve" = 0 ]; then
+    term=${TERM:-xterm-256color}
+    for v in $(env | sed 's/=.*//'); do unset "$v" 2>/dev/null || true; done
+    export TERM="$term" PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+fi
+export HOME="$home" SHELL="$shell" USER="$user" LOGNAME="$user"
+
+if [ $# -eq 0 ]; then
+    set -- "$shell"
+    [ "$nologin" = 1 ] || cd "$home" 2>/dev/null || true
+fi
+prog=$1
+shift
+if [ "$nologin" = 1 ]; then
+    exec "$prog" "$@"
+fi
+# a login session: argv[0] starts with '-'
+exec python3 -c 'import os,sys; p=sys.argv[1]; os.execvp(p, ["-"+os.path.basename(p)]+sys.argv[2:])' "$prog" "$@"
