@@ -143,7 +143,7 @@ static void dep_cb(const char *image, const char *dep, int macho, void *ctx) {
 }
 
 static void usage(void) {
-    fputs("usage: mrun [--check] [--list-exports] <mach-o executable> [args...]\n"
+    fputs("usage: mrun [--check] [--list-exports] [--argv0 NAME] <mach-o executable> [args...]\n"
           "\n"
           "Runs an x86-64 macOS (Mach-O) executable on Linux without a VM.\n"
           "\n"
@@ -165,8 +165,10 @@ int main(int argc, char **argv, char **envp) {
     if (stubs && !strcmp(stubs, "zero")) dx_stub_mode = 1;
 
     int check = 0, i = 1;
+    const char *argv0 = NULL;
     for (; i < argc; i++) {
         if (!strcmp(argv[i], "--check")) check = 1;
+        else if (!strcmp(argv[i], "--argv0") && i + 1 < argc) argv0 = argv[++i];
         else if (!strcmp(argv[i], "--list-exports")) {
             dx_registry_each(list_cb, NULL);
             return 0;
@@ -183,14 +185,16 @@ int main(int argc, char **argv, char **envp) {
         return 2;
     }
 
+    const char *image_path = argv[i];
     dx_argc = argc - i;
     dx_argv = argv + i;
+    if (argv0) dx_argv[0] = (char *)argv0;
     dx_envp = envp;
     dx_thread_attach();
     dx_libsystem_init(dx_argc, dx_argv, envp);
 
-    struct dx_image *img = dx_load_image(argv[i], 1);
-    if (!img) dx_fatal("cannot load %s", argv[i]);
+    struct dx_image *img = dx_load_image(image_path, 1);
+    if (!img) dx_fatal("cannot load %s", image_path);
 
     if (check) {
         dx_report_deps(dep_cb, NULL);
