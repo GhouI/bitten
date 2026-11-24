@@ -62,7 +62,10 @@ test-bins: $(TEST_BINS) $(TEST_GOBINS)
 check: $(BUILD)/mrun $(TEST_BINS) $(TEST_GOBINS)
 	BUILD=$(BUILD) tests/run.sh
 
+check-dmgx:
+	python3 -m unittest discover -s tests/dmgx
+
 clean:
 	rm -rf $(BUILD)
 
-.PHONY: all clean check test-bins
+.PHONY: all clean check check-dmgx test-bins
