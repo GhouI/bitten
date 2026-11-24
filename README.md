@@ -27,7 +27,7 @@ in this repository or in the image.
 | Programs using CommonCrypto, zlib, libcompression, iconv | Runs: SHA/MD5/HMAC, AES (ECB/CBC/CTR/GCM), PBKDF2, inflate/deflate, LZ4 |
 | TLS certificate checks through Security.framework | Not implemented: verification reports "not trusted" rather than pretend |
 | Objective-C code without Foundation (runtime, ARC, blocks) | Runs: messaging, categories, protocols, weak references, dynamic classes |
-| Objective-C programs using Foundation | Early: strings, numbers, arrays, dictionaries, formatting, `NSLog`. Files, dates, URLs, run loops and the rest are not built yet |
+| Objective-C programs using Foundation | Partial: strings, numbers, collections, data, dates, errors, files, URLs, JSON, notifications, locks, threads. No run loops, timers, key-value coding, property lists, tasks or networking yet |
 | Objective-C or C++ exceptions | Not yet: no unwinder for Mach-O unwind tables |
 | Swift programs | Not yet: there is no Swift runtime |
 | AppKit / SwiftUI / Metal apps (windows) | Not yet |

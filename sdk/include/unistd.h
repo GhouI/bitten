@@ -17,5 +17,24 @@ int chdir(const char *);
 unsigned int sleep(unsigned int);
 int usleep(unsigned int);
 const char *getprogname(void);
+unsigned int geteuid(void);
+long sysconf(int);
+#define _SC_NPROCESSORS_ONLN 58
+#define _SC_PHYS_PAGES 200
+ssize_t readlink(const char *, char *, size_t);
+int symlink(const char *, const char *);
+int fsync(int);
+off_t lseek(int, off_t, int);
+int ftruncate(int, off_t);
+int isatty(int);
+int pipe(int[2]);
+int dup2(int, int);
+#define R_OK 4
+#define W_OK 2
+#define X_OK 1
+#define F_OK 0
+int *_NSGetArgc(void);
+char ***_NSGetArgv(void);
+char ***_NSGetEnviron(void);
 int gethostname(char *, size_t);
 #endif

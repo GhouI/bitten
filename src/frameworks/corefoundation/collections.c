@@ -182,8 +182,12 @@ static void d_CFArrayRemoveAllValues(struct cf_array *a) {
 }
 DX_FN(CFArrayRemoveAllValues);
 
+/* Dictionaries and sets keep their entries in a compact array (cheap to
+ * enumerate and copy) plus, once they grow past a handful of entries, an
+ * open-addressing index of entry numbers keyed by hash. */
 struct cf_entry {
     const void *key, *value;
+    CFHashCode hash;
 };
 struct cf_dict {
     struct cf_object base;
@@ -193,11 +197,68 @@ struct cf_dict {
     CFIndex count;
     size_t capacity;
     Boolean mutable;
+    uint32_t *slots; /* 0 empty, SLOT_DEAD deleted, else entry index + 1 */
+    size_t nslots, nused;
 };
+#define SLOT_DEAD 0xffffffffu
+#define INDEX_THRESHOLD 8
+
+static CFHashCode key_hash(const struct cf_dict *d, const void *key) {
+    return d->keys.hash ? d->keys.hash(key) : (CFHashCode)(uintptr_t)key >> 3;
+}
+static size_t slot_for(CFHashCode h, size_t nslots) {
+    return (size_t)((h * 0x9E3779B97F4A7C15ULL) >> 32) & (nslots - 1);
+}
+static void index_rebuild(struct cf_dict *d, size_t nslots) {
+    free(d->slots);
+    d->slots = calloc(nslots, sizeof *d->slots);
+    d->nslots = d->slots ? nslots : 0;
+    d->nused = 0;
+    if (!d->slots) return;
+    for (CFIndex i = 0; i < d->count; i++) {
+        size_t s = slot_for(d->entries[i].hash, nslots);
+        while (d->slots[s]) s = (s + 1) & (nslots - 1);
+        d->slots[s] = (uint32_t)i + 1;
+        d->nused++;
+    }
+}
+/* Called after appending entry `i`. */
+static void index_add(struct cf_dict *d, CFIndex i) {
+    if (!d->slots) {
+        if (d->count > INDEX_THRESHOLD) index_rebuild(d, 64);
+        return;
+    }
+    if ((d->nused + 1) * 4 > d->nslots * 3) {
+        size_t n = d->nslots;
+        while ((size_t)d->count * 2 >= n) n *= 2;
+        index_rebuild(d, n);
+        return;
+    }
+    size_t s = slot_for(d->entries[i].hash, d->nslots);
+    while (d->slots[s] && d->slots[s] != SLOT_DEAD) s = (s + 1) & (d->nslots - 1);
+    if (!d->slots[s]) d->nused++;
+    d->slots[s] = (uint32_t)i + 1;
+}
+/* The slot currently holding entry number `i`. */
+static size_t index_slot_of(const struct cf_dict *d, CFIndex i) {
+    size_t s = slot_for(d->entries[i].hash, d->nslots);
+    while (d->slots[s] != (uint32_t)i + 1) s = (s + 1) & (d->nslots - 1);
+    return s;
+}
 
 static CFIndex dict_find(const struct cf_dict *d, const void *key) {
-    for (CFIndex i = 0; i < d->count; i++)
-        if (matches(&d->keys.value, d->entries[i].key, key)) return i;
+    if (!d->slots) {
+        for (CFIndex i = 0; i < d->count; i++)
+            if (matches(&d->keys.value, d->entries[i].key, key)) return i;
+        return -1;
+    }
+    CFHashCode h = key_hash(d, key);
+    size_t s = slot_for(h, d->nslots);
+    for (uint32_t v; (v = d->slots[s]); s = (s + 1) & (d->nslots - 1)) {
+        if (v == SLOT_DEAD) continue;
+        const struct cf_entry *e = &d->entries[v - 1];
+        if (e->hash == h && matches(&d->keys.value, e->key, key)) return (CFIndex)v - 1;
+    }
     return -1;
 }
 static void dict_drop(struct cf_dict *d, struct cf_entry entry) {
@@ -208,6 +269,7 @@ static void dict_destroy(void *object) {
     struct cf_dict *d = object;
     for (CFIndex i = 0; i < d->count; i++) dict_drop(d, d->entries[i]);
     free(d->entries);
+    free(d->slots);
 }
 static Boolean dict_equal(const void *left, const void *right) {
     const struct cf_dict *a = left, *b = right;
@@ -261,7 +323,8 @@ static Boolean dict_insert(struct cf_dict *d, CFIndex index, const void *key, co
             drop(&d->values, d->base.allocator, held_value);
             return 0;
         }
-        d->entries[d->count++] = (struct cf_entry){held_key, held_value};
+        d->entries[d->count++] = (struct cf_entry){held_key, held_value, key_hash(d, key)};
+        index_add(d, d->count - 1);
     }
     return 1;
 }
@@ -367,14 +430,25 @@ static void d_CFDictionaryRemoveValue(struct cf_dict *d, const void *key) {
     CFIndex i = dict_find(d, key);
     if (i < 0) return;
     struct cf_entry old = d->entries[i];
-    d->entries[i] = d->entries[--d->count];
+    CFIndex last = d->count - 1;
+    if (d->slots) {
+        /* retire the removed entry's slot, then renumber the entry that
+         * moves into its place */
+        d->slots[index_slot_of(d, i)] = SLOT_DEAD;
+        if (i != last) d->slots[index_slot_of(d, last)] = (uint32_t)i + 1;
+    }
+    d->entries[i] = d->entries[last];
+    d->count = last;
     dict_drop(d, old);
 }
 DX_FN(CFDictionaryRemoveValue);
 
 static void d_CFDictionaryRemoveAllValues(struct cf_dict *d) {
-    if (d && d->mutable)
-        while (d->count) dict_drop(d, d->entries[--d->count]);
+    if (!d || !d->mutable) return;
+    while (d->count) dict_drop(d, d->entries[--d->count]);
+    free(d->slots);
+    d->slots = NULL;
+    d->nslots = d->nused = 0;
 }
 DX_FN(CFDictionaryRemoveAllValues);
 
