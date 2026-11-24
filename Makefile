@@ -33,7 +33,8 @@ $(BUILD)/obj/%.o: src/%.S
 TEST_C    := $(wildcard tests/c/*.c)
 TEST_BINS := $(patsubst tests/c/%.c,$(BUILD)/tests/c/%,$(TEST_C))
 MACHO_CC  ?= clang
-MACHO_LD  ?= ld64.lld
+# Debian and Ubuntu keep ld64.lld in a versioned LLVM directory.
+MACHO_LD  ?= $(or $(shell command -v ld64.lld 2>/dev/null),$(lastword $(sort $(wildcard /usr/lib/llvm-*/bin/ld64.lld))),ld64.lld)
 
 $(BUILD)/tests/sdk/libSystem.tbd: $(BUILD)/mrun tools/gen-tbd.sh
 	@mkdir -p $(dir $@)
