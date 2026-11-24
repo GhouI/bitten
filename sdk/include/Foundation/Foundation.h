@@ -43,8 +43,9 @@ enum { NSCaseInsensitiveSearch = 1, NSLiteralSearch = 2, NSBackwardsSearch = 4 }
 #define NS_FORMAT_FUNCTION(F, A) __attribute__((format(__NSString__, F, A)))
 #define NS_REQUIRES_NIL_TERMINATION __attribute__((sentinel))
 
-@class NSString, NSMutableString, NSArray, NSMutableArray, NSDictionary, NSMutableDictionary, NSData,
-    NSNumber, NSError, NSEnumerator;
+@class NSString, NSMutableString, NSArray<ObjectType>, NSMutableArray<ObjectType>,
+    NSDictionary<KeyType, ObjectType>, NSMutableDictionary<KeyType, ObjectType>, NSData, NSNumber, NSError,
+    NSEnumerator<ObjectType>, NSCharacterSet, NSDate, NSURL, NSSet<ObjectType>, NSNotification;
 
 @protocol NSObject
 - (BOOL)isEqual:(id)object;
@@ -159,6 +160,19 @@ __attribute__((objc_root_class))
 @property (readonly, copy) NSString *stringByDeletingPathExtension;
 - (NSString *)stringByAppendingPathComponent:(NSString *)component;
 - (NSString *)stringByAppendingPathExtension:(NSString *)extension;
+@property (readonly, copy) NSArray<NSString *> *pathComponents;
+@property (readonly, getter=isAbsolutePath) BOOL absolutePath;
+@property (readonly, copy) NSString *stringByExpandingTildeInPath;
+@property (readonly, copy) NSString *stringByStandardizingPath;
+@property (readonly) const char *fileSystemRepresentation;
+@property (readonly, copy) NSString *capitalizedString;
+- (NSString *)stringByTrimmingCharactersInSet:(NSCharacterSet *)set;
+- (NSArray<NSString *> *)componentsSeparatedByCharactersInSet:(NSCharacterSet *)set;
+- (NSRange)rangeOfCharacterFromSet:(NSCharacterSet *)set;
+- (NSString *)stringByPaddingToLength:(NSUInteger)length withString:(NSString *)pad startingAtIndex:(NSUInteger)index;
++ (instancetype)stringWithContentsOfFile:(NSString *)path encoding:(NSStringEncoding)enc error:(NSError **)error;
+- (instancetype)initWithContentsOfFile:(NSString *)path encoding:(NSStringEncoding)enc error:(NSError **)error;
+- (BOOL)writeToFile:(NSString *)path atomically:(BOOL)atomically encoding:(NSStringEncoding)enc error:(NSError **)error;
 @end
 
 @interface NSMutableString : NSString
@@ -231,6 +245,9 @@ __attribute__((objc_root_class))
 - (void)enumerateObjectsUsingBlock:(void (^)(ObjectType obj, NSUInteger idx, BOOL *stop))block;
 - (NSArray<ObjectType> *)sortedArrayUsingComparator:(NSComparator)comparator;
 - (NSArray<ObjectType> *)sortedArrayUsingSelector:(SEL)comparator;
+- (NSEnumerator<ObjectType> *)objectEnumerator;
+- (NSEnumerator<ObjectType> *)reverseObjectEnumerator;
+- (NSUInteger)indexOfObjectPassingTest:(BOOL (^)(ObjectType obj, NSUInteger idx, BOOL *stop))predicate;
 @end
 
 @interface NSMutableArray<ObjectType> : NSArray<ObjectType>
@@ -262,6 +279,9 @@ __attribute__((objc_root_class))
 @property (readonly, copy) NSArray<ObjectType> *allValues;
 - (BOOL)isEqualToDictionary:(NSDictionary<KeyType, ObjectType> *)other;
 - (void)enumerateKeysAndObjectsUsingBlock:(void (^)(KeyType key, ObjectType obj, BOOL *stop))block;
+- (NSEnumerator<KeyType> *)keyEnumerator;
+- (NSEnumerator<ObjectType> *)objectEnumerator;
+- (NSArray<KeyType> *)allKeysForObject:(ObjectType)object;
 @end
 
 @interface NSMutableDictionary<KeyType, ObjectType> : NSDictionary<KeyType, ObjectType>
@@ -280,6 +300,314 @@ __attribute__((objc_root_class))
 
 @interface NSAutoreleasePool : NSObject
 - (void)drain;
+@end
+
+
+@interface NSEnumerator<ObjectType> : NSObject <NSFastEnumeration>
+- (ObjectType)nextObject;
+@property (readonly, copy) NSArray<ObjectType> *allObjects;
+@end
+
+@interface NSValue (Creation)
++ (NSValue *)valueWithBytes:(const void *)value objCType:(const char *)type;
++ (NSValue *)valueWithPointer:(const void *)pointer;
++ (NSValue *)valueWithNonretainedObject:(id)object;
++ (NSValue *)valueWithRange:(NSRange)range;
+- (void)getValue:(void *)value;
+@property (readonly) const char *objCType;
+@property (readonly) void *pointerValue;
+@property (readonly) id nonretainedObjectValue;
+@property (readonly) NSRange rangeValue;
+- (BOOL)isEqualToValue:(NSValue *)value;
+@end
+
+typedef NSUInteger NSDataBase64EncodingOptions;
+typedef NSUInteger NSDataBase64DecodingOptions;
+enum { NSDataBase64DecodingIgnoreUnknownCharacters = 1 };
+@interface NSData : NSObject <NSCopying, NSMutableCopying>
++ (instancetype)data;
++ (instancetype)dataWithBytes:(const void *)bytes length:(NSUInteger)length;
++ (instancetype)dataWithData:(NSData *)data;
++ (instancetype)dataWithContentsOfFile:(NSString *)path;
+- (instancetype)initWithBytes:(const void *)bytes length:(NSUInteger)length;
+- (instancetype)initWithData:(NSData *)data;
+- (instancetype)initWithContentsOfFile:(NSString *)path;
+- (instancetype)initWithBase64EncodedString:(NSString *)string options:(NSDataBase64DecodingOptions)options;
+@property (readonly) NSUInteger length;
+@property (readonly) const void *bytes;
+- (void)getBytes:(void *)buffer length:(NSUInteger)length;
+- (void)getBytes:(void *)buffer range:(NSRange)range;
+- (NSData *)subdataWithRange:(NSRange)range;
+- (BOOL)isEqualToData:(NSData *)other;
+- (BOOL)writeToFile:(NSString *)path atomically:(BOOL)atomically;
+- (NSString *)base64EncodedStringWithOptions:(NSDataBase64EncodingOptions)options;
+@end
+@interface NSMutableData : NSData
++ (instancetype)dataWithCapacity:(NSUInteger)capacity;
++ (instancetype)dataWithLength:(NSUInteger)length;
+- (instancetype)initWithCapacity:(NSUInteger)capacity;
+- (instancetype)initWithLength:(NSUInteger)length;
+@property (readonly) void *mutableBytes;
+@property NSUInteger length;
+- (void)appendBytes:(const void *)bytes length:(NSUInteger)length;
+- (void)appendData:(NSData *)other;
+- (void)increaseLengthBy:(NSUInteger)extra;
+- (void)replaceBytesInRange:(NSRange)range withBytes:(const void *)bytes;
+- (void)resetBytesInRange:(NSRange)range;
+- (void)setData:(NSData *)data;
+@end
+
+@interface NSDate : NSObject <NSCopying>
++ (instancetype)date;
++ (instancetype)dateWithTimeIntervalSinceNow:(NSTimeInterval)seconds;
++ (instancetype)dateWithTimeIntervalSince1970:(NSTimeInterval)seconds;
++ (instancetype)dateWithTimeIntervalSinceReferenceDate:(NSTimeInterval)seconds;
++ (NSDate *)distantFuture;
++ (NSDate *)distantPast;
++ (NSTimeInterval)timeIntervalSinceReferenceDate;
+- (instancetype)initWithTimeIntervalSinceReferenceDate:(NSTimeInterval)seconds;
+- (instancetype)initWithTimeIntervalSince1970:(NSTimeInterval)seconds;
+- (instancetype)initWithTimeIntervalSinceNow:(NSTimeInterval)seconds;
+@property (readonly) NSTimeInterval timeIntervalSinceReferenceDate;
+@property (readonly) NSTimeInterval timeIntervalSince1970;
+@property (readonly) NSTimeInterval timeIntervalSinceNow;
+- (NSTimeInterval)timeIntervalSinceDate:(NSDate *)other;
+- (instancetype)dateByAddingTimeInterval:(NSTimeInterval)seconds;
+- (NSComparisonResult)compare:(NSDate *)other;
+- (NSDate *)earlierDate:(NSDate *)other;
+- (NSDate *)laterDate:(NSDate *)other;
+- (BOOL)isEqualToDate:(NSDate *)other;
+@end
+#define NSTimeIntervalSince1970 978307200.0
+
+typedef NSString *NSErrorDomain;
+extern NSString *const NSCocoaErrorDomain, *const NSPOSIXErrorDomain, *const NSOSStatusErrorDomain;
+extern NSString *const NSLocalizedDescriptionKey, *const NSLocalizedFailureReasonErrorKey,
+    *const NSUnderlyingErrorKey, *const NSFilePathErrorKey;
+enum {
+    NSFileNoSuchFileError = 4, NSFileReadNoSuchFileError = 260, NSFileReadNoPermissionError = 257,
+    NSFileReadUnknownError = 256, NSFileReadInapplicableStringEncodingError = 261,
+    NSFileWriteUnknownError = 512, NSFileWriteNoPermissionError = 513, NSFileWriteFileExistsError = 516,
+    NSPropertyListReadCorruptError = 3840
+};
+@interface NSError : NSObject <NSCopying>
++ (instancetype)errorWithDomain:(NSErrorDomain)domain code:(NSInteger)code userInfo:(NSDictionary *)userInfo;
+- (instancetype)initWithDomain:(NSErrorDomain)domain code:(NSInteger)code userInfo:(NSDictionary *)userInfo;
+@property (readonly, copy) NSErrorDomain domain;
+@property (readonly) NSInteger code;
+@property (readonly, copy) NSDictionary *userInfo;
+@property (readonly, copy) NSString *localizedDescription;
+@property (readonly, copy) NSString *localizedFailureReason;
+@end
+
+@interface NSSet<__covariant ObjectType> : NSObject <NSCopying, NSMutableCopying, NSFastEnumeration>
++ (instancetype)set;
++ (instancetype)setWithObject:(ObjectType)object;
++ (instancetype)setWithObjects:(const ObjectType[])objects count:(NSUInteger)count;
++ (instancetype)setWithObjects:(ObjectType)first, ... NS_REQUIRES_NIL_TERMINATION;
++ (instancetype)setWithArray:(NSArray<ObjectType> *)array;
+- (instancetype)initWithObjects:(const ObjectType[])objects count:(NSUInteger)count;
+- (instancetype)initWithArray:(NSArray<ObjectType> *)array;
+- (instancetype)initWithSet:(NSSet<ObjectType> *)set;
+@property (readonly) NSUInteger count;
+- (BOOL)containsObject:(ObjectType)object;
+- (ObjectType)member:(ObjectType)object;
+@property (readonly, copy) NSArray<ObjectType> *allObjects;
+- (ObjectType)anyObject;
+- (BOOL)isEqualToSet:(NSSet<ObjectType> *)other;
+- (BOOL)isSubsetOfSet:(NSSet<ObjectType> *)other;
+- (BOOL)intersectsSet:(NSSet<ObjectType> *)other;
+- (void)enumerateObjectsUsingBlock:(void (^)(ObjectType obj, BOOL *stop))block;
+- (NSSet<ObjectType> *)setByAddingObject:(ObjectType)object;
+@end
+@interface NSMutableSet<ObjectType> : NSSet<ObjectType>
++ (instancetype)setWithCapacity:(NSUInteger)capacity;
+- (instancetype)initWithCapacity:(NSUInteger)capacity;
+- (void)addObject:(ObjectType)object;
+- (void)removeObject:(ObjectType)object;
+- (void)removeAllObjects;
+- (void)addObjectsFromArray:(NSArray<ObjectType> *)array;
+- (void)unionSet:(NSSet<ObjectType> *)other;
+- (void)minusSet:(NSSet<ObjectType> *)other;
+- (void)intersectSet:(NSSet<ObjectType> *)other;
+@end
+
+@interface NSCharacterSet : NSObject <NSCopying, NSMutableCopying>
+@property (class, readonly, copy) NSCharacterSet *whitespaceCharacterSet;
+@property (class, readonly, copy) NSCharacterSet *whitespaceAndNewlineCharacterSet;
+@property (class, readonly, copy) NSCharacterSet *newlineCharacterSet;
+@property (class, readonly, copy) NSCharacterSet *decimalDigitCharacterSet;
+@property (class, readonly, copy) NSCharacterSet *letterCharacterSet;
+@property (class, readonly, copy) NSCharacterSet *alphanumericCharacterSet;
+@property (class, readonly, copy) NSCharacterSet *uppercaseLetterCharacterSet;
+@property (class, readonly, copy) NSCharacterSet *lowercaseLetterCharacterSet;
+@property (class, readonly, copy) NSCharacterSet *punctuationCharacterSet;
+@property (class, readonly, copy) NSCharacterSet *controlCharacterSet;
++ (instancetype)characterSetWithCharactersInString:(NSString *)string;
++ (instancetype)characterSetWithRange:(NSRange)range;
+- (BOOL)characterIsMember:(unichar)character;
+@property (readonly, copy) NSCharacterSet *invertedSet;
+@end
+@interface NSMutableCharacterSet : NSCharacterSet
+- (void)addCharactersInString:(NSString *)string;
+- (void)addCharactersInRange:(NSRange)range;
+- (void)removeCharactersInString:(NSString *)string;
+- (void)removeCharactersInRange:(NSRange)range;
+- (void)formUnionWithCharacterSet:(NSCharacterSet *)other;
+- (void)invert;
+@end
+
+typedef NSString *NSExceptionName;
+extern NSExceptionName const NSGenericException, NSRangeException, NSInvalidArgumentException,
+    NSInternalInconsistencyException, NSMallocException;
+@interface NSException : NSObject <NSCopying>
++ (NSException *)exceptionWithName:(NSExceptionName)name reason:(NSString *)reason userInfo:(NSDictionary *)userInfo;
++ (void)raise:(NSExceptionName)name format:(NSString *)format, ... NS_FORMAT_FUNCTION(2, 3) __attribute__((noreturn));
+- (instancetype)initWithName:(NSExceptionName)name reason:(NSString *)reason userInfo:(NSDictionary *)userInfo;
+@property (readonly, copy) NSExceptionName name;
+@property (readonly, copy) NSString *reason;
+@property (readonly, copy) NSDictionary *userInfo;
+- (void)raise __attribute__((noreturn));
+@end
+
+typedef struct {
+    NSInteger majorVersion, minorVersion, patchVersion;
+} NSOperatingSystemVersion;
+@interface NSProcessInfo : NSObject
+@property (class, readonly, strong) NSProcessInfo *processInfo;
+@property (readonly, copy) NSArray<NSString *> *arguments;
+@property (readonly, copy) NSDictionary<NSString *, NSString *> *environment;
+@property (copy) NSString *processName;
+@property (readonly) int processIdentifier;
+@property (readonly, copy) NSString *hostName;
+@property (readonly, copy) NSString *operatingSystemVersionString;
+@property (readonly) NSOperatingSystemVersion operatingSystemVersion;
+@property (readonly) NSUInteger processorCount;
+@property (readonly) NSUInteger activeProcessorCount;
+@property (readonly) unsigned long long physicalMemory;
+@property (readonly) NSTimeInterval systemUptime;
+@property (readonly, copy) NSString *globallyUniqueString;
+@property (readonly, copy) NSString *userName;
+- (BOOL)isOperatingSystemAtLeastVersion:(NSOperatingSystemVersion)version;
+@end
+
+typedef NSString *NSFileAttributeKey;
+extern NSFileAttributeKey const NSFileSize, NSFileType, NSFileModificationDate, NSFileCreationDate,
+    NSFilePosixPermissions, NSFileOwnerAccountID, NSFileGroupOwnerAccountID;
+extern NSString *const NSFileTypeRegular, *const NSFileTypeDirectory, *const NSFileTypeSymbolicLink,
+    *const NSFileTypeUnknown;
+@interface NSFileManager : NSObject
+@property (class, readonly, strong) NSFileManager *defaultManager;
+@property (readonly, copy) NSString *currentDirectoryPath;
+- (BOOL)changeCurrentDirectoryPath:(NSString *)path;
+- (BOOL)fileExistsAtPath:(NSString *)path;
+- (BOOL)fileExistsAtPath:(NSString *)path isDirectory:(BOOL *)isDirectory;
+- (BOOL)isReadableFileAtPath:(NSString *)path;
+- (BOOL)isWritableFileAtPath:(NSString *)path;
+- (BOOL)isExecutableFileAtPath:(NSString *)path;
+- (NSArray<NSString *> *)contentsOfDirectoryAtPath:(NSString *)path error:(NSError **)error;
+- (NSArray<NSString *> *)subpathsOfDirectoryAtPath:(NSString *)path error:(NSError **)error;
+- (BOOL)createDirectoryAtPath:(NSString *)path withIntermediateDirectories:(BOOL)intermediates attributes:(NSDictionary *)attributes error:(NSError **)error;
+- (BOOL)createFileAtPath:(NSString *)path contents:(NSData *)data attributes:(NSDictionary *)attributes;
+- (NSData *)contentsAtPath:(NSString *)path;
+- (BOOL)removeItemAtPath:(NSString *)path error:(NSError **)error;
+- (BOOL)copyItemAtPath:(NSString *)source toPath:(NSString *)destination error:(NSError **)error;
+- (BOOL)moveItemAtPath:(NSString *)source toPath:(NSString *)destination error:(NSError **)error;
+- (BOOL)createSymbolicLinkAtPath:(NSString *)path withDestinationPath:(NSString *)destination error:(NSError **)error;
+- (NSString *)destinationOfSymbolicLinkAtPath:(NSString *)path error:(NSError **)error;
+- (NSDictionary<NSFileAttributeKey, id> *)attributesOfItemAtPath:(NSString *)path error:(NSError **)error;
+@property (readonly, copy) NSURL *temporaryDirectory;
+@end
+NSString *NSTemporaryDirectory(void);
+NSString *NSHomeDirectory(void);
+NSString *NSUserName(void);
+
+@interface NSURL : NSObject <NSCopying>
++ (instancetype)URLWithString:(NSString *)string;
++ (instancetype)fileURLWithPath:(NSString *)path;
++ (instancetype)fileURLWithPath:(NSString *)path isDirectory:(BOOL)isDirectory;
+- (instancetype)initWithString:(NSString *)string;
+- (instancetype)initFileURLWithPath:(NSString *)path;
+@property (readonly, copy) NSString *absoluteString;
+@property (readonly, copy) NSString *scheme;
+@property (readonly, copy) NSString *host;
+@property (readonly, copy) NSNumber *port;
+@property (readonly, copy) NSString *path;
+@property (readonly, copy) NSString *query;
+@property (readonly, copy) NSString *fragment;
+@property (readonly, copy) NSString *lastPathComponent;
+@property (readonly, copy) NSString *pathExtension;
+@property (readonly, getter=isFileURL) BOOL fileURL;
+- (NSURL *)URLByAppendingPathComponent:(NSString *)component;
+@property (readonly, copy) NSURL *URLByDeletingLastPathComponent;
+@end
+
+typedef NSUInteger NSJSONReadingOptions;
+typedef NSUInteger NSJSONWritingOptions;
+enum { NSJSONReadingMutableContainers = 1, NSJSONReadingMutableLeaves = 2, NSJSONReadingFragmentsAllowed = 4 };
+enum { NSJSONWritingPrettyPrinted = 1, NSJSONWritingSortedKeys = 2, NSJSONWritingFragmentsAllowed = 4,
+       NSJSONWritingWithoutEscapingSlashes = 8 };
+@interface NSJSONSerialization : NSObject
++ (BOOL)isValidJSONObject:(id)object;
++ (NSData *)dataWithJSONObject:(id)object options:(NSJSONWritingOptions)options error:(NSError **)error;
++ (id)JSONObjectWithData:(NSData *)data options:(NSJSONReadingOptions)options error:(NSError **)error;
+@end
+
+typedef NSString *NSNotificationName;
+@interface NSNotification : NSObject <NSCopying>
++ (instancetype)notificationWithName:(NSNotificationName)name object:(id)object userInfo:(NSDictionary *)userInfo;
+@property (readonly, copy) NSNotificationName name;
+@property (readonly, strong) id object;
+@property (readonly, copy) NSDictionary *userInfo;
+@end
+@interface NSNotificationCenter : NSObject
+@property (class, readonly, strong) NSNotificationCenter *defaultCenter;
+- (void)addObserver:(id)observer selector:(SEL)selector name:(NSNotificationName)name object:(id)object;
+- (id)addObserverForName:(NSNotificationName)name object:(id)object queue:(id)queue usingBlock:(void (^)(NSNotification *note))block;
+- (void)removeObserver:(id)observer;
+- (void)removeObserver:(id)observer name:(NSNotificationName)name object:(id)object;
+- (void)postNotification:(NSNotification *)notification;
+- (void)postNotificationName:(NSNotificationName)name object:(id)object;
+- (void)postNotificationName:(NSNotificationName)name object:(id)object userInfo:(NSDictionary *)userInfo;
+@end
+
+@protocol NSLocking
+- (void)lock;
+- (void)unlock;
+@end
+@interface NSLock : NSObject <NSLocking>
+- (BOOL)tryLock;
+@property (copy) NSString *name;
+@end
+@interface NSRecursiveLock : NSObject <NSLocking>
+- (BOOL)tryLock;
+@property (copy) NSString *name;
+@end
+@interface NSCondition : NSObject <NSLocking>
+- (void)wait;
+- (BOOL)waitUntilDate:(NSDate *)limit;
+- (void)signal;
+- (void)broadcast;
+@property (copy) NSString *name;
+@end
+
+@interface NSThread : NSObject
+@property (class, readonly, strong) NSThread *currentThread;
+@property (class, readonly, strong) NSThread *mainThread;
+@property (class, readonly) BOOL isMainThread;
++ (void)sleepForTimeInterval:(NSTimeInterval)seconds;
++ (void)sleepUntilDate:(NSDate *)date;
++ (void)detachNewThreadWithBlock:(void (^)(void))block;
++ (void)detachNewThreadSelector:(SEL)selector toTarget:(id)target withObject:(id)argument;
+@property (readonly, strong) NSMutableDictionary *threadDictionary;
+@property (copy) NSString *name;
+@property (readonly) BOOL isMainThread;
+@end
+
+@interface NSUUID : NSObject <NSCopying>
++ (instancetype)UUID;
+- (instancetype)initWithUUIDString:(NSString *)string;
+@property (readonly, copy) NSString *UUIDString;
 @end
 
 void NSLog(NSString *format, ...) NS_FORMAT_FUNCTION(1, 2);

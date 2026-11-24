@@ -150,6 +150,7 @@ void CFSetGetValues(CFSetRef, const void **);
 void CFSetAddValue(CFMutableSetRef, const void *);
 void CFSetRemoveValue(CFMutableSetRef, const void *);
 void CFSetRemoveAllValues(CFMutableSetRef);
+CFSetRef CFSetCreateCopy(CFAllocatorRef, CFSetRef) CF_RETURNS_RETAINED;
 
 CFTypeID CFDataGetTypeID(void);
 CFDataRef CFDataCreate(CFAllocatorRef, const uint8_t *, CFIndex) CF_RETURNS_RETAINED;
@@ -160,6 +161,9 @@ const uint8_t *CFDataGetBytePtr(CFDataRef);
 uint8_t *CFDataGetMutableBytePtr(CFMutableDataRef);
 void CFDataAppendBytes(CFMutableDataRef, const uint8_t *, CFIndex);
 void CFDataSetLength(CFMutableDataRef, CFIndex);
+void CFDataIncreaseLength(CFMutableDataRef, CFIndex);
+void CFDataReplaceBytes(CFMutableDataRef, CFRange, const uint8_t *, CFIndex);
+CFDataRef CFDataCreateCopy(CFAllocatorRef, CFDataRef) CF_RETURNS_RETAINED;
 
 CFTypeID CFNumberGetTypeID(void);
 CFTypeID CFBooleanGetTypeID(void);
@@ -180,4 +184,8 @@ CFStringRef CFErrorGetDomain(CFErrorRef);
 CFIndex CFErrorGetCode(CFErrorRef);
 CFDictionaryRef CFErrorCopyUserInfo(CFErrorRef) CF_RETURNS_RETAINED;
 CFStringRef CFErrorCopyDescription(CFErrorRef) CF_RETURNS_RETAINED;
+
+CFURLRef CFURLCreateWithString(CFAllocatorRef, CFStringRef, CFURLRef base) CF_RETURNS_RETAINED;
+CFURLRef CFURLCreateWithFileSystemPath(CFAllocatorRef, CFStringRef, CFIndex pathStyle, Boolean isDirectory) CF_RETURNS_RETAINED;
+CFStringRef CFURLGetString(CFURLRef);
 #endif

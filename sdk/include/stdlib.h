@@ -20,6 +20,7 @@ int atoi(const char *);
 void qsort(void *, size_t, size_t, int (*)(const void *, const void *));
 void qsort_r(void *, size_t, size_t, void *, int (*)(void *, const void *, const void *));
 unsigned int arc4random(void);
+void arc4random_buf(void *, size_t);
 unsigned int arc4random_uniform(unsigned int);
 char *realpath(const char *, char *);
 #endif

@@ -293,3 +293,38 @@ test did, after the merge.
   (`info`, `appcli version`, a command typed into a Mac app terminal). It is run
   before merging anything that touches the loader, paths or the image.
   Suite: 21/21, e2e ok.
+
+## 2026-11-24: Foundation, second slice; CFDictionary hash index (PR: foundation-2)
+
+From here on all work is done in one thread, at the owner's request (no
+delegated agents).
+
+- CoreFoundation: dictionaries and sets keep their compact entry array and
+  gain an open-addressing index once they pass eight entries. 20,000
+  inserts, lookups, removals and reinserts with string keys now take
+  milliseconds (`tests/c/cfdict.c`).
+- Foundation, written in Objective-C:
+  `NSData`/`NSMutableData` (files, Base64), `NSDate`, `NSError` and the
+  Cocoa/POSIX error constants, `NSSet`/`NSMutableSet`, `NSEnumerator`,
+  `NSValue`, `NSCharacterSet`/`NSMutableCharacterSet` with string trimming
+  and splitting, `NSException` (raising terminates with the macOS message),
+  `NSProcessInfo`, `NSUUID`, `NSFileManager` (existence, listing, recursive
+  create/copy/move/remove, attributes, symlinks), string file I/O and path
+  standardisation, `NSURL` (parsing, file URLs, path edits),
+  `NSJSONSerialization` (reader and writer), `NSNotificationCenter`,
+  `NSLock`/`NSRecursiveLock`/`NSCondition`, `NSThread`,
+  `NSHomeDirectory`/`NSTemporaryDirectory`/`NSUserName`.
+- SDK headers gained `sys/stat.h`, `dirent.h`, `fcntl.h`, `pthread.h`,
+  `pwd.h` with Darwin layouts.
+- `tests/foundation/more.m`: about 90 assertions across all of the above.
+  Suite: 23/23; container end-to-end check passes. The Mac app window imports
+  unimplemented: 5,327 -> 5,307.
+
+Bug found by the test: URL components were held in a struct of unretained
+pointers. With the autoreleased-return handshake working as on macOS, the
+substrings were released immediately instead of lingering in a pool, and the
+getters returned garbage. They are held strongly now.
+
+Approximations to know about: character-set membership outside Latin-1 is
+by block, not by the Unicode character database; case mapping covers ASCII
+and Latin-1; `NSDate` descriptions are always UTC.

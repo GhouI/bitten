@@ -22,7 +22,7 @@ whole class of other programs run. `mrun --check` on the Mac app window reports
 | 6 | CommonCrypto, zlib, iconv, libcompression | done for the common algorithms | hashing/crypto/compression users, many CLI tools |
 | 7 | C++ runtime (`libc++`, `libc++abi`) and Mach-O exception unwinding | not started | C++ programs, Objective-C exceptions |
 | 8 | CoreFoundation, complete: run loops, bundles, property lists, preferences, URLs, toll-free bridging | bridging done; the rest not started | Foundation |
-| 9 | **Foundation**: strings, collections, files, URLs, JSON, notifications, `NSRunLoop`, key-value coding and observing, `NSInvocation` | in progress: strings, numbers, arrays, dictionaries, formatting | Objective-C command-line tools |
+| 9 | **Foundation**: strings, collections, files, URLs, JSON, notifications, `NSRunLoop`, key-value coding and observing, `NSInvocation` | in progress: strings, collections, data, dates, files, URLs, JSON, notifications, locks, threads | Objective-C command-line tools |
 | 10 | X.509 and TLS trust evaluation, keychain | not started | outbound HTTPS from macOS programs |
 | 11 | Mach ports and messages, bootstrap, XPC, launchd services | not started | apps with helper services |
 | 12 | Swift runtime and standard library | not started | all Swift programs |
