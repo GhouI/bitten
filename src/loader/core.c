@@ -22,7 +22,7 @@ void dx_log(int level, const char *fmt, ...) {
     if (n < 0) return;
     if ((size_t)n > sizeof buf - 2) n = sizeof buf - 2;
     buf[n++] = '\n';
-    static const char prefix[] = "galapagos: ";
+    static const char prefix[] = "bitten: ";
     ssize_t r = write(2, prefix, sizeof prefix - 1);
     r = write(2, buf, n);
     (void)r;
@@ -37,7 +37,7 @@ void dx_fatal(const char *fmt, ...) {
     if (n < 0) n = 0;
     if ((size_t)n > sizeof buf - 2) n = sizeof buf - 2;
     buf[n++] = '\n';
-    static const char prefix[] = "galapagos: fatal: ";
+    static const char prefix[] = "bitten: fatal: ";
     ssize_t r = write(2, prefix, sizeof prefix - 1);
     r = write(2, buf, n);
     (void)r;
@@ -96,12 +96,12 @@ const char *dx_path(const char *path, char *buf, size_t buflen) {
     static const char *root;
     static int root_checked;
     if (!root_checked) {
-        root = getenv("GALAPAGOS_ROOT");
+        root = getenv("BITTEN_ROOT");
         if (root && !*root) root = NULL;
         root_checked = 1;
     }
     if (!root || path[0] != '/') return path;
-    /* Darwin system locations live under the galapagos root when they do not
+    /* Darwin system locations live under the bitten root when they do not
      * exist on the host. */
     static const char *const prefixes[] = {"/System/", "/Library/", "/Applications/", "/Users/",
                                            "/Volumes/", "/private/", "/usr/lib/swift/", NULL};
@@ -148,20 +148,20 @@ static void usage(void) {
           "Runs an x86-64 macOS (Mach-O) executable on Linux without a VM.\n"
           "\n"
           "  --check          load and bind only; print dependencies and every\n"
-          "                   import galapagos cannot satisfy, then exit\n"
-          "  --list-exports   print the Darwin symbols galapagos implements\n"
+          "                   import bitten cannot satisfy, then exit\n"
+          "  --list-exports   print the Darwin symbols bitten implements\n"
           "\n"
           "environment:\n"
-          "  GALAPAGOS_DEBUG=1|2  loader diagnostics\n"
-          "  GALAPAGOS_STUBS=zero unimplemented functions return 0 instead of aborting\n"
-          "  GALAPAGOS_ROOT=dir   directory holding Darwin-only paths (/System, ...)\n",
+          "  BITTEN_DEBUG=1|2  loader diagnostics\n"
+          "  BITTEN_STUBS=zero unimplemented functions return 0 instead of aborting\n"
+          "  BITTEN_ROOT=dir   directory holding Darwin-only paths (/System, ...)\n",
           stderr);
 }
 
 int main(int argc, char **argv, char **envp) {
-    const char *dbg = getenv("GALAPAGOS_DEBUG");
+    const char *dbg = getenv("BITTEN_DEBUG");
     if (dbg) dx_verbose = atoi(dbg);
-    const char *stubs = getenv("GALAPAGOS_STUBS");
+    const char *stubs = getenv("BITTEN_STUBS");
     if (stubs && !strcmp(stubs, "zero")) dx_stub_mode = 1;
 
     int check = 0, i = 1;
