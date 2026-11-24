@@ -248,8 +248,58 @@ static int d_setsockopt(int fd, int level, int name, const void *val, uint32_t l
 }
 DX_FN(setsockopt);
 
+/* SOL_LOCAL (level 0 on a unix socket): peer credentials. */
+struct d_xucred {
+    uint32_t cr_version;
+    uint32_t cr_uid;
+    short cr_ngroups;
+    uint32_t cr_groups[16];
+};
+
+static int local_getsockopt(int fd, int name, void *val, uint32_t *len) {
+    struct ucred uc;
+    socklen_t ul = sizeof uc;
+    if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &uc, &ul) < 0) return DX_RET(-1);
+    switch (name) {
+    case 0x001: { /* LOCAL_PEERCRED */
+        struct d_xucred x;
+        memset(&x, 0, sizeof x);
+        x.cr_uid = uc.uid;
+        x.cr_ngroups = 1;
+        x.cr_groups[0] = uc.gid;
+        if (!val || !len || *len < sizeof x) { dx_set_errno(22); return -1; }
+        memcpy(val, &x, sizeof x);
+        *len = sizeof x;
+        return 0;
+    }
+    case 0x002: /* LOCAL_PEERPID */
+    case 0x003: /* LOCAL_PEEREPID */
+        if (!val || !len || *len < 4) { dx_set_errno(22); return -1; }
+        *(int *)val = uc.pid;
+        *len = 4;
+        return 0;
+    case 0x006: { /* LOCAL_PEERTOKEN: audit token {auid, euid, egid, ruid, rgid, pid, asid, pidversion} */
+        uint32_t tok[8] = {uc.uid, uc.uid, uc.gid, uc.uid, uc.gid, (uint32_t)uc.pid, 0, 0};
+        if (!val || !len || *len < sizeof tok) { dx_set_errno(22); return -1; }
+        memcpy(val, tok, sizeof tok);
+        *len = sizeof tok;
+        return 0;
+    }
+    }
+    dx_log(1, "getsockopt: unsupported SOL_LOCAL option 0x%x", name);
+    dx_set_errno(42);
+    return -1;
+}
+
+static int is_unix_socket(int fd) {
+    int dom = 0;
+    socklen_t dl = sizeof dom;
+    return getsockopt(fd, SOL_SOCKET, SO_DOMAIN, &dom, &dl) == 0 && dom == AF_UNIX;
+}
+
 static int d_getsockopt(int fd, int level, int name, void *val, uint32_t *len) {
     int hl, hn;
+    if (level == 0 && is_unix_socket(fd)) return local_getsockopt(fd, name, val, len);
     int r = sockopt_to_host(level, name, &hl, &hn);
     if (r == 1) {
         if (val && len && *len >= 4) { *(int *)val = 0; *len = 4; }
