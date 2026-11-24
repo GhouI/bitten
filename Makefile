@@ -42,7 +42,7 @@ $(BUILD)/tests/sdk/libSystem.tbd: $(BUILD)/mrun tools/gen-tbd.sh
 
 $(BUILD)/tests/c/%: tests/c/%.c $(BUILD)/tests/sdk/libSystem.tbd tests/include/darwin.h
 	@mkdir -p $(dir $@)
-	$(MACHO_CC) -target x86_64-apple-macos11 -O1 -ffreestanding -fno-builtin -nostdinc \
+	$(MACHO_CC) -target x86_64-apple-macos11 -O1 -ffreestanding -fno-builtin -fblocks -nostdinc \
 	    -Itests/include -fno-stack-protector -c -o $@.o $<
 	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -e _main \
 	    -L$(BUILD)/tests/sdk -lSystem -o $@ $@.o
