@@ -95,3 +95,29 @@ unmodified universal Mach-O Go binary with cgo and an embedded SQLite).
 Dead ends: first read the pty failure as a missing `TIOCPTYGNAME` ioctl
 (the libSystem path was fine; the binary never called it), then as a missing
 working directory. `strace` showing `syscall_0x2000036` settled it.
+
+## 2026-11-24: CoreFoundation, Security, libproc, resolver (PR: frameworks)
+
+- `src/frameworks/corefoundation`: reference-counted object model with
+  strings (UTF-8 inside, UTF-16 lengths outside), data, arrays, dictionaries,
+  sets, numbers, booleans, dates, errors, locales, UUIDs and basic URLs.
+- `src/frameworks/security`: certificate, policy and trust objects. Trust
+  evaluation is **not implemented** and says so: `SecTrustEvaluateWithError`
+  returns false with `errSecNotTrusted` unless `BITTEN_INSECURE_TRUST=1`.
+  Keychain queries report "item not found".
+- `src/libsystem/libproc.c`: `proc_listpids`, `proc_pidinfo` (BSD info, task
+  info, cwd, descriptors), `proc_pidpath`, `proc_pidfdinfo`,
+  `proc_regionfilename`, and the `KERN_PROC` / `KERN_PROCARGS2` sysctls, all
+  read from `/proc`, with Darwin structure sizes asserted at compile time.
+- `src/libsystem/resolv.c`: `res_9_*` over glibc's resolver, keeping the host
+  state behind the caller's Darwin-sized buffer.
+- `src/frameworks/objc`: placeholder. `objc_msgSend` reports that there is no
+  Objective-C runtime; selectors are interned strings.
+- With these, every one of the 291 imports of the Mac app helper is implemented,
+  and the end-to-end flow works: `appcli server start`, `appcli new`, a shell in a
+  The Mac app terminal, `appcli send`, `appcli capture` printing the shell's output.
+- Tests `cf` and `libproc`. Suite: 11/11 in a clean Debian container
+  (`docker build --target test .`), which also caught two portability bugs
+  (a missing `<linux/sockios.h>` and the versioned path of `ld64.lld`).
+- This batch was written by a delegated Codex agent to a written spec and
+  reviewed, built and run against the real target before merging.
