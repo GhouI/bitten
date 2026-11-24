@@ -135,6 +135,9 @@ make check-dmgx   # disk-image reader
 docker build --target test .   # everything, in a clean container
 ```
 
+With a Rex.dmg of your own, `REX_DMG=/path/Rex.dmg tests/e2e/rex.sh` checks
+the whole path in a container, down to a command typed into a Rex terminal.
+
 A GitHub Actions workflow that runs the last command is in
 `ci/github-actions.yml`; copy it to `.github/workflows/ci.yml` to switch it
 on.
