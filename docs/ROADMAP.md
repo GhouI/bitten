@@ -19,7 +19,7 @@ whole class of other programs run. `mrun --check` on the Rex window reports
 | 3 | Blocks runtime | done | any code using `^{ }` closures |
 | 4 | Objective-C runtime (`libobjc`): classes, messaging, categories, protocols, ARC entry points, associated objects, `NSObject` | done, except exceptions and `NSInvocation` forwarding | every Objective-C and Swift/Cocoa program |
 | 5 | **libdispatch** (GCD): queues, groups, semaphores, sources, `dispatch_once` | in progress | nearly all modern macOS code |
-| 6 | **CommonCrypto, zlib, iconv, libcompression** | in progress | hashing/crypto/compression users, many CLI tools |
+| 6 | CommonCrypto, zlib, iconv, libcompression | done for the common algorithms | hashing/crypto/compression users, many CLI tools |
 | 7 | C++ runtime (`libc++`, `libc++abi`) and Mach-O exception unwinding | not started | C++ programs, Objective-C exceptions |
 | 8 | CoreFoundation, complete: run loops, bundles, property lists, preferences, URLs, toll-free bridging | bridging done; the rest not started | Foundation |
 | 9 | **Foundation**: strings, collections, files, URLs, JSON, notifications, `NSRunLoop`, key-value coding and observing, `NSInvocation` | in progress: strings, numbers, arrays, dictionaries, formatting | Objective-C command-line tools |

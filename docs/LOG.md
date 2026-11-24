@@ -223,3 +223,28 @@ constant strings skipped a one-line function (`CFStringGetLength`), so
 non-ASCII literals reported length 0; caught by the test. Also noted for
 later: CFDictionary is a linear list, which is correct but slow for large
 tables.
+
+## 2026-11-24: CommonCrypto, zlib, libcompression, iconv (PR: crypto-zlib)
+
+Written by a delegated Codex agent from the public specifications (FIPS
+180-4, 197, 198-1; RFC 1321, 1950-1952, 2898; SP 800-38A/D), reviewed and
+re-run here. No host libz or libcrypto is linked.
+
+- CommonCrypto: MD5, SHA-1/224/256/384/512 (one-shot and streaming with
+  Apple's context sizes), HMAC, AES-128/192/256 in ECB/CBC/CTR/GCM with
+  PKCS7, PBKDF2, `CCRandomGenerateBytes`, `SecRandomCopyBytes`.
+- zlib: our own inflate (stored, fixed, dynamic Huffman; zlib, gzip and raw
+  wrappers; streaming) and deflate (stored and fixed-Huffman blocks with
+  LZ77), checksums, `compress`/`uncompress`, the `gz*` file API.
+- libcompression: raw DEFLATE, LZ4 and LZ4_RAW through the buffer API,
+  streaming for DEFLATE.
+- iconv forwarded to the C library with macOS encoding names mapped.
+- Tests `crypto`, `zlib`, `iconv` use published vectors. The delegate also
+  checked 12 emitted streams and 120 random cases against reference zlib and
+  LZ4 outside the suite. Suite: 17/17.
+
+Limits: deflate never emits dynamic-Huffman blocks, so output is larger than
+real zlib's (it is valid and interoperable). AES uses table lookups and is
+not constant-time. DES/3DES/RC4/Blowfish, MD2/MD4, LZFSE and LZMA in
+libcompression are not implemented and say so through their documented
+failure values.
