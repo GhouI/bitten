@@ -8,7 +8,7 @@ the order below is dictated by dependencies.
 **Yardstick:** App.dmg. A milestone counts when it moves a measured number
 for the Mac app (imports implemented, initialisers run, first window) or makes a
 whole class of other programs run. `mrun --check` on the Mac app window reports
-311 of 5,688 imports implemented at the start of this roadmap.
+311 of 5,688 imports implemented at the start of this roadmap and 361 after layers 3 to 6.
 
 ## Layers, bottom up
 
@@ -18,7 +18,7 @@ whole class of other programs run. `mrun --check` on the Mac app window reports
 | 2 | CoreFoundation basics, libproc, resolver | done (subset) | the Mac app server and CLI |
 | 3 | Blocks runtime | done | any code using `^{ }` closures |
 | 4 | Objective-C runtime (`libobjc`): classes, messaging, categories, protocols, ARC entry points, associated objects, `NSObject` | done, except exceptions and `NSInvocation` forwarding | every Objective-C and Swift/Cocoa program |
-| 5 | **libdispatch** (GCD): queues, groups, semaphores, sources, `dispatch_once` | in progress | nearly all modern macOS code |
+| 5 | libdispatch (GCD): queues, groups, semaphores, sources, `dispatch_once` | done, except `dispatch_io` | nearly all modern macOS code |
 | 6 | CommonCrypto, zlib, iconv, libcompression | done for the common algorithms | hashing/crypto/compression users, many CLI tools |
 | 7 | C++ runtime (`libc++`, `libc++abi`) and Mach-O exception unwinding | not started | C++ programs, Objective-C exceptions |
 | 8 | CoreFoundation, complete: run loops, bundles, property lists, preferences, URLs, toll-free bridging | bridging done; the rest not started | Foundation |

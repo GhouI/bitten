@@ -70,6 +70,10 @@ of the text rather than at its true position.
 
 ## `the Mac app`: does not run
 
+*The table below was measured before the Objective-C runtime, libdispatch,
+bridging and Foundation existed. The current total is in
+[ROADMAP.md](ROADMAP.md) and the log; the shape of the problem is unchanged.*
+
 `mrun --check` maps the 73 MB image, loads the two bundled Mach-O libraries
 (Sparkle and `libswiftCompatibilitySpan`), applies chained fixups, and
 reports what it could not bind:

@@ -248,3 +248,30 @@ real zlib's (it is valid and interoperable). AES uses table lookups and is
 not constant-time. DES/3DES/RC4/Blowfish, MD2/MD4, LZFSE and LZMA in
 libcompression are not implemented and say so through their documented
 failure values.
+
+## 2026-11-24: libdispatch (PR: libdispatch)
+
+Grand Central Dispatch, written by a delegated Codex agent from the public
+API documentation and the Blocks ABI, reviewed and stress-run here.
+
+- Queues: serial, concurrent, global and main; `dispatch_async/sync`,
+  barriers, `dispatch_apply`, `dispatch_after`, `dispatch_once`, target
+  queues, suspend/resume, queue-specific data, `dispatch_block_*`,
+  `dispatch_main`. A worker pool that grows on demand; workers are created
+  through the Darwin pthread layer so app code running on them has its
+  `%gs` thread block.
+- Groups, semaphores, sources (timer, read, write, signal, process exit,
+  data add/or, best-effort vnode) driven by one epoll manager thread,
+  `dispatch_data`, `dispatch_read`/`dispatch_write`.
+- Dispatch objects are Objective-C objects through `dx_os_object_class`, so
+  ARC code can hold them in strong variables and ivars.
+- Hooks for the future run loop: an eventfd that is readable while the main
+  queue has work, and a drain function.
+- Tests: `tests/c/dispatch.c`, `tests/c/dispatch_sources.c` (30 consecutive
+  passes by the author, 15 more here) and `tests/objc/dispatch_arc.m`
+  (queues in ARC ivars, 1,064 captured objects released exactly once).
+  Suite: 20/20. The Mac app window imports unimplemented: 5,327.
+
+Limits: `dispatch_io_*` is absent; QoS is recorded but does not change
+scheduling; timer leeway is ignored; a signal source observes a signal only
+until the program installs its own handler for it afterwards.
