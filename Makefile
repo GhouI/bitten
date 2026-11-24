@@ -11,7 +11,7 @@ LDFLAGS += -pie -rdynamic -pthread
 BUILD   ?= build
 # EXCLUDE=path/to/file.c leaves a source out (useful while one is in flux).
 SRCS := $(filter-out $(EXCLUDE),$(wildcard src/loader/*.c src/libsystem/*.c src/frameworks/*/*.c))
-ASMS := $(wildcard src/loader/*.S)
+ASMS := $(wildcard src/loader/*.S src/frameworks/*/*.S)
 OBJS := $(patsubst src/%.c,$(BUILD)/obj/%.o,$(SRCS)) $(patsubst src/%.S,$(BUILD)/obj/%.o,$(ASMS))
 
 all: $(BUILD)/mrun
@@ -30,7 +30,7 @@ $(BUILD)/obj/%.o: src/%.S
 # ---- tests ---------------------------------------------------------------
 # C tests are compiled to real Mach-O with clang + ld64.lld against a stub
 # libSystem generated from the symbols bitten implements. No Apple SDK.
-TEST_C    := $(wildcard tests/c/*.c)
+TEST_C    := $(filter-out $(EXCLUDE),$(wildcard tests/c/*.c))
 TEST_BINS := $(patsubst tests/c/%.c,$(BUILD)/tests/c/%,$(TEST_C))
 MACHO_CC  ?= clang
 # Debian and Ubuntu keep ld64.lld in a versioned LLVM directory.
@@ -42,8 +42,19 @@ $(BUILD)/tests/sdk/libSystem.tbd: $(BUILD)/mrun tools/gen-tbd.sh
 
 $(BUILD)/tests/c/%: tests/c/%.c $(BUILD)/tests/sdk/libSystem.tbd tests/include/darwin.h
 	@mkdir -p $(dir $@)
-	$(MACHO_CC) -target x86_64-apple-macos11 -O1 -ffreestanding -fno-builtin -nostdinc \
+	$(MACHO_CC) -target x86_64-apple-macos11 -O1 -ffreestanding -fno-builtin -fblocks -nostdinc \
 	    -Itests/include -fno-stack-protector -c -o $@.o $<
+	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -e _main \
+	    -L$(BUILD)/tests/sdk -lSystem -o $@ $@.o
+
+# Objective-C tests (ARC, blocks), against tests/include/objc.h.
+TEST_OBJC     := $(wildcard tests/objc/*.m)
+TEST_OBJCBINS := $(patsubst tests/objc/%.m,$(BUILD)/tests/objc/%,$(TEST_OBJC))
+$(BUILD)/tests/objc/%: tests/objc/%.m $(BUILD)/tests/sdk/libSystem.tbd tests/include/objc.h tests/include/darwin.h
+	@mkdir -p $(dir $@)
+	$(MACHO_CC) -target x86_64-apple-macos11 -x objective-c -fobjc-arc -fblocks -O1 -ffreestanding \
+	    -fno-builtin -nostdinc -Itests/include -fno-stack-protector -Wno-objc-root-class \
+	    -Wno-unused-parameter -c -o $@.o $<
 	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -e _main \
 	    -L$(BUILD)/tests/sdk -lSystem -o $@ $@.o
 
@@ -58,9 +69,9 @@ $(BUILD)/tests/go/%: tests/go/%/main.go tests/go/go.mod
 	cd tests/go && GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 GOFLAGS=-buildvcs=false \
 	    $(GO) build -o $(abspath $@) ./$*
 
-test-bins: $(TEST_BINS) $(TEST_GOBINS)
+test-bins: $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_GOBINS)
 
-check: $(BUILD)/mrun $(TEST_BINS) $(TEST_GOBINS)
+check: $(BUILD)/mrun $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_GOBINS)
 	BUILD=$(BUILD) tests/run.sh
 
 check-dmgx:

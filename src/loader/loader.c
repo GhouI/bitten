@@ -626,6 +626,30 @@ static void each_section(struct dx_image *img, section_cb cb, void *ctx) {
     }
 }
 
+/* Find a section by name in the image's data segments (__DATA,
+ * __DATA_CONST, __DATA_DIRTY). Returns its mapped address. */
+struct section_query {
+    const char *name;
+    void *addr;
+    size_t size;
+};
+static void section_query_cb(struct dx_image *img, struct section_64 *s, void *ctx) {
+    struct section_query *q = ctx;
+    if (q->addr || strncmp(s->segname, "__DATA", 6) || strncmp(s->sectname, q->name, 16)) return;
+    q->addr = (void *)(s->addr + img->slide);
+    q->size = s->size;
+}
+void *dx_image_section(const struct dx_image *img, const char *sect, size_t *size) {
+    struct section_query q = {sect, NULL, 0};
+    each_section((struct dx_image *)img, section_query_cb, &q);
+    if (size) *size = q.size;
+    return q.addr;
+}
+
+/* Objective-C runtime hooks (src/frameworks/objc). */
+void dx_objc_image_fixups(const struct dx_image *img) __attribute__((weak));
+void dx_objc_images_ready(void) __attribute__((weak));
+
 static void tlv_scan_cb(struct dx_image *img, struct section_64 *s, void *ctx) {
     (void)ctx;
     uint32_t type = s->flags & SECTION_TYPE;
@@ -1017,6 +1041,7 @@ static void bind_image(struct dx_image *img) {
     }
     each_section(img, tlv_scan_cb, NULL);
     each_section(img, tlv_desc_cb, NULL);
+    if (dx_objc_image_fixups) dx_objc_image_fixups(img);
     for (int i = 0; i < img->nsegs; i++) {
         struct seg *s = &img->segs[i];
         if (!strcmp(s->name, "__PAGEZERO") || !s->vmsize) continue;
@@ -1033,6 +1058,8 @@ struct dx_image *dx_load_image(const char *path, int flags) {
     struct dx_image *img = map_image(path, is_main);
     if (!img) return NULL;
     for (int i = 0; i < nimages; i++) bind_image(images[i]);
+    /* +load methods run before any C/C++ initialiser of the new images */
+    if (dx_objc_images_ready) dx_objc_images_ready();
     return img;
 }
 
