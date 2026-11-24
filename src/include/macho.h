@@ -1,7 +1,7 @@
 /* Mach-O on-disk format definitions, written from the public format
  * documentation. Only what the loader needs. */
-#ifndef SCION_MACHO_H
-#define SCION_MACHO_H
+#ifndef GALAPAGOS_MACHO_H
+#define GALAPAGOS_MACHO_H
 #include <stdint.h>
 
 #define MH_MAGIC_64 0xfeedfacfu

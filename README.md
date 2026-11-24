@@ -1,8 +1,8 @@
-# scion
+# galapagos
 
 Run macOS apps from a `.dmg` inside an ordinary Docker container on Linux.
 No virtual machine, no macOS install, no third-party compatibility layer:
-scion is its own Mach-O loader and Darwin compatibility layer, written from
+galapagos is its own Mach-O loader and Darwin compatibility layer, written from
 scratch.
 
 **Status: early.** See [docs/LOG.md](docs/LOG.md) for what works today.

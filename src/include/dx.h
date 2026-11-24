@@ -1,6 +1,6 @@
-/* scion core interfaces shared by the loader and the Darwin-ABI shims. */
-#ifndef SCION_DX_H
-#define SCION_DX_H
+/* galapagos core interfaces shared by the loader and the Darwin-ABI shims. */
+#ifndef GALAPAGOS_DX_H
+#define GALAPAGOS_DX_H
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -27,7 +27,7 @@ void *dx_registry_lookup(const char *name);
 void dx_registry_each(void (*cb)(const char *name, void *addr, void *ctx), void *ctx);
 
 /* ---- logging ---------------------------------------------------------- */
-extern int dx_verbose; /* SCION_DEBUG=1..3 */
+extern int dx_verbose; /* GALAPAGOS_DEBUG=1..3 */
 void dx_log(int level, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 void dx_fatal(const char *fmt, ...) __attribute__((noreturn, format(printf, 1, 2)));
 #define DX_TRACE(...) do { if (dx_verbose >= 2) dx_log(2, __VA_ARGS__); } while (0)

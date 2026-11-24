@@ -104,7 +104,7 @@ static uint64_t unimplemented_called(const char *name) {
         return 0;
     }
     dx_fatal("unimplemented Darwin symbol called: %s\n"
-             "  (set SCION_STUBS=zero to return 0 instead of aborting)",
+             "  (set GALAPAGOS_STUBS=zero to return 0 instead of aborting)",
              name);
 }
 
