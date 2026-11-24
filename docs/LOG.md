@@ -161,3 +161,36 @@ Security 33, resolver 10, libproc 9, Objective-C 8). It disclosed reading
 Apple's open-source libproc wrapper for return-value conventions, so the
 README's licensing section now lists the open-source references that were
 consulted instead of claiming documentation alone.
+
+## 2026-11-24: Objective-C runtime and Blocks (PR: objc-runtime)
+
+Direction from the owner: keep building every missing library in-house, with
+The Mac app as the yardstick, for developers who want Mac containers in Docker.
+`docs/ROADMAP.md` lays out the layers.
+
+- `src/frameworks/objc/runtime.c`: selectors, lazy class realisation from
+  compiler metadata (big and relative method lists, non-fragile ivar
+  sliding), categories, protocols, `+load` and `+initialize`, method caches,
+  dynamic resolution, forwarding targets, class pairs created at run time,
+  and about 90 functions of the public runtime API.
+- `msgsend.S`: `objc_msgSend`, `_stret`, `_fpret`, `_fp2ret`, `Super`,
+  `Super2` and their struct-return forms, `method_invoke`.
+- `arc.c`: side-table reference counts, weak references, associated objects,
+  autorelease pools, property helpers, `@synchronized`, the ARC entry
+  points, and `NSObject`.
+- `blocks.c`: the Blocks runtime.
+- Loader: `dx_image_section`, and hooks that give the runtime each image
+  after fixups and run `+load` before initialisers.
+- Tests: `tests/objc/runtime.m` (one program exercising all of the above
+  under ARC) and `tests/objc/threads.m` (8 threads hammering dispatch,
+  retain/release and weak loads while caches grow). Suite: 13/13.
+- The Mac app window imports still unimplemented: 5,377 -> 5,352.
+
+Found while testing: without the autoreleased-return handshake an object
+returned from a weak property getter stays in the enclosing pool, which
+changes when `dealloc` runs compared with macOS. The handshake is now
+implemented by recognising the caller's instructions, as the real runtime
+does on x86-64.
+
+Not done: Objective-C exceptions (`objc_exception_throw` aborts with the
+class name), `NSInvocation`-based forwarding, tagged pointers.

@@ -98,6 +98,37 @@ Paths are not rewritten. The container simply provides the directories macOS
 programs expect (`/Applications`, `/Users`, `/private/tmp`), and a
 macOS-compatible `/usr/bin/login`.
 
+## Objective-C and Blocks (`src/frameworks/objc`)
+
+The Objective-C runtime is the gateway to every Cocoa and Swift program, so
+it is implemented in full rather than stubbed:
+
+- **Image registration.** After an image's fixups, the loader hands its
+  `__objc_*` sections to the runtime: selector references are uniqued,
+  protocols canonicalised, classes entered in the name table, categories
+  queued. Classes are *realised* lazily on first use: a runtime record is
+  attached, method lists are converted (including the relative "small"
+  format), instance-variable offsets are slid when a superclass grew, and
+  pending categories are attached. `+load` runs before C initialisers.
+- **Dispatch.** `objc_msgSend` and its struct-return, floating-point and
+  `super` variants are assembly (`msgsend.S`). The fast path probes a
+  per-class cache without touching any argument register; the slow path
+  saves them, asks the C runtime (which realises, runs `+initialize`,
+  resolves dynamic methods, or follows a forwarding target) and jumps.
+  Caches are replaced, never resized in place, so readers need no lock.
+- **Lifetime.** Reference counts live in sharded side tables; weak
+  references, associated objects, autorelease pools, `@synchronized` and the
+  compiler's ARC entry points are all present, including the
+  autoreleased-return handshake that keeps returned objects out of pools.
+- **`NSObject`** lives here, as on macOS, along with the block classes and
+  the `OS_object` base used by dispatch objects.
+- **Blocks** (`blocks.c`): `_Block_copy`, `_Block_release`, `__block`
+  variables and the copy/dispose helper protocol.
+
+Not here yet: exceptions (needs an unwinder for Mach-O unwind tables),
+full message forwarding through `NSInvocation`, and tagged pointers (never
+created by this runtime, rejected if seen).
+
 ## Raw system calls (`src/loader/rawsys.c`)
 
 Some macOS code skips libSystem and executes `syscall` with a Darwin number
@@ -126,6 +157,6 @@ mounted image and to find the app bundle and its executables. See
 - **The Mach kernel.** Mach ports, messages and bootstrap services are not
   modelled. Programs that need XPC or launchd services will stop at the
   first such call.
-- **Objective-C and Swift runtimes, and the GUI frameworks.** These are the
-  bulk of what graphical apps need; see [TARGET-APP.md](TARGET-APP.md) for a measured
-  example.
+- **Foundation, the Swift runtime and the GUI frameworks.** These are the
+  bulk of what graphical apps need; see [ROADMAP.md](ROADMAP.md) for the
+  order they will be built in and [TARGET-APP.md](TARGET-APP.md) for a measured example.

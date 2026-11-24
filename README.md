@@ -24,7 +24,9 @@ in this repository or in the image.
 | Programs that execute raw `syscall` instructions | Runs for the BSD calls listed in `src/loader/rawsys.c` |
 | Programs needing CoreFoundation basics, libproc, the resolver | Runs for the implemented subset |
 | TLS certificate checks through Security.framework | Not implemented: verification reports "not trusted" rather than pretend |
-| Objective-C programs | Not yet: there is no Objective-C runtime |
+| Objective-C code without Foundation (runtime, ARC, blocks) | Runs: messaging, categories, protocols, weak references, dynamic classes |
+| Objective-C programs using Foundation | Not yet: `NSString`, collections and the rest of Foundation are not built |
+| Objective-C or C++ exceptions | Not yet: no unwinder for Mach-O unwind tables |
 | Swift programs | Not yet: there is no Swift runtime |
 | AppKit / SwiftUI / Metal apps (windows) | Not yet |
 | arm64-only binaries | No: x86-64 slices only (universal binaries are fine) |
@@ -108,13 +110,14 @@ which symbol.
 ```
 src/loader/      Mach-O loader, export registry, raw-syscall dispatch, entry point
 src/libsystem/   libSystem: files, processes, threads, signals, sockets, kqueue, ttys, sysctl
-src/frameworks/  CoreFoundation, Security and Objective-C surface
+src/frameworks/  Objective-C and Blocks runtimes, CoreFoundation, Security
 src/include/     shared headers (Mach-O format, Darwin ABI layouts)
 tools/dmgx       .dmg extractor (UDIF, GPT/APM, HFS+), standard-library Python
 docker/          container entrypoint and macOS-style login
 ci/              GitHub Actions workflow, not yet enabled
 examples/mac-terminal/    Compose file and terminal viewer for the Mac app
 tests/c/         C tests, compiled to real Mach-O with clang + ld64.lld
+tests/objc/      Objective-C tests (ARC, blocks), same toolchain
 tests/go/        Go tests, cross-compiled for darwin/amd64
 docs/            architecture, the Mac app analysis, decisions, work log
 ```
@@ -148,6 +151,7 @@ linker.
 ## Documentation
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): design of the loader and the layer
+- [docs/ROADMAP.md](docs/ROADMAP.md): the layers still to build, in order
 - [docs/TARGET-APP.md](docs/TARGET-APP.md): what the Mac app imports, what is covered, what remains
 - [docs/DECISIONS.md](docs/DECISIONS.md): choices made, and approaches that were dropped
 - [docs/DMG-FORMAT.md](docs/DMG-FORMAT.md): disk-image support
