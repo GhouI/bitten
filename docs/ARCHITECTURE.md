@@ -129,6 +129,34 @@ Not here yet: exceptions (needs an unwinder for Mach-O unwind tables),
 full message forwarding through `NSInvocation`, and tagged pointers (never
 created by this runtime, rejected if seen).
 
+## Frameworks as Mach-O (`frameworks/`, `sdk/`)
+
+Everything up to CoreFoundation is C compiled into `mrun`. Frameworks above
+that line are Objective-C and are far more natural to write in Objective-C,
+so they are: `frameworks/Foundation/*.m` is compiled by clang for the macOS
+target and linked by `ld64.lld` into a real Mach-O library with the install
+name `/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation`.
+`mrun` finds it under its framework root (`BITTEN_ROOT`, or `root/` beside
+the binary, or `/usr/local/lib/bitten/root`) and loads it with the same
+loader as the application. Symbols a program expects from a framework but
+that bitten implements in C still resolve through the registry.
+
+**Toll-free bridging** ties the two halves together. Every CoreFoundation
+object begins with an isa pointer to a class created inside `mrun`
+(`__NSCFString`, `__NSCFArray`, ...), each inheriting from the public
+abstract class (`NSString`, `NSArray`, ...), which `mrun` also creates and
+exports. Foundation then adds the Objective-C methods as *categories* on
+those classes, implemented by calling CoreFoundation. Compiler-emitted
+constant strings (`@"..."`, `CFSTR`) carry the class
+`__CFConstantStringClassReference` and are mapped to a CF string on first
+use. CF's own functions accept foreign Objective-C objects too, so a
+`CFArray` can hold any `NSObject`.
+
+`sdk/include` holds bitten's own headers for all of this (a small C library
+subset, `objc/runtime.h`, CoreFoundation, Foundation). They are what the
+frameworks and the Foundation tests compile against, and they are the start
+of an SDK for building macOS-style programs without Apple's.
+
 ## Raw system calls (`src/loader/rawsys.c`)
 
 Some macOS code skips libSystem and executes `syscall` with a Darwin number

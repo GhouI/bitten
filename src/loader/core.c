@@ -96,8 +96,20 @@ const char *dx_path(const char *path, char *buf, size_t buflen) {
     static const char *root;
     static int root_checked;
     if (!root_checked) {
+        /* Where bitten's own Mach-O frameworks live: BITTEN_ROOT, else a
+         * "root" directory next to mrun, else the installed location. */
         root = getenv("BITTEN_ROOT");
         if (root && !*root) root = NULL;
+        if (!root) {
+            static char guess[PATH_MAX];
+            snprintf(guess, sizeof guess, "%s", dx_loader_path());
+            char *slash = strrchr(guess, '/');
+            if (slash) {
+                strcpy(slash, "/root");
+                if (access(guess, F_OK) == 0) root = guess;
+            }
+            if (!root && access("/usr/local/lib/bitten/root", F_OK) == 0) root = "/usr/local/lib/bitten/root";
+        }
         root_checked = 1;
     }
     if (!root || path[0] != '/') return path;

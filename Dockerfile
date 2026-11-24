@@ -5,18 +5,22 @@
 #   docker run --rm -it -v /path/to/App.dmg:/dmg/app.dmg:ro bitten
 
 FROM debian:trixie-slim AS build
-RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev make \
+# gcc builds mrun; clang + lld build bitten's own frameworks (Foundation, ...)
+# as Mach-O libraries, exactly the form macOS programs expect to load.
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev make clang lld \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY Makefile ./
 COPY src ./src
-RUN make -j"$(nproc)" BUILD=/out
+COPY sdk ./sdk
+COPY frameworks ./frameworks
+COPY tools ./tools
+RUN make -j"$(nproc)" BUILD=/out && test -f /out/root/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation
 
 # Optional: build and run the test suite (docker build --target test .)
 FROM build AS test
-RUN apt-get update && apt-get install -y --no-install-recommends clang lld golang-go python3 ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends golang-go python3 ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-COPY tools ./tools
 COPY tests ./tests
 RUN make -j"$(nproc)" BUILD=/out check && make check-dmgx
 
@@ -30,6 +34,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && useradd --create-home --home-dir /Users/mac --shell /bin/zsh mac \
     && chown mac:mac /Applications /Users/mac
 COPY --from=build /out/mrun /usr/local/bin/mrun
+COPY --from=build /out/root /usr/local/lib/bitten/root
 COPY tools/dmgx /usr/local/bin/dmgx
 COPY docker/bitten /usr/local/bin/bitten
 # macOS programs start shells through `login -fpl user ...`

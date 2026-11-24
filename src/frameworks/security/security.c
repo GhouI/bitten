@@ -111,6 +111,7 @@ static const struct cf_ops policy_ops = {.destroy = policy_destroy, .equal = pol
 CF_TYPE_ID(SecPolicy, CF_SEC_POLICY);
 
 static struct sec_policy *d_SecPolicyCreateSSL(Boolean server, const struct cf_string *hostname) {
+    hostname = CF_STR(hostname);
     if (hostname && d_CFGetTypeID(hostname) != CF_STRING) return NULL;
     struct sec_policy *policy = cf_alloc(NULL, sizeof *policy, CF_SEC_POLICY, &policy_ops);
     if (!policy) return NULL;
@@ -243,6 +244,7 @@ DX_FN(SecIdentityCopyPrivateKey);
 
 static struct cf_data *d_SecKeyCreateSignature(const void *key, const struct cf_string *algorithm,
                                                const struct cf_data *data, struct cf_error **error) {
+    algorithm = CF_STR(algorithm);
     security_error(error, SEC_UNIMPLEMENTED, "Key signatures are not implemented in bitten.");
     return NULL;
 }

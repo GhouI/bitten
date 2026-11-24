@@ -147,6 +147,7 @@ struct cf_string *d_CFStringCreateWithCString(const void *allocator, const char 
 DX_FN(CFStringCreateWithCString);
 
 struct cf_string *d_CFStringCreateCopy(const void *allocator, const struct cf_string *s) {
+    s = CF_STR(s);
     if (!s || allocator == d_kCFAllocatorNull) return NULL;
     if (!s->mutable && s->base.allocator == cf_allocator(allocator)) {
         d_CFRetain(s);
@@ -156,10 +157,14 @@ struct cf_string *d_CFStringCreateCopy(const void *allocator, const struct cf_st
 }
 DX_FN(CFStringCreateCopy);
 
-static CFIndex d_CFStringGetLength(const struct cf_string *s) { return s ? s->length : 0; }
+static CFIndex d_CFStringGetLength(const struct cf_string *s) {
+    s = CF_STR(s);
+    return s ? s->length : 0;
+}
 DX_FN(CFStringGetLength);
 
 const char *d_CFStringGetCStringPtr(const struct cf_string *s, CFStringEncoding encoding) {
+    s = CF_STR(s);
     if (!s || memchr(s->bytes, 0, s->size)) return NULL;
     if (encoding == CF_UTF8) return s->bytes;
     if ((encoding == CF_ASCII || encoding == CF_MAC_ROMAN || encoding == CF_LATIN1) &&
@@ -214,6 +219,7 @@ static Boolean encode(const struct cf_string *s, CFStringEncoding encoding, Bool
 
 static Boolean d_CFStringGetCString(const struct cf_string *s, char *buffer, CFIndex capacity,
                                     CFStringEncoding encoding) {
+    s = CF_STR(s);
     size_t terminator = encoding == CF_UTF16 || encoding == CF_UTF16BE || encoding == CF_UTF16LE ? 2 : 1;
     if (!buffer || capacity < (CFIndex)terminator) return 0;
     size_t size = capacity - terminator;
@@ -225,6 +231,7 @@ DX_FN(CFStringGetCString);
 
 static struct cf_data *d_CFStringCreateExternalRepresentation(const void *allocator,
                                     const struct cf_string *s, CFStringEncoding encoding, uint8_t loss) {
+    s = CF_STR(s);
     if (!s) return NULL;
     CFIndex max = d_CFStringGetMaximumSizeForEncoding(s->length, encoding);
     if (max < 0 || max > LONG_MAX - 2) return NULL;
@@ -247,6 +254,7 @@ static struct cf_string *d_CFStringCreateFromExternalRepresentation(const void *
 DX_FN(CFStringCreateFromExternalRepresentation);
 
 static void d_CFStringGetCharacters(const struct cf_string *s, CFRange range, uint16_t *buffer) {
+    s = CF_STR(s);
     if (!s || !buffer || !cf_range_valid(range, s->length) || !range.length) return;
     const char *p = s->bytes, *end = p + s->size;
     CFIndex index = 0, limit = range.location + range.length;
@@ -265,6 +273,7 @@ static void d_CFStringGetCharacters(const struct cf_string *s, CFRange range, ui
 DX_FN(CFStringGetCharacters);
 
 static uint16_t d_CFStringGetCharacterAtIndex(const struct cf_string *s, CFIndex index) {
+    s = CF_STR(s);
     uint16_t unit = 0;
     d_CFStringGetCharacters(s, (CFRange){index, 1}, &unit);
     return unit;
@@ -281,6 +290,8 @@ static uint32_t fold_case(uint32_t cp) {
 }
 
 static CFIndex d_CFStringCompare(const struct cf_string *a, const struct cf_string *b, unsigned long options) {
+    a = CF_STR(a);
+    b = CF_STR(b);
     if (a == b) return 0;
     if (!a || !b) return a ? 1 : -1;
     Boolean insensitive = options & 1;
@@ -317,11 +328,15 @@ static CFIndex d_CFStringCompare(const struct cf_string *a, const struct cf_stri
 DX_FN(CFStringCompare);
 
 static Boolean d_CFStringHasPrefix(const struct cf_string *s, const struct cf_string *prefix) {
+    s = CF_STR(s);
+    prefix = CF_STR(prefix);
     return s && prefix && prefix->size <= s->size && !memcmp(s->bytes, prefix->bytes, prefix->size);
 }
 DX_FN(CFStringHasPrefix);
 
 static Boolean d_CFStringHasSuffix(const struct cf_string *s, const struct cf_string *suffix) {
+    s = CF_STR(s);
+    suffix = CF_STR(suffix);
     return s && suffix && suffix->size <= s->size &&
            !memcmp(s->bytes + s->size - suffix->size, suffix->bytes, suffix->size);
 }
@@ -337,6 +352,7 @@ DX_FN(CFStringCreateMutable);
 
 static struct cf_string *d_CFStringCreateMutableCopy(const void *allocator, CFIndex max,
                                                       const struct cf_string *original) {
+    original = CF_STR(original);
     if (!original || max < 0 || (max && max < original->length)) return NULL;
     struct cf_string *s = string_new(allocator, original->bytes, original->size);
     if (s) { s->mutable = 1; s->max_length = max; }
@@ -354,6 +370,8 @@ static size_t byte_offset(const struct cf_string *s, CFIndex index) {
 }
 
 static void d_CFStringReplace(struct cf_string *s, CFRange range, const struct cf_string *replacement) {
+    s = CF_STR(s);
+    replacement = CF_STR(replacement);
     if (!s || !s->mutable || !replacement || !cf_range_valid(range, s->length)) return;
     if (replacement->length > LONG_MAX - (s->length - range.length)) return;
     CFIndex length = s->length - range.length + replacement->length;
@@ -375,11 +393,14 @@ static void d_CFStringReplace(struct cf_string *s, CFRange range, const struct c
 DX_FN(CFStringReplace);
 
 static void d_CFStringAppend(struct cf_string *s, const struct cf_string *suffix) {
+    s = CF_STR(s);
+    suffix = CF_STR(suffix);
     if (s) d_CFStringReplace(s, (CFRange){s->length, 0}, suffix);
 }
 DX_FN(CFStringAppend);
 
 static void d_CFStringAppendCString(struct cf_string *s, const char *suffix, CFStringEncoding encoding) {
+    s = CF_STR(s);
     struct cf_string *addition = d_CFStringCreateWithCString(NULL, suffix, encoding);
     d_CFStringAppend(s, addition);
     d_CFRelease(addition);
@@ -387,11 +408,14 @@ static void d_CFStringAppendCString(struct cf_string *s, const char *suffix, CFS
 DX_FN(CFStringAppendCString);
 
 static void d_CFStringDelete(struct cf_string *s, CFRange range) {
+    s = CF_STR(s);
     d_CFStringReplace(s, range, d___CFStringMakeConstantString(""));
 }
 DX_FN(CFStringDelete);
 
 static void d_CFStringSetString(struct cf_string *s, const struct cf_string *replacement) {
+    s = CF_STR(s);
+    replacement = CF_STR(replacement);
     if (s) d_CFStringReplace(s, (CFRange){0, s->length}, replacement);
 }
 DX_FN(CFStringSetString);
@@ -426,3 +450,25 @@ struct cf_string *d___CFStringMakeConstantString(const char *bytes) {
     return entry ? entry->string : NULL;
 }
 DX_FN(__CFStringMakeConstantString);
+
+/* A constant string emitted by the compiler (@"..." or CFSTR("...")):
+ * { isa, flags, bytes, length }. Build its CF counterpart once; it lives
+ * forever, like the constant. */
+struct cf_string *cf_string_from_constant(const void *constant) {
+    const struct {
+        void *isa;
+        uint64_t flags;
+        const char *bytes;
+        long length;
+    } *k = constant;
+    struct cf_string *s;
+    if ((k->flags & 0xff) == 0xd0) /* UTF-16 contents */
+        s = d_CFStringCreateWithBytes(NULL, (const uint8_t *)k->bytes, k->length * 2, CF_UTF16LE, 0);
+    else {
+        s = string_new(NULL, k->bytes, (size_t)k->length);
+        if (!s) s = d_CFStringCreateWithBytes(NULL, (const uint8_t *)k->bytes, k->length, CF_LATIN1, 0);
+    }
+    if (!s) s = string_new(NULL, "", 0);
+    atomic_store(&s->base.refs, LONG_MAX);
+    return s;
+}

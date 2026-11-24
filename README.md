@@ -25,7 +25,7 @@ in this repository or in the image.
 | Programs needing CoreFoundation basics, libproc, the resolver | Runs for the implemented subset |
 | TLS certificate checks through Security.framework | Not implemented: verification reports "not trusted" rather than pretend |
 | Objective-C code without Foundation (runtime, ARC, blocks) | Runs: messaging, categories, protocols, weak references, dynamic classes |
-| Objective-C programs using Foundation | Not yet: `NSString`, collections and the rest of Foundation are not built |
+| Objective-C programs using Foundation | Early: strings, numbers, arrays, dictionaries, formatting, `NSLog`. Files, dates, URLs, run loops and the rest are not built yet |
 | Objective-C or C++ exceptions | Not yet: no unwinder for Mach-O unwind tables |
 | Swift programs | Not yet: there is no Swift runtime |
 | AppKit / SwiftUI / Metal apps (windows) | Not yet |
@@ -85,7 +85,7 @@ default seccomp profile.
 Without Docker:
 
 ```
-make                      # builds build/mrun (needs gcc and make)
+make                      # builds build/mrun and the frameworks (gcc, make, clang, lld)
 build/mrun path/to/macho-program args...
 build/mrun --check path/to/macho-program     # what is missing
 tools/dmgx extract App.dmg outdir            # unpack a disk image
@@ -110,7 +110,9 @@ which symbol.
 ```
 src/loader/      Mach-O loader, export registry, raw-syscall dispatch, entry point
 src/libsystem/   libSystem: files, processes, threads, signals, sockets, kqueue, ttys, sysctl
-src/frameworks/  Objective-C and Blocks runtimes, CoreFoundation, Security
+src/frameworks/  Objective-C and Blocks runtimes, CoreFoundation, Security (C, inside mrun)
+frameworks/      frameworks written in Objective-C and built as Mach-O (Foundation)
+sdk/include/     bitten's own headers: C library subset, objc, CoreFoundation, Foundation
 src/include/     shared headers (Mach-O format, Darwin ABI layouts)
 tools/dmgx       .dmg extractor (UDIF, GPT/APM, HFS+), standard-library Python
 docker/          container entrypoint and macOS-style login
@@ -118,6 +120,7 @@ ci/              GitHub Actions workflow, not yet enabled
 examples/mac-terminal/    Compose file and terminal viewer for the Mac app
 tests/c/         C tests, compiled to real Mach-O with clang + ld64.lld
 tests/objc/      Objective-C tests (ARC, blocks), same toolchain
+tests/foundation/ tests written against the SDK headers and Foundation
 tests/go/        Go tests, cross-compiled for darwin/amd64
 docs/            architecture, the Mac app analysis, decisions, work log
 ```
