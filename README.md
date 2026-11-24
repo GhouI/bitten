@@ -159,6 +159,7 @@ linker.
 ## Documentation
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): design of the loader and the layer
+- [docs/NEXT.md](docs/NEXT.md): current state and exactly what to do next
 - [docs/ROADMAP.md](docs/ROADMAP.md): the layers still to build, in order
 - [docs/REX.md](docs/REX.md): what Rex imports, what is covered, what remains
 - [docs/DECISIONS.md](docs/DECISIONS.md): choices made, and approaches that were dropped

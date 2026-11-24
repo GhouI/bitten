@@ -7,7 +7,8 @@ the order below is dictated by dependencies.
 
 **Yardstick:** Rex.dmg. A milestone counts when it moves a measured number
 for Rex (imports implemented, initialisers run, first window) or makes a
-whole class of other programs run. `mrun --check` on the Rex window reports
+whole class of other programs run. To resume work, start from
+[NEXT.md](NEXT.md). `mrun --check` on the Rex window reports
 311 of 5,688 imports implemented at the start of this roadmap and 361 after layers 3 to 6.
 
 ## Layers, bottom up
@@ -25,7 +26,7 @@ whole class of other programs run. `mrun --check` on the Rex window reports
 | 9 | **Foundation**: strings, collections, files, URLs, JSON, notifications, `NSRunLoop`, key-value coding and observing, `NSInvocation` | in progress: strings, collections, data, dates, files, URLs, JSON, notifications, locks, threads | Objective-C command-line tools |
 | 10 | X.509 and TLS trust evaluation, keychain | not started | outbound HTTPS from macOS programs |
 | 11 | Mach ports and messages, bootstrap, XPC, launchd services | not started | apps with helper services |
-| 12 | Swift runtime and standard library | not started | all Swift programs |
+| 12 | **Swift runtime and standard library** | next: Rex stops at its first Swift runtime call; plan in `NEXT.md` | all Swift programs |
 | 13 | CoreGraphics, CoreText, ImageIO | not started | drawing and text |
 | 14 | QuartzCore, AppKit | not started | windows (X11/Wayland or a browser canvas) |
 | 15 | Metal | not started | GPU rendering, the Rex terminal grid |
