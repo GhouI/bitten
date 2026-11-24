@@ -1082,13 +1082,32 @@ int dx_run_main(struct dx_image *img, int argc, char **argv, char **envp) {
     if (!img->has_entry) dx_fatal("%s: no LC_MAIN entry point", img->path);
     static char exec_path[PATH_MAX + 32];
     snprintf(exec_path, sizeof exec_path, "executable_path=%s", img->path);
+
+    /* Darwin programs (the Go runtime among them) walk past argv and envp
+     * to find the "apple" strings, so the three vectors must be contiguous:
+     * argv..., NULL, envp..., NULL, apple..., NULL. */
+    int envc = 0;
+    while (envp && envp[envc]) envc++;
+    char **vec = malloc((argc + 1 + envc + 1 + 2) * sizeof(char *));
+    int k = 0;
+    for (int i = 0; i < argc; i++) vec[k++] = argv[i];
+    vec[k++] = NULL;
+    char **nenv = &vec[k];
+    for (int i = 0; i < envc; i++) vec[k++] = envp[i];
+    vec[k++] = NULL;
+    char **apple = &vec[k];
+    vec[k++] = exec_path;
+    vec[k++] = NULL;
     apple_strings[0] = exec_path;
     apple_strings[1] = NULL;
+    dx_argv = vec;
+    d_NXArgv = vec;
+    environ = nenv;
+
     dx_run_initializers();
-    int (*entry)(int, char **, char **, const char **) =
-        (void *)((uintptr_t)img->mh + img->entryoff);
+    int (*entry)(int, char **, char **, char **) = (void *)((uintptr_t)img->mh + img->entryoff);
     dx_log(1, "entering %s at %p", img->path, (void *)entry);
-    return entry(argc, argv, envp, apple_strings);
+    return entry(argc, vec, nenv, apple);
 }
 
 struct dx_image *dx_main_image(void) { return main_image; }
