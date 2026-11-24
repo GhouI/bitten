@@ -275,3 +275,21 @@ API documentation and the Blocks ABI, reviewed and stress-run here.
 Limits: `dispatch_io_*` is absent; QoS is recorded but does not change
 scheduling; timer leeway is ignored; a signal source observes a signal only
 until the program installs its own handler for it afterwards.
+
+## 2026-11-24: path redirection regression (PR: fix-path-redirect)
+
+Giving `mrun` a default framework root (for Foundation) switched on the
+path redirection that had only ever run with `BITTEN_ROOT` set. It
+redirected any not-yet-existing path under `/Users`, `/Library`, `/private`
+and others into the framework root, so the Mac app server could not create its
+socket in the container. The unit suite did not see it; the container smoke
+test did, after the merge.
+
+- Redirection now applies only to `/System/Library/` and `/usr/lib/swift/`,
+  and only when the file exists in the framework root.
+- `tests/c/paths.c` pins both halves: framework files resolve, new files and
+  sockets are created where asked.
+- `tests/e2e/target-app.sh` automates the container check with a real App.dmg
+  (`info`, `appcli version`, a command typed into a Mac app terminal). It is run
+  before merging anything that touches the loader, paths or the image.
+  Suite: 21/21, e2e ok.

@@ -113,16 +113,15 @@ const char *dx_path(const char *path, char *buf, size_t buflen) {
         root_checked = 1;
     }
     if (!root || path[0] != '/') return path;
-    /* Darwin system locations live under the bitten root when they do not
-     * exist on the host. */
-    static const char *const prefixes[] = {"/System/", "/Library/", "/Applications/", "/Users/",
-                                           "/Volumes/", "/private/", "/usr/lib/swift/", NULL};
+    /* Only bitten's own read-only system files are redirected, and only
+     * when the file really is in the framework root. Anything else,
+     * including paths a program is about to create, is left alone. */
+    static const char *const prefixes[] = {"/System/Library/", "/usr/lib/swift/", NULL};
     for (int i = 0; prefixes[i]; i++) {
-        if (!strncmp(path, prefixes[i], strlen(prefixes[i]))) {
-            if (access(path, F_OK) == 0) return path;
-            snprintf(buf, buflen, "%s%s", root, path);
-            return buf;
-        }
+        if (strncmp(path, prefixes[i], strlen(prefixes[i]))) continue;
+        if (access(path, F_OK) == 0) return path;
+        snprintf(buf, buflen, "%s%s", root, path);
+        return access(buf, F_OK) == 0 ? buf : path;
     }
     return path;
 }

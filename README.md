@@ -135,6 +135,9 @@ make check-dmgx   # disk-image reader
 docker build --target test .   # everything, in a clean container
 ```
 
+With a App.dmg of your own, `APP_DMG=/path/App.dmg tests/e2e/target-app.sh` checks
+the whole path in a container, down to a command typed into a Mac app terminal.
+
 A GitHub Actions workflow that runs the last command is in
 `ci/github-actions.yml`; copy it to `.github/workflows/ci.yml` to switch it
 on.
