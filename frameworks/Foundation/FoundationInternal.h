@@ -14,3 +14,9 @@ NSString *BNDescribe(id object);
 CFStringEncoding BNCFEncoding(NSStringEncoding encoding);
 
 static inline CFStringRef CFS(NSString *s) { return (__bridge CFStringRef)s; }
+
+#include <errno.h>
+void *BNReadFile(const char *path, size_t *length);
+BOOL BNWriteFile(const char *path, const void *bytes, size_t length, BOOL atomically);
+/* Fill *error (if non-NULL) from errno for a failed file operation. */
+void BNSetPOSIXError(NSError **error, NSString *path, BOOL reading);
