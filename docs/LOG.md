@@ -152,3 +152,12 @@ working directory. `strace` showing `syscall_0x2000036` settled it.
 Where it stops: the Rex window itself (`Contents/MacOS/Rex`) cannot start.
 It needs an Objective-C runtime, a Swift runtime and standard library,
 Foundation, AppKit, SwiftUI and Metal. `REX.md` sizes each.
+
+## 2026-11-24: provenance note (PR: provenance-note)
+
+The delegated agent's final report for the frameworks batch arrived after the
+merge and matched the merged files (209 exports: CoreFoundation 149,
+Security 33, resolver 10, libproc 9, Objective-C 8). It disclosed reading
+Apple's open-source libproc wrapper for return-value conventions, so the
+README's licensing section now lists the open-source references that were
+consulted instead of claiming documentation alone.
