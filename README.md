@@ -23,6 +23,7 @@ in this repository or in the image.
 | Go programs for macOS, with or without cgo | Runs: scheduler, GC, signals, network poller, `os/exec`, ptys |
 | Programs that execute raw `syscall` instructions | Runs for the BSD calls listed in `src/loader/rawsys.c` |
 | Programs needing CoreFoundation basics, libproc, the resolver | Runs for the implemented subset |
+| Programs using CommonCrypto, zlib, libcompression, iconv | Runs: SHA/MD5/HMAC, AES (ECB/CBC/CTR/GCM), PBKDF2, inflate/deflate, LZ4 |
 | TLS certificate checks through Security.framework | Not implemented: verification reports "not trusted" rather than pretend |
 | Objective-C code without Foundation (runtime, ARC, blocks) | Runs: messaging, categories, protocols, weak references, dynamic classes |
 | Objective-C programs using Foundation | Early: strings, numbers, arrays, dictionaries, formatting, `NSLog`. Files, dates, URLs, run loops and the rest are not built yet |
