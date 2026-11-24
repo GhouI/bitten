@@ -66,3 +66,32 @@ libSystem but still use that load command.
 - Not supported yet: APFS volumes (clear error), encrypted or segmented
   images. See `docs/DMG-FORMAT.md`.
 - Written by a delegated Codex agent to a spec, then reviewed and verified.
+
+## 2026-11-24: raw Darwin syscalls, malloc zones, peer credentials (PR: app-helper)
+
+Driven by running the real target: the `appcli` helper bundled in App.dmg (an
+unmodified universal Mach-O Go binary with cgo and an embedded SQLite).
+
+- `appcli version` works. `appcli server run` reaches "the Mac app server ready"; the CLI
+  talks to the server over its unix socket; a persistent server starts,
+  reports status and stops.
+- **Raw syscalls** (`src/loader/rawsys.c`): the helper opens its pty with
+  `syscall` instructions carrying Darwin numbers (`0x2000036` = ioctl), which
+  Linux answers with ENOSYS. Fixed with Linux Syscall User Dispatch: Mach-O
+  images are kept below `0x400000000000`, host code above, and a syscall
+  instruction below the line raises SIGSYS, which is decoded and served by
+  the same implementations libSystem calls use (carry flag + Darwin errno
+  on failure). Armed per thread and re-armed after fork. Genuine SIGSYS
+  signals still reach the program's own handler.
+- **malloc zones** are real `malloc_zone_t` tables: SQLite calls
+  `zone->size()` directly instead of `malloc_size()`.
+- **`LOCAL_PEERCRED` / `LOCAL_PEERPID`** on unix sockets (the server
+  authorises clients by peer uid), mapped to `SO_PEERCRED`.
+- Fixed a race: `pthread_join`/`pthread_kill` on a thread that had not started
+  yet read an unset host handle.
+- New test `rawsyscall` (results in rax/rdx, carry flag, errors, per-thread
+  arming). 9/9 pass.
+
+Dead ends: first read the pty failure as a missing `TIOCPTYGNAME` ioctl
+(the libSystem path was fine; the binary never called it), then as a missing
+working directory. `strace` showing `syscall_0x2000036` settled it.

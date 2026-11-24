@@ -78,6 +78,19 @@ void dx_sigset_to_host(uint32_t d, void *host) {
     sigemptyset(h);
     for (int s = 1; s < 32; s++)
         if (d & (1u << (s - 1))) sigaddset(h, dx_sig_to_host(s));
+    /* SIGSYS carries raw-syscall emulation and must never be blocked */
+    sigdelset(h, SIGSYS);
+}
+
+/* Install the SIGSYS handler used for raw Darwin syscalls. */
+static void host_handler(int hsig, siginfo_t *hi, void *hctx);
+void dx_signal_init(void) {
+    struct sigaction ha;
+    memset(&ha, 0, sizeof ha);
+    ha.sa_sigaction = host_handler;
+    ha.sa_flags = SA_SIGINFO | SA_ONSTACK | SA_NODEFER | SA_RESTART;
+    sigemptyset(&ha.sa_mask);
+    sigaction(SIGSYS, &ha, NULL);
 }
 
 uint32_t dx_sigset_from_host(const void *host) {
@@ -99,10 +112,24 @@ static int code_from_host(int hsig, int code) {
     return code;
 }
 
+void dx_rawsys_dispatch(void *ucontext);
+int dx_rawsys_is_dispatch(const siginfo_t *si);
+
 static void host_handler(int hsig, siginfo_t *hi, void *hctx) {
     int saved_errno = errno;
+    if (hsig == SIGSYS && dx_rawsys_is_dispatch(hi)) {
+        /* a raw Darwin syscall instruction: emulate it and resume */
+        dx_rawsys_dispatch(hctx);
+        errno = saved_errno;
+        return;
+    }
     struct d_sigaction act = actions[hsig];
     if ((uintptr_t)act.handler <= 1) {
+        if (hsig == SIGSYS && (uintptr_t)act.handler == 0) {
+            /* default action for a genuine SIGSYS */
+            signal(SIGSYS, SIG_DFL);
+            raise(SIGSYS);
+        }
         errno = saved_errno;
         return;
     }
@@ -187,7 +214,11 @@ static int d_sigaction(int dsig, const struct d_sigaction *nact, struct d_sigact
     if (nact) {
         struct sigaction ha;
         memset(&ha, 0, sizeof ha);
-        if ((uintptr_t)nact->handler == 0) ha.sa_handler = SIG_DFL;
+        if (hsig == SIGSYS) {
+            /* keep our handler in place; it forwards real SIGSYS signals */
+            ha.sa_sigaction = host_handler;
+            ha.sa_flags = SA_SIGINFO | SA_ONSTACK | SA_NODEFER;
+        } else if ((uintptr_t)nact->handler == 0) ha.sa_handler = SIG_DFL;
         else if ((uintptr_t)nact->handler == 1) ha.sa_handler = SIG_IGN;
         else {
             ha.sa_sigaction = host_handler;

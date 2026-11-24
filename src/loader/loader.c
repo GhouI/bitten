@@ -936,7 +936,17 @@ static struct dx_image *map_image(const char *path, int is_main) {
         if (mh.filetype == MH_EXECUTE && !(mh.flags & MH_PIE))
             dx_fatal("%s: cannot map non-PIE executable at 0x%llx", real,
                      (unsigned long long)img->lo);
-        base = mmap(NULL, span, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+        /* Mach-O code stays in the low part of the address space so raw
+         * syscall instructions inside it can be told apart from host code
+         * (see rawsys.c). */
+        static uintptr_t low_cursor = 0x200000000UL;
+        for (int tries = 0; tries < 4096 && base == MAP_FAILED; tries++) {
+            base = mmap((void *)low_cursor, span, PROT_NONE,
+                        MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE | MAP_FIXED_NOREPLACE, -1, 0);
+            low_cursor += (span + 0xffffffUL) & ~0xffffffUL;
+        }
+        if (base == MAP_FAILED)
+            base = mmap(NULL, span, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
     }
     if (base == MAP_FAILED) dx_fatal("%s: cannot reserve %zu bytes", real, span);
     img->slide = (uintptr_t)base - img->lo;
