@@ -39,4 +39,13 @@ dx_tlv_get_addr:
 	addq 16(%rdi), %rax
 	ret
 	.size dx_tlv_get_addr, .-dx_tlv_get_addr
+/* dx_jump_entry(pc, sp): start a program the way the kernel would. */
+	.globl dx_jump_entry
+	.type dx_jump_entry, @function
+dx_jump_entry:
+	movq %rsi, %rsp
+	xorl %ebp, %ebp
+	xorl %edx, %edx
+	jmp *%rdi
+	.size dx_jump_entry, .-dx_jump_entry
 	.section .note.GNU-stack,"",@progbits

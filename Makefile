@@ -8,20 +8,22 @@ LDLIBS  := -lm -ldl -lresolv -lutil
 # keep the loader itself out of the low 4 GiB+ range: a normal PIE lands high.
 LDFLAGS += -pie -rdynamic -pthread
 
-SRCS := $(wildcard src/loader/*.c src/libsystem/*.c src/frameworks/*/*.c)
+BUILD   ?= build
+# EXCLUDE=path/to/file.c leaves a source out (useful while one is in flux).
+SRCS := $(filter-out $(EXCLUDE),$(wildcard src/loader/*.c src/libsystem/*.c src/frameworks/*/*.c))
 ASMS := $(wildcard src/loader/*.S)
-OBJS := $(patsubst src/%.c,build/obj/%.o,$(SRCS)) $(patsubst src/%.S,build/obj/%.o,$(ASMS))
+OBJS := $(patsubst src/%.c,$(BUILD)/obj/%.o,$(SRCS)) $(patsubst src/%.S,$(BUILD)/obj/%.o,$(ASMS))
 
-all: build/mrun
+all: $(BUILD)/mrun
 
-build/mrun: $(OBJS)
+$(BUILD)/mrun: $(OBJS)
 	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(LDLIBS)
 
-build/obj/%.o: src/%.c $(wildcard src/include/*.h)
+$(BUILD)/obj/%.o: src/%.c $(wildcard src/include/*.h)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -fPIE -c -o $@ $<
 
-build/obj/%.o: src/%.S
+$(BUILD)/obj/%.o: src/%.S
 	@mkdir -p $(dir $@)
 	$(CC) -c -o $@ $<
 
@@ -29,27 +31,38 @@ build/obj/%.o: src/%.S
 # C tests are compiled to real Mach-O with clang + ld64.lld against a stub
 # libSystem generated from the symbols bitten implements. No Apple SDK.
 TEST_C    := $(wildcard tests/c/*.c)
-TEST_BINS := $(patsubst tests/c/%.c,build/tests/c/%,$(TEST_C))
+TEST_BINS := $(patsubst tests/c/%.c,$(BUILD)/tests/c/%,$(TEST_C))
 MACHO_CC  ?= clang
 MACHO_LD  ?= ld64.lld
 
-build/tests/sdk/libSystem.tbd: build/mrun tools/gen-tbd.sh
+$(BUILD)/tests/sdk/libSystem.tbd: $(BUILD)/mrun tools/gen-tbd.sh
 	@mkdir -p $(dir $@)
-	tools/gen-tbd.sh build/mrun > $@
+	tools/gen-tbd.sh $(BUILD)/mrun > $@
 
-build/tests/c/%: tests/c/%.c build/tests/sdk/libSystem.tbd tests/include/darwin.h
+$(BUILD)/tests/c/%: tests/c/%.c $(BUILD)/tests/sdk/libSystem.tbd tests/include/darwin.h
 	@mkdir -p $(dir $@)
 	$(MACHO_CC) -target x86_64-apple-macos11 -O1 -ffreestanding -fno-builtin -nostdinc \
 	    -Itests/include -fno-stack-protector -c -o $@.o $<
 	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -e _main \
-	    -Lbuild/tests/sdk -lSystem -o $@ $@.o
+	    -L$(BUILD)/tests/sdk -lSystem -o $@ $@.o
 
-test-bins: $(TEST_BINS)
+# Go tests: real darwin/amd64 binaries from the Go toolchain's own linker.
+# They are built when a Go toolchain is available (GO=...), otherwise skipped.
+GO ?= go
+TEST_GO     := $(wildcard tests/go/*/main.go)
+TEST_GOBINS := $(if $(shell command -v $(GO) 2>/dev/null),$(patsubst tests/go/%/main.go,$(BUILD)/tests/go/%,$(TEST_GO)))
 
-check: build/mrun $(TEST_BINS)
-	tests/run.sh
+$(BUILD)/tests/go/%: tests/go/%/main.go tests/go/go.mod
+	@mkdir -p $(dir $@)
+	cd tests/go && GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 GOFLAGS=-buildvcs=false \
+	    $(GO) build -o $(abspath $@) ./$*
+
+test-bins: $(TEST_BINS) $(TEST_GOBINS)
+
+check: $(BUILD)/mrun $(TEST_BINS) $(TEST_GOBINS)
+	BUILD=$(BUILD) tests/run.sh
 
 clean:
-	rm -rf build
+	rm -rf $(BUILD)
 
 .PHONY: all clean check test-bins
