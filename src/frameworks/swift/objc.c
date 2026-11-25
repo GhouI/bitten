@@ -1,6 +1,6 @@
 /* Swift and Objective-C: the root class every Swift class inherits from,
- * references whose kind (Swift or Objective-C) is only known at run time
- * (strong, weak and unowned), and bridge objects.
+ * references whose kind (Swift or Objective-C) is only known at run time,
+ * bridge objects, Objective-C class metadata and casts.
  *
  * Swift classes are Objective-C classes. swiftc lists them in
  * __objc_classlist with `_TtCs12_SwiftObject` as root, and marks them in the
@@ -416,3 +416,128 @@ static slot_t *d_swift_unknownObjectUnownedTakeAssign(slot_t *dst, slot_t *src) 
     return d_swift_unknownObjectUnownedTakeInit(dst, src);
 }
 DX_FN(swift_unknownObjectUnownedTakeAssign);
+
+/* ---- Objective-C classes as Swift metadata ----------------------------------------------
+ * A Swift class's metadata is its Objective-C class. A plain Objective-C
+ * class has no Swift metadata, so it gets a wrapper (kind ObjCClassWrapper)
+ * made on first request and kept. */
+struct objc_wrapper {
+    struct objc_wrapper *next;
+    const sw_vwt *vwt; /* metadata[-1] */
+    sw_objc_wrapper_metadata md;
+};
+#define WRAPPER_BUCKETS 256
+static struct objc_wrapper *wrappers[WRAPPER_BUCKETS];
+static pthread_mutex_t wrapper_lock = PTHREAD_MUTEX_INITIALIZER;
+
+static const sw_metadata *d_swift_getObjCClassMetadata(const sw_class_metadata *cls) {
+    if (!cls || sw_class_is_swift(cls)) return (const sw_metadata *)cls;
+    size_t h = ((uintptr_t)cls >> 4) % WRAPPER_BUCKETS;
+    pthread_mutex_lock(&wrapper_lock);
+    struct objc_wrapper *w = wrappers[h];
+    while (w && w->md.cls != cls) w = w->next;
+    if (!w) {
+        w = calloc(1, sizeof *w);
+        w->vwt = &sw_vwt_unknown_object;
+        w->md.kind = SW_KIND_OBJC_CLASS_WRAPPER;
+        w->md.cls = cls;
+        w->next = wrappers[h];
+        wrappers[h] = w;
+    }
+    pthread_mutex_unlock(&wrapper_lock);
+    return (const sw_metadata *)&w->md;
+}
+DX_FN(swift_getObjCClassMetadata);
+
+static const void *d_swift_getObjCClassFromMetadata(const sw_metadata *m) {
+    if (m && m->kind == SW_KIND_OBJC_CLASS_WRAPPER) return ((const sw_objc_wrapper_metadata *)m)->cls;
+    return m;
+}
+DX_FN(swift_getObjCClassFromMetadata);
+static const void *d_swift_getObjCClassFromMetadataConditional(const sw_metadata *m) {
+    if (!m) return NULL;
+    if (m->kind == SW_KIND_OBJC_CLASS_WRAPPER) return ((const sw_objc_wrapper_metadata *)m)->cls;
+    if (m->kind > SW_KIND_LAST_ENUMERATED) return m; /* a class */
+    return NULL;
+}
+DX_FN(swift_getObjCClassFromMetadataConditional);
+
+static const void *d_swift_getObjCClassFromObject(const void *obj) {
+    return obj ? objc_class_of((id)obj) : NULL;
+}
+DX_FN(swift_getObjCClassFromObject);
+
+/* Realises and +initializes an Objective-C class (what objc_opt_self does). */
+static const void *d_swift_getInitializedObjCClass(const void *cls) {
+    return cls ? MSG(id, id, SEL)((id)cls, SEL_self) : NULL;
+}
+DX_FN(swift_getInitializedObjCClass);
+
+/* Compiled code masks an object's isa with this to find its class. Our
+ * isa fields are plain class pointers; this is the x86-64 macOS value. */
+static const uintptr_t isa_mask = 0x00007ffffffffff8ull;
+DX_EXPORT("_swift_isaMask", &isa_mask);
+
+/* ---- casts to Objective-C classes ------------------------------------------------------
+ * Superclass pointers are valid before a class is realised, so the walk
+ * needs no runtime lock. */
+static int class_is_subclass(const struct objc_class *c, const void *target) {
+    for (; c; c = c->superclass)
+        if (c == target) return 1;
+    return 0;
+}
+
+static const void *d_swift_dynamicCastObjCClass(const void *obj, const void *target) {
+    if (!obj) return NULL;
+    return class_is_subclass(objc_class_of((id)obj), target) ? obj : NULL;
+}
+DX_FN(swift_dynamicCastObjCClass);
+
+__attribute__((noreturn)) static void cast_failed(const void *from, const void *to, const char *file,
+                                                  unsigned line) {
+    dx_fatal("swift: %s%s%u: could not cast value of type '%s' to '%s'", file ? file : "", file ? ":" : "",
+             file ? line : 0, class_name((Class)from), class_name((Class)to));
+}
+
+static const void *d_swift_dynamicCastObjCClassUnconditional(const void *obj, const void *target,
+                                                             const char *file, unsigned line, unsigned col) {
+    if (!obj) return NULL;
+    if (!class_is_subclass(objc_class_of((id)obj), target)) cast_failed(objc_class_of((id)obj), target, file, line);
+    return obj;
+}
+DX_FN(swift_dynamicCastObjCClassUnconditional);
+
+static const void *d_swift_dynamicCastObjCClassMetatype(const void *cls, const void *target) {
+    return cls && class_is_subclass(cls, target) ? cls : NULL;
+}
+DX_FN(swift_dynamicCastObjCClassMetatype);
+
+static const void *d_swift_dynamicCastObjCClassMetatypeUnconditional(const void *cls, const void *target,
+                                                                     const char *file, unsigned line,
+                                                                     unsigned col) {
+    if (cls && !class_is_subclass(cls, target)) cast_failed(cls, target, file, line);
+    return cls;
+}
+DX_FN(swift_dynamicCastObjCClassMetatypeUnconditional);
+
+/* Foreign classes are CoreFoundation types imported into Swift. Their
+ * metadata carries no CFTypeID, so there is nothing to check against: the
+ * casts succeed, as they do on macOS. */
+static const void *d_swift_dynamicCastForeignClass(const void *obj, const void *target) { return obj; }
+DX_FN(swift_dynamicCastForeignClass);
+static const void *d_swift_dynamicCastForeignClassUnconditional(const void *obj, const void *target,
+                                                                const char *file, unsigned line, unsigned col) {
+    return obj;
+}
+DX_FN(swift_dynamicCastForeignClassUnconditional);
+static const void *d_swift_dynamicCastForeignClassMetatype(const void *src, const void *target) {
+    return src == target ? src : NULL;
+}
+DX_FN(swift_dynamicCastForeignClassMetatype);
+static const void *d_swift_dynamicCastForeignClassMetatypeUnconditional(const void *src, const void *target,
+                                                                        const char *file, unsigned line,
+                                                                        unsigned col) {
+    if (src != target) dx_fatal("swift: could not cast foreign class metatype %p to %p", src, target);
+    return src;
+}
+DX_FN(swift_dynamicCastForeignClassMetatypeUnconditional);
