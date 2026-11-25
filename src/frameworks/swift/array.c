@@ -97,3 +97,58 @@ static void d_swift_arrayDestroy(char *begin, size_t n, const sw_metadata *self)
     for (size_t i = 0; i < n; i++) w->destroy((sw_opaque *)(begin + i * w->stride), self);
 }
 DX_FN(swift_arrayDestroy);
+
+/* ---- the empty array ----------------------------------------------------------------
+ * Every empty Array, ContiguousArray and ArraySlice references this one
+ * immortal storage object: {isa, refcount, count 0, capacity 0}, the
+ * header of __ContiguousArrayStorageBase. Compiled code names it directly
+ * (`_swiftEmptyArrayStorage`). Its class is the standard library's
+ * __EmptyArrayStorage, filled in when libswiftCore is loaded; until then
+ * the object is only ever compared and retained (a no-op: immortal). */
+struct sw_empty_array_storage {
+    sw_heap_object header;
+    intptr_t count;
+    uintptr_t capacity_and_flags;
+};
+struct sw_empty_array_storage sw_empty_array_storage = {{NULL, ~0ull}, 0, 0};
+DX_EXPORT("__swiftEmptyArrayStorage", &sw_empty_array_storage);
+
+void sw_array_image_added(struct dx_image *img) {
+    if (sw_empty_array_storage.header.metadata) return;
+    const sw_metadata *cls = dx_image_lookup(img, "_$ss19__EmptyArrayStorageCN");
+    if (cls) sw_empty_array_storage.header.metadata = cls;
+}
+
+/* ---- buffers and element kinds ---------------------------------------------------------- */
+
+/* ManagedBufferPointer's allocation: an instance of any class with a
+ * computed size. */
+static sw_heap_object *d_swift_bufferAllocate(const sw_metadata *cls, size_t size, size_t align_mask) {
+    return sw_alloc_object(cls, size, align_mask);
+}
+DX_FN(swift_bufferAllocate);
+
+static int is_class_kind(const sw_metadata *m) {
+    uintptr_t k = sw_kind(m);
+    return k == SW_KIND_CLASS || k == SW_KIND_OBJC_CLASS_WRAPPER || k == SW_KIND_FOREIGN_CLASS;
+}
+
+static _Bool d_swift_isClassType(const sw_metadata *m) { return m && is_class_kind(m); }
+DX_FN(swift_isClassType);
+
+/* Whether values of the type are object references an NSArray can hold:
+ * classes, and class-bound existentials without witness tables (AnyObject,
+ * Objective-C protocols). Called from Swift as a generic function taking a
+ * metatype: (the metatype value, its generic argument). */
+static _Bool d__swift_isClassOrObjCExistentialType(const sw_metadata *value, const sw_metadata *T) {
+    (void)T;
+    if (!value) return 0;
+    if (is_class_kind(value)) return 1;
+    if (sw_kind(value) == SW_KIND_EXISTENTIAL) {
+        const sw_existential_metadata *e = (const sw_existential_metadata *)value;
+        int class_bound = !(e->flags & 0x80000000u);
+        return class_bound && (e->flags & 0xFFFFFFu) == 0;
+    }
+    return 0;
+}
+DX_FN(_swift_isClassOrObjCExistentialType);

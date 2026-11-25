@@ -30,6 +30,7 @@ static size_t counts[SW_SECT_COUNT], caps[SW_SECT_COUNT];
 static struct listener *listeners;
 
 void dx_swift_image_added(const struct dx_image *img) {
+    sw_array_image_added((struct dx_image *)img);
     pthread_mutex_lock(&lock);
     for (int w = 0; w < SW_SECT_COUNT; w++) {
         size_t size;

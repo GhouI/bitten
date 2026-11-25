@@ -49,6 +49,8 @@ void sw_call_with_self(const void *fn, void *self);
 
 /* ---- heap.c --------------------------------------------------------------- */
 sw_heap_object *sw_alloc_object(const sw_metadata *m, size_t size, size_t align_mask);
+/* array.c: gives the empty-array storage its class once libswiftCore loads */
+void sw_array_image_added(struct dx_image *img);
 sw_heap_object *sw_retain(sw_heap_object *o);
 void sw_release(sw_heap_object *o);
 int sw_is_deiniting(const sw_heap_object *o);
