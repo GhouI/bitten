@@ -254,6 +254,7 @@ $(SWIFTRES)/.stamp:
 # Overlays that import other overlays: the full list of overlays each one
 # needs (built first, linked against).
 OVERLAY_DEPS_Darwin     := _errno _signal
+OVERLAY_DEPS_CoreGraphics := CoreFoundation
 overlay_lib = $(FW_ROOT)/usr/lib/swift/libswift$(1).dylib
 overlay_deps = $(foreach d,$(OVERLAY_DEPS_$(1)),$(call overlay_lib,$(d)))
 
@@ -267,6 +268,35 @@ $(FW_ROOT)/usr/lib/swift/libswift%.dylib: $$(wildcard overlays/%/*.swift) $$(cal
 	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
 	    -install_name /usr/lib/swift/libswift$*.dylib \
 	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(call overlay_deps,$*) -o $@ $(BUILD)/overlays/$*.o
+
+# ---- frameworks written in Swift ------------------------------------------
+# frameworks/NAME/*.swift (SwiftUI...) is built as module NAME into
+# NAME.framework/Versions/A/NAME, against the SDK, the overlays (all of
+# them, built first), Foundation and AppKit. Unlike the overlays they import
+# _Concurrency implicitly, as ordinary Swift code does.
+SWIFT_FWS     := $(patsubst frameworks/%/,%,$(sort $(dir $(wildcard frameworks/*/*.swift))))
+swift_fw_lib   = $(FW_ROOT)/System/Library/Frameworks/$(1).framework/Versions/A/$(1)
+SWIFT_FW_LIBS := $(if $(and $(SWIFTC),$(HAVE_MACHO)),$(foreach f,$(SWIFT_FWS),$(call swift_fw_lib,$(f))))
+FRAMEWORKS    += $(SWIFT_FW_LIBS)
+all: $(SWIFT_FW_LIBS)
+# Swift frameworks that import other Swift frameworks (built first, linked).
+# One rule per framework: the path names the framework twice, which a
+# pattern rule cannot express.
+SWIFT_FW_DEPS_SwiftUI := Combine
+define swift_framework
+$(call swift_fw_lib,$(1)): $(wildcard frameworks/$(1)/*.swift) $(OVERLAY_LIBS) $(APPKIT) $(FOUNDATION) $(foreach d,$(SWIFT_FW_DEPS_$(1)),$(call swift_fw_lib,$(d)))
+	@mkdir -p $$(dir $$@) $(BUILD)/swiftfw
+	$(SWIFTC) -module-name $(1) $(SWIFT_TARGET) -sdk $(SDKROOT) -resource-dir $(SWIFTRES) -I $(SWIFT_MODDIR) \
+	    -Xfrontend -disable-implicit-string-processing-module-import \
+	    -enable-library-evolution -wmo -parse-as-library -O \
+	    -emit-module -emit-module-path $(SWIFT_MODDIR)/$(1).swiftmodule \
+	    -c -o $(BUILD)/swiftfw/$(1).o $(wildcard frameworks/$(1)/*.swift)
+	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
+	    -install_name /System/Library/Frameworks/$(1).framework/Versions/A/$(1) \
+	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(OVERLAY_LIBS) $(FOUNDATION) $(APPKIT) \
+	    $(foreach d,$(SWIFT_FW_DEPS_$(1)),$(call swift_fw_lib,$(d))) -o $$@ $(BUILD)/swiftfw/$(1).o
+endef
+$(foreach f,$(SWIFT_FWS),$(eval $(call swift_framework,$(f))))
 
 # Tests in ordinary Swift, against that standard library: tests/swiftlib/
 # NAME.swift with a C driver NAME.c (functions exported with @_silgen_name;
