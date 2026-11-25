@@ -905,3 +905,23 @@ public struct _DictionaryBuilder<Key: Hashable, Value> {
     return Dictionary(_native: _target)
   }
 }
+
+// ---- dictionary literals ------------------------------------------------------
+
+public protocol ExpressibleByDictionaryLiteral {
+  associatedtype Key
+  associatedtype Value
+  init(dictionaryLiteral elements: (Key, Value)...)
+}
+
+extension Dictionary: ExpressibleByDictionaryLiteral {
+  /// A dictionary of the literal's pairs; a key given twice is a fatal error.
+  public init(dictionaryLiteral elements: (Key, Value)...) {
+    self.init(minimumCapacity: elements.count)
+    for (key, value) in elements {
+      if updateValue(value, forKey: key) != nil {
+        _preconditionFailure("Dictionary literal contains duplicate keys")
+      }
+    }
+  }
+}
