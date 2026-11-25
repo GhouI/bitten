@@ -753,3 +753,29 @@ for the Swift layer and for the smaller independent items.
   both. No Docker here: `tests/e2e/rex.sh` not run.
 - Rex window (total `^MISSING`): 5,236 -> 5,217.
 
+
+## 2026-11-25: standard library: Hashable and Hasher (PR: stdlib-hashable)
+
+- `stdlib/Hashing.swift`: `Hashable` (with the default `_rawHashValue(seed:)`
+  and `_hashValue(for:)`, which synthesized conformances call), and
+  `Hasher`: SipHash-1-3 written here, in Apple's @frozen layout (a tail
+  buffer word and eight state words, 72 bytes, as `MemoryLayout` reports on
+  the Linux toolchain). The seed is per process, from `arc4random`, chosen
+  on first use; `SWIFT_DETERMINISTIC_HASHING=1` (or true/yes) makes it zero.
+  With it, our hashes are bit-for-bit the ones Apple's standard library
+  gives (checked against values printed by the swift.org toolchain).
+  All the entry points programs bind to: `init()`, `init(_seed:)`,
+  `init(_rawSeed:)`, `combine`, `_combine` for every width and
+  `(bytes:count:)`, `_finalize`, `finalize`, the static `_hash` forms. Not
+  yet: `combine(bytes: UnsafeRawBufferPointer)` (no pointer types).
+- Conformances: the ten integer types (generated; `BinaryInteger` now
+  inherits `Hashable`), `Bool`, `Optional where Wrapped: Hashable`, `Never`
+  (also Equatable/Comparable), `Unicode.Scalar`; `ObjectIdentifier`
+  (@frozen raw pointer; Equatable, Comparable, Hashable, `UInt/Int(bitPattern:)`),
+  `===` and `!==`, and the Dictionary/Set "violates Hashable" reports.
+- `tests/swiftlib/hashing`: deterministic hashes equal Apple's, random seeds
+  differ between processes, and hashValue / `_rawHashValue` / `Hasher`
+  agree for integers, Optional, ObjectIdentifier and a struct whose
+  conformance the compiler synthesizes. Suite 35/35 at -O and -Onone. No
+  Docker here: `tests/e2e/rex.sh` not run.
+- Rex window (total `^MISSING`): 5,217 -> 5,181.

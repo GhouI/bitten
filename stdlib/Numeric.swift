@@ -1,5 +1,5 @@
 // The numeric protocol tower. Requirements are added as the types they
-// mention exist: BinaryInteger will gain Hashable, CustomStringConvertible,
+// mention exist: BinaryInteger will gain CustomStringConvertible,
 // the floating-point conversions and `words`; FixedWidthInteger will gain
 // LosslessStringConvertible. Programs reach requirements through dispatch
 // thunks and method descriptors, so adding requirements later is harmless.
@@ -54,7 +54,7 @@ extension Strideable {
   }
 }
 
-public protocol BinaryInteger: Numeric, Strideable
+public protocol BinaryInteger: Hashable, Numeric, Strideable
 where Magnitude: BinaryInteger, Magnitude.Magnitude == Magnitude {
   static var isSigned: Bool { get }
   init<T>(_ source: T) where T: BinaryInteger
