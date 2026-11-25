@@ -476,7 +476,35 @@ extern NSFileAttributeKey const NSFileSize, NSFileType, NSFileModificationDate, 
     NSFilePosixPermissions, NSFileOwnerAccountID, NSFileGroupOwnerAccountID;
 extern NSString *const NSFileTypeRegular, *const NSFileTypeDirectory, *const NSFileTypeSymbolicLink,
     *const NSFileTypeUnknown;
+typedef NS_ENUM(NSUInteger, NSSearchPathDirectory) {
+    NSApplicationDirectory = 1, NSDemoApplicationDirectory, NSDeveloperApplicationDirectory, NSAdminApplicationDirectory,
+    NSLibraryDirectory, NSDeveloperDirectory, NSUserDirectory, NSDocumentationDirectory, NSDocumentDirectory,
+    NSCoreServiceDirectory, NSAutosavedInformationDirectory = 11, NSDesktopDirectory = 12, NSCachesDirectory = 13,
+    NSApplicationSupportDirectory = 14, NSDownloadsDirectory = 15, NSInputMethodsDirectory = 16, NSMoviesDirectory = 17,
+    NSMusicDirectory = 18, NSPicturesDirectory = 19, NSPrinterDescriptionDirectory = 20, NSSharedPublicDirectory = 21,
+    NSPreferencePanesDirectory = 22, NSApplicationScriptsDirectory = 23, NSItemReplacementDirectory = 99,
+    NSAllApplicationsDirectory = 100, NSAllLibrariesDirectory = 101, NSTrashDirectory = 102
+};
+typedef NS_OPTIONS(NSUInteger, NSSearchPathDomainMask) {
+    NSUserDomainMask = 1, NSLocalDomainMask = 2, NSNetworkDomainMask = 4, NSSystemDomainMask = 8, NSAllDomainsMask = 0x0ffff
+};
+NSArray<NSString *> *NSSearchPathForDirectoriesInDomains(NSSearchPathDirectory directory, NSSearchPathDomainMask domainMask, BOOL expandTilde);
+typedef NS_OPTIONS(NSUInteger, NSDirectoryEnumerationOptions) {
+    NSDirectoryEnumerationSkipsSubdirectoryDescendants = 1, NSDirectoryEnumerationSkipsPackageDescendants = 2,
+    NSDirectoryEnumerationSkipsHiddenFiles = 4
+};
 @interface NSFileManager : NSObject
+- (NSArray<NSURL *> *)URLsForDirectory:(NSSearchPathDirectory)directory inDomains:(NSSearchPathDomainMask)domainMask;
+- (nullable NSURL *)URLForDirectory:(NSSearchPathDirectory)directory inDomain:(NSSearchPathDomainMask)domain
+                  appropriateForURL:(nullable NSURL *)url create:(BOOL)shouldCreate error:(NSError **)error;
+@property (readonly, copy) NSURL *homeDirectoryForCurrentUser;
+- (BOOL)createDirectoryAtURL:(NSURL *)url withIntermediateDirectories:(BOOL)createIntermediates
+                  attributes:(nullable NSDictionary *)attributes error:(NSError **)error;
+- (BOOL)removeItemAtURL:(NSURL *)URL error:(NSError **)error;
+- (BOOL)copyItemAtURL:(NSURL *)srcURL toURL:(NSURL *)dstURL error:(NSError **)error;
+- (BOOL)moveItemAtURL:(NSURL *)srcURL toURL:(NSURL *)dstURL error:(NSError **)error;
+- (nullable NSArray<NSURL *> *)contentsOfDirectoryAtURL:(NSURL *)url includingPropertiesForKeys:(nullable NSArray *)keys
+                                                options:(NSDirectoryEnumerationOptions)mask error:(NSError **)error;
 @property (class, readonly, strong) NSFileManager *defaultManager;
 @property (readonly, copy) NSString *currentDirectoryPath;
 - (BOOL)changeCurrentDirectoryPath:(NSString *)path;

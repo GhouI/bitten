@@ -394,6 +394,11 @@ static void *resolve(struct dx_image *img, int64_t ordinal, const char *name, in
     }
     if (!r) r = loader_symbol(name);
     if (!r) r = dx_registry_lookup(name);
+    /* macOS moves symbols between its libraries and re-exports them (apps
+     * bind NSUserDefaults to CoreFoundation, which Foundation implements
+     * here), so a system library's missing symbol may live in another
+     * loaded system image. */
+    if (!r && lib && (!strncmp(lib, "/System/", 8) || !strncmp(lib, "/usr/lib/", 9))) r = dx_global_lookup(name);
     if (r) return r;
     if (weak) return NULL;
     note_missing(img, lib, name);
