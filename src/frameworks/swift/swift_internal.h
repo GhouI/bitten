@@ -188,4 +188,15 @@ const sw_metadata *sw_get_assoc_type_witness(const sw_witness_table *wt, const s
                                              const sw_protocol_requirement *req_base,
                                              const sw_protocol_requirement *req);
 
+/* ---- errors.c ------------------------------------------------------------------- */
+/* Allocates an error box for a value of `type` (copied or taken from
+ * `value` if given); *value_out receives the address of the boxed value. */
+sw_heap_object *sw_alloc_error(const sw_metadata *type, const sw_witness_table *conformance,
+                               sw_opaque *value, int take, sw_opaque **value_out);
+int sw_is_error_box(const void *obj);
+/* Value, dynamic type and Error conformance of an error (a box, or an
+ * Objective-C object, for which *scratch holds the object). */
+void sw_error_value(const void *error, void **scratch, const sw_opaque **value, const sw_metadata **type,
+                    const sw_witness_table **conformance);
+
 #endif
