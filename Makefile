@@ -53,7 +53,7 @@ TEST_C    := $(filter-out $(EXCLUDE),$(wildcard tests/c/*.c))
 TEST_BINS := $(patsubst tests/c/%.c,$(BUILD)/tests/c/%,$(TEST_C))
 $(BUILD)/sdk/libSystem.tbd: $(BUILD)/mrun tools/gen-tbd.sh
 	@mkdir -p $(dir $@)
-	tools/gen-tbd.sh $(BUILD)/mrun > $@
+	tools/gen-tbd.sh $(BUILD)/mrun > $@.tmp && mv $@.tmp $@
 
 $(BUILD)/tests/c/%: tests/c/%.c $(BUILD)/sdk/libSystem.tbd tests/include/darwin.h
 	@mkdir -p $(dir $@)
