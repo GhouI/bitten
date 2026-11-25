@@ -531,3 +531,30 @@ for the Swift layer and for the smaller independent items.
 - The Mac app window imports unimplemented: 5,453 -> 5,382. `mrun` on it now gets
   through `swift_getSingletonMetadata` for `TargetMacOSApp` and stops at
   `$s7SwiftUI28NSApplicationDelegateAdaptorVMa`, a SwiftUI metadata accessor.
+
+## 2026-11-25: Swift metadata, part 2: enums (PR: swift-enums)
+
+- `src/frameworks/swift/enum.c`: `swift_initEnumMetadataSingleCase`,
+  `swift_initEnumMetadataSinglePayload` (extra inhabitants first, then 1, 2
+  or 4 tag bytes after the payload with the case index spread over the
+  payload's first four bytes), `swift_initEnumMetadataMultiPayload` (payload
+  area as large as the largest payload, stored in the metadata at the
+  descriptor's payload-size offset; tag bytes after it; no spare bits),
+  `swift_getEnumCaseMultiPayload`, `swift_storeEnumTagMultiPayload`.
+- Multi-payload enums' `getEnumTagSinglePayload`/`storeEnumTagSinglePayload`
+  witnesses are the runtime's: the compiler's own witnesses for generic
+  multi-payload enums call back through the VWT, so the runtime must
+  install them. Their extra inhabitants are the unused tag values counted
+  down from all ones (inhabitant i is tag ~i), as swiftc does for fixed
+  multi-payload layouts.
+- `demangle.c`: names are looked up in loaded images before the registry
+  (as dyld would), so a Mach-O image that defines standard-library types
+  itself (a test compiled as the module Swift) resolves `Sq` and friends.
+- `tests/swift/enums`: Optional, single-payload with and without enough
+  extra inhabitants, multi-payload with 8- and 1-byte payloads, 300 empty
+  cases over two tags, nested Optionals and Optional of a multi-payload
+  enum. Each generic construction (runtime layout) is compared byte for
+  byte with the compiler's fixed layout of the same type. Suite 28/28 at
+  `-O` and `-Onone`. No Docker here: `tests/e2e/target-app.sh` not run.
+- The Mac app window imports unimplemented: 5,382 -> 5,378. `mrun` still stops at
+  `$s7SwiftUI28NSApplicationDelegateAdaptorVMa`.
