@@ -1,14 +1,14 @@
 /* Swift and Objective-C: the root class every Swift class inherits from,
- * references whose kind (Swift or Objective-C) is only known at run time,
- * and bridge objects.
+ * references whose kind (Swift or Objective-C) is only known at run time
+ * (strong, weak and unowned), and bridge objects.
  *
  * Swift classes are Objective-C classes. swiftc lists them in
  * __objc_classlist with `_TtCs12_SwiftObject` as root, and marks them in the
  * low bits of the class `data` word; our Objective-C runtime realises them
  * lazily like any other class. SwiftObject's memory-management methods use
  * Swift reference counting, so objc_msgSend(-retain), objc_retain (which
- * sees a class with custom retain/release and sends the message) and
- * autorelease pools all end up in heap.c. */
+ * sees a class with custom retain/release and sends the message), autorelease
+ * pools and __weak variables all end up in heap.c. */
 #define _GNU_SOURCE
 #include <stdlib.h>
 #include <string.h>
@@ -246,3 +246,173 @@ static void d_swift_bridgeObjectRelease_n(void *bits, uint32_t n) {
 }
 DX_FN(swift_bridgeObjectRelease_n);
 DX_EXPORT("_swift_nonatomic_bridgeObjectRelease_n", d_swift_bridgeObjectRelease_n);
+
+/* ---- unknown-object weak references --------------------------------------------------
+ * Weak references to class-constrained existentials (AnyObject, @objc
+ * protocols) may point to either kind of object. Their storage is not
+ * bitwise-takable, so the Objective-C __weak machinery, which registers the
+ * slot's address, serves both: a Swift object answers its
+ * -allowsWeakReference / -retainWeakReference messages from its Swift counts,
+ * and swift_deallocClassInstance clears the slots. */
+typedef void *slot_t;
+
+static slot_t *d_swift_unknownObjectWeakInit(slot_t *ref, void *obj) {
+    dx_objc_init_weak(ref, tagged_or_null(obj) ? NULL : obj);
+    return ref;
+}
+DX_FN(swift_unknownObjectWeakInit);
+static slot_t *d_swift_unknownObjectWeakAssign(slot_t *ref, void *obj) {
+    dx_objc_store_weak(ref, tagged_or_null(obj) ? NULL : obj);
+    return ref;
+}
+DX_FN(swift_unknownObjectWeakAssign);
+static void *d_swift_unknownObjectWeakLoadStrong(slot_t *ref) { return dx_objc_load_weak_retained(ref); }
+DX_FN(swift_unknownObjectWeakLoadStrong);
+static void *d_swift_unknownObjectWeakTakeStrong(slot_t *ref) {
+    void *obj = dx_objc_load_weak_retained(ref);
+    dx_objc_destroy_weak(ref);
+    return obj;
+}
+DX_FN(swift_unknownObjectWeakTakeStrong);
+static void d_swift_unknownObjectWeakDestroy(slot_t *ref) { dx_objc_destroy_weak(ref); }
+DX_FN(swift_unknownObjectWeakDestroy);
+static slot_t *d_swift_unknownObjectWeakCopyInit(slot_t *dst, slot_t *src) {
+    dx_objc_copy_weak(dst, src);
+    return dst;
+}
+DX_FN(swift_unknownObjectWeakCopyInit);
+static slot_t *d_swift_unknownObjectWeakTakeInit(slot_t *dst, slot_t *src) {
+    dx_objc_move_weak(dst, src);
+    return dst;
+}
+DX_FN(swift_unknownObjectWeakTakeInit);
+static slot_t *d_swift_unknownObjectWeakCopyAssign(slot_t *dst, slot_t *src) {
+    if (dst == src) return dst;
+    void *obj = dx_objc_load_weak_retained(src);
+    dx_objc_store_weak(dst, obj);
+    sw_unknown_release(obj);
+    return dst;
+}
+DX_FN(swift_unknownObjectWeakCopyAssign);
+static slot_t *d_swift_unknownObjectWeakTakeAssign(slot_t *dst, slot_t *src) {
+    if (dst == src) return dst;
+    dx_objc_destroy_weak(dst);
+    dx_objc_move_weak(dst, src);
+    return dst;
+}
+DX_FN(swift_unknownObjectWeakTakeAssign);
+
+/* ---- unknown-object unowned references -------------------------------------------------
+ * A Swift object is held with an unowned count, as for native unowned
+ * references (its memory outlives its deinit). An Objective-C object has no
+ * unowned count, so it is held through a __weak slot, which reads as nil
+ * once it is gone; loading that is the "already deallocated" error. */
+static int unowned_native(slot_t *ref) {
+    /* the memory of a native object is still there even after its deinit */
+    return sw_is_native(*ref);
+}
+__attribute__((noreturn)) static void unowned_dead(const void *obj) {
+    dx_fatal("swift: fatal error: attempted to read an unowned reference but object %p was already deallocated",
+             obj);
+}
+
+static slot_t *d_swift_unknownObjectUnownedInit(slot_t *ref, void *obj) {
+    if (tagged_or_null(obj)) {
+        *ref = obj;
+    } else if (sw_is_native(obj)) {
+        sw_unowned_retain_n(obj, 1);
+        *ref = obj;
+    } else {
+        *ref = NULL;
+        dx_objc_init_weak(ref, obj);
+    }
+    return ref;
+}
+DX_FN(swift_unknownObjectUnownedInit);
+
+static void d_swift_unknownObjectUnownedDestroy(slot_t *ref) {
+    void *obj = *ref;
+    if (tagged_or_null(obj)) return;
+    if (unowned_native(ref)) {
+        sw_unowned_release_n(obj, 1);
+    } else {
+        dx_objc_destroy_weak(ref);
+    }
+}
+DX_FN(swift_unknownObjectUnownedDestroy);
+
+static slot_t *d_swift_unknownObjectUnownedAssign(slot_t *ref, void *obj) {
+    slot_t fresh;
+    d_swift_unknownObjectUnownedInit(&fresh, obj);
+    d_swift_unknownObjectUnownedDestroy(ref);
+    /* re-register under the slot's real address */
+    if (!tagged_or_null(fresh) && !sw_is_native(fresh)) {
+        *ref = NULL;
+        dx_objc_move_weak(ref, &fresh);
+    } else {
+        *ref = fresh;
+    }
+    return ref;
+}
+DX_FN(swift_unknownObjectUnownedAssign);
+
+static void *d_swift_unknownObjectUnownedLoadStrong(slot_t *ref) {
+    void *obj = *ref;
+    if (tagged_or_null(obj)) return obj;
+    if (unowned_native(ref)) {
+        if (!sw_try_retain(obj)) unowned_dead(obj);
+        return obj;
+    }
+    void *strong = dx_objc_load_weak_retained(ref);
+    if (!strong) unowned_dead(obj);
+    return strong;
+}
+DX_FN(swift_unknownObjectUnownedLoadStrong);
+
+static void *d_swift_unknownObjectUnownedTakeStrong(slot_t *ref) {
+    void *obj = d_swift_unknownObjectUnownedLoadStrong(ref);
+    d_swift_unknownObjectUnownedDestroy(ref);
+    return obj;
+}
+DX_FN(swift_unknownObjectUnownedTakeStrong);
+
+static slot_t *d_swift_unknownObjectUnownedCopyInit(slot_t *dst, slot_t *src) {
+    void *obj = *src;
+    if (tagged_or_null(obj)) {
+        *dst = obj;
+    } else if (unowned_native(src)) {
+        sw_unowned_retain_n(obj, 1);
+        *dst = obj;
+    } else {
+        *dst = NULL;
+        dx_objc_copy_weak(dst, src);
+    }
+    return dst;
+}
+DX_FN(swift_unknownObjectUnownedCopyInit);
+
+static slot_t *d_swift_unknownObjectUnownedTakeInit(slot_t *dst, slot_t *src) {
+    void *obj = *src;
+    if (tagged_or_null(obj) || unowned_native(src)) {
+        *dst = obj;
+    } else {
+        *dst = NULL;
+        dx_objc_move_weak(dst, src);
+    }
+    return dst;
+}
+DX_FN(swift_unknownObjectUnownedTakeInit);
+
+static slot_t *d_swift_unknownObjectUnownedCopyAssign(slot_t *dst, slot_t *src) {
+    if (dst == src) return dst;
+    d_swift_unknownObjectUnownedDestroy(dst);
+    return d_swift_unknownObjectUnownedCopyInit(dst, src);
+}
+DX_FN(swift_unknownObjectUnownedCopyAssign);
+
+static slot_t *d_swift_unknownObjectUnownedTakeAssign(slot_t *dst, slot_t *src) {
+    if (dst == src) return dst;
+    d_swift_unknownObjectUnownedDestroy(dst);
+    return d_swift_unknownObjectUnownedTakeInit(dst, src);
+}
+DX_FN(swift_unknownObjectUnownedTakeAssign);

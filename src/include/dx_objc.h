@@ -36,6 +36,14 @@ dx_class dx_objc_lookup_class(const char *name);
 void *dx_objc_retain(void *obj);
 void dx_objc_release(void *obj);
 void *dx_objc_autorelease(void *obj);
+/* objc_initWeak, objc_storeWeak, objc_loadWeakRetained, objc_destroyWeak,
+ * objc_copyWeak, objc_moveWeak */
+void *dx_objc_init_weak(void **slot, void *obj);
+void *dx_objc_store_weak(void **slot, void *obj);
+void *dx_objc_load_weak_retained(void **slot);
+void dx_objc_destroy_weak(void **slot);
+void dx_objc_copy_weak(void **dst, void **src);
+void dx_objc_move_weak(void **dst, void **src);
 /* Forgets an object that is being freed: clears __weak variables pointing
  * to it and releases its associated objects. */
 void dx_objc_object_destroyed(void *obj);

@@ -178,6 +178,6 @@ extern SEL SEL_retain, SEL_release, SEL_autorelease, SEL_dealloc, SEL_alloc, SEL
     SEL_class, SEL_copyWithZone, SEL_mutableCopyWithZone, SEL_initialize, SEL_load,
     SEL_cxx_destruct, SEL_cxx_construct, SEL_resolveInstanceMethod, SEL_resolveClassMethod,
     SEL_forwardingTargetForSelector, SEL_respondsToSelector, SEL_isKindOfClass, SEL_self,
-    SEL_allocWithZone, SEL_retainCount, SEL_copy;
+    SEL_allocWithZone, SEL_retainCount, SEL_copy, SEL_allowsWeakReference, SEL_retainWeakReference;
 
 #endif
