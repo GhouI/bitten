@@ -218,16 +218,16 @@ def roadmap_layers():
 
 # --------------------------------------------------------------------- svg
 #
-# One chart, kept simple on purpose: the overall share at the top, then one
-# bar per area. The history stays in history.csv; it is not drawn.
+# One progress ring: the share of the target app's imports implemented.
+# The history stays in history.csv; it is not drawn.
 
 STYLE = """<style>
   text { font-family: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
   .bg { fill: #ffffff; } .ink { fill: #1f2328; } .mute { fill: #656d76; }
-  .track { fill: #eaeef2; } .done { fill: #2da44e; }
+  .track { stroke: #eaeef2; } .done { stroke: #2da44e; }
   @media (prefers-color-scheme: dark) {
     .bg { fill: #0d1117; } .ink { fill: #e6edf3; } .mute { fill: #8d96a0; }
-    .track { fill: #21262d; } .done { fill: #3fb950; }
+    .track { stroke: #21262d; } .done { stroke: #3fb950; }
   }
 </style>"""
 
@@ -242,42 +242,33 @@ def fmt(n):
 
 
 def draw(out, totals, missing, history, commit, when):
-    W, P = 720, 32
+    import math
+    W, H = 480, 240
     total = sum(totals.values())
     left = sum(min(missing[a], totals[a]) for a in AREA_NAMES)
     done = total - left
-    pct = round(100.0 * done / total) if total else 0
-    rows = sorted((a for a in AREA_NAMES if totals[a]),
-                  key=lambda a: -(totals[a] - min(missing[a], totals[a])) / totals[a])
-
-    s = []
-    y = P + 40
-    s.append('<text x="%d" y="%d" class="ink" font-size="40" font-weight="700">%d%%</text>'
-             % (P, y, pct))
-    s.append('<text x="%d" y="%d" class="ink" font-size="16" font-weight="600">'
-             'of the target Mac app\'s imports are implemented</text>' % (P + 116, y - 18))
-    s.append('<text x="%d" y="%d" class="mute" font-size="14">%s of %s, updated %s</text>'
-             % (P + 116, y + 2, fmt(done), fmt(total), esc(when[:10])))
-
-    y += 36
-    lx, bx, bw = P, P + 104, W - 2 * P - 104 - 52
-    for a in rows:
-        t = totals[a]
-        d = t - min(missing[a], t)
-        y += 32
-        s.append('<text x="%d" y="%d" class="ink" font-size="14">%s</text>' % (lx, y, esc(a)))
-        s.append('<rect x="%d" y="%d" width="%d" height="10" rx="5" class="track"/>'
-                 % (bx, y - 9, bw))
-        if d:
-            s.append('<rect x="%d" y="%d" width="%.1f" height="10" rx="5" class="done"/>'
-                     % (bx, y - 9, max(bw * d / t, 10)))
-        s.append('<text x="%d" y="%d" class="mute" font-size="14" text-anchor="end">%d%%</text>'
-                 % (W - P, y, round(100.0 * d / t)))
-    H = y + P
-
+    frac = done / total if total else 0
+    cx, cy, r = 120, 120, 80
+    circ = 2 * math.pi * r
+    arc = ""
+    if done:
+        arc = ('<circle cx="%d" cy="%d" r="%d" fill="none" class="done" stroke-width="22"'
+               ' stroke-linecap="round" stroke-dasharray="%.1f %.1f"'
+               ' transform="rotate(-90 %d %d)"/>' % (cx, cy, r, circ * frac, circ, cx, cy))
+    body = [
+        '<rect width="%d" height="%d" rx="12" class="bg"/>' % (W, H),
+        '<circle cx="%d" cy="%d" r="%d" fill="none" class="track" stroke-width="22"/>' % (cx, cy, r),
+        arc,
+        '<text x="%d" y="%d" text-anchor="middle" class="ink" font-size="38"'
+        ' font-weight="700">%d%%</text>' % (cx, cy + 13, round(frac * 100)),
+        '<text x="250" y="105" class="ink" font-size="20" font-weight="600">Mac app support</text>',
+        '<text x="250" y="135" class="mute" font-size="15">%s of %s functions</text>'
+        % (fmt(done), fmt(total)),
+        '<text x="250" y="158" class="mute" font-size="15">implemented</text>',
+        '<text x="250" y="190" class="mute" font-size="12">updated %s</text>' % esc(when[:10]),
+    ]
     svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">\n'
-           '%s\n<rect width="%d" height="%d" rx="12" class="bg"/>\n%s\n</svg>\n'
-           % (W, H, W, H, STYLE, W, H, "\n".join(s)))
+           '%s\n%s\n</svg>\n' % (W, H, W, H, STYLE, "\n".join(x for x in body if x)))
     with open(os.path.join(out, "progress.svg"), "w") as f:
         f.write(svg)
 
