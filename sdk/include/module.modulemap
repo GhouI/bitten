@@ -1,0 +1,7 @@
+// Clang modules over bitten's SDK headers, for Swift code that imports
+// them (the Swift overlays in overlays/). C and Objective-C builds of
+// bitten itself do not use modules and ignore this file.
+module CoreFoundation [system] {
+  header "CoreFoundation/CoreFoundation.h"
+  export *
+}

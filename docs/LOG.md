@@ -912,3 +912,22 @@ for the Swift layer and for the smaller independent items.
   Clang modules and calls into them (tried with CoreFoundation from a
   scratch SDK layout); that is the base for the Swift overlays.
 - `tests/swiftlib/cdecl`: `@_cdecl` functions called from C.
+
+## 2026-11-25: our own SDK and the Swift overlays (PR: swift-overlays)
+
+- `build/MacOSX.sdk`: bitten's SDK headers (`sdk/include`) with a Clang
+  module map (`sdk/include/module.modulemap`, CoreFoundation for now), so
+  Swift code compiled for macOS imports our C and Objective-C modules.
+  Swift compilations get a resource directory of our own
+  (`build/swift-res`: only the Clang builtin headers and shims), because
+  the toolchain's Linux CoreFoundation/Dispatch modules would shadow ours.
+- Swift overlays: each `overlays/NAME/*.swift` is built against the SDK
+  into `build/root/usr/lib/swift/libswiftNAME.dylib` with its module in
+  `build/swift`. First one: CoreFoundation (`_CFObject` through CFHash and
+  CFEqual, and `CGFloat`, which keeps its original mangled module
+  `CoreGraphics` through `@_originallyDefinedIn`).
+- Standard library: `unsafeBitCast`, `unsafeDowncast`, `numericCast`,
+  `withExtendedLifetime`, `_fixLifetime`.
+- Rex window: 8 of its 9 imports from libswiftCoreFoundation now resolve
+  (the last, `CGFloat: CVarArg`, needs Array). Total `^MISSING`:
+  4,913 -> 4,905.
