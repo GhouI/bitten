@@ -1,9 +1,7 @@
 // Iterators and sequences.
 //
-// Still to come with the pointer and Array work: the requirements
-// _copyToContiguousArray, _copyContents(initializing:) and
-// withContiguousStorageIfAvailable, and the operations that return arrays
-// (map, filter, sorted, compactMap...).
+// Still to come with the Array work: the requirement _copyToContiguousArray
+// and the operations that return arrays (map, filter, sorted, compactMap...).
 
 public protocol IteratorProtocol<Element> {
   associatedtype Element
@@ -16,6 +14,9 @@ public protocol Sequence<Element> {
   __consuming func makeIterator() -> Iterator
   var underestimatedCount: Int { get }
   func _customContainsEquatableElement(_ element: Element) -> Bool?
+  __consuming func _copyContents(initializing ptr: UnsafeMutableBufferPointer<Element>)
+    -> (Iterator, UnsafeMutableBufferPointer<Element>.Index)
+  func withContiguousStorageIfAvailable<R>(_ body: (_ buffer: UnsafeBufferPointer<Element>) throws -> R) rethrows -> R?
 }
 
 extension Sequence where Self: IteratorProtocol {
@@ -25,6 +26,23 @@ extension Sequence where Self: IteratorProtocol {
 extension Sequence {
   @inlinable public var underestimatedCount: Int { return 0 }
   @inlinable public func _customContainsEquatableElement(_ element: Iterator.Element) -> Bool? { return nil }
+
+  @inlinable
+  public __consuming func _copyContents(initializing buffer: UnsafeMutableBufferPointer<Element>) -> (Iterator, Int) {
+    var it = makeIterator()
+    guard var p = buffer.baseAddress else { return (it, 0) }
+    for i in 0..<buffer.count {
+      guard let x = it.next() else { return (it, i) }
+      p.initialize(to: x)
+      p += 1
+    }
+    return (it, buffer.count)
+  }
+
+  @inlinable
+  public func withContiguousStorageIfAvailable<R>(_ body: (UnsafeBufferPointer<Element>) throws -> R) rethrows -> R? {
+    return nil
+  }
 
   @inlinable public func forEach(_ body: (Element) throws -> Void) rethrows {
     for element in self { try body(element) }
