@@ -172,8 +172,8 @@ id root_retain(id obj);
 void root_release(id obj);
 int root_try_retain(id obj);
 unsigned long root_retain_count(id obj);
+id root_autorelease(id obj); /* adds to the current pool, no message */
 void object_dispose_impl(id obj);
-void arc_object_destroyed(id obj);
 extern SEL SEL_retain, SEL_release, SEL_autorelease, SEL_dealloc, SEL_alloc, SEL_init, SEL_new,
     SEL_class, SEL_copyWithZone, SEL_mutableCopyWithZone, SEL_initialize, SEL_load,
     SEL_cxx_destruct, SEL_cxx_construct, SEL_resolveInstanceMethod, SEL_resolveClassMethod,

@@ -358,3 +358,40 @@ for the Swift layer and for the smaller independent items.
 - Measured here: the Mac app window has 5,360 unimplemented imports with this
   build (`NEXT.md` recorded 5,307 on the previous machine; the difference is
   being looked into, the deltas below are against 5,360).
+
+## 2026-11-25: Swift heap objects (PR: swift-heap)
+
+- `src/frameworks/swift/heap.c`: `swift_allocObject`, strong retain/release
+  (`_n`, nonatomic), `swift_tryRetain`, unowned counts, native weak
+  references, deallocation (class instances, partial and uninitialised
+  objects), stack and static objects, uniqueness checks, boxes
+  (`swift_allocBox`, `swift_projectBox`, `swift_makeBoxUnique`, the shared
+  empty box), `swift_once`, `swift_beginAccess`/`endAccess`, and the value
+  witness tables of `Builtin.NativeObject`/`UnknownObject`/`BridgeObject`
+  and of closures (`$sBoWV`, `$sBOWV`, `$sBbWV`, `$syycWV`).
+- Facts taken from compiler output rather than assumed: a static object is
+  emitted with a zero refcount word and an 8-byte once-token right before
+  it, and `swift_initStaticObject` must fill the header in (we make it
+  immortal); `swift_once` predicates are tested inline against ~0; a
+  heap object's destroyer (`metadata[-2]`) and a class's ivar destroyer
+  take the object in r13 (Swift `self`), so the runtime calls them through
+  a small assembly thunk (`callconv.S`); pointer extra inhabitants are the
+  even values below 4 GiB; the x86-64 spare-bit mask is
+  0xFF00000000000007.
+- The refcount word is ours (strong count, unowned count, deiniting, a
+  has-weak bit). Native weak references are bitwise-takable, so they point
+  at a shared per-object record instead of being registered by address.
+  Exclusivity checks are accepted without tracking (documented in heap.c).
+- `src/frameworks/swift/objc.c`: the root class `_TtCs12_SwiftObject`,
+  whose `-retain`/`-release`/`-autorelease`/`-retainCount`/`-dealloc` use
+  Swift counting (`objc_retain` on a Swift object reaches it by message),
+  `swift_unknownObject*` and `swift_bridgeObject*` retain/release.
+  `arc.c` exposes `dx_objc_object_destroyed` so a Swift object's `__weak`
+  variables and associated objects are cleared when it is freed.
+- `tests/swift/heap`: deinit order, counts, unowned, closures and their
+  contexts, static objects, lazy globals, stack-promoted objects, boxes and
+  value witnesses; passes at `-O` and `-Onone`. Suite: 22/22 (no Go
+  toolchain on this machine); `tests/e2e/target-app.sh` not run (no Docker here).
+- The Mac app window imports unimplemented: 5,484 -> 5,434 (5,484 is what
+  `fdecc90` gives on this machine, not the 5,360 recorded in the previous
+  entry).

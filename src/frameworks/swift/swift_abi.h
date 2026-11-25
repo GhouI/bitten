@@ -141,9 +141,11 @@ typedef struct sw_value_metadata {
     const sw_type_context_descriptor *description;
 } sw_value_metadata;
 
-/* Class metadata. The first five words are an Objective-C class. */
+/* Class metadata. The first five words are an Objective-C class. The low two
+ * bits of `data` mark a Swift class (1: before the stable ABI, 2: stable);
+ * the values below are the separate `flags` field. */
 enum {
-    SW_CLASS_IS_SWIFT_PREV_STABLE_ABI = 0x1, /* low bits of `data` */
+    SW_CLASS_IS_SWIFT_PREV_STABLE_ABI = 0x1,
     SW_CLASS_USES_SWIFT_REFCOUNTING = 0x2,
     SW_CLASS_HAS_CUSTOM_OBJC_NAME = 0x4,
     SW_CLASS_IS_STATIC_SPECIALIZATION = 0x8,
@@ -397,12 +399,27 @@ typedef struct sw_generic_class_metadata_pattern {
 /* ---- heap objects ------------------------------------------------------------
  * Every native Swift object starts with its metadata and a reference-count
  * word. The encoding of the word is the runtime's own business because
- * compiled code never touches it on x86-64 Darwin, with one exception:
- * statically initialised objects (sw_heap_object_static_refcount). */
+ * compiled code never touches it on x86-64 Darwin. Statically emitted
+ * objects carry a zero word (and an 8-byte once-token just before the
+ * object) until swift_initStaticObject fills the header in (heap.c). */
 typedef struct sw_heap_object {
     const sw_metadata *metadata;
     uint64_t refcounts;
 } sw_heap_object;
+
+/* ---- pointer bits (x86-64) -------------------------------------------------
+ * Spare bits of a heap object pointer: the top byte and the alignment bits.
+ * swiftc packs enum tags there (a multi-payload enum of class references
+ * keeps its payload under 0x00FFFFFFFFFFFFF8). Objective-C reserves bit 63
+ * and bit 0 for tagged pointers. A Builtin.BridgeObject is a pointer with
+ * extra information in the spare bits: bit 62 says "Objective-C object",
+ * and values with a reserved bit set (tagged pointers, immortal String
+ * storage) are not references at all. */
+#define SW_SPARE_BITS_MASK 0xFF00000000000007ull
+#define SW_OBJC_RESERVED_BITS_MASK 0x8000000000000001ull
+#define SW_BRIDGE_TAG_MASK SW_OBJC_RESERVED_BITS_MASK
+#define SW_BRIDGE_OBJC_BIT 0x4000000000000000ull
+#define SW_BRIDGE_SPARE_MASK (SW_SPARE_BITS_MASK & ~SW_OBJC_RESERVED_BITS_MASK)
 
 /* ---- field descriptors (__swift5_fieldmd) --------------------------------- */
 typedef struct sw_field_record {
