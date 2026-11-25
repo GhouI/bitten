@@ -1434,3 +1434,9 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   not implemented in bitten yet" instead of crashing in a stub.
 - Target app window (total `^MISSING`): 3,724 -> 3,658. It now runs past
   user defaults, bundles and UUIDs and stops at `Synchronization.Mutex`.
+
+## 2026-11-25: progress chart, simplified (PR: progress-simple)
+
+- The README chart is now one simple picture: the share of the target
+  app's imports implemented, and one bar per area. The history is still
+  recorded in `history.csv` on the `progress` branch but no longer drawn.
