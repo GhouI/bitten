@@ -5,8 +5,10 @@
  *   objc.c       SwiftObject root class, unknown/bridge objects, ObjC metadata
  *   metadata.c   value witnesses, struct/enum/class/tuple/function metadata,
  *                singleton and generic instantiation
- *   demangle.c   mangled type names -> metadata
- *   protocols.c  conformance lookup, witness tables, dynamic casts
+ *   demangle.c   mangled type names -> metadata, generic environments, type names
+ *   protocols.c  conformance lookup, witness tables, associated types
+ *   casts.c      dynamic casts
+ *   errors.c     error boxes, throwing hooks, fatal error reports
  *
  * Exported entry points use the Swift runtime's own names (DX_EXPORT with the
  * Mach-O underscore). Helpers shared between files are prefixed sw_. */
@@ -89,13 +91,63 @@ const char *sw_descriptor_name(const sw_type_context_descriptor *desc);
 void sw_descriptor_qualified_name(const sw_context_descriptor *desc, char *buf, size_t len);
 
 /* ---- demangle.c ---------------------------------------------------------------- */
+/* A generic environment: what the generic parameters of a mangled name
+ * (x, q_, qd__, ...) stand for. Built from a context descriptor's generic
+ * signature (sw_env_init) and then given the arguments either as the
+ * context's key arguments (`args`: key parameters, then the witness tables
+ * of key protocol requirements, as metadata and accessors lay them out) or
+ * as every parameter in order (`flat`). */
+struct sw_env {
+    const sw_context_descriptor *ctx;
+    unsigned nlevels;
+    uint16_t levels[16]; /* cumulative parameter count per depth */
+    unsigned nparams;
+    const uint8_t *params; /* SW_GP_* per parameter */
+    unsigned nreqs;
+    const sw_generic_requirement *reqs;
+    const void *const *args;
+    const sw_metadata *const *flat;
+    /* Protocol context (names in witness tables prefixed by 0xFF): Self,
+     * i.e. generic parameter (0, 0), and its witness table. */
+    const sw_metadata *self;
+    const sw_witness_table *self_wt;
+};
+void sw_env_init(struct sw_env *e, const sw_context_descriptor *ctx, const void *const *args);
+const sw_metadata *sw_type_in_env(const char *name, size_t len, const struct sw_env *e);
 /* Resolves a mangled type name (possibly with symbolic references) in the
- * environment of generic arguments `args` of context `ctx`. NULL if unknown. */
+ * environment of generic arguments `args` of context `ctx`. NULL if unknown;
+ * with BITTEN_DEBUG set, the reason is logged. */
 const sw_metadata *sw_type_by_mangled_name(const char *name, size_t len,
                                            const sw_context_descriptor *ctx,
                                            const void *const *args);
+/* Length of a NUL-terminated mangled name (symbolic references may contain 0 bytes). */
+size_t sw_mangled_name_length(const char *name);
+/* Checks generic requirements in an environment; the witness tables of key
+ * protocol requirements are appended to key_out[*nkey]. 0 if satisfied. */
+int sw_check_requirements(const sw_generic_requirement *reqs, unsigned n, const struct sw_env *e,
+                          const void **key_out, unsigned *nkey);
+/* Generic context header of any generic context descriptor, else NULL. */
+const sw_generic_context_header *sw_generic_header(const sw_context_descriptor *c);
+/* Nominal type descriptor and key generic arguments of type metadata. */
+const sw_type_context_descriptor *sw_type_descriptor(const sw_metadata *m);
+const void *const *sw_generic_args(const sw_metadata *m);
+/* Class object behind class metadata (Swift class, ObjC wrapper), else NULL. */
+const void *sw_class_of_metadata(const sw_metadata *m);
+int sw_is_subclass(const sw_metadata *sub, const sw_metadata *sup);
+/* Qualified name of a context as the mangling spells it ("Module.Outer.Name";
+ * extensions as the type they extend, anonymous contexts left out). */
+void sw_context_name(const sw_context_descriptor *c, char *buf, size_t len);
+/* Readable name, e.g. "main.Pair<Swift.Int, main.S>"; cached forever. */
+const char *sw_type_name(const sw_metadata *m, int qualified);
+const sw_protocol_requirement *sw_protocol_requirements(const sw_protocol_descriptor *p);
+const sw_protocol_requirement *sw_assoc_type_requirement(const sw_protocol_descriptor *p,
+                                                         const char *name);
 
 /* ---- protocols.c ----------------------------------------------------------------- */
 const sw_witness_table *sw_conforms_to(const sw_metadata *type, const sw_protocol_descriptor *proto);
+/* swift_getAssociatedTypeWitness for a complete-metadata request. */
+const sw_metadata *sw_get_assoc_type_witness(const sw_witness_table *wt, const sw_metadata *type,
+                                             const sw_protocol_requirement *req_base,
+                                             const sw_protocol_requirement *req);
 
 #endif

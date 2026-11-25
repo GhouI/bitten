@@ -435,3 +435,52 @@ for the Swift layer and for the smaller independent items.
   bits stripped, tagged and immortal values untouched); casts and wrapper
   metadata. Passes at `-O` and `-Onone`; suite 24/24.
 - Rex window imports unimplemented: 5,423 -> 5,418.
+
+## 2026-11-25: Swift mangled type names and protocol conformances (PR: swift-demangle)
+
+- `src/frameworks/swift/demangle.c`: the type grammar of the Swift
+  mangling, parsed postfix onto a stack the way the grammar is defined,
+  with symbolic references (direct/indirect context descriptors, accessor
+  functions, Objective-C protocols), word and node back references,
+  standard-library substitutions (`Si`, `Sg`, `Sa`, `SD`, `Sc*`...), bound
+  generics with per-level argument lists, tuples, functions (conventions,
+  `async`/`throws`/`@Sendable`/global actors, `inout` and other parameter
+  flags), metatypes, existentials, generic parameters and associated type
+  paths, builtins, opaque result types, extensions and private names.
+  Resolution to metadata runs against a generic environment (a context
+  descriptor's signature plus key arguments, or a GenericEnvironment), and
+  checks the requirements of generic types before instantiating them.
+  Types named rather than referenced are found by qualified name in an
+  index of every image's `__swift5_types`/`__swift5_protos`. Standard
+  library, builtin and structural metadata are reached through their
+  exported symbols, so `Optional`, `Int` and friends resolve as soon as a
+  standard library exports `$sSqMn`, `$sSiN`...; until then the lookup
+  returns NULL and `BITTEN_DEBUG=1` says what was asked and why it failed.
+  Entry points: `swift_getTypeByMangledNameInContext{,2}`,
+  `...InMetadataState{,2}`, `...InEnvironment{,InMetadataState}{,2}`,
+  `swift_getOpaqueTypeMetadata{,2}`, `swift_getOpaqueTypeConformance{,2}`,
+  `swift_getTypeName` and `swift_demangle` (types only). The printer matches
+  `swift-demangle` exactly on all 1,099 type symbols of the Rex window and
+  on 8,255 of the 8,482 in the Swift toolchain's own libraries (the rest are
+  local types and other forms runtime names never use).
+- `src/frameworks/swift/protocols.c`: `__swift5_proto` of every image,
+  current and future, indexed by type descriptor (by name for non-unique
+  imported descriptors, by name or class for Objective-C classes);
+  `swift_conformsToProtocol{,2,Common}` walk superclasses, check conditional
+  requirements and cache per (type, protocol), negative answers until the
+  next image with conformances. `swift_getWitnessTable` instantiates
+  generic and resilient witness tables (defaults, resilient witnesses,
+  conditional conformances in the private area, instantiator);
+  `swift_getAssociatedTypeWitness` and
+  `swift_getAssociatedConformanceWitness` resolve the tagged mangled names
+  and accessor references in witness tables.
+- Loader fix: `dx_image_section` only looked in `__DATA*` segments, so
+  every `__swift5_*` section (they are in `__TEXT`) was invisible to the
+  Swift runtime.
+- `tests/swift/demangle`: printer cases, symbolic references from field
+  descriptors and built in place, lookups by name, conformances including
+  inherited ones, an associated type and an associated conformance
+  requested by compiled generic code, an opaque result type. Generic types
+  wait for `metadata.c`. Passes at `-O` and `-Onone`; suite 25/25. No
+  Docker here: `tests/e2e/rex.sh` not run.
+- Rex window imports unimplemented: 5,418 -> 5,406.
