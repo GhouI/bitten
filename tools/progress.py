@@ -4,7 +4,7 @@
   progress.py measure --mrun build/mrun --app path/Rex.app --out DIR [--commit SHA]
       run `mrun --check` on the Rex window, append one row to DIR/history.csv
       (one row per commit) and redraw DIR/progress.svg
-  progress.py backfill --out DIR
+  progress.py backfill --out DIR   (all commands take --repo CHECKOUT)
       seed DIR/history.csv from the "Rex window ... -> N" lines that every
       merged pull request wrote into docs/LOG.md
   progress.py draw --app path/Rex.app --check FILE --out DIR
@@ -25,6 +25,7 @@ import re
 import subprocess
 import sys
 
+# The checkout whose docs and history are read (--repo, default this one).
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NM_CANDIDATES = ["llvm-nm", "llvm-nm-19", "llvm-nm-18", "llvm-nm-17"]
 
@@ -135,8 +136,8 @@ def write_history(path, rows):
             w.writerow({k: r.get(k, "") for k in FIELDS})
 
 
-def git(*args, cwd=ROOT):
-    return subprocess.run(["git", *args], cwd=cwd, capture_output=True,
+def git(*args):
+    return subprocess.run(["git", *args], cwd=ROOT, capture_output=True,
                           text=True, check=True).stdout
 
 
@@ -477,6 +478,8 @@ def main():
     if len(sys.argv) < 2 or sys.argv[1] not in ("measure", "backfill", "draw"):
         sys.exit(__doc__)
     cmd = sys.argv[1]
+    global ROOT
+    ROOT = os.path.abspath(arg("--repo", ROOT))
     out = arg("--out")
     os.makedirs(out, exist_ok=True)
     hist_path = os.path.join(out, "history.csv")

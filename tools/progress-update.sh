@@ -66,9 +66,9 @@ if ! nice -n 19 make -C "$SRC" -j"$JOBS" >"$HOME_DIR/build.log" 2>&1; then
 fi
 
 if [ ! -f "$PUB/history.csv" ]; then
-    python3 "$SRC/tools/progress.py" backfill --out "$PUB"
+    python3 "$SELF_REPO/tools/progress.py" backfill --repo "$SRC" --out "$PUB"
 fi
-python3 "$SRC/tools/progress.py" measure --mrun "$SRC/build/mrun" \
+python3 "$SELF_REPO/tools/progress.py" measure --repo "$SRC" --mrun "$SRC/build/mrun" \
     --app "$REX_APP" --commit "$HEAD" --out "$PUB"
 
 cat >"$PUB/README.md" <<'EOF'
