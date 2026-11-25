@@ -1,228 +1,190 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="880" height="1262" viewBox="0 0 880 1262">
-
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="1635" viewBox="0 0 880 1635" role="img" aria-labelledby="t d">
+<title id="t">How close bitten is to running the target Mac app</title>
+<desc id="d">39% done: bitten implements 2,324 of the 5,982 symbols the target Mac app imports; 3,658 still to go. 6 of 17 roadmap layers are done.</desc>
 <style>
-  .card  { fill: #ffffff; stroke: #e5e7eb; }
-  .panel { fill: #f8fafc; stroke: #eef2f6; }
-  .ink   { fill: #0f172a; }
-  .mute  { fill: #64748b; }
-  .soft  { fill: #94a3b8; }
-  .track { fill: #e9edf3; }
-  .grid  { stroke: #e5e7eb; }
-  .chip  { fill: #eef2ff; }
-  .chipt { fill: #4338ca; }
-  .ringtrack { stroke: #e9edf3; }
-  .halo  { fill: #ffffff; }
-  .done  { fill: #10b981; } .donet { fill: #047857; } .doneb { fill: #d1fae5; }
-  .part  { fill: #f59e0b; } .partt { fill: #b45309; } .partb { fill: #fef3c7; }
-  .todo  { fill: #cbd5e1; } .todot { fill: #64748b; } .todob { fill: #f1f5f9; }
-  @media (prefers-color-scheme: dark) {
-    .card  { fill: #0d1117; stroke: #30363d; }
-    .panel { fill: #161b22; stroke: #21262d; }
-    .ink   { fill: #e6edf3; }
-    .mute  { fill: #9198a1; }
-    .soft  { fill: #6e7681; }
-    .track { fill: #21262d; }
-    .grid  { stroke: #21262d; }
-    .chip  { fill: #1f2447; }
-    .chipt { fill: #a5b4fc; }
-    .ringtrack { stroke: #21262d; }
-    .halo  { fill: #0d1117; }
-    .donet { fill: #34d399; } .doneb { fill: #0b3b2c; }
-    .partt { fill: #fbbf24; } .partb { fill: #3d2e0a; }
-    .todo  { fill: #484f58; } .todot { fill: #9198a1; } .todob { fill: #21262d; }
-  }
-  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter",
-         Helvetica, Arial, sans-serif; }
+  text { font-family: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .hero { font-size: 56px; font-weight: 600; }
+  .title { font-size: 20px; font-weight: 600; }
+  .head { font-size: 14px; font-weight: 600; }
+  .body { font-size: 14px; font-weight: 400; }
+  .small { font-size: 12px; font-weight: 400; }
+  .hero { letter-spacing: -1.5px; }
   .num { font-variant-numeric: tabular-nums; }
+  .card { fill: #ffffff; stroke: #d1d9e0; }
+  .ink { fill: #1f2328; }
+  .sec { fill: #59636e; }
+  .rule { stroke: #e6eaef; }
+  .axis { stroke: #c2cad3; }
+  .fill { fill: #2370cd; }
+  .track { fill: #84b9f3; }
+  .notch { stroke: #ffffff; stroke-opacity: 0.45; }
+  .line { stroke: #2370cd; fill: none; }
+  .on { fill: #ffffff; }
+  .dot { fill: #2370cd; stroke: #ffffff; }
+  .open { fill: #ffffff; stroke: #c2cad3; }
+  .goal { fill: #ffffff; stroke: #1f2328; }
+  @media (prefers-color-scheme: dark) {
+    .card { fill: #0d1117; stroke: #3d444d; }
+    .ink { fill: #f0f6fc; }
+    .sec { fill: #9198a1; }
+    .rule { stroke: #262c36; }
+    .axis { stroke: #3d444d; }
+    .fill { fill: #338ced; }
+    .track { fill: #0f4a96; }
+    .notch { stroke: #0d1117; stroke-opacity: 0.45; }
+    .line { stroke: #338ced; fill: none; }
+    .on { fill: #0d1117; }
+    .dot { fill: #338ced; stroke: #0d1117; }
+    .open { fill: #0d1117; stroke: #3d444d; }
+    .goal { fill: #0d1117; stroke: #f0f6fc; }
+  }
 </style>
-<defs><linearGradient id="brand" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#ec4899"/></linearGradient><linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#10b981"/><stop offset="1" stop-color="#0ea5e9"/></linearGradient><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6366f1" stop-opacity="0.28"/><stop offset="1" stop-color="#6366f1" stop-opacity="0.02"/></linearGradient></defs>
-<rect x="0.5" y="0.5" width="879" height="1261" rx="18" class="card"/>
-<rect x="28" y="25" width="10" height="26" rx="3" fill="url(#brand)"/>
-<text x="48.0" y="46.0" class="ink" font-size="22" font-weight="700" text-anchor="start">bitten</text>
-<text x="120.0" y="46.0" class="mute" font-size="15" font-weight="400" text-anchor="start">· running a Mac app on Linux</text>
-<rect x="742.2" y="29" width="109.8" height="24" rx="12" class="chip"/>
-<text x="797.1" y="45.0" class="chipt" font-size="12" font-weight="600" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">main @ 311b94b</text>
-<text x="730.2" y="45.0" class="mute" font-size="12" font-weight="400" text-anchor="end">updated 2026-11-25 23:25 UTC</text>
-<rect x="28" y="76" width="824" height="156" rx="14" class="panel"/>
-<circle cx="114" cy="154" r="52" fill="none" class="ringtrack" stroke-width="13"/>
-<circle cx="114" cy="154" r="52" fill="none" stroke="url(#ring)" stroke-width="13" stroke-linecap="round" stroke-dasharray="123.3 326.7" transform="rotate(-90 114 154)"/>
-<text x="114.0" y="163.0" class="ink" font-size="27" font-weight="750" text-anchor="middle">38%</text>
-<text x="196.0" y="126.0" class="mute" font-size="13" font-weight="500" text-anchor="start">Mac app imports implemented</text>
-<text x="196.0" y="164.0" class="ink num" font-size="34" font-weight="750" text-anchor="start">2,258 <tspan class="soft" font-size="20" font-weight="500">/ 5,982</tspan></text>
-<text x="196.0" y="192.0" class="mute" font-size="13.5" font-weight="400" text-anchor="start">3,724 still to go</text>
-<rect x="460" y="125" width="118" height="58" rx="11" class="card"/>
-<text x="474.0" y="152.0" class="donet num" font-size="19" font-weight="700" text-anchor="start">6 / 17</text>
-<text x="474.0" y="171.0" class="mute" font-size="11.5" font-weight="400" text-anchor="start">layers done</text>
-<rect x="588" y="125" width="118" height="58" rx="11" class="card"/>
-<text x="602.0" y="152.0" class="partt num" font-size="19" font-weight="700" text-anchor="start">6</text>
-<text x="602.0" y="171.0" class="mute" font-size="11.5" font-weight="400" text-anchor="start">layers in progress</text>
-<rect x="716" y="125" width="118" height="58" rx="11" class="card"/>
-<text x="730.0" y="152.0" class="ink num" font-size="19" font-weight="700" text-anchor="start">−1,628</text>
-<text x="730.0" y="171.0" class="mute" font-size="11.5" font-weight="400" text-anchor="start">since Nov 24</text>
-<rect x="28" y="254" width="824" height="318" rx="14" class="panel"/>
-<text x="50.0" y="286.0" class="ink" font-size="15" font-weight="650" text-anchor="start">By area</text>
-<text x="830.0" y="286.0" class="soft" font-size="11.5" font-weight="400" text-anchor="end">implemented / imported</text>
-<circle cx="56" cy="319" r="5" fill="#6366f1"/>
-<text x="70.0" y="319.0" class="ink" font-size="13.5" font-weight="600" text-anchor="start" dominant-baseline="middle">System</text>
-<text x="70.0" y="335.0" class="soft" font-size="10.5" font-weight="400" text-anchor="start">libSystem, libobjc, CoreFoundation, ...</text>
-<rect x="290" y="313" width="384" height="12" rx="6" class="track"/>
-<rect x="290" y="313" width="282.2" height="12" rx="6" fill="#6366f1"/>
-<text x="750.0" y="323.0" class="ink num" font-size="13.5" font-weight="700" text-anchor="end">73%</text>
-<text x="830.0" y="323.0" class="soft num" font-size="11" font-weight="400" text-anchor="end">338/460</text>
-<circle cx="56" cy="357" r="5" fill="#f97316"/>
-<text x="70.0" y="357.0" class="ink" font-size="13.5" font-weight="600" text-anchor="start" dominant-baseline="middle">Swift</text>
-<text x="70.0" y="373.0" class="soft" font-size="10.5" font-weight="400" text-anchor="start">runtime and standard library</text>
-<rect x="290" y="351" width="384" height="12" rx="6" class="track"/>
-<rect x="290" y="351" width="302.4" height="12" rx="6" fill="#f97316"/>
-<text x="750.0" y="361.0" class="ink num" font-size="13.5" font-weight="700" text-anchor="end">79%</text>
-<text x="830.0" y="361.0" class="soft num" font-size="11" font-weight="400" text-anchor="end">1,413/1,794</text>
-<circle cx="56" cy="395" r="5" fill="#0ea5e9"/>
-<text x="70.0" y="395.0" class="ink" font-size="13.5" font-weight="600" text-anchor="start" dominant-baseline="middle">Foundation</text>
-<text x="70.0" y="411.0" class="soft" font-size="10.5" font-weight="400" text-anchor="start">strings, collections, files, run loops</text>
-<rect x="290" y="389" width="384" height="12" rx="6" class="track"/>
-<rect x="290" y="389" width="40.2" height="12" rx="6" fill="#0ea5e9"/>
-<text x="750.0" y="399.0" class="ink num" font-size="13.5" font-weight="700" text-anchor="end">10%</text>
-<text x="830.0" y="399.0" class="soft num" font-size="11" font-weight="400" text-anchor="end">77/736</text>
-<circle cx="56" cy="433" r="5" fill="#14b8a6"/>
-<text x="70.0" y="433.0" class="ink" font-size="13.5" font-weight="600" text-anchor="start" dominant-baseline="middle">Graphics</text>
-<text x="70.0" y="449.0" class="soft" font-size="10.5" font-weight="400" text-anchor="start">CoreGraphics, CoreText, Metal, ...</text>
-<rect x="290" y="427" width="384" height="12" rx="6" class="track"/>
-<rect x="290" y="427" width="41.1" height="12" rx="6" fill="#14b8a6"/>
-<text x="750.0" y="437.0" class="ink num" font-size="13.5" font-weight="700" text-anchor="end">11%</text>
-<text x="830.0" y="437.0" class="soft num" font-size="11" font-weight="400" text-anchor="end">30/280</text>
-<circle cx="56" cy="471" r="5" fill="#8b5cf6"/>
-<text x="70.0" y="471.0" class="ink" font-size="13.5" font-weight="600" text-anchor="start" dominant-baseline="middle">AppKit</text>
-<text x="70.0" y="487.0" class="soft" font-size="10.5" font-weight="400" text-anchor="start">windows, views, events, menus</text>
-<rect x="290" y="465" width="384" height="12" rx="6" class="track"/>
-<rect x="290" y="465" width="358.1" height="12" rx="6" fill="#8b5cf6"/>
-<text x="750.0" y="475.0" class="ink num" font-size="13.5" font-weight="700" text-anchor="end">93%</text>
-<text x="830.0" y="475.0" class="soft num" font-size="11" font-weight="400" text-anchor="end">235/252</text>
-<circle cx="56" cy="509" r="5" fill="#ec4899"/>
-<text x="70.0" y="509.0" class="ink" font-size="13.5" font-weight="600" text-anchor="start" dominant-baseline="middle">SwiftUI</text>
-<text x="70.0" y="525.0" class="soft" font-size="10.5" font-weight="400" text-anchor="start">SwiftUI, Combine, Observation</text>
-<rect x="290" y="503" width="384" height="12" rx="6" class="track"/>
-<rect x="290" y="503" width="32.3" height="12" rx="6" fill="#ec4899"/>
-<text x="750.0" y="513.0" class="ink num" font-size="13.5" font-weight="700" text-anchor="end">8%</text>
-<text x="830.0" y="513.0" class="soft num" font-size="11" font-weight="400" text-anchor="end">153/1,821</text>
-<circle cx="56" cy="547" r="5" fill="#64748b"/>
-<text x="70.0" y="547.0" class="ink" font-size="13.5" font-weight="600" text-anchor="start" dominant-baseline="middle">Other</text>
-<text x="70.0" y="563.0" class="soft" font-size="10.5" font-weight="400" text-anchor="start">Network, CryptoKit, AppIntents, ...</text>
-<rect x="290" y="541" width="384" height="12" rx="6" class="track"/>
-<rect x="290" y="541" width="12.0" height="12" rx="6" fill="#64748b"/>
-<text x="750.0" y="551.0" class="ink num" font-size="13.5" font-weight="700" text-anchor="end">2%</text>
-<text x="830.0" y="551.0" class="soft num" font-size="11" font-weight="400" text-anchor="end">12/639</text>
-<rect x="28" y="594" width="824" height="256" rx="14" class="panel"/>
-<text x="50.0" y="626.0" class="ink" font-size="15" font-weight="650" text-anchor="start">Imports still missing</text>
-<text x="830.0" y="626.0" class="soft" font-size="11.5" font-weight="400" text-anchor="end">one step per merged change</text>
-<line x1="92" y1="816.0" x2="822" y2="816.0" class="grid" stroke-width="1"/>
-<text x="82.0" y="820.0" class="soft num" font-size="10.5" font-weight="400" text-anchor="end">0</text>
-<line x1="92" y1="787.7" x2="822" y2="787.7" class="grid" stroke-width="1" stroke-dasharray="3 5"/>
-<text x="82.0" y="791.7" class="soft num" font-size="10.5" font-weight="400" text-anchor="end">1,000</text>
-<line x1="92" y1="759.3" x2="822" y2="759.3" class="grid" stroke-width="1" stroke-dasharray="3 5"/>
-<text x="82.0" y="763.3" class="soft num" font-size="10.5" font-weight="400" text-anchor="end">2,000</text>
-<line x1="92" y1="731.0" x2="822" y2="731.0" class="grid" stroke-width="1" stroke-dasharray="3 5"/>
-<text x="82.0" y="735.0" class="soft num" font-size="10.5" font-weight="400" text-anchor="end">3,000</text>
-<line x1="92" y1="702.7" x2="822" y2="702.7" class="grid" stroke-width="1" stroke-dasharray="3 5"/>
-<text x="82.0" y="706.7" class="soft num" font-size="10.5" font-weight="400" text-anchor="end">4,000</text>
-<line x1="92" y1="674.3" x2="822" y2="674.3" class="grid" stroke-width="1" stroke-dasharray="3 5"/>
-<text x="82.0" y="678.3" class="soft num" font-size="10.5" font-weight="400" text-anchor="end">5,000</text>
-<line x1="92" y1="646.0" x2="822" y2="646.0" class="grid" stroke-width="1" stroke-dasharray="3 5"/>
-<text x="82.0" y="650.0" class="soft num" font-size="10.5" font-weight="400" text-anchor="end">6,000</text>
-<path d="M92.0 664.4 H98.0 V664.7 H98.9 V665.1 H107.2 V665.6 H341.9 V664.1 H355.3 V662.3 H355.8 V662.5 H358.0 V662.8 H360.4 V663.5 H362.1 V663.6 H362.7 V664.0 H365.0 V664.1 H365.3 V665.7 H367.8 V667.6 H369.2 V667.6 H369.6 V668.2 H371.4 V669.2 H372.9 V674.8 H373.7 V675.1 H375.3 V675.4 H378.4 V676.8 H382.1 V677.0 H388.9 V678.1 H650.8 V680.7 H652.5 V681.8 H656.7 V687.1 H701.1 V689.4 H726.6 V690.4 H733.6 V691.6 H736.2 V692.5 H791.2 V699.9 H794.2 V701.0 H804.4 V704.7 H804.8 V704.7 H822.0 V710.5 V816.0 H92.0 Z" fill="url(#area)"/>
-<path d="M92.0 664.4 H98.0 V664.7 H98.9 V665.1 H107.2 V665.6 H341.9 V664.1 H355.3 V662.3 H355.8 V662.5 H358.0 V662.8 H360.4 V663.5 H362.1 V663.6 H362.7 V664.0 H365.0 V664.1 H365.3 V665.7 H367.8 V667.6 H369.2 V667.6 H369.6 V668.2 H371.4 V669.2 H372.9 V674.8 H373.7 V675.1 H375.3 V675.4 H378.4 V676.8 H382.1 V677.0 H388.9 V678.1 H650.8 V680.7 H652.5 V681.8 H656.7 V687.1 H701.1 V689.4 H726.6 V690.4 H733.6 V691.6 H736.2 V692.5 H791.2 V699.9 H794.2 V701.0 H804.4 V704.7 H804.8 V704.7 H822.0 V710.5" fill="none" stroke="#6366f1" stroke-width="2.4" stroke-linejoin="round"/>
-<circle cx="822.0" cy="710.5" r="9" fill="#6366f1" opacity="0.18"/>
-<circle cx="822.0" cy="710.5" r="4.5" class="halo" stroke="#6366f1" stroke-width="2.4"/>
-<rect x="760.0" y="678.5" width="50.0" height="22" rx="11" fill="#6366f1"/>
-<text x="785.0" y="693.5" class="" font-size="12" font-weight="700" text-anchor="middle" fill="#ffffff" style="fill:#fff">3,724</text>
-<text x="92.0" y="838.0" class="soft" font-size="11" font-weight="400" text-anchor="start">Nov 24, 22:45</text>
-<text x="822.0" y="838.0" class="soft" font-size="11" font-weight="400" text-anchor="end">Nov 25, 23:25</text>
-<rect x="28" y="872" width="824" height="344" rx="14" class="panel"/>
-<text x="50.0" y="904.0" class="ink" font-size="15" font-weight="650" text-anchor="start">Roadmap</text>
-<text x="830.0" y="904.0" class="soft" font-size="11.5" font-weight="400" text-anchor="end">6 done · 6 in progress · 5 not started</text>
-<rect x="51.0" y="916" width="43.9" height="6" rx="3" class="done"/>
-<rect x="96.9" y="916" width="43.9" height="6" rx="3" class="done"/>
-<rect x="142.8" y="916" width="43.9" height="6" rx="3" class="done"/>
-<rect x="188.6" y="916" width="43.9" height="6" rx="3" class="done"/>
-<rect x="234.5" y="916" width="43.9" height="6" rx="3" class="done"/>
-<rect x="280.4" y="916" width="43.9" height="6" rx="3" class="done"/>
-<rect x="326.3" y="916" width="43.9" height="6" rx="3" class="todo"/>
-<rect x="372.2" y="916" width="43.9" height="6" rx="3" class="part"/>
-<rect x="418.1" y="916" width="43.9" height="6" rx="3" class="part"/>
-<rect x="463.9" y="916" width="43.9" height="6" rx="3" class="todo"/>
-<rect x="509.8" y="916" width="43.9" height="6" rx="3" class="todo"/>
-<rect x="555.7" y="916" width="43.9" height="6" rx="3" class="part"/>
-<rect x="601.6" y="916" width="43.9" height="6" rx="3" class="part"/>
-<rect x="647.5" y="916" width="43.9" height="6" rx="3" class="part"/>
-<rect x="693.4" y="916" width="43.9" height="6" rx="3" class="todo"/>
-<rect x="739.2" y="916" width="43.9" height="6" rx="3" class="part"/>
-<rect x="785.1" y="916" width="43.9" height="6" rx="3" class="todo"/>
-<text x="50.0" y="952.0" class="soft num" font-size="11.5" font-weight="600" text-anchor="start"> 1</text>
-<text x="74.0" y="952.0" class="ink" font-size="12.5" font-weight="500" text-anchor="start">Loader, libSystem core, sockets, kque…</text>
-<rect x="381.6" y="939" width="40.4" height="19" rx="9.5" class="doneb"/>
-<text x="401.8" y="952.0" class="donet" font-size="10.5" font-weight="650" text-anchor="middle">done</text>
-<text x="50.0" y="982.0" class="soft num" font-size="11.5" font-weight="600" text-anchor="start"> 2</text>
-<text x="74.0" y="982.0" class="ink" font-size="12.5" font-weight="500" text-anchor="start">CoreFoundation basics, libproc, resol…</text>
-<rect x="381.6" y="969" width="40.4" height="19" rx="9.5" class="doneb"/>
-<text x="401.8" y="982.0" class="donet" font-size="10.5" font-weight="650" text-anchor="middle">done</text>
-<text x="50.0" y="1012.0" class="soft num" font-size="11.5" font-weight="600" text-anchor="start"> 3</text>
-<text x="74.0" y="1012.0" class="ink" font-size="12.5" font-weight="500" text-anchor="start">Blocks runtime</text>
-<rect x="381.6" y="999" width="40.4" height="19" rx="9.5" class="doneb"/>
-<text x="401.8" y="1012.0" class="donet" font-size="10.5" font-weight="650" text-anchor="middle">done</text>
-<text x="50.0" y="1042.0" class="soft num" font-size="11.5" font-weight="600" text-anchor="start"> 4</text>
-<text x="74.0" y="1042.0" class="ink" font-size="12.5" font-weight="500" text-anchor="start">Objective-C runtime</text>
-<rect x="381.6" y="1029" width="40.4" height="19" rx="9.5" class="doneb"/>
-<text x="401.8" y="1042.0" class="donet" font-size="10.5" font-weight="650" text-anchor="middle">done</text>
-<text x="50.0" y="1072.0" class="soft num" font-size="11.5" font-weight="600" text-anchor="start"> 5</text>
-<text x="74.0" y="1072.0" class="ink" font-size="12.5" font-weight="500" text-anchor="start">libdispatch</text>
-<rect x="381.6" y="1059" width="40.4" height="19" rx="9.5" class="doneb"/>
-<text x="401.8" y="1072.0" class="donet" font-size="10.5" font-weight="650" text-anchor="middle">done</text>
-<text x="50.0" y="1102.0" class="soft num" font-size="11.5" font-weight="600" text-anchor="start"> 6</text>
-<text x="74.0" y="1102.0" class="ink" font-size="12.5" font-weight="500" text-anchor="start">CommonCrypto, zlib, iconv, libcompres…</text>
-<rect x="381.6" y="1089" width="40.4" height="19" rx="9.5" class="doneb"/>
-<text x="401.8" y="1102.0" class="donet" font-size="10.5" font-weight="650" text-anchor="middle">done</text>
-<text x="50.0" y="1132.0" class="soft num" font-size="11.5" font-weight="600" text-anchor="start"> 7</text>
-<text x="74.0" y="1132.0" class="mute" font-size="12.5" font-weight="400" text-anchor="start">C++ runtime</text>
-<rect x="375.0" y="1119" width="47.0" height="19" rx="9.5" class="todob"/>
-<text x="398.5" y="1132.0" class="todot" font-size="10.5" font-weight="650" text-anchor="middle">to do</text>
-<text x="50.0" y="1162.0" class="soft num" font-size="11.5" font-weight="600" text-anchor="start"> 8</text>
-<text x="74.0" y="1162.0" class="ink" font-size="12.5" font-weight="500" text-anchor="start">CoreFoundation, complete</text>
-<rect x="335.4" y="1149" width="86.6" height="19" rx="9.5" class="partb"/>
-<text x="378.7" y="1162.0" class="partt" font-size="10.5" font-weight="650" text-anchor="middle">in progress</text>
-<text x="50.0" y="1192.0" class="soft num" font-size="11.5" font-weight="600" text-anchor="start"> 9</text>
-<text x="74.0" y="1192.0" class="ink" font-size="12.5" font-weight="500" text-anchor="start">Foundation</text>
-<rect x="335.4" y="1179" width="86.6" height="19" rx="9.5" class="partb"/>
-<text x="378.7" y="1192.0" class="partt" font-size="10.5" font-weight="650" text-anchor="middle">in progress</text>
-<text x="440.0" y="952.0" class="soft num" font-size="11.5" font-weight="600" text-anchor="start">10</text>
-<text x="464.0" y="952.0" class="mute" font-size="12.5" font-weight="400" text-anchor="start">X.509 and TLS trust evaluation, keych…</text>
-<rect x="765.0" y="939" width="47.0" height="19" rx="9.5" class="todob"/>
-<text x="788.5" y="952.0" class="todot" font-size="10.5" font-weight="650" text-anchor="middle">to do</text>
-<text x="440.0" y="982.0" class="soft num" font-size="11.5" font-weight="600" text-anchor="start">11</text>
-<text x="464.0" y="982.0" class="mute" font-size="12.5" font-weight="400" text-anchor="start">Mach ports and messages, bootstrap, X…</text>
-<rect x="765.0" y="969" width="47.0" height="19" rx="9.5" class="todob"/>
-<text x="788.5" y="982.0" class="todot" font-size="10.5" font-weight="650" text-anchor="middle">to do</text>
-<text x="440.0" y="1012.0" class="soft num" font-size="11.5" font-weight="600" text-anchor="start">12</text>
-<text x="464.0" y="1012.0" class="ink" font-size="12.5" font-weight="500" text-anchor="start">Swift runtime and standard library</text>
-<rect x="725.4" y="999" width="86.6" height="19" rx="9.5" class="partb"/>
-<text x="768.7" y="1012.0" class="partt" font-size="10.5" font-weight="650" text-anchor="middle">in progress</text>
-<text x="440.0" y="1042.0" class="soft num" font-size="11.5" font-weight="600" text-anchor="start">13</text>
-<text x="464.0" y="1042.0" class="ink" font-size="12.5" font-weight="500" text-anchor="start">CoreGraphics, CoreText, ImageIO</text>
-<rect x="725.4" y="1029" width="86.6" height="19" rx="9.5" class="partb"/>
-<text x="768.7" y="1042.0" class="partt" font-size="10.5" font-weight="650" text-anchor="middle">in progress</text>
-<text x="440.0" y="1072.0" class="soft num" font-size="11.5" font-weight="600" text-anchor="start">14</text>
-<text x="464.0" y="1072.0" class="ink" font-size="12.5" font-weight="500" text-anchor="start">QuartzCore, AppKit</text>
-<rect x="725.4" y="1059" width="86.6" height="19" rx="9.5" class="partb"/>
-<text x="768.7" y="1072.0" class="partt" font-size="10.5" font-weight="650" text-anchor="middle">in progress</text>
-<text x="440.0" y="1102.0" class="soft num" font-size="11.5" font-weight="600" text-anchor="start">15</text>
-<text x="464.0" y="1102.0" class="mute" font-size="12.5" font-weight="400" text-anchor="start">Metal</text>
-<rect x="765.0" y="1089" width="47.0" height="19" rx="9.5" class="todob"/>
-<text x="788.5" y="1102.0" class="todot" font-size="10.5" font-weight="650" text-anchor="middle">to do</text>
-<text x="440.0" y="1132.0" class="soft num" font-size="11.5" font-weight="600" text-anchor="start">16</text>
-<text x="464.0" y="1132.0" class="ink" font-size="12.5" font-weight="500" text-anchor="start">SwiftUI, Combine, Observation</text>
-<rect x="725.4" y="1119" width="86.6" height="19" rx="9.5" class="partb"/>
-<text x="768.7" y="1132.0" class="partt" font-size="10.5" font-weight="650" text-anchor="middle">in progress</text>
-<text x="440.0" y="1162.0" class="soft num" font-size="11.5" font-weight="600" text-anchor="start">17</text>
-<text x="464.0" y="1162.0" class="mute" font-size="12.5" font-weight="400" text-anchor="start">Network, CryptoKit, AppIntents, Chart…</text>
-<rect x="765.0" y="1149" width="47.0" height="19" rx="9.5" class="todob"/>
-<text x="788.5" y="1162.0" class="todot" font-size="10.5" font-weight="650" text-anchor="middle">to do</text>
-<text x="440.0" y="1240.0" class="soft" font-size="11" font-weight="400" text-anchor="middle">Counts are a floor, not a schedule: one SwiftUI symbol can be a day of work, one libSystem symbol a minute.</text>
+<rect x="0.5" y="0.5" width="879" height="1634" rx="12" class="card"/>
+<text x="32.0" y="44.0" class="head ink">How close bitten is to running the target Mac app</text>
+<text x="848.0" y="44.0" class="small sec" text-anchor="end">main @ 4e670d5 · updated 2026-11-25 23:37 UTC</text>
+<text x="32.0" y="128.0" class="hero ink">39%</text>
+<text x="187.5" y="102.0" class="title ink">2,324 of 5,982 imports implemented</text>
+<text x="187.5" y="128.0" class="body sec">1,694 of them since Nov 24 · 3,658 still to go</text>
+<rect x="140.0" y="165.5" width="12.0" height="12.0" rx="4.0" class="fill"/>
+<text x="160.0" y="176.0" class="small sec">implemented</text>
+<rect x="259.0" y="165.5" width="12.0" height="12.0" rx="4.0" class="track"/>
+<text x="279.0" y="176.0" class="small sec">still to go</text>
+<text x="684.0" y="176.0" class="small sec" text-anchor="end">row height = imports in the area</text>
+<rect x="140.0" y="192.0" width="544.0" height="40.6" rx="4.0" class="track"/>
+<rect x="140.0" y="192.0" width="10.2" height="40.6" rx="4.0" class="fill"/>
+<text x="128.0" y="217.3" class="head ink" text-anchor="end">Other</text>
+<text x="740.0" y="217.3" class="head ink num" text-anchor="end">2%</text>
+<text x="848.0" y="217.3" class="small sec num" text-anchor="end">12 of 639</text>
+<rect x="140.0" y="236.6" width="544.0" height="115.6" rx="4.0" class="track"/>
+<rect x="140.0" y="236.6" width="45.7" height="115.6" rx="4.0" class="fill"/>
+<text x="128.0" y="299.4" class="head ink" text-anchor="end">SwiftUI</text>
+<text x="740.0" y="299.4" class="head ink num" text-anchor="end">8%</text>
+<text x="848.0" y="299.4" class="small sec num" text-anchor="end">153 of 1,821</text>
+<rect x="140.0" y="356.2" width="544.0" height="16.0" rx="4.0" class="track"/>
+<rect x="140.0" y="356.2" width="507.3" height="16.0" rx="4.0" class="fill"/>
+<text x="128.0" y="369.2" class="head ink" text-anchor="end">AppKit</text>
+<text x="740.0" y="369.2" class="head ink num" text-anchor="end">93%</text>
+<text x="848.0" y="369.2" class="small sec num" text-anchor="end">235 of 252</text>
+<rect x="140.0" y="376.2" width="544.0" height="17.8" rx="4.0" class="track"/>
+<rect x="140.0" y="376.2" width="58.3" height="17.8" rx="4.0" class="fill"/>
+<text x="128.0" y="390.1" class="head ink" text-anchor="end">Graphics</text>
+<text x="740.0" y="390.1" class="head ink num" text-anchor="end">11%</text>
+<text x="848.0" y="390.1" class="small sec num" text-anchor="end">30 of 280</text>
+<rect x="140.0" y="398.0" width="544.0" height="46.7" rx="4.0" class="track"/>
+<rect x="140.0" y="398.0" width="102.0" height="46.7" rx="4.0" class="fill"/>
+<text x="128.0" y="426.3" class="head ink" text-anchor="end">Foundation</text>
+<text x="740.0" y="426.3" class="head ink num" text-anchor="end">19%</text>
+<text x="848.0" y="426.3" class="small sec num" text-anchor="end">138 of 736</text>
+<rect x="140.0" y="448.7" width="544.0" height="113.9" rx="4.0" class="track"/>
+<rect x="140.0" y="448.7" width="429.1" height="113.9" rx="4.0" class="fill"/>
+<text x="128.0" y="510.7" class="head ink" text-anchor="end">Swift</text>
+<text x="740.0" y="510.7" class="head ink num" text-anchor="end">79%</text>
+<text x="848.0" y="510.7" class="small sec num" text-anchor="end">1,415 of 1,794</text>
+<rect x="140.0" y="566.6" width="544.0" height="29.2" rx="4.0" class="track"/>
+<rect x="140.0" y="566.6" width="403.3" height="29.2" rx="4.0" class="fill"/>
+<text x="128.0" y="586.2" class="head ink" text-anchor="end">System</text>
+<text x="740.0" y="586.2" class="head ink num" text-anchor="end">74%</text>
+<text x="848.0" y="586.2" class="small sec num" text-anchor="end">341 of 460</text>
+<line x1="140.0" y1="599.8" x2="140.0" y2="603.8" class="axis"/>
+<text x="140.0" y="619.8" class="small sec num" text-anchor="middle">0%</text>
+<line x1="276.0" y1="192.0" x2="276.0" y2="595.8" class="notch"/>
+<line x1="276.0" y1="599.8" x2="276.0" y2="603.8" class="axis"/>
+<text x="276.0" y="619.8" class="small sec num" text-anchor="middle">25%</text>
+<line x1="412.0" y1="192.0" x2="412.0" y2="595.8" class="notch"/>
+<line x1="412.0" y1="599.8" x2="412.0" y2="603.8" class="axis"/>
+<text x="412.0" y="619.8" class="small sec num" text-anchor="middle">50%</text>
+<line x1="548.0" y1="192.0" x2="548.0" y2="595.8" class="notch"/>
+<line x1="548.0" y1="599.8" x2="548.0" y2="603.8" class="axis"/>
+<text x="548.0" y="619.8" class="small sec num" text-anchor="middle">75%</text>
+<line x1="684.0" y1="599.8" x2="684.0" y2="603.8" class="axis"/>
+<text x="684.0" y="619.8" class="small sec num" text-anchor="middle">100%</text>
+<line x1="32.0" y1="655.8" x2="848.0" y2="655.8" class="rule"/>
+<text x="32.0" y="691.8" class="head ink">Imports implemented over time</text>
+<text x="848.0" y="691.8" class="small sec" text-anchor="end">each step is a merged change · times in UTC</text>
+<line x1="140.0" y1="891.8" x2="684.0" y2="891.8" class="rule"/>
+<text x="128.0" y="895.8" class="small sec num" text-anchor="end">500</text>
+<line x1="140.0" y1="849.2" x2="684.0" y2="849.2" class="rule"/>
+<text x="128.0" y="853.2" class="small sec num" text-anchor="end">1,000</text>
+<line x1="140.0" y1="806.5" x2="684.0" y2="806.5" class="rule"/>
+<text x="128.0" y="810.5" class="small sec num" text-anchor="end">1,500</text>
+<line x1="140.0" y1="763.9" x2="684.0" y2="763.9" class="rule"/>
+<text x="128.0" y="767.9" class="small sec num" text-anchor="end">2,000</text>
+<line x1="167.2" y1="895.8" x2="167.2" y2="899.8" class="axis"/>
+<text x="167.2" y="915.8" class="small sec num" text-anchor="middle">00:00</text>
+<text x="167.2" y="931.8" class="small sec" text-anchor="middle">Nov 25</text>
+<line x1="298.4" y1="895.8" x2="298.4" y2="899.8" class="axis"/>
+<text x="298.4" y="915.8" class="small sec num" text-anchor="middle">06:00</text>
+<line x1="429.7" y1="895.8" x2="429.7" y2="899.8" class="axis"/>
+<text x="429.7" y="915.8" class="small sec num" text-anchor="middle">12:00</text>
+<line x1="561.0" y1="895.8" x2="561.0" y2="899.8" class="axis"/>
+<text x="561.0" y="915.8" class="small sec num" text-anchor="middle">18:00</text>
+<path d="M140.0 880.7 H144.5 V879.7 H145.1 V878.6 H151.3 V876.9 H324.7 V881.4 H334.6 V886.8 H334.9 V886.4 H336.6 V885.3 H338.3 V883.3 H339.6 V882.9 H340.0 V881.9 H341.7 V881.5 H342.0 V876.6 H343.8 V871.1 H344.8 V870.8 H345.2 V869.2 H346.5 V866.1 H347.6 V849.3 H348.2 V848.3 H349.4 V847.6 H351.7 V843.3 H354.4 V842.6 H359.5 V839.3 H553.0 V831.6 H554.2 V828.4 H557.3 V812.2 H590.2 V805.3 H609.0 V802.3 H614.2 V798.9 H616.1 V796.0 H656.8 V773.9 H659.0 V770.5 H666.5 V759.2 H666.8 V759.2 H679.5 V741.9 H684.0 V736.3" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="line"/>
+<text x="140.0" y="870.7" class="small sec num">630</text>
+<circle cx="684.0" cy="736.3" r="6" stroke-width="2" class="dot"/>
+<text x="698.0" y="741.3" class="head ink num">2,324</text>
+<line x1="32.0" y1="967.8" x2="848.0" y2="967.8" class="rule"/>
+<text x="32.0" y="1003.8" class="head ink">Roadmap</text>
+<text x="848.0" y="1003.8" class="small sec" text-anchor="end">built from the bottom up: each layer stands on the ones below</text>
+<rect x="140.0" y="1017.3" width="12.0" height="12.0" rx="4.0" class="fill"/>
+<text x="160.0" y="1027.8" class="small sec">6 done</text>
+<rect x="219.4" y="1017.3" width="12.0" height="12.0" rx="4.0" class="track"/>
+<text x="239.4" y="1027.8" class="small sec">6 in progress</text>
+<rect x="341.1" y="1017.3" width="12.0" height="12.0" rx="4.0" class="open"/>
+<text x="360.6" y="1027.8" class="small sec">5 not started</text>
+<rect x="140.8" y="1044.6" width="542.5" height="26.5" rx="4.0" class="goal" stroke-width="1.5"/>
+<text x="152.0" y="1062.8" class="head ink">The target Mac app</text>
+<text x="696.0" y="1061.8" class="small sec">the goal</text>
+<rect x="140.5" y="1076.3" width="543.0" height="23.0" rx="4.0" class="open"/>
+<text x="128.0" y="1091.8" class="small sec num" text-anchor="end">17</text>
+<text x="152.0" y="1092.8" class="body sec">Network, CryptoKit, AppIntents, Charts and other app frameworks</text>
+<rect x="140.0" y="1103.8" width="544.0" height="24.0" rx="4.0" class="track"/>
+<text x="128.0" y="1119.8" class="small sec num" text-anchor="end">16</text>
+<text x="152.0" y="1120.8" class="body ink">SwiftUI, Combine, Observation</text>
+<rect x="140.5" y="1132.3" width="543.0" height="23.0" rx="4.0" class="open"/>
+<text x="128.0" y="1147.8" class="small sec num" text-anchor="end">15</text>
+<text x="152.0" y="1148.8" class="body sec">Metal</text>
+<rect x="140.0" y="1159.8" width="544.0" height="24.0" rx="4.0" class="track"/>
+<text x="128.0" y="1175.8" class="small sec num" text-anchor="end">14</text>
+<text x="152.0" y="1176.8" class="body ink">QuartzCore, AppKit</text>
+<rect x="140.0" y="1187.8" width="544.0" height="24.0" rx="4.0" class="track"/>
+<text x="128.0" y="1203.8" class="small sec num" text-anchor="end">13</text>
+<text x="152.0" y="1204.8" class="body ink">CoreGraphics, CoreText, ImageIO</text>
+<rect x="140.0" y="1215.8" width="544.0" height="24.0" rx="4.0" class="track"/>
+<text x="128.0" y="1231.8" class="small sec num" text-anchor="end">12</text>
+<text x="152.0" y="1232.8" class="body ink">Swift runtime and standard library</text>
+<rect x="140.5" y="1244.3" width="543.0" height="23.0" rx="4.0" class="open"/>
+<text x="128.0" y="1259.8" class="small sec num" text-anchor="end">11</text>
+<text x="152.0" y="1260.8" class="body sec">Mach ports and messages, bootstrap, XPC, launchd services</text>
+<rect x="140.5" y="1272.3" width="543.0" height="23.0" rx="4.0" class="open"/>
+<text x="128.0" y="1287.8" class="small sec num" text-anchor="end">10</text>
+<text x="152.0" y="1288.8" class="body sec">X.509 and TLS trust evaluation, keychain</text>
+<rect x="140.0" y="1299.8" width="544.0" height="24.0" rx="4.0" class="track"/>
+<text x="128.0" y="1315.8" class="small sec num" text-anchor="end">9</text>
+<text x="152.0" y="1316.8" class="body ink">Foundation</text>
+<rect x="140.0" y="1327.8" width="544.0" height="24.0" rx="4.0" class="track"/>
+<text x="128.0" y="1343.8" class="small sec num" text-anchor="end">8</text>
+<text x="152.0" y="1344.8" class="body ink">CoreFoundation, complete</text>
+<rect x="140.5" y="1356.3" width="543.0" height="23.0" rx="4.0" class="open"/>
+<text x="128.0" y="1371.8" class="small sec num" text-anchor="end">7</text>
+<text x="152.0" y="1372.8" class="body sec">C++ runtime</text>
+<rect x="140.0" y="1383.8" width="544.0" height="24.0" rx="4.0" class="fill"/>
+<text x="128.0" y="1399.8" class="small sec num" text-anchor="end">6</text>
+<text x="152.0" y="1400.8" class="body on">CommonCrypto, zlib, iconv, libcompression</text>
+<rect x="140.0" y="1411.8" width="544.0" height="24.0" rx="4.0" class="fill"/>
+<text x="128.0" y="1427.8" class="small sec num" text-anchor="end">5</text>
+<text x="152.0" y="1428.8" class="body on">libdispatch</text>
+<rect x="140.0" y="1439.8" width="544.0" height="24.0" rx="4.0" class="fill"/>
+<text x="128.0" y="1455.8" class="small sec num" text-anchor="end">4</text>
+<text x="152.0" y="1456.8" class="body on">Objective-C runtime</text>
+<rect x="140.0" y="1467.8" width="544.0" height="24.0" rx="4.0" class="fill"/>
+<text x="128.0" y="1483.8" class="small sec num" text-anchor="end">3</text>
+<text x="152.0" y="1484.8" class="body on">Blocks runtime</text>
+<rect x="140.0" y="1495.8" width="544.0" height="24.0" rx="4.0" class="fill"/>
+<text x="128.0" y="1511.8" class="small sec num" text-anchor="end">2</text>
+<text x="152.0" y="1512.8" class="body on">CoreFoundation basics, libproc, resolver</text>
+<rect x="140.0" y="1523.8" width="544.0" height="24.0" rx="4.0" class="fill"/>
+<text x="128.0" y="1539.8" class="small sec num" text-anchor="end">1</text>
+<text x="152.0" y="1540.8" class="body on">Loader, libSystem core, sockets, kqueue, raw syscalls</text>
+<line x1="32.0" y1="1579.8" x2="848.0" y2="1579.8" class="rule"/>
+<text x="32.0" y="1607.8" class="small sec">Import counts are a floor, not a schedule: one SwiftUI symbol can be a day of work, one libSystem symbol a minute.</text>
 </svg>
