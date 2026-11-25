@@ -15,6 +15,14 @@ That prints what is inside the image and how much of what each program needs
 is implemented. You bring the `.dmg`; nothing from Apple or from any app is
 in this repository or in the image.
 
+## Progress
+
+![How close bitten is to running the Rex window](https://raw.githubusercontent.com/GhouI/bitten/progress/progress.svg)
+
+Redrawn after every change to `main` by `tools/progress-update.sh` (measured
+with `mrun --check` on a local copy of Rex.dmg; only counts are published, on
+the [`progress`](https://github.com/GhouI/bitten/tree/progress) branch).
+
 ## What works today
 
 | Kind of program | Status |

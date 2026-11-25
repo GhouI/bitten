@@ -27,10 +27,10 @@ whole class of other programs run. To resume work, start from
 | 10 | X.509 and TLS trust evaluation, keychain | not started | outbound HTTPS from macOS programs |
 | 11 | Mach ports and messages, bootstrap, XPC, launchd services | not started | apps with helper services |
 | 12 | **Swift runtime and standard library** | runtime done; standard library in progress (our own Swift source, `stdlib/`); see `NEXT.md` | all Swift programs |
-| 13 | CoreGraphics, CoreText, ImageIO | not started | drawing and text |
-| 14 | QuartzCore, AppKit | not started | windows (X11/Wayland or a browser canvas) |
+| 13 | CoreGraphics, CoreText, ImageIO | in progress: geometry (rects, affine transforms) and the Swift overlay | drawing and text |
+| 14 | QuartzCore, AppKit | in progress: every AppKit class and constant Rex links against; views, windows, the application life cycle | windows (X11/Wayland or a browser canvas) |
 | 15 | Metal | not started | GPU rendering, the Rex terminal grid |
-| 16 | SwiftUI, Combine, Observation | not started | the Rex window |
+| 16 | SwiftUI, Combine, Observation | in progress: Combine and Observation | the Rex window |
 | 17 | Network, CryptoKit, AppIntents, Charts and other app frameworks | not started | the rest of Rex's imports |
 
 Sideways items that matter to people using the container:
