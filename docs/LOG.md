@@ -1164,3 +1164,26 @@ SwiftUI with AppKit and the drawing stack).
   `tests/e2e/target-app.sh` not run.
 - The Mac app window (total `^MISSING`): 4,561 -> 4,548 (every libswiftCore key path
   symbol it imports).
+
+## 2026-11-25: String, part 2: Unicode, Characters, views, Substring (PR: stdlib-string-2)
+
+- `tools/gen-unicode.py` generates `stdlib/UnicodeData.swift` from the
+  Unicode 16.0 UCD (grapheme break, extended pictographic, canonical
+  decomposition/composition, combining classes, case mappings incl.
+  SpecialCasing), packed into string literals that
+  `stdlib/UnicodeTables.swift` decodes on first use.
+- Strings now compare and hash by canonical equivalence (NFC), replacing
+  part 1's byte comparison for non-ASCII strings; `lowercased`/`uppercased`
+  use the full tables (ß, Greek, ligatures).
+- `Character` and the character view: extended grapheme clusters (UAX #29,
+  incl. emoji ZWJ sequences, regional-indicator pairs, Indic conjuncts),
+  `String.Index` with Apple's bit layout (encoded offset, transcoded offset,
+  cached character stride), bidirectional indexing, `RangeReplaceableCollection`
+  (insert, remove, removeSubrange, append of Characters).
+- Views: `utf8`, `utf16` (with surrogate positions), `unicodeScalars`
+  (mutable), each a `BidirectionalCollection` sharing `String.Index`.
+- `Substring` with its views, hashing equal to the String's, conversions.
+- `tests/swiftlib/strings`: canonical equivalence, cluster counts, indices
+  both ways, the three views, substrings, mutation, case beyond Latin-1.
+  Suite 45/45 at -O and -Onone. No Docker here: `tests/e2e/target-app.sh` not run.
+- The Mac app window (total `^MISSING`): 4,548 -> 4,468.

@@ -97,3 +97,56 @@
 }
 
 @_silgen_name("strlen") func strlen(_ s: UnsafePointer<CChar>) -> Int
+
+@_silgen_name("swl_strings_unicode") public func unicode() -> Int {
+  var bad = 0
+  // Canonical equivalence: precomposed and decomposed forms are equal and
+  // hash alike; order is that of the NFC forms.
+  let pre = opaque("caf\u{E9}"), dec = opaque("cafe\u{301}")
+  if pre != dec || pre.hashValue != dec.hashValue { bad |= 1 }
+  if opaque("\u{1E0B}\u{323}") != "\u{1E0D}\u{307}" { bad |= 2 }
+  if opaque("\u{AC00}") != "\u{1100}\u{1161}" { bad |= 4 }
+  if opaque("e\u{301}") == "e" || !(opaque("e") < "e\u{301}") { bad |= 8 }
+  // Characters: ASCII, CR-LF, combining marks, emoji ZWJ sequences, flags.
+  if opaque("abc").count != 3 || opaque("a\r\nb").count != 3 { bad |= 16 }
+  if opaque("e\u{301}\u{302}x").count != 2 { bad |= 32 }
+  let family = opaque("👨‍👩‍👧‍👦"), flags = opaque("🇫🇷🇩🇪"), thumbs = opaque("👍🏽")
+  if family.count != 1 || flags.count != 2 || thumbs.count != 1 { bad |= 64 }
+  if opaque("नमस्ते").count != 3 { bad |= 128 }
+  // Indices and iteration forwards and backwards.
+  let s = opaque("a👍🏽é\r\nz")
+  var fwd: [Character] = []
+  for c in s { fwd.append(c) }
+  if fwd.count != 5 || fwd[1] != "👍🏽" || fwd[3] != "\r\n" { bad |= 256 }
+  var i = s.endIndex, back = 0
+  while i != s.startIndex { i = s.index(before: i); back += 1 }
+  if back != 5 { bad |= 512 }
+  if s[s.index(s.startIndex, offsetBy: 2)] != "é" || s.distance(from: s.startIndex, to: s.endIndex) != 5 { bad |= 1024 }
+  // Views.
+  if s.utf8.count != 1 + 8 + 2 + 2 + 1 || s.utf16.count != 1 + 4 + 1 + 2 + 1 || s.unicodeScalars.count != 7 { bad |= 2048 }
+  var units: [UInt16] = []
+  for u in opaque("a😀").utf16 { units.append(u) }
+  if units != [0x61, 0xD83D, 0xDE00] { bad |= 4096 }
+  let u16 = opaque("a😀b").utf16
+  if u16[u16.index(u16.startIndex, offsetBy: 2)] != 0xDE00 || u16.distance(from: u16.startIndex, to: u16.endIndex) != 4 { bad |= 8192 }
+  // Substrings.
+  let w = opaque("hello, wörld")
+  let comma = w.firstIndex(of: ",")!
+  let head = w[w.startIndex..<comma], tail = w[w.index(comma, offsetBy: 2)...]
+  if head != "hello" || tail != "wörld" || String(tail).count != 5 || tail.count != 5 { bad |= 16384 }
+  if head.hashValue != Substring("hello").hashValue || tail.uppercased() != "WÖRLD" { bad |= 32768 }
+  // Mutation through the collection.
+  var m = opaque("abc")
+  m.insert("X", at: m.index(after: m.startIndex))
+  m.append("é" as Character)
+  let r = m.remove(at: m.startIndex)
+  if m != "Xbcé" || r != "a" { bad |= 65536 }
+  m.removeSubrange(m.startIndex..<m.index(m.startIndex, offsetBy: 2))
+  if m != "cé" { bad |= 131072 }
+  var sc = opaque("ab").unicodeScalars
+  sc.append("\u{301}")
+  if String(sc) != "ab\u{301}" || String(sc).count != 2 { bad |= 262144 }
+  // Case beyond Latin-1.
+  if opaque("Straße ΑΒΓ").lowercased() != "straße αβγ" || opaque("ﬁx").uppercased() != "FIX" { bad |= 524288 }
+  return bad
+}
