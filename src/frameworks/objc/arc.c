@@ -329,6 +329,16 @@ static void *d_objc_destructInstance(id obj) {
         pthread_mutex_unlock(&dx_objc_lock);
         if (imp) ((void (*)(id, SEL))imp)(obj, SEL_cxx_destruct);
     }
+    dx_objc_object_destroyed(obj);
+    return obj;
+}
+DX_FN(objc_destructInstance);
+
+/* Clears what the runtime keeps about an object outside it: associated
+ * objects, __weak variables, its side-table entry. Also used by the Swift
+ * runtime, whose objects are freed without objc_destructInstance. */
+void dx_objc_object_destroyed(void *object) {
+    id obj = object;
     struct shard *s = shard_for(obj);
     pthread_mutex_lock(&s->lock);
     struct rc_entry *e = rc_find(s, obj, 0);
@@ -340,9 +350,7 @@ static void *d_objc_destructInstance(id obj) {
     e = rc_find(s, obj, 0);
     if (e) rc_remove(s, e);
     pthread_mutex_unlock(&s->lock);
-    return obj;
 }
-DX_FN(objc_destructInstance);
 
 void object_dispose_impl(id obj) {
     if (!obj) return;
@@ -476,7 +484,7 @@ static id d_objc_autorelease(id obj) {
 DX_FN(objc_autorelease);
 void *dx_objc_autorelease(void *obj) { return d_objc_autorelease(obj); }
 
-static id root_autorelease(id obj) {
+id root_autorelease(id obj) {
     struct pool *p = &tls_pool;
     if (!p->cap) pthread_setspecific(pool_key, p);
     pool_push_obj(p, obj);
