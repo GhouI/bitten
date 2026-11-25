@@ -138,3 +138,13 @@ library (`-parse-stdlib`, `Builtin` types only). That code exercises exactly
 the runtime surface (metadata, classes, generics, closures, protocols), so
 it is how the Swift runtime is tested. The toolchain is a test-time tool
 like clang and Go; nothing from it ships.
+
+### The standard library is Swift source of our own, matched by declaration
+Apple's `libswiftCore` is not ours to ship, and its source is not ours to
+copy. What programs bind to are symbol names, and Swift symbol names are a
+function of declarations: a `public struct Int` with a
+`public init(_ _value: Builtin.Int64)` in module `Swift` produces exactly
+the symbols Apple's does. So `stdlib/` re-declares the public API (taken
+from the demangled imports of real programs and the documented API) with
+implementations written here. Layouts of `@frozen` types follow the ABI,
+because programs inline against them.
