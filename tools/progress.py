@@ -252,6 +252,47 @@ def fmt(n):
     return "{:,}".format(int(n))
 
 
+def current_area(history):
+    """(area, imports gained in the last 24 hours) for the area the most
+    recent change moved, or (None, 0). Only measured rows carry per-area
+    counts."""
+    rows = [r for r in history if r.get("source") == "measured"
+            and all(r.get("missing_" + a, "") != "" for a in AREA_NAMES)]
+    rows.sort(key=lambda r: r["date"])
+    for prev, cur in reversed(list(zip(rows, rows[1:]))):
+        drops = {a: int(prev["missing_" + a]) - int(cur["missing_" + a]) for a in AREA_NAMES}
+        best = max(drops, key=drops.get)
+        if drops[best] > 0:
+            latest = datetime.datetime.fromisoformat(rows[-1]["date"])
+            base = next(r for r in rows if datetime.datetime.fromisoformat(r["date"])
+                        >= latest - datetime.timedelta(days=1))
+            return best, int(base["missing_" + best]) - int(rows[-1]["missing_" + best])
+    return None, 0
+
+
+def estimate(history, left):
+    """Rough time to implement the rest at the pace of the last three days,
+    as text, or None when there is not enough history to say."""
+    pts = sorted((datetime.datetime.fromisoformat(r["date"]), int(r["missing"]))
+                 for r in history if r.get("missing"))
+    if not pts or left <= 0:
+        return None
+    end = pts[-1][0]
+    win = [p for p in pts if p[0] >= end - datetime.timedelta(days=3)]
+    span = (win[-1][0] - win[0][0]).total_seconds() / 86400
+    gone = win[0][1] - win[-1][1]
+    if span < 0.25 or gone <= 0:
+        return None
+    days = left / (gone / span)
+    if days < 1:
+        return "under a day"
+    if days < 14:
+        return "about %d days" % round(days)
+    if days < 60:
+        return "about %d weeks" % round(days / 7)
+    return "about %d months" % round(days / 30)
+
+
 def draw(out, totals, missing, history, commit, when):
     import math
     areas = [a for a in AREA_NAMES if totals[a]]
@@ -262,10 +303,16 @@ def draw(out, totals, missing, history, commit, when):
 
     W, P = 590, 28
     rows = len(areas)
-    H = max(260, 112 + rows * 26 + P)
-    cx, cy, r, sw = P + 104, H // 2, 92, 26
+    top_h = max(260, 112 + rows * 26 + P)
+    active, gained = current_area(history)
+    eta = estimate(history, total - done)
+    H = top_h + 84
+    cx, cy, r, sw = P + 104, top_h // 2, 92, 26
     circ = 2 * math.pi * r
 
+    # A soft neon: the shape blurred underneath itself, at low opacity.
+    defs = ('<defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%">'
+            '<feGaussianBlur stdDeviation="4"/></filter></defs>')
     body = ['<rect width="%d" height="%d" rx="12" class="bg"/>' % (W, H),
             '<circle cx="%d" cy="%d" r="%d" fill="none" class="track" stroke-width="%d"/>'
             % (cx, cy, r, sw)]
@@ -276,10 +323,13 @@ def draw(out, totals, missing, history, commit, when):
         f = done_of[a] / total if total else 0
         if f <= 0:
             continue
-        body.append('<circle cx="%d" cy="%d" r="%d" fill="none" class="s-%s"'
-                    ' stroke-width="%d" stroke-dasharray="%.2f %.2f"'
-                    ' stroke-dashoffset="%.2f" transform="rotate(-90 %d %d)"/>'
-                    % (cx, cy, r, a, sw, circ * f, circ, -circ * start, cx, cy))
+        arc = ('<circle cx="%d" cy="%d" r="%d" fill="none" class="s-%s"'
+               ' stroke-width="%%d" stroke-dasharray="%.2f %.2f"'
+               ' stroke-dashoffset="%.2f" transform="rotate(-90 %d %d)"%%s/>'
+               % (cx, cy, r, a, circ * f, circ, -circ * start, cx, cy))
+        if a == active:
+            body.append(arc % (sw + 6, ' filter="url(#glow)" opacity="0.55"'))
+        body.append(arc % (sw, ""))
         start += f
         # thin separator at the end of each segment
         ang = 2 * math.pi * start - math.pi / 2
@@ -301,6 +351,11 @@ def draw(out, totals, missing, history, commit, when):
     y += 52
     for a in areas:
         pa = round(100.0 * done_of[a] / totals[a])
+        if a == active:
+            pill = ('<rect x="%d" y="%d" width="%d" height="22" rx="11" fill="none"'
+                    ' class="s-%s" stroke-width="1.5"%%s/>' % (lx - 6, y - 16, W - P - lx + 12, a))
+            body.append(pill % ' filter="url(#glow)" opacity="0.6"')
+            body.append(pill % ' opacity="0.85"')
         body.append('<circle cx="%d" cy="%d" r="5" class="f-%s"/>' % (lx + 5, y - 4, a))
         body.append('<text x="%d" y="%d" class="ink" font-size="13">%s</text>' % (lx + 18, y, esc(a)))
         body.append('<text x="%d" y="%d" class="ink" font-size="13" font-weight="600"'
@@ -311,8 +366,30 @@ def draw(out, totals, missing, history, commit, when):
     body.append('<text x="%d" y="%d" class="mute" font-size="11">updated %s</text>'
                 % (lx, y + 6, esc(when[:10])))
 
+    # Bottom band: what is being worked on now, and a rough estimate.
+    by = top_h + 4
+    if active:
+        band = ('<rect x="%d" y="%d" width="%d" height="64" rx="12" fill="none"'
+                ' class="s-%s" stroke-width="1.5"%%s/>' % (P, by, W - 2 * P, active))
+        body.append(band % ' filter="url(#glow)" opacity="0.5"')
+        body.append(band % ' opacity="0.8"')
+        dot = '<circle cx="%d" cy="%d" r="%%d" class="f-%s"%%s/>' % (P + 22, by + 24, active)
+        body.append(dot % (8, ' filter="url(#glow)" opacity="0.7"'))
+        body.append(dot % (5, ""))
+        now = ('<text x="%d" y="%d" font-size="15" font-weight="700" class="f-%s"%%s>'
+               'Working on now: %s</text>' % (P + 38, by + 29, active, esc(active)))
+        body.append(now % ' filter="url(#glow)" opacity="0.45"')
+        body.append(now % "")
+        if gained > 0:
+            body.append('<text x="%d" y="%d" class="mute" font-size="13" text-anchor="end">'
+                        '+%s in the last 24 hours</text>' % (W - P - 18, by + 29, fmt(gained)))
+    line = ("Estimate: %s left at the recent pace (rough)" % eta) if eta \
+        else "Estimate: not enough history yet"
+    body.append('<text x="%d" y="%d" class="mute" font-size="12">%s</text>'
+                % (P + 38 if active else P, by + 50, esc(line)))
+
     svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">\n'
-           '%s\n%s\n</svg>\n' % (W, H, W, H, STYLE, "\n".join(body)))
+           '%s\n%s\n%s\n</svg>\n' % (W, H, W, H, STYLE, defs, "\n".join(body)))
     with open(os.path.join(out, "progress.svg"), "w") as f:
         f.write(svg)
 

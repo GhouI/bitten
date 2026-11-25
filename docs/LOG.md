@@ -1474,3 +1474,11 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   frameworks via `SWLIB_LIBS_<name>`).
 - Target app window (total `^MISSING`): 3,658 -> 3,613. It now stops at
   `JSONEncoder`.
+
+## 2026-11-25: progress ring, "working on now" and an estimate (PR: progress-now)
+
+- The area the most recent change moved is "working on now": its ring
+  segment, legend row and a band under the ring get a soft glow, with the
+  imports it gained in the last 24 hours.
+- A rough estimate of the time left, from the pace of the last three days
+  of history; it says so when there is too little history.
