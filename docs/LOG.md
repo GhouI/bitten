@@ -901,3 +901,14 @@ for the Swift layer and for the smaller independent items.
   class references checked through deinit counts; buffer sorting and
   slicing; raw loads and stores.
 - The Mac app window (total `^MISSING`): 4,964 -> 4,913.
+
+## 2026-11-25: C type names (PR: stdlib-ctypes)
+
+- `CInt`, `CLong`, `CChar`, `CBool`, `CDouble` and the rest of the C type
+  aliases. The compiler maps C types to Swift through them, both when
+  importing headers and when it needs a C signature (`@_cdecl` functions,
+  calls into imported C functions); without them IRGen crashed.
+- With them, Swift code compiled for macOS imports our own SDK headers as
+  Clang modules and calls into them (tried with CoreFoundation from a
+  scratch SDK layout); that is the base for the Swift overlays.
+- `tests/swiftlib/cdecl`: `@_cdecl` functions called from C.
