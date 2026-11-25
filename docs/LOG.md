@@ -779,3 +779,19 @@ for the Swift layer and for the smaller independent items.
   conformance the compiler synthesizes. Suite 35/35 at -O and -Onone. No
   Docker here: `tests/e2e/rex.sh` not run.
 - Rex window (total `^MISSING`): 5,217 -> 5,181.
+
+## 2026-11-25: fixes found by the standard library's collections (PR: swift-runtime-fixes)
+
+- Loader: libraries were placed at their linked address whenever the
+  header lacked `MH_PIE`, but that flag only exists on executables. A dylib
+  linked at 0 (as `ld64.lld` links them) therefore landed on page zero when
+  the kernel allowed it (running as root), so NULL dereferences would read
+  the library. Libraries now always slide, as with dyld.
+- Witness tables of resilient conformances: base-protocol entries arrive as
+  tagged references to an accessor (`\xFF\x07` + offset), like associated
+  conformances, but compiled code reads `wt[n]` directly as the base
+  protocol's table. They are now resolved while the table is instantiated.
+  Found by a generic `MutableCollection.sort()` from our stdlib on a
+  conformance in another module, at -Onone.
+- `swift_coroFrameAlloc`: frames of `modify`/`read` coroutines that do not
+  fit the caller's buffer (plain malloc; the compiler frees them).

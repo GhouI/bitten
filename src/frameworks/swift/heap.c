@@ -77,6 +77,16 @@ static void *slow_alloc(size_t size, size_t align_mask) {
 }
 static void *d_swift_slowAlloc(size_t size, size_t align_mask) { return slow_alloc(size, align_mask); }
 DX_FN(swift_slowAlloc);
+
+/* Frames of yield-once coroutines (modify/read accessors) that do not fit
+ * the caller's fixed buffer. The compiler frees them with free(), so this
+ * must be plain malloc. The second argument is a malloc type id, which only
+ * selects an allocation zone on macOS. */
+static void *d_swift_coroFrameAlloc(size_t size, uint64_t type_id) {
+    (void)type_id;
+    return malloc(size);
+}
+DX_FN(swift_coroFrameAlloc);
 static void d_swift_slowDealloc(void *p, size_t size, size_t align_mask) { free(p); }
 DX_FN(swift_slowDealloc);
 
