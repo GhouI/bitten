@@ -301,12 +301,13 @@ def draw(out, totals, missing, history, commit, when):
     done = sum(done_of.values())
     frac = done / total if total else 0
 
-    W, P = 590, 28
+    W, P = 620, 28
     rows = len(areas)
     top_h = max(260, 112 + rows * 26 + P)
     active, gained = current_area(history)
     eta = estimate(history, total - done)
-    H = top_h + 84
+    top_h += 18 if active or eta else 0
+    H = top_h
     cx, cy, r, sw = P + 104, top_h // 2, 92, 26
     circ = 2 * math.pi * r
 
@@ -328,7 +329,7 @@ def draw(out, totals, missing, history, commit, when):
                ' stroke-dashoffset="%.2f" transform="rotate(-90 %d %d)"%%s/>'
                % (cx, cy, r, a, circ * f, circ, -circ * start, cx, cy))
         if a == active:
-            body.append(arc % (sw + 6, ' filter="url(#glow)" opacity="0.55"'))
+            body.append(arc % (sw + 6, ' filter="url(#glow)" opacity="0.77"'))
         body.append(arc % (sw, ""))
         start += f
         # thin separator at the end of each segment
@@ -351,42 +352,30 @@ def draw(out, totals, missing, history, commit, when):
     y += 52
     for a in areas:
         pa = round(100.0 * done_of[a] / totals[a])
-        if a == active:
-            pill = ('<rect x="%d" y="%d" width="%d" height="22" rx="11" fill="none"'
-                    ' class="s-%s" stroke-width="1.5"%%s/>' % (lx - 6, y - 16, W - P - lx + 12, a))
-            body.append(pill % ' filter="url(#glow)" opacity="0.6"')
-            body.append(pill % ' opacity="0.85"')
         body.append('<circle cx="%d" cy="%d" r="5" class="f-%s"/>' % (lx + 5, y - 4, a))
         body.append('<text x="%d" y="%d" class="ink" font-size="13">%s</text>' % (lx + 18, y, esc(a)))
+        if a == active:
+            # a small neon marker: the dot glows and a NOW tag follows the name
+            body.append('<circle cx="%d" cy="%d" r="8" class="f-%s" filter="url(#glow)"'
+                        ' opacity="0.98"/>' % (lx + 5, y - 4, a))
+            tag = ('<text x="%d" y="%d" font-size="10" font-weight="800" letter-spacing="1"'
+                   ' class="f-%s"%%s>NOW</text>' % (lx + 26 + int(7.6 * len(a)), y - 1, a))
+            body.append(tag % ' filter="url(#glow)" opacity="0.84"')
+            body.append(tag % "")
         body.append('<text x="%d" y="%d" class="ink" font-size="13" font-weight="600"'
                     ' text-anchor="end">%d%%</text>' % (W - P - 88, y, pa))
         body.append('<text x="%d" y="%d" class="mute" font-size="12" text-anchor="end">'
                     '%s/%s</text>' % (W - P, y, fmt(done_of[a]), fmt(totals[a])))
         y += 26
-    body.append('<text x="%d" y="%d" class="mute" font-size="11">updated %s</text>'
-                % (lx, y + 6, esc(when[:10])))
+    note = "updated %s" % when[:10]
+    if active and gained > 0:
+        note += " · %s +%s in the last day" % (active, fmt(gained))
+    body.append('<text x="%d" y="%d" class="mute" font-size="11">%s</text>'
+                % (lx, y + 6, esc(note)))
 
-    # Bottom band: what is being worked on now, and a rough estimate.
-    by = top_h + 4
-    if active:
-        band = ('<rect x="%d" y="%d" width="%d" height="64" rx="12" fill="none"'
-                ' class="s-%s" stroke-width="1.5"%%s/>' % (P, by, W - 2 * P, active))
-        body.append(band % ' filter="url(#glow)" opacity="0.5"')
-        body.append(band % ' opacity="0.8"')
-        dot = '<circle cx="%d" cy="%d" r="%%d" class="f-%s"%%s/>' % (P + 22, by + 24, active)
-        body.append(dot % (8, ' filter="url(#glow)" opacity="0.7"'))
-        body.append(dot % (5, ""))
-        now = ('<text x="%d" y="%d" font-size="15" font-weight="700" class="f-%s"%%s>'
-               'Working on now: %s</text>' % (P + 38, by + 29, active, esc(active)))
-        body.append(now % ' filter="url(#glow)" opacity="0.45"')
-        body.append(now % "")
-        if gained > 0:
-            body.append('<text x="%d" y="%d" class="mute" font-size="13" text-anchor="end">'
-                        '+%s in the last 24 hours</text>' % (W - P - 18, by + 29, fmt(gained)))
-    line = ("Estimate: %s left at the recent pace (rough)" % eta) if eta \
-        else "Estimate: not enough history yet"
-    body.append('<text x="%d" y="%d" class="mute" font-size="12">%s</text>'
-                % (P + 38 if active else P, by + 50, esc(line)))
+    if eta:
+        body.append('<text x="%d" y="%d" class="mute" font-size="11">estimate: %s left'
+                    ' (rough, at the recent pace)</text>' % (lx, y + 24, esc(eta)))
 
     svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">\n'
            '%s\n%s\n%s\n</svg>\n' % (W, H, W, H, STYLE, defs, "\n".join(body)))

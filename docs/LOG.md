@@ -1482,3 +1482,9 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   imports it gained in the last 24 hours.
 - A rough estimate of the time left, from the pace of the last three days
   of history; it says so when there is too little history.
+
+## 2026-11-25: progress ring, compact "now" marker (PR: progress-now-compact)
+
+- The "working on now" band is gone: the current area gets a glowing dot
+  and a small NOW tag in the legend, its last-day gain and the estimate
+  are one line each under the legend, and the glow is 40% brighter.
