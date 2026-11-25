@@ -816,3 +816,25 @@ for the Swift layer and for the smaller independent items.
 - `tests/swiftlib/collections`: a user-defined mutable random-access
   collection and a forward-only sequence driven through the defaults.
 - Rex window (total `^MISSING`): 5,181 -> 4,983.
+
+## 2026-11-25: standard library: AnyHashable (PR: stdlib-anyhashable)
+
+- `stdlib/AnyHashable.swift`: `AnyHashable` in Apple's @frozen layout (one
+  existential of the internal box protocol, 40 bytes), `base`, `==`,
+  `hash(into:)`, `hashValue`, `_rawHashValue(seed:)`, `_convertToAnyHashable`
+  (the compiler's implicit conversion), and `_HasCustomAnyHashableRepresentation`
+  (AnyHashable of an AnyHashable is itself). Equality unboxes the other side
+  with a dynamic cast and tries both directions, so a subclass instance and
+  a base-class instance compare through the base class's `==`. As on macOS,
+  an Optional holding a value is that value (`AnyHashable(Optional(5)) ==
+  AnyHashable(5)`, same hash and base), found through an internal
+  conformance of Optional checked with a metatype cast.
+- Not yet: the numeric canonicalization (`AnyHashable(1 as UInt8) ==
+  AnyHashable(1)` on macOS) and `description` (String).
+- Found on the way, already fixed on main by #30: base-protocol entries of
+  instantiated witness tables were left as tagged mangled names (Hashable's
+  `Equatable` slot crashed `==` through the box).
+- `tests/swiftlib/anyhashable`: ints, a synthesized struct, nesting, classes
+  from both sides, Optionals, implicit conversion. Suite 37/37 at -O and
+  -Onone. No Docker here: `tests/e2e/rex.sh` not run.
+- Rex window (total `^MISSING`): 4,983 -> 4,972.
