@@ -36,5 +36,8 @@ dx_class dx_objc_lookup_class(const char *name);
 void *dx_objc_retain(void *obj);
 void dx_objc_release(void *obj);
 void *dx_objc_autorelease(void *obj);
+/* Forgets an object that is being freed: clears __weak variables pointing
+ * to it and releases its associated objects. */
+void dx_objc_object_destroyed(void *obj);
 
 #endif
