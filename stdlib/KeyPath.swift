@@ -125,7 +125,7 @@ public func _getAtPartialKeyPath<Root>(root: Root, keyPath: PartialKeyPath<Root>
 public func _getAtAnyKeyPath<RootValue>(root: RootValue, keyPath: AnyKeyPath) -> Any? {
   // The root must be of the key path's root type (or a subclass of it).
   func matches<R>(_: R.Type) -> Bool { return root is R }
-  if !matches(type(of: keyPath).rootType) { return nil }
+  if !_openExistential(type(of: keyPath).rootType, do: matches) { return nil }
   return _kpGetAny(UnsafeRawPointer(Builtin.unprotectedAddressOfBorrow(root)), keyPath)
 }
 
@@ -137,7 +137,7 @@ internal func _kpGetAny(_ root: UnsafeRawPointer, _ keyPath: AnyKeyPath) -> Any 
     out.deallocate()
     return v
   }
-  return read(type(of: keyPath).valueType)
+  return _openExistential(type(of: keyPath).valueType, do: read)
 }
 
 // ---- appending -------------------------------------------------------------
@@ -166,11 +166,11 @@ internal func _tryToAppendKeyPaths<Result: AnyKeyPath>(root: AnyKeyPath, leaf: A
   func open3<R>(_ r: R.Type) -> AnyKeyPath {
     func open2<M>(_ m: M.Type) -> AnyKeyPath {
       func open1<V>(_ v: V.Type) -> AnyKeyPath { return _kpAppendOpen(root, leaf, r, m, v) }
-      return open1(v)
+      return _openExistential(v, do: open1)
     }
-    return open2(m)
+    return _openExistential(m, do: open2)
   }
-  return open3(r) as? Result
+  return _openExistential(r, do: open3) as? Result
 }
 
 @usableFromInline
