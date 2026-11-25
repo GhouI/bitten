@@ -124,6 +124,7 @@ def tower(name, bits, signed):
                     f"    return self - {name}(n.magnitude)")
     swap = "return self" if bits == 8 else f"return {name}(Builtin.int_bswap_{b}(_value))"
     conf = "SignedInteger" if signed else "UnsignedInteger"
+    other = ("UInt" + name[3:]) if signed else name[1:]
     sx = "s" if signed else "u"
     return f"""
 extension {name}: FixedWidthInteger, {conf} {{
@@ -133,6 +134,7 @@ extension {name}: FixedWidthInteger, {conf} {{
   @_transparent public static var max: {name} {{ return {mx} }}
   @_transparent public static var min: {name} {{ return {mn} }}
   @_transparent public init(_truncatingBits bits: UInt) {{ self.init({from64}) }}
+  @_transparent public init(bitPattern x: {other}) {{ _value = x._value }}
   @_transparent public var _lowWord: UInt {{ return UInt({to64}(_value)) }}
   @_transparent public var trailingZeroBitCount: Int {{
     return Int(Builtin.zextOrBitCast_{b}_Int64(Builtin.int_cttz_{b}(_value, false._value)))

@@ -289,9 +289,21 @@ public protocol MutableCollection<Element>: Collection where SubSequence: Mutabl
   override subscript(bounds: Range<Index>) -> SubSequence { get set }
   mutating func partition(by belongsInSecondPartition: (Element) throws -> Bool) rethrows -> Index
   mutating func swapAt(_ i: Index, _ j: Index)
+  mutating func _withUnsafeMutableBufferPointerIfSupported<R>(
+    _ body: (inout UnsafeMutableBufferPointer<Element>) throws -> R) rethrows -> R?
+  mutating func withContiguousMutableStorageIfAvailable<R>(
+    _ body: (_ buffer: inout UnsafeMutableBufferPointer<Element>) throws -> R) rethrows -> R?
 }
 
 extension MutableCollection {
+  @inlinable public mutating func _withUnsafeMutableBufferPointerIfSupported<R>(
+    _ body: (inout UnsafeMutableBufferPointer<Element>) throws -> R) rethrows -> R? {
+    return nil
+  }
+  @inlinable public mutating func withContiguousMutableStorageIfAvailable<R>(
+    _ body: (inout UnsafeMutableBufferPointer<Element>) throws -> R) rethrows -> R? {
+    return nil
+  }
   @inlinable public mutating func swapAt(_ i: Index, _ j: Index) {
     if i == j { return }
     let tmp = self[i]

@@ -32,3 +32,26 @@ public func ?? <T>(optional: T?, defaultValue: @autoclosure () throws -> T) reth
   case .none: return try defaultValue()
   }
 }
+
+extension Optional {
+  @inlinable
+  public func map<U>(_ transform: (Wrapped) throws -> U) rethrows -> U? {
+    switch self {
+    case .some(let y): return .some(try transform(y))
+    case .none: return .none
+    }
+  }
+  @inlinable
+  public func flatMap<U>(_ transform: (Wrapped) throws -> U?) rethrows -> U? {
+    switch self {
+    case .some(let y): return try transform(y)
+    case .none: return .none
+    }
+  }
+  @inlinable public var unsafelyUnwrapped: Wrapped {
+    switch self {
+    case .some(let x): return x
+    case .none: Builtin.int_trap()
+    }
+  }
+}
