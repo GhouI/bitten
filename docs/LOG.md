@@ -558,3 +558,36 @@ for the Swift layer and for the smaller independent items.
   `-O` and `-Onone`. No Docker here: `tests/e2e/target-app.sh` not run.
 - The Mac app window imports unimplemented: 5,382 -> 5,378. `mrun` still stops at
   `$s7SwiftUI28NSApplicationDelegateAdaptorVMa`.
+
+## 2026-11-25: Swift dynamic casts and errors (PR: swift-casts)
+
+- `src/frameworks/swift/casts.c`: `swift_dynamicCast` opens the source
+  (opaque, class, error and metatype existentials; Optionals) and casts by
+  target kind: same type, Optional (payload cast, nil kept), existentials
+  (conformance to every protocol, class and superclass constraints, then
+  the container: inline buffer or `swift_allocBox` box, class reference,
+  error box, metatype, with the witness tables in the existential's order),
+  classes (by the object's real class), metatypes. Take/destroy flags are
+  honoured by destroying the source; unconditional failures print the
+  macOS message ("Could not cast value of type 'A' (0x...) to 'B' (0x...)")
+  and abort. Also `swift_dynamicCastClass{,Unconditional}`,
+  `swift_dynamicCastMetatype{,Unconditional}`,
+  `swift_dynamicCastObjCProtocol{Conditional,Unconditional}` and
+  `swift_dynamicCastTypeToObjCProtocol{Conditional,Unconditional}`.
+- `src/frameworks/swift/errors.c`: error boxes (heap objects of kind
+  ErrorObject holding type, Error conformance and value):
+  `swift_allocError`, `swift_deallocError`, `swift_getErrorValue` (also for
+  Objective-C objects thrown as errors), `swift_errorRetain/Release`,
+  `swift_willThrow` (an assembly entry that keeps r12/r13 and logs the error
+  at `BITTEN_DEBUG=2`), `swift_willThrowTypedImpl`, `swift_errorInMain` and
+  `swift_unexpectedError` (the macOS messages, with the enum case name read
+  from the field descriptor, then abort).
+- `tests/swift/casts`, compiled as the module `Swift` so it can declare
+  `Error`: class, metatype and Objective-C protocol casts, values into and
+  out of `any P` (inline and boxed, then called through by compiled code),
+  class-bound existentials with inherited conformances, `any P.Type`, an
+  error boxed by a cast and one thrown and caught by compiled code.
+  Existential metadata is built by hand until `metadata.c` makes it.
+  The `sw_get_*_metadata` helpers are now linked directly. Passes at `-O` and `-Onone`; suite 29/29. No Docker here:
+  `tests/e2e/target-app.sh` not run.
+- The Mac app window imports unimplemented: 5,378 -> 5,366.

@@ -29,13 +29,6 @@
 #include "sw_map.h"
 #include "swift_internal.h"
 
-/* metadata.c and heap.c are written alongside this file. Until they are
- * merged, their helpers are weak so the loader still links; every use is
- * guarded. */
-#pragma weak sw_get_tuple_metadata
-#pragma weak sw_get_metatype_metadata
-#pragma weak sw_get_generic_metadata
-
 /* ---- runtime entry points reached through the registry -------------------
  * Public Swift and Objective-C runtime functions implemented elsewhere in
  * bitten are looked up by their exported names, so this file does not
@@ -1397,22 +1390,6 @@ static const sw_metadata *rfail(struct resolver *R, const struct node *n, const 
     return NULL;
 }
 
-/* Calls a type's metadata access function with its key arguments. */
-static const sw_metadata *call_accessor(const void *fn, const void *const *args, unsigned n) {
-    sw_response r;
-    switch (n) {
-    case 0: r = ((sw_response(*)(sw_request))fn)(0); break;
-    case 1: r = ((sw_response(*)(sw_request, const void *))fn)(0, args[0]); break;
-    case 2: r = ((sw_response(*)(sw_request, const void *, const void *))fn)(0, args[0], args[1]); break;
-    case 3:
-        r = ((sw_response(*)(sw_request, const void *, const void *, const void *))fn)(0, args[0], args[1],
-                                                                                    args[2]);
-        break;
-    default: r = ((sw_response(*)(sw_request, const void *const *))fn)(0, args); break;
-    }
-    return r.value;
-}
-
 static int is_class_metadata(const sw_metadata *m) {
     uintptr_t k = sw_kind(m);
     return k == SW_KIND_CLASS || k == SW_KIND_OBJC_CLASS_WRAPPER || k == SW_KIND_FOREIGN_CLASS;
@@ -1491,7 +1468,8 @@ static const sw_metadata *instantiate(struct resolver *R, const struct node *at,
     if (!h) {
         if (nflat) return rfail(R, at, "generic arguments for a non-generic type");
         if (!access) return rfail(R, at, "type has no metadata accessor");
-        return call_accessor(access, NULL, 0);
+        /* A non-generic type's accessor takes just the request. */
+        return ((sw_response(*)(sw_request))access)(0).value;
     }
     if (nflat != h->num_params) return rfail(R, at, "wrong number of generic arguments");
     struct sw_env e;
@@ -1504,9 +1482,8 @@ static const sw_metadata *instantiate(struct resolver *R, const struct node *at,
     if (sw_check_requirements(e.reqs, e.nreqs, &e, key, &nk))
         return rfail(R, at, "generic arguments do not satisfy the type's requirements");
     if (nk != h->num_key_arguments) return rfail(R, at, "unsupported generic signature");
-    if (sw_get_generic_metadata) return sw_get_generic_metadata(d, key);
-    if (!access) return rfail(R, at, "type has no metadata accessor");
-    return call_accessor(access, key, nk);
+    const sw_metadata *m = sw_get_generic_metadata(d, key);
+    return m ? m : rfail(R, at, "generic metadata could not be instantiated");
 }
 
 static const sw_type_context_descriptor *nominal_descriptor(struct resolver *R, const struct node *n,
@@ -1638,7 +1615,6 @@ static const sw_metadata *resolve_depmember(struct resolver *R, const struct nod
 
 static const sw_metadata *resolve_tuple(struct resolver *R, const struct node *n) {
     if (n->nkids == 1 && !n->kids[0]->text) return resolve(R, n->kids[0]->kids[0]);
-    if (!sw_get_tuple_metadata) return rfail(R, n, "tuple metadata is not available yet");
     const sw_metadata **el = alloca((n->nkids + 1) * sizeof *el);
     struct sbuf labels = {0};
     int any_label = 0;
@@ -1765,7 +1741,6 @@ static const sw_metadata *resolve(struct resolver *R, const struct node *n) {
     case NK_METATYPE: {
         const sw_metadata *t = resolve(R, n->kids[0]);
         if (!t) return NULL;
-        if (!sw_get_metatype_metadata) return rfail(R, n, "metatype metadata is not available yet");
         return sw_get_metatype_metadata(t);
     }
     case NK_EXIST_METATYPE: {
@@ -1774,7 +1749,6 @@ static const sw_metadata *resolve(struct resolver *R, const struct node *n) {
         if (!t) return NULL;
         if (sw_kind(t) != SW_KIND_EXISTENTIAL && sw_kind(t) != SW_KIND_EXISTENTIAL_METATYPE) {
             /* `T.Type` written with Xp for a concrete type is a plain metatype. */
-            if (!sw_get_metatype_metadata) return rfail(R, n, "metatype metadata is not available yet");
             return sw_get_metatype_metadata(t);
         }
         if (!getexm) return rfail(R, n, "existential metatype metadata is not available yet");
