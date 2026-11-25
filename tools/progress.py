@@ -270,29 +270,6 @@ def current_area(history):
     return None, 0
 
 
-def estimate(history, left):
-    """Rough time to implement the rest at the pace of the last three days,
-    as text, or None when there is not enough history to say."""
-    pts = sorted((datetime.datetime.fromisoformat(r["date"]), int(r["missing"]))
-                 for r in history if r.get("missing"))
-    if not pts or left <= 0:
-        return None
-    end = pts[-1][0]
-    win = [p for p in pts if p[0] >= end - datetime.timedelta(days=3)]
-    span = (win[-1][0] - win[0][0]).total_seconds() / 86400
-    gone = win[0][1] - win[-1][1]
-    if span < 0.25 or gone <= 0:
-        return None
-    days = left / (gone / span)
-    if days < 1:
-        return "under a day"
-    if days < 14:
-        return "about %d days" % round(days)
-    if days < 60:
-        return "about %d weeks" % round(days / 7)
-    return "about %d months" % round(days / 30)
-
-
 def draw(out, totals, missing, history, commit, when):
     import math
     areas = [a for a in AREA_NAMES if totals[a]]
@@ -305,9 +282,7 @@ def draw(out, totals, missing, history, commit, when):
     rows = len(areas)
     top_h = max(260, 112 + rows * 26 + P)
     active, gained = current_area(history)
-    eta = estimate(history, total - done)
-    top_h += 18 if active or eta else 0
-    H = top_h
+    H = top_h + 12           # room for the timestamp in the bottom-left corner
     cx, cy, r, sw = P + 104, top_h // 2, 92, 26
     circ = 2 * math.pi * r
 
@@ -361,15 +336,11 @@ def draw(out, totals, missing, history, commit, when):
         body.append('<text x="%d" y="%d" class="mute" font-size="12" text-anchor="end">'
                     '%s/%s</text>' % (W - P, y, fmt(done_of[a]), fmt(totals[a])))
         y += 26
-    note = "updated %s" % when[:10]
     if active and gained > 0:
-        note += " · now: %s, +%s today" % (active, fmt(gained))
-    body.append('<text x="%d" y="%d" class="mute" font-size="11">%s</text>'
-                % (lx, y + 6, esc(note)))
-
-    if eta:
-        body.append('<text x="%d" y="%d" class="mute" font-size="11">estimate: %s left'
-                    ' (rough, at the recent pace)</text>' % (lx, y + 24, esc(eta)))
+        body.append('<text x="%d" y="%d" class="mute" font-size="11">now: %s, +%s today</text>'
+                    % (lx, y + 6, esc(active), fmt(gained)))
+    body.append('<text x="%d" y="%d" class="mute" font-size="10.5">%s</text>'
+                % (P, H - 14, esc(when)))
 
     svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">\n'
            '%s\n%s\n%s\n</svg>\n' % (W, H, W, H, STYLE, defs, "\n".join(body)))

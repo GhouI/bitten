@@ -1494,3 +1494,8 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Warmer palette, the same hue for an area in light and dark; no NOW tag
   or glowing ring segment any more: the current area only has a soft glow
   behind its dot, and the line under the legend names it.
+
+## 2026-11-25: progress ring footer (PR: progress-timestamp)
+
+- No estimate any more; the update time is a plain timestamp in the
+  bottom-left corner.
