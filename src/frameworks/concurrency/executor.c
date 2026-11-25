@@ -410,3 +410,10 @@ DX_FN(swift_task_reportUnexpectedExecutor);
 
 static size_t d_swift_task_getCurrentThreadPriority(void) { return sw_on_main_thread() ? 0x21 : 0x15; }
 DX_FN(swift_task_getCurrentThreadPriority);
+
+/* Calls fn(ctx) on a global queue after `ns` nanoseconds (Task.sleep). */
+static void d_bitten_after_f(uint64_t ns, void *ctx, void (*fn)(void *)) {
+    need_dispatch();
+    dq.after_f(dq.time(0, (int64_t)ns), dq.get_global_queue(0, 0), ctx, fn);
+}
+DX_EXPORT("_bitten_concurrency_after_f", d_bitten_after_f);

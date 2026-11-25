@@ -23,7 +23,7 @@ typedef NSString *NSRunLoopMode;
 typedef NSString *NSWorkspaceNotificationKey_;
 typedef CGFloat NSFontWeight;
 
-typedef NS_ENUM(NSUInteger, NSWindowStyleMask) {
+typedef NS_OPTIONS(NSUInteger, NSWindowStyleMask) {
     NSWindowStyleMaskBorderless = 0,
     NSWindowStyleMaskTitled = 1 << 0,
     NSWindowStyleMaskClosable = 1 << 1,

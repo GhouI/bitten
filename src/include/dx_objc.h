@@ -27,6 +27,8 @@ void dx_block_release(const void *block);  /* _Block_release */
  * OS_object). Store the result in the object's first pointer-sized field. */
 void *dx_os_object_class(const char *name, const char *super_name, void *(*retain)(void *),
                          void (*release)(void *)) __attribute__((weak));
+void *dx_os_object_class_in(void *storage, void *meta_storage, const char *name, void *(*retain)(void *),
+                            void (*release)(void *)) __attribute__((weak));
 
 /* ---- runtime entry points used by other C code -------------------------- */
 typedef struct dx_objc_class *dx_class;

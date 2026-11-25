@@ -114,3 +114,10 @@ module AppKit [system] {
   header "AppKit/AppKit.h"
   export *
 }
+
+module os [system] {
+  header "os/object.h"
+  header "os/log.h"
+  header "os/signpost.h"
+  export *
+}

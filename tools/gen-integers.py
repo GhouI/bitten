@@ -124,6 +124,9 @@ def tower(name, bits, signed):
                     f"    return self - {name}(n.magnitude)")
     swap = "return self" if bits == 8 else f"return {name}(Builtin.int_bswap_{b}(_value))"
     conf = "SignedInteger" if signed else "UnsignedInteger"
+    bits2 = bits * 2
+    shr = "ashr" if signed else "lshr"
+    widen = "zextOrBitCast" if bits2 > 64 else "truncOrBitCast"
     other = ("UInt" + name[3:]) if signed else name[1:]
     sx = "s" if signed else "u"
     return f"""
@@ -146,6 +149,15 @@ extension {name}: FixedWidthInteger, {conf} {{
     return Int(Builtin.zextOrBitCast_{b}_Int64(Builtin.int_ctpop_{b}(_value)))
   }}
   @_transparent public var byteSwapped: {name} {{ {swap} }}
+  /// The full double-width product, through the Builtin integer twice as wide.
+  @_transparent public func multipliedFullWidth(by other: {name}) -> (high: {name}, low: {mag}) {{
+    let a = Builtin.{ext}OrBitCast_{b}_Int{bits2}(_value)
+    let c = Builtin.{ext}OrBitCast_{b}_Int{bits2}(other._value)
+    let p = Builtin.mul_Int{bits2}(a, c)
+    let lo = Builtin.truncOrBitCast_Int{bits2}_{b}(p)
+    let hi = Builtin.truncOrBitCast_Int{bits2}_{b}(Builtin.{shr}_Int{bits2}(p, Builtin.{widen}_Int64_Int{bits2}(Int64({bits})._value)))
+    return ({name}(hi), {mag}(lo))
+  }}
   @_transparent public func addingReportingOverflow(_ rhs: {name}) -> (partialValue: {name}, overflow: Bool) {{
     let (r, o) = Builtin.{sx}add_with_overflow_{b}(_value, rhs._value, false._value)
     return ({name}(r), Bool(o))

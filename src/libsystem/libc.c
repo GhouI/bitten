@@ -608,3 +608,7 @@ DX_PASS(mbstowcs); DX_PASS(wcstombs); DX_PASS(mbrtowc); DX_PASS(wcrtomb); DX_PAS
 DX_PASS(wctomb); DX_PASS(mblen); DX_PASS(wcslen); DX_PASS(wcwidth); DX_PASS(mbsinit);
 DX_PASS(mbsrtowcs); DX_PASS(wcscmp); DX_PASS(wmemcpy); DX_PASS(wmemset); DX_PASS(wmemchr);
 DX_PASS(wmemcmp); DX_PASS(wmemmove); DX_PASS(btowc); DX_PASS(wctob);
+
+/* src/loader/chkstk.S */
+extern void dx_chkstk_darwin(void);
+DX_EXPORT("____chkstk_darwin", dx_chkstk_darwin);
