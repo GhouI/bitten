@@ -26,7 +26,7 @@ whole class of other programs run. To resume work, start from
 | 9 | **Foundation**: strings, collections, files, URLs, JSON, notifications, `NSRunLoop`, key-value coding and observing, `NSInvocation` | in progress: strings, collections, data, dates, files, URLs, JSON, notifications, locks, threads | Objective-C command-line tools |
 | 10 | X.509 and TLS trust evaluation, keychain | not started | outbound HTTPS from macOS programs |
 | 11 | Mach ports and messages, bootstrap, XPC, launchd services | not started | apps with helper services |
-| 12 | **Swift runtime and standard library** | next: The Mac app stops at its first Swift runtime call; plan in `NEXT.md` | all Swift programs |
+| 12 | **Swift runtime and standard library** | runtime done; standard library in progress (our own Swift source, `stdlib/`); see `NEXT.md` | all Swift programs |
 | 13 | CoreGraphics, CoreText, ImageIO | not started | drawing and text |
 | 14 | QuartzCore, AppKit | not started | windows (X11/Wayland or a browser canvas) |
 | 15 | Metal | not started | GPU rendering, the Mac app terminal grid |
