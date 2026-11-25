@@ -78,6 +78,41 @@ $(FOUNDATION): $(FOUNDATION_OBJS) $(BUILD)/sdk/libSystem.tbd
 	    -install_name /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation \
 	    -L$(BUILD)/sdk -lSystem -o $@ $(FOUNDATION_OBJS)
 
+# ---- AppKit ----------------------------------------------------------------
+# Objective-C like Foundation. The class skeleton and the exported
+# constants are generated from the table in tools/gen-appkit.py (which also
+# writes sdk/include/AppKit/AppKitClasses.h); behaviour is hand-written in
+# frameworks/AppKit/*.m.
+APPKIT := $(FW_ROOT)/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit
+FRAMEWORKS += $(if $(HAVE_MACHO),$(APPKIT))
+all: $(if $(HAVE_MACHO),$(APPKIT))
+APPKIT_SRCS := $(wildcard frameworks/AppKit/*.m)
+APPKIT_OBJS := $(patsubst frameworks/AppKit/%.m,$(BUILD)/fw/AppKit/%.o,$(APPKIT_SRCS)) $(BUILD)/fw/AppKit/AppKitClasses.o
+sdk/include/AppKit/AppKitClasses.h: tools/gen-appkit.py
+	python3 tools/gen-appkit.py header > $@
+$(BUILD)/fw/AppKit/AppKitClasses.m: tools/gen-appkit.py
+	@mkdir -p $(dir $@)
+	python3 tools/gen-appkit.py source > $@
+$(BUILD)/fw/AppKit/AppKitClasses.o: $(BUILD)/fw/AppKit/AppKitClasses.m sdk/include/AppKit/AppKitClasses.h $(wildcard sdk/include/AppKit/*.h)
+	$(MACHO_CC) $(FW_CFLAGS) -c -o $@ $<
+$(BUILD)/fw/AppKit/%.o: frameworks/AppKit/%.m sdk/include/AppKit/AppKitClasses.h $(wildcard frameworks/AppKit/*.h sdk/include/*/*.h sdk/include/*.h)
+	@mkdir -p $(dir $@)
+	$(MACHO_CC) $(FW_CFLAGS) -c -o $@ $<
+$(APPKIT): $(APPKIT_OBJS) $(FOUNDATION) $(BUILD)/sdk/libSystem.tbd
+	@mkdir -p $(dir $@)
+	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
+	    -install_name /System/Library/Frameworks/AppKit.framework/Versions/C/AppKit \
+	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) -o $@ $(APPKIT_OBJS)
+
+# AppKit tests, like the Foundation ones.
+TEST_APPKIT     := $(wildcard tests/appkit/*.m)
+TEST_APPKITBINS := $(if $(HAVE_MACHO),$(patsubst tests/appkit/%.m,$(BUILD)/tests/appkit/%,$(TEST_APPKIT)))
+$(BUILD)/tests/appkit/%: tests/appkit/%.m $(APPKIT) $(wildcard sdk/include/*/*.h)
+	@mkdir -p $(dir $@)
+	$(MACHO_CC) $(FW_CFLAGS) -O1 -c -o $@.o $<
+	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -e _main \
+	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) $(APPKIT) -o $@ $@.o
+
 # Tests that use Foundation, compiled against the SDK headers in sdk/include.
 TEST_FND     := $(wildcard tests/foundation/*.m)
 TEST_FNDBINS := $(patsubst tests/foundation/%.m,$(BUILD)/tests/foundation/%,$(TEST_FND))
@@ -257,9 +292,9 @@ $(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTC
 	$(MACHO_LD) -arch x86_64 -platform_version macos $(call swlib_macos,$*) $(call swlib_macos,$*) -e _main \
 	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(OVERLAY_LIBS) -o $@ $@.o $@.swift.o
 
-test-bins: $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
+test-bins: $(TEST_APPKITBINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
 
-check: $(BUILD)/mrun $(FRAMEWORKS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
+check: $(BUILD)/mrun $(FRAMEWORKS) $(TEST_APPKITBINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
 	BUILD=$(BUILD) tests/run.sh
 
 check-dmgx:

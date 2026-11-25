@@ -99,3 +99,18 @@ module CoreFoundation [system] {
   header "CoreFoundation/CoreFoundation.h"
   export *
 }
+
+module CoreGraphics [system] {
+  header "CoreGraphics/CoreGraphics.h"
+  export *
+}
+
+module Foundation [system] {
+  header "Foundation/Foundation.h"
+  export *
+}
+
+module AppKit [system] {
+  header "AppKit/AppKit.h"
+  export *
+}
