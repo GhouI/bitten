@@ -1,13 +1,23 @@
+/* bitten SDK: <pwd.h>. */
 #ifndef BITTEN_PWD_H
 #define BITTEN_PWD_H
-#include <stdint.h>
+#include <sys/_types.h>
 struct passwd {
-    char *pw_name, *pw_passwd;
-    uint32_t pw_uid, pw_gid;
-    long pw_change;
-    char *pw_class, *pw_gecos, *pw_dir, *pw_shell;
-    long pw_expire;
+    char *pw_name;
+    char *pw_passwd;
+    uid_t pw_uid;
+    gid_t pw_gid;
+    time_t pw_change;
+    char *pw_class;
+    char *pw_gecos;
+    char *pw_dir;
+    char *pw_shell;
+    time_t pw_expire;
 };
-struct passwd *getpwuid(uint32_t);
+__BEGIN_DECLS
+struct passwd *getpwuid(uid_t);
 struct passwd *getpwnam(const char *);
+int getpwuid_r(uid_t, struct passwd *, char *, size_t, struct passwd **);
+int getpwnam_r(const char *, struct passwd *, char *, size_t, struct passwd **);
+__END_DECLS
 #endif

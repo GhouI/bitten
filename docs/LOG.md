@@ -1187,3 +1187,35 @@ SwiftUI with AppKit and the drawing stack).
   both ways, the three views, substrings, mutation, case beyond Latin-1.
   Suite 45/45 at -O and -Onone. No Docker here: `tests/e2e/target-app.sh` not run.
 - The Mac app window (total `^MISSING`): 4,548 -> 4,468.
+
+## 2026-11-25: SDK headers for the C library, the Darwin and ObjectiveC overlays (PR: sdk-darwin-objc)
+
+- `sdk/include`: the C library headers Swift code imports (stdio, stdlib,
+  string, unistd, fcntl, sys/*, signal, pthread, netdb, netinet, termios,
+  locale, math, dlfcn, spawn, poll, ...) with Apple's declarations, and a
+  `module.modulemap` splitting them into Apple's modules: `Darwin` with its
+  submodules, `_errno`, `_signal`, `ObjectiveC`. Variadic calls get
+  fixed-argument inline helpers (`__bitten_open`, `__bitten_fcntl`, ...).
+- Overlays: `Darwin` (file mode constants as `mode_t`, the variadic `open`,
+  `openat`, `fcntl`, `ioctl` forms, `stdin`/`stdout`/`stderr`,
+  `DarwinBoolean`); `_errno` (`errno`, `POSIXErrorCode`) and `_signal`
+  (`SIG_DFL`, `SIG_IGN`, `SIG_HOLD`, `SIG_ERR`), declared
+  `@_originallyDefinedIn(module: "Darwin", macOS 14.0)` as Apple does, so
+  they keep Darwin's mangling; `ObjectiveC` (`ObjCBool`, `Selector`,
+  `NSZone`, NSObject's Equatable/Hashable through `-isEqual:`/`-hash`).
+  The Makefile builds overlays in dependency order (`OVERLAY_DEPS_NAME`).
+- `RawRepresentable` in the stdlib (raw-value enums and imported C enums).
+- Pitfall: `@_originallyDefinedIn(..., macOS 9999)` makes swift-frontend
+  emit an `$ld$hide$os<v>$` directive for every version up to 9999 and run
+  out of memory (it took the machine down); use the real version.
+- Those `$ld$hide` directives hide the moved symbols from targets below
+  macOS 14, so a swiftlib test can name a deployment target
+  (`SWLIB_MACOS_NAME`); `tests/swiftlib/darwin` uses 14.0. The Mac app targets 14+
+  and binds to `libswift_errno`/`libswift_signal` directly.
+- `objc/objc.h`: `sel_registerName` and friends gained Apple's
+  nullability (without it `SEL` imports as `Selector?`).
+- `tests/swiftlib/darwin`: getpid/strlen, errno and POSIXErrorCode, open
+  with mode, fcntl, write/fstat, signal with SIG_IGN, DarwinBoolean,
+  ObjCBool, Selector equality/hash/name. Suite 46/46 at -O and -Onone. No
+  Docker here: `tests/e2e/target-app.sh` not run.
+- The Mac app window (total `^MISSING`): 4,468 -> 4,432.
