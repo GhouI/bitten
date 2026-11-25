@@ -2,7 +2,7 @@
 // Objective-C NSURL; path manipulation is done here on the string form.
 
 public struct URL: Equatable, Hashable, Sendable {
-  internal let _url: NSURL
+  nonisolated(unsafe) internal let _url: NSURL // immutable once made
 
   internal init(_nsurl: NSURL) { _url = _nsurl }
 
