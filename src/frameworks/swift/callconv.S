@@ -28,4 +28,23 @@ sw_call_with_self:
 	retq
 	.size sw_call_with_self, .-sw_call_with_self
 
+/* void sw_call_indirect(void (*fn)(void), void *out, a, b, c): calls
+ * fn(a, b, c) with the indirect result address `out` in rax, where swiftcc
+ * passes it (key path getters return their value that way). */
+	.globl sw_call_indirect
+	.hidden sw_call_indirect
+	.type sw_call_indirect, @function
+sw_call_indirect:
+	pushq %rbp
+	movq %rsp, %rbp
+	movq %rdi, %r11
+	movq %rsi, %rax
+	movq %rdx, %rdi
+	movq %rcx, %rsi
+	movq %r8, %rdx
+	callq *%r11
+	popq %rbp
+	retq
+	.size sw_call_indirect, .-sw_call_indirect
+
 	.section .note.GNU-stack,"",@progbits

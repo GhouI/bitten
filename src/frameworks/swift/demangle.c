@@ -2137,6 +2137,19 @@ static const sw_metadata *d_swift_getTypeByMangledNameInEnvironment(const char *
 }
 DX_FN(swift_getTypeByMangledNameInEnvironment);
 DX_EXPORT("_swift_getTypeByMangledNameInEnvironment2", d_swift_getTypeByMangledNameInEnvironment);
+const sw_metadata *sw_type_in_genv(const char *name, const uint32_t *genv, const void *const *args) {
+    return d_swift_getTypeByMangledNameInEnvironment(name, sw_mangled_name_length(name), genv, args);
+}
+unsigned sw_genv_key_count(const uint32_t *genv) {
+    struct sw_env e;
+    env_from_environment(&e, genv, NULL);
+    unsigned n = 0;
+    for (unsigned i = 0; i < e.nparams; i++)
+        if (e.params[i] & SW_GP_HAS_KEY_ARGUMENT) n++;
+    for (unsigned i = 0; i < e.nreqs; i++)
+        if (e.reqs[i].flags & 0x80) n++;
+    return n;
+}
 static const sw_metadata *d_swift_getTypeByMangledNameInEnvironmentInMetadataState(
     size_t state, const char *name, size_t len, const uint32_t *genv, const void *const *args) {
     return d_swift_getTypeByMangledNameInEnvironment(name, len, genv, args);

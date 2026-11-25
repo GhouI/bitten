@@ -46,6 +46,9 @@ void sw_each_section(int which, sw_section_cb cb, void *ctx, int future);
  * (metadata[-2]) and class ivar destroyers are swiftcc functions taking
  * the object as self. */
 void sw_call_with_self(const void *fn, void *self);
+/* Calls fn(a, b, c) with the indirect result `out` in rax (swiftcc's
+ * indirect return register). */
+void sw_call_indirect(const void *fn, void *out, const void *a, const void *b, const void *c);
 
 /* ---- heap.c --------------------------------------------------------------- */
 sw_heap_object *sw_alloc_object(const sw_metadata *m, size_t size, size_t align_mask);
@@ -160,6 +163,10 @@ const sw_metadata *sw_type_in_env(const char *name, size_t len, const struct sw_
 const sw_metadata *sw_type_by_mangled_name(const char *name, size_t len,
                                            const sw_context_descriptor *ctx,
                                            const void *const *args);
+/* The same for a GenericEnvironmentDescriptor (closures, key path
+ * patterns) whose key arguments are `args`; and the number of those. */
+const sw_metadata *sw_type_in_genv(const char *name, const uint32_t *genv, const void *const *args);
+unsigned sw_genv_key_count(const uint32_t *genv);
 /* Length of a NUL-terminated mangled name (symbolic references may contain 0 bytes). */
 size_t sw_mangled_name_length(const char *name);
 /* Checks generic requirements in an environment; the witness tables of key

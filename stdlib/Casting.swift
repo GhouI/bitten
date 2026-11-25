@@ -31,3 +31,23 @@ public func withExtendedLifetime<T, Result>(_ x: borrowing T, _ body: (borrowing
 public func _fixLifetime<T>(_ x: borrowing T) {
   Builtin.fixLifetime(x)
 }
+
+/// The dynamic type of a value. The type checker resolves every call to
+/// this function itself; the declaration only has to exist.
+@_transparent
+@_semantics("typechecker.type(of:)")
+public func type<T, Metatype>(of value: T) -> Metatype {
+  Builtin.unreachable()
+}
+
+/// Calls `body` with the value inside an existential (or the type inside
+/// an existential metatype) as its own static type. Resolved by the type
+/// checker, like type(of:).
+@_transparent
+@_semantics("typechecker._openExistential(_:do:)")
+public func _openExistential<ExistentialType, ContainedType, ResultType>(
+  _ existential: ExistentialType,
+  do body: (_ escapingClosure: ContainedType) throws -> ResultType
+) rethrows -> ResultType {
+  Builtin.unreachable()
+}

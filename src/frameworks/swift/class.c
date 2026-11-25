@@ -189,8 +189,11 @@ static int is_swift_class(const sw_class_metadata *c) {
  * offsets. */
 static void copy_superclass_members(sw_class_metadata *self, uintptr_t layout_flags) {
     uintptr_t *dst = (uintptr_t *)self;
+    /* Everything comes from the immediate superclass, which already holds its
+     * ancestors' members with its own overrides applied (copying each
+     * ancestor's vtable from that ancestor would lose those overrides). */
+    const uintptr_t *src = (const uintptr_t *)self->superclass;
     for (const sw_class_metadata *a = self->superclass; is_swift_class(a); a = a->superclass) {
-        const uintptr_t *src = (const uintptr_t *)a;
         const sw_class_descriptor *d = a->description;
         unsigned nargs = sw_generic_key_argument_count(&d->base);
         if (nargs) {
