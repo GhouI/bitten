@@ -1499,3 +1499,8 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 
 - No estimate any more; the update time is a plain timestamp in the
   bottom-left corner.
+
+## 2026-11-25: progress ring, no "now" marker (PR: progress-no-now)
+
+- The current-area marker and its line are gone; the card is the ring,
+  the legend and a timestamp.

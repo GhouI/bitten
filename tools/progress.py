@@ -252,24 +252,6 @@ def fmt(n):
     return "{:,}".format(int(n))
 
 
-def current_area(history):
-    """(area, imports gained in the last 24 hours) for the area the most
-    recent change moved, or (None, 0). Only measured rows carry per-area
-    counts."""
-    rows = [r for r in history if r.get("source") == "measured"
-            and all(r.get("missing_" + a, "") != "" for a in AREA_NAMES)]
-    rows.sort(key=lambda r: r["date"])
-    for prev, cur in reversed(list(zip(rows, rows[1:]))):
-        drops = {a: int(prev["missing_" + a]) - int(cur["missing_" + a]) for a in AREA_NAMES}
-        best = max(drops, key=drops.get)
-        if drops[best] > 0:
-            latest = datetime.datetime.fromisoformat(rows[-1]["date"])
-            base = next(r for r in rows if datetime.datetime.fromisoformat(r["date"])
-                        >= latest - datetime.timedelta(days=1))
-            return best, int(base["missing_" + best]) - int(rows[-1]["missing_" + best])
-    return None, 0
-
-
 def draw(out, totals, missing, history, commit, when):
     import math
     areas = [a for a in AREA_NAMES if totals[a]]
@@ -281,14 +263,11 @@ def draw(out, totals, missing, history, commit, when):
     W, P = 620, 28
     rows = len(areas)
     top_h = max(260, 112 + rows * 26 + P)
-    active, gained = current_area(history)
     H = top_h + 12           # room for the timestamp in the bottom-left corner
     cx, cy, r, sw = P + 104, top_h // 2, 92, 26
     circ = 2 * math.pi * r
 
-    # A soft neon: the shape blurred underneath itself, at low opacity.
-    defs = ('<defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%">'
-            '<feGaussianBlur stdDeviation="4"/></filter></defs>')
+    defs = ''
     body = ['<rect width="%d" height="%d" rx="12" class="bg"/>' % (W, H),
             '<circle cx="%d" cy="%d" r="%d" fill="none" class="track" stroke-width="%d"/>'
             % (cx, cy, r, sw)]
@@ -327,18 +306,11 @@ def draw(out, totals, missing, history, commit, when):
         pa = round(100.0 * done_of[a] / totals[a])
         body.append('<circle cx="%d" cy="%d" r="5" class="f-%s"/>' % (lx + 5, y - 4, a))
         body.append('<text x="%d" y="%d" class="ink" font-size="13">%s</text>' % (lx + 18, y, esc(a)))
-        if a == active:
-            # a quiet marker: a soft glow behind the area's dot
-            body.append('<circle cx="%d" cy="%d" r="7" class="f-%s" filter="url(#glow)"'
-                        ' opacity="0.6"/>' % (lx + 5, y - 4, a))
         body.append('<text x="%d" y="%d" class="ink" font-size="13" font-weight="600"'
                     ' text-anchor="end">%d%%</text>' % (W - P - 88, y, pa))
         body.append('<text x="%d" y="%d" class="mute" font-size="12" text-anchor="end">'
                     '%s/%s</text>' % (W - P, y, fmt(done_of[a]), fmt(totals[a])))
         y += 26
-    if active and gained > 0:
-        body.append('<text x="%d" y="%d" class="mute" font-size="11">now: %s, +%s today</text>'
-                    % (lx, y + 6, esc(active), fmt(gained)))
     body.append('<text x="%d" y="%d" class="mute" font-size="10.5">%s</text>'
                 % (P, H - 14, esc(when)))
 
