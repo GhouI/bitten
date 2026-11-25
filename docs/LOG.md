@@ -1128,3 +1128,39 @@ SwiftUI with AppKit and the drawing stack).
   entry points), `swift_getObjectType`, `swift_lookUpClassMethod`.
 - No Docker here: `tests/e2e/rex.sh` not run.
 - Rex window (total `^MISSING`): BEFORE -> AFTER.
+
+## 2026-11-25: key paths (PR: stdlib-keypaths)
+
+- `AnyKeyPath` (Hashable), `PartialKeyPath`, `KeyPath`, `WritableKeyPath`,
+  `ReferenceWritableKeyPath` in `stdlib/KeyPath.swift`, with `appending(path:)`
+  (every overload), `rootType`/`valueType`, and the projection entry points
+  the compiler calls for `root[keyPath:]`: `swift_getAtKeyPath`,
+  `swift_setAt(Reference)WritableKeyPath`, `swift_getAt(Partial|Any)KeyPath`.
+- Runtime (`src/frameworks/swift/keypath.c`): `swift_getKeyPath` instantiates
+  the compiler's patterns into a key path object (the library class plus a
+  private buffer of components): stored struct/class/tuple fields (inline,
+  out of line, unresolved through metadata or a field offset global),
+  computed properties and subscripts with captured arguments (layout,
+  initializer and copy/destroy/equals/hash witnesses), optional
+  chain/force/wrap, generic environments, external property descriptors, and
+  the once-cache (immortal object). The yield-once coroutines
+  `swift_readAtKeyPath` and `swift_modify*AtKeyPath` and the Swift entry
+  points share one projection engine: steps up to the last one through a
+  reference are only read, computed steps after it are written back in
+  reverse. `swift_copyKeyPathTrivialIndices`. Getters return indirectly in
+  rax, so `callconv.S` gained `sw_call_indirect`.
+- `type(of:)` and `_openExistential` declared (resolved by the type checker,
+  but they must exist).
+- Fix: a generic subclass copied each ancestor's vtable from that ancestor's
+  own metadata, losing intermediate overrides (WritableKeyPath lost
+  KeyPath's override of `_rootAndValueType`); everything now comes from the
+  immediate superclass.
+- `tests/swiftlib/keypaths`: structs, tuples, classes and inherited fields,
+  nested paths, optional chaining and force, identity, key paths as
+  functions, computed properties, subscripts with trivial and class
+  arguments (released with the key path), nonmutating setters, generic
+  contexts, an external generic descriptor (`UnsafeMutablePointer.pointee`),
+  equality/hash, kinds, appending; at -O and -Onone. No Docker here:
+  `tests/e2e/rex.sh` not run.
+- Rex window (total `^MISSING`): 4,561 -> 4,548 (every libswiftCore key path
+  symbol it imports).
