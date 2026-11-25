@@ -76,7 +76,7 @@ $(FOUNDATION): $(FOUNDATION_OBJS) $(BUILD)/sdk/libSystem.tbd
 	@mkdir -p $(dir $@)
 	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
 	    -install_name /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation \
-	    -L$(BUILD)/sdk -lSystem -o $@ $(FOUNDATION_OBJS)
+	    -L$(BUILD)/sdk -lSystem -o $@ $(FOUNDATION_OBJS) $(FOUNDATION_SWIFT_LINK)
 
 # ---- AppKit ----------------------------------------------------------------
 # Objective-C like Foundation. The class skeleton and the exported
@@ -259,6 +259,7 @@ $(SWIFTRES)/.stamp:
 # needs (built first, linked against).
 OVERLAY_DEPS_Darwin     := _errno _signal
 OVERLAY_DEPS_CoreGraphics := CoreFoundation
+OVERLAY_DEPS_os := ObjectiveC
 overlay_lib = $(FW_ROOT)/usr/lib/swift/libswift$(1).dylib
 overlay_deps = $(foreach d,$(OVERLAY_DEPS_$(1)),$(call overlay_lib,$(d)))
 
@@ -272,6 +273,22 @@ $(FW_ROOT)/usr/lib/swift/libswift%.dylib: $$(wildcard overlays/%/*.swift) $$(cal
 	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
 	    -install_name /usr/lib/swift/libswift$*.dylib \
 	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(call overlay_deps,$*) -o $@ $(BUILD)/overlays/$*.o
+
+# ---- Foundation's Swift overlay ---------------------------------------------
+# On macOS Foundation's Swift API lives in Foundation.framework itself, so
+# frameworks/Foundation/swift/*.swift is compiled as module Foundation (over
+# the Clang module of the same name) and linked into the framework with the
+# Objective-C objects.
+FOUNDATION_SWIFT_SRCS := $(wildcard frameworks/Foundation/swift/*.swift)
+FOUNDATION_SWIFT_OBJ  := $(if $(and $(SWIFTC),$(HAVE_MACHO),$(FOUNDATION_SWIFT_SRCS)),$(BUILD)/fw/Foundation/FoundationSwift.o)
+FOUNDATION_SWIFT_LINK  = $(if $(FOUNDATION_SWIFT_OBJ),$(FOUNDATION_SWIFT_OBJ) $(LIBSWIFTCORE) $(OVERLAY_LIBS))
+$(FOUNDATION): $(FOUNDATION_SWIFT_OBJ)
+$(BUILD)/fw/Foundation/FoundationSwift.o: $(FOUNDATION_SWIFT_SRCS) $(OVERLAY_LIBS) $(SDKROOT)/.stamp $(SWIFTRES)/.stamp
+	@mkdir -p $(dir $@)
+	$(SWIFTC) -module-name Foundation $(SWIFT_TARGET) $(SWIFT_SDKFLAGS) \
+	    -enable-library-evolution -wmo -parse-as-library -O \
+	    -emit-module -emit-module-path $(SWIFT_MODDIR)/Foundation.swiftmodule \
+	    -c -o $@ $(FOUNDATION_SWIFT_SRCS)
 
 # ---- frameworks written in Swift ------------------------------------------
 # frameworks/NAME/*.swift (SwiftUI...) is built as module NAME into

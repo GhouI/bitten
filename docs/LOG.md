@@ -1359,3 +1359,42 @@ SwiftUI with AppKit and the drawing stack).
 - ROADMAP: layers 13, 14 and 16 are in progress (CoreGraphics geometry,
   AppKit, Combine and Observation), no longer "not started".
 - The Mac app window (total `^MISSING`): 3,927 (unchanged).
+## 2026-11-25: SwiftUI begins; Foundation's Swift overlay; os logging (PR: swiftui-start)
+
+Driven by running the Mac app; it now gets through its app struct's metadata, the
+delegate adaptor, its LazyState/StateObject properties, clocks and logging
+and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
+
+- SwiftUI (`frameworks/SwiftUI`): `View`/`Scene`/`App`, the result builders,
+  `TupleView`, `_ConditionalContent`, `EmptyView`, `AnyView`, the property
+  wrappers with Apple's frozen layouts where programs initialise them inline
+  (`State`, `Binding`, `StateObject`, `ObservedObject`) and `LazyState`,
+  `NSApplicationDelegateAdaptor`, `WindowGroup`/`Window`/`Settings`/
+  `_TupleScene`, and `App.main()` driving NSApplication through a host that
+  walks scene tuples via tuple metadata. Rendering comes with CoreGraphics.
+- Foundation's Swift overlay, linked into Foundation.framework as on macOS
+  (`frameworks/Foundation/swift`): String/Substring/Array/Dictionary/Set/
+  Int/Double/Bool bridging. The stdlib gains `_ObjectiveCBridgeable` and the
+  compiler's bridging entry points; Foundation's header marks NSString,
+  NSArray, NSDictionary, NSSet with `swift_bridge("Swift.T")` (what Apple's
+  API notes do) and uses assume-nonnull regions, so imported APIs read as
+  Swift types with Apple's optionality.
+- AppKit header fixes for faithful import: assume-nonnull, class properties
+  (`NSApplication.shared`), `NS_OPTIONS` style masks.
+- CGFloat is now a full `BinaryFloatingPoint` forwarding to Double, with the
+  conversions both ways (the compiler's implicit CGFloat/Double conversion
+  needs them).
+- Standard library: `Duration`, `DurationProtocol`, `InstantProtocol`,
+  `Unmanaged`, `CVarArg`/`CVaListPointer`, `multipliedFullWidth`.
+- `_Concurrency`: `Clock`, `ContinuousClock`, `SuspendingClock`, their
+  Instants, `Task.sleep(for:/until:/nanoseconds:)`.
+- os: headers with the OS-object model Swift expects (os_log_t is the class
+  OS_os_log, `OSLog` in Swift), `os_log_create`, `_os_log_impl` (formats
+  Apple's argument buffer; errors/faults to stderr, all levels with
+  `BITTEN_LOG=1`), signposts; the `os` overlay (`Logger`, `OSSignposter`,
+  `OSSignpostID`, log type constants). The OS_os_log class lives in exported
+  storage (`dx_os_object_class_in`) because Swift refers to it by symbol.
+- Runtime/loader: `swift_dynamicCastUnknownClass(Unconditional)`;
+  `___chkstk_darwin` (stack probe, assembly); unimplemented-import stubs
+  now build an aligned frame (tail-called stubs crashed inside the error
+  report).

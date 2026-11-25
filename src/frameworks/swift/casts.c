@@ -117,6 +117,10 @@ static const void *d_swift_dynamicCastClassUnconditional(const void *object, con
     return r;
 }
 DX_FN(swift_dynamicCastClassUnconditional);
+/* The target may be a Swift class or an Objective-C one (through its
+ * wrapper metadata); the class casts above already handle both. */
+DX_EXPORT("_swift_dynamicCastUnknownClass", d_swift_dynamicCastClass);
+DX_EXPORT("_swift_dynamicCastUnknownClassUnconditional", d_swift_dynamicCastClassUnconditional);
 
 static const sw_metadata *d_swift_dynamicCastMetatype(const sw_metadata *src, const sw_metadata *target) {
     if (src == target) return src;

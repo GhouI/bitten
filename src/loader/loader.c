@@ -126,10 +126,19 @@ static void *make_stub(const char *name) {
     s->name = strdup(name);
     uint8_t *c = stub_arena + stub_used;
     stub_used += 32;
+    /* A frame of its own with the stack aligned: callers may reach the stub
+     * by a tail call (Swift async and tail-calling code), leaving the stack
+     * misaligned for the C handler. leave/ret keeps the return path intact
+     * for BITTEN_STUBS=zero. */
     uint64_t n = (uint64_t)s->name, h = (uint64_t)unimplemented_called;
-    c[0] = 0x48; c[1] = 0xbf; memcpy(c + 2, &n, 8);   /* movabs $name, %rdi */
-    c[10] = 0x48; c[11] = 0xb8; memcpy(c + 12, &h, 8); /* movabs $handler, %rax */
-    c[20] = 0xff; c[21] = 0xe0;                        /* jmp *%rax */
+    c[0] = 0x55;                                             /* push %rbp */
+    c[1] = 0x48; c[2] = 0x89; c[3] = 0xe5;                   /* mov %rsp, %rbp */
+    c[4] = 0x48; c[5] = 0x83; c[6] = 0xe4; c[7] = 0xf0;      /* and $-16, %rsp */
+    c[8] = 0x48; c[9] = 0xbf; memcpy(c + 10, &n, 8);         /* movabs $name, %rdi */
+    c[18] = 0x48; c[19] = 0xb8; memcpy(c + 20, &h, 8);       /* movabs $handler, %rax */
+    c[28] = 0xff; c[29] = 0xd0;                              /* call *%rax */
+    c[30] = 0xc9;                                            /* leave */
+    c[31] = 0xc3;                                            /* ret */
     s->code = c;
     s->next = stubs;
     stubs = s;

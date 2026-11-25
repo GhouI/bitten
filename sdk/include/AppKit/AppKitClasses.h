@@ -2,6 +2,7 @@
  * hand-written interface yet, and the exported constants. */
 #import <AppKit/AppKitBase.h>
 
+#pragma clang assume_nonnull begin
 @interface NSButton : NSControl
 @end
 @interface NSTextField : NSControl
@@ -262,3 +263,4 @@ APPKIT_EXTERN const CGFloat NSFontWeightBold;
 APPKIT_EXTERN const CGFloat NSFontWeightHeavy;
 APPKIT_EXTERN const CGFloat NSFontWeightBlack;
 APPKIT_EXTERN const CGFloat NSViewNoIntrinsicMetric;
+#pragma clang assume_nonnull end

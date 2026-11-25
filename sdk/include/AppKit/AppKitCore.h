@@ -2,6 +2,8 @@
  * Written from the public documentation. */
 #import <AppKit/AppKitBase.h>
 
+#pragma clang assume_nonnull begin
+
 @interface NSResponder : NSObject
 @property (nullable, assign) NSResponder *nextResponder;
 - (BOOL)acceptsFirstResponder;
@@ -32,8 +34,8 @@
 @property NSRect frame;
 @property NSRect bounds;
 @property (readonly, copy) NSArray<NSView *> *subviews;
-@property (readonly, assign) NSView *superview;
-@property (readonly, assign) NSWindow *window;
+@property (nullable, readonly, assign) NSView *superview;
+@property (nullable, readonly, assign) NSWindow *window;
 @property BOOL needsDisplay;
 @property (getter=isHidden) BOOL hidden;
 @property BOOL wantsLayer;
@@ -46,10 +48,10 @@
 - (void)drawRect:(NSRect)dirtyRect;
 - (void)layout;
 - (void)viewDidMoveToWindow;
-- (void)viewWillMoveToWindow:(NSWindow *)window;
-- (NSPoint)convertPoint:(NSPoint)point fromView:(NSView *)view;
-- (NSPoint)convertPoint:(NSPoint)point toView:(NSView *)view;
-- (NSView *)hitTest:(NSPoint)point;
+- (void)viewWillMoveToWindow:(nullable NSWindow *)window;
+- (NSPoint)convertPoint:(NSPoint)point fromView:(nullable NSView *)view;
+- (NSPoint)convertPoint:(NSPoint)point toView:(nullable NSView *)view;
+- (nullable NSView *)hitTest:(NSPoint)point;
 @end
 
 @interface NSControl : NSView
@@ -81,7 +83,7 @@
 }
 - (instancetype)initWithContentRect:(NSRect)contentRect styleMask:(NSWindowStyleMask)style
                             backing:(NSBackingStoreType)backing defer:(BOOL)flag;
-@property (strong) NSView *contentView;
+@property (nullable, strong) NSView *contentView;
 @property (copy) NSString *title;
 @property NSWindowStyleMask styleMask;
 @property (readonly) NSRect frame;
@@ -92,9 +94,9 @@
 @property (strong) NSColor *backgroundColor;
 - (void)setFrame:(NSRect)frame display:(BOOL)flag;
 - (void)setContentSize:(NSSize)size;
-- (void)makeKeyAndOrderFront:(id)sender;
-- (void)orderFront:(id)sender;
-- (void)orderOut:(id)sender;
+- (void)makeKeyAndOrderFront:(nullable id)sender;
+- (void)orderFront:(nullable id)sender;
+- (void)orderOut:(nullable id)sender;
 - (void)close;
 - (void)center;
 - (void)display;
@@ -112,12 +114,12 @@
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender;
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender;
 - (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag;
-- (NSMenu *)applicationDockMenu:(NSApplication *)sender;
+- (nullable NSMenu *)applicationDockMenu:(NSApplication *)sender;
 - (void)application:(NSApplication *)application openURLs:(NSArray<NSURL *> *)urls;
 @end
 
 @interface NSApplication : NSResponder
-+ (NSApplication *)sharedApplication;
+@property (class, readonly, strong) NSApplication *sharedApplication;
 @property (nullable, weak) id<NSApplicationDelegate> delegate;
 @property (readonly, copy) NSArray<NSWindow *> *windows;
 @property (nullable, readonly, assign) NSWindow *keyWindow;
@@ -128,12 +130,12 @@
 @property (nullable, strong) NSAppearance *appearance;
 - (void)run;
 - (void)finishLaunching;
-- (void)stop:(id)sender;
-- (void)terminate:(id)sender;
+- (void)stop:(nullable id)sender;
+- (void)terminate:(nullable id)sender;
 - (BOOL)setActivationPolicy:(NSApplicationActivationPolicy)policy;
 - (void)activateIgnoringOtherApps:(BOOL)flag;
 - (void)activate;
-- (NSEvent *)nextEventMatchingMask:(NSEventMask)mask untilDate:(NSDate *)expiration
+- (nullable NSEvent *)nextEventMatchingMask:(NSEventMask)mask untilDate:(nullable NSDate *)expiration
                             inMode:(NSRunLoopMode)mode dequeue:(BOOL)deqFlag;
 - (void)sendEvent:(NSEvent *)event;
 @end
@@ -186,7 +188,7 @@ APPKIT_EXTERN int NSApplicationMain(int argc, const char *argv[]);
 @end
 
 @interface NSScreen : NSObject
-@property (class, readonly, strong) NSScreen *mainScreen;
+@property (class, readonly, nullable, strong) NSScreen *mainScreen;
 @property (class, readonly, copy) NSArray<NSScreen *> *screens;
 @property (readonly) NSRect frame;
 @property (readonly) NSRect visibleFrame;
@@ -194,7 +196,7 @@ APPKIT_EXTERN int NSApplicationMain(int argc, const char *argv[]);
 @end
 
 @interface NSGraphicsContext : NSObject
-@property (class, strong) NSGraphicsContext *currentContext;
+@property (class, nullable, strong) NSGraphicsContext *currentContext;
 + (void)saveGraphicsState;
 + (void)restoreGraphicsState;
 @end
@@ -205,13 +207,13 @@ APPKIT_EXTERN int NSApplicationMain(int argc, const char *argv[]);
 @property (readonly, copy) NSArray<NSMenuItem *> *itemArray;
 @property (readonly) NSInteger numberOfItems;
 - (void)addItem:(NSMenuItem *)item;
-- (NSMenuItem *)addItemWithTitle:(NSString *)title action:(SEL)action keyEquivalent:(NSString *)key;
+- (NSMenuItem *)addItemWithTitle:(NSString *)title action:(nullable SEL)action keyEquivalent:(NSString *)key;
 - (void)removeAllItems;
 @end
 
 @interface NSMenuItem : NSObject
 + (NSMenuItem *)separatorItem;
-- (instancetype)initWithTitle:(NSString *)title action:(SEL)action keyEquivalent:(NSString *)key;
+- (instancetype)initWithTitle:(NSString *)title action:(nullable SEL)action keyEquivalent:(NSString *)key;
 @property (copy) NSString *title;
 @property (nullable) SEL action;
 @property (nullable, weak) id target;
@@ -221,3 +223,5 @@ APPKIT_EXTERN int NSApplicationMain(int argc, const char *argv[]);
 @property NSInteger tag;
 @property (nullable, strong) id representedObject;
 @end
+
+#pragma clang assume_nonnull end

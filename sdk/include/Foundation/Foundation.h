@@ -58,6 +58,8 @@ enum { NSCaseInsensitiveSearch = 1, NSLiteralSearch = 2, NSBackwardsSearch = 4 }
 #define NS_FORMAT_FUNCTION(F, A) __attribute__((format(__NSString__, F, A)))
 #define NS_REQUIRES_NIL_TERMINATION __attribute__((sentinel))
 
+#pragma clang assume_nonnull begin
+
 @class NSString, NSMutableString, NSArray<ObjectType>, NSMutableArray<ObjectType>,
     NSDictionary<KeyType, ObjectType>, NSMutableDictionary<KeyType, ObjectType>, NSData, NSNumber, NSError,
     NSEnumerator<ObjectType>, NSCharacterSet, NSDate, NSURL, NSSet<ObjectType>, NSNotification;
@@ -82,16 +84,17 @@ typedef struct {
 @end
 
 
+__attribute__((swift_bridge("Swift.String")))
 @interface NSString : NSObject <NSCopying, NSMutableCopying>
 + (instancetype)string;
-+ (instancetype)stringWithUTF8String:(const char *)cString;
-+ (instancetype)stringWithCString:(const char *)cString encoding:(NSStringEncoding)encoding;
++ (nullable instancetype)stringWithUTF8String:(const char *)cString;
++ (nullable instancetype)stringWithCString:(const char *)cString encoding:(NSStringEncoding)encoding;
 + (instancetype)stringWithString:(NSString *)string;
 + (instancetype)stringWithFormat:(NSString *)format, ... NS_FORMAT_FUNCTION(1, 2);
-- (instancetype)initWithUTF8String:(const char *)cString;
-- (instancetype)initWithCString:(const char *)cString encoding:(NSStringEncoding)encoding;
-- (instancetype)initWithBytes:(const void *)bytes length:(NSUInteger)length encoding:(NSStringEncoding)encoding;
-- (instancetype)initWithData:(NSData *)data encoding:(NSStringEncoding)encoding;
+- (nullable instancetype)initWithUTF8String:(const char *)cString;
+- (nullable instancetype)initWithCString:(const char *)cString encoding:(NSStringEncoding)encoding;
+- (nullable instancetype)initWithBytes:(const void *)bytes length:(NSUInteger)length encoding:(NSStringEncoding)encoding;
+- (nullable instancetype)initWithData:(NSData *)data encoding:(NSStringEncoding)encoding;
 - (instancetype)initWithString:(NSString *)string;
 - (instancetype)initWithFormat:(NSString *)format, ... NS_FORMAT_FUNCTION(1, 2);
 - (instancetype)initWithFormat:(NSString *)format arguments:(va_list)args NS_FORMAT_FUNCTION(1, 0);
@@ -99,10 +102,10 @@ typedef struct {
 @property (readonly) NSUInteger length;
 - (unichar)characterAtIndex:(NSUInteger)index;
 - (void)getCharacters:(unichar *)buffer range:(NSRange)range;
-@property (readonly) const char *UTF8String;
-- (const char *)cStringUsingEncoding:(NSStringEncoding)encoding;
+@property (readonly, nullable) const char *UTF8String;
+- (nullable const char *)cStringUsingEncoding:(NSStringEncoding)encoding;
 - (NSUInteger)lengthOfBytesUsingEncoding:(NSStringEncoding)encoding;
-- (NSData *)dataUsingEncoding:(NSStringEncoding)encoding;
+- (nullable NSData *)dataUsingEncoding:(NSStringEncoding)encoding;
 - (BOOL)isEqualToString:(NSString *)string;
 - (NSComparisonResult)compare:(NSString *)string;
 - (NSComparisonResult)compare:(NSString *)string options:(NSStringCompareOptions)mask;
@@ -143,8 +146,8 @@ typedef struct {
 - (NSArray<NSString *> *)componentsSeparatedByCharactersInSet:(NSCharacterSet *)set;
 - (NSRange)rangeOfCharacterFromSet:(NSCharacterSet *)set;
 - (NSString *)stringByPaddingToLength:(NSUInteger)length withString:(NSString *)pad startingAtIndex:(NSUInteger)index;
-+ (instancetype)stringWithContentsOfFile:(NSString *)path encoding:(NSStringEncoding)enc error:(NSError **)error;
-- (instancetype)initWithContentsOfFile:(NSString *)path encoding:(NSStringEncoding)enc error:(NSError **)error;
++ (nullable instancetype)stringWithContentsOfFile:(NSString *)path encoding:(NSStringEncoding)enc error:(NSError **)error;
+- (nullable instancetype)initWithContentsOfFile:(NSString *)path encoding:(NSStringEncoding)enc error:(NSError **)error;
 - (BOOL)writeToFile:(NSString *)path atomically:(BOOL)atomically encoding:(NSStringEncoding)enc error:(NSError **)error;
 @end
 
@@ -196,6 +199,7 @@ typedef struct {
 - (BOOL)isEqualToNumber:(NSNumber *)number;
 @end
 
+__attribute__((swift_bridge("Swift.Array")))
 @interface NSArray<__covariant ObjectType> : NSObject <NSCopying, NSMutableCopying, NSFastEnumeration>
 + (instancetype)array;
 + (instancetype)arrayWithObject:(ObjectType)object;
@@ -238,6 +242,7 @@ typedef struct {
 - (void)sortUsingComparator:(NSComparator)comparator;
 @end
 
+__attribute__((swift_bridge("Swift.Dictionary")))
 @interface NSDictionary<__covariant KeyType, __covariant ObjectType> : NSObject <NSCopying, NSMutableCopying, NSFastEnumeration>
 + (instancetype)dictionary;
 + (instancetype)dictionaryWithObject:(ObjectType)object forKey:(KeyType<NSCopying>)key;
@@ -246,8 +251,8 @@ typedef struct {
 - (instancetype)initWithObjects:(const ObjectType[])objects forKeys:(const KeyType<NSCopying>[])keys count:(NSUInteger)count;
 - (instancetype)initWithDictionary:(NSDictionary<KeyType, ObjectType> *)dictionary;
 @property (readonly) NSUInteger count;
-- (ObjectType)objectForKey:(KeyType)key;
-- (ObjectType)objectForKeyedSubscript:(KeyType)key;
+- (nullable ObjectType)objectForKey:(KeyType)key;
+- (nullable ObjectType)objectForKeyedSubscript:(KeyType)key;
 @property (readonly, copy) NSArray<KeyType> *allKeys;
 @property (readonly, copy) NSArray<ObjectType> *allValues;
 - (BOOL)isEqualToDictionary:(NSDictionary<KeyType, ObjectType> *)other;
@@ -373,6 +378,7 @@ enum {
 @property (readonly, copy) NSString *localizedFailureReason;
 @end
 
+__attribute__((swift_bridge("Swift.Set")))
 @interface NSSet<__covariant ObjectType> : NSObject <NSCopying, NSMutableCopying, NSFastEnumeration>
 + (instancetype)set;
 + (instancetype)setWithObject:(ObjectType)object;
@@ -589,4 +595,5 @@ NSString *NSStringFromClass(Class cls);
 NSString *NSStringFromSelector(SEL sel);
 Class NSClassFromString(NSString *name);
 SEL NSSelectorFromString(NSString *name);
+#pragma clang assume_nonnull end
 #endif

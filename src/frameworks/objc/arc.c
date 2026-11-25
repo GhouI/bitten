@@ -864,6 +864,18 @@ static void os_dealloc(id self, SEL _cmd) { (void)self; (void)_cmd; }
 
 void dx_objc_register_class(Class cls);
 
+/* The same, building the class pair in storage the caller exports (as
+ * _OBJC_CLASS_$_<name>), for OS object classes Swift code refers to by
+ * symbol. Call once, early. */
+void *dx_os_object_class_in(void *storage, void *meta_storage, const char *name, void *(*retain)(void *),
+                            void (*release)(void *)) {
+    Class c = make_class((Class)storage, (Class)meta_storage, os_object_class, name, 0);
+    dx_objc_register_class(c);
+    RW(c)->os_retain = retain;
+    RW(c)->os_release = release;
+    return c;
+}
+
 void *dx_os_object_class(const char *name, const char *super_name, void *(*retain)(void *),
                          void (*release)(void *)) {
     Class c = (Class)dx_objc_lookup_class(name);
