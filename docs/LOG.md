@@ -1488,3 +1488,9 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - The "working on now" band is gone: the current area gets a glowing dot
   and a small NOW tag in the legend, its last-day gain and the estimate
   are one line each under the legend, and the glow is 40% brighter.
+
+## 2026-11-25: progress ring colours (PR: progress-colors)
+
+- Warmer palette, the same hue for an area in light and dark; no NOW tag
+  or glowing ring segment any more: the current area only has a soft glow
+  behind its dot, and the line under the legend names it.
