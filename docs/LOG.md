@@ -1445,3 +1445,9 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 
 - The README chart is a single progress ring: the share of the target
   app's imports implemented, with the counts beside it. Light and dark.
+
+## 2026-11-25: progress ring by area (PR: progress-ring-areas)
+
+- The ring's filled arc is split into one coloured segment per area (its
+  implemented imports as a share of all of them), with a legend of each
+  area's own progress beside it. No grey: open work is a pale blue.

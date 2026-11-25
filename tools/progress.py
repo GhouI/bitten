@@ -218,18 +218,29 @@ def roadmap_layers():
 
 # --------------------------------------------------------------------- svg
 #
-# One progress ring: the share of the target app's imports implemented.
+# One progress ring: the share of the target app's imports implemented, the
+# filled arc split by area, with a legend of each area's own progress.
 # The history stays in history.csv; it is not drawn.
 
-STYLE = """<style>
-  text { font-family: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
-  .bg { fill: #ffffff; } .ink { fill: #1f2328; } .mute { fill: #656d76; }
-  .track { stroke: #eaeef2; } .done { stroke: #2da44e; }
-  @media (prefers-color-scheme: dark) {
-    .bg { fill: #0d1117; } .ink { fill: #e6edf3; } .mute { fill: #8d96a0; }
-    .track { stroke: #21262d; } .done { stroke: #3fb950; }
-  }
-</style>"""
+AREA_COLORS = {
+    "System": ("#0969da", "#4493f8"), "Swift": ("#bf3989", "#db61a2"),
+    "Foundation": ("#1a7f37", "#3fb950"), "Graphics": ("#9a6700", "#d29922"),
+    "AppKit": ("#8250df", "#a371f7"), "SwiftUI": ("#cf222e", "#f85149"),
+    "Other": ("#1b7c83", "#39c5cf"),
+}
+
+STYLE = ("<style>\n"
+         "  text { font-family: system-ui, -apple-system, \"Segoe UI\", Helvetica, Arial, sans-serif; }\n"
+         "  .bg { fill: #ffffff; } .ink { fill: #1f2328; } .mute { fill: #3d6aa3; }\n"
+         "  .track { stroke: #ddf4ff; } .gap { stroke: #ffffff; }\n"
+         + "".join("  .s-%s { stroke: %s; } .f-%s { fill: %s; }\n" % (k, v[0], k, v[0])
+                   for k, v in AREA_COLORS.items())
+         + "  @media (prefers-color-scheme: dark) {\n"
+         "    .bg { fill: #0d1117; } .ink { fill: #e6edf3; } .mute { fill: #8fb4e3; }\n"
+         "    .track { stroke: #12263f; } .gap { stroke: #0d1117; }\n"
+         + "".join("    .s-%s { stroke: %s; } .f-%s { fill: %s; }\n" % (k, v[1], k, v[1])
+                   for k, v in AREA_COLORS.items())
+         + "  }\n</style>")
 
 
 def esc(s):
@@ -243,32 +254,65 @@ def fmt(n):
 
 def draw(out, totals, missing, history, commit, when):
     import math
-    W, H = 480, 240
-    total = sum(totals.values())
-    left = sum(min(missing[a], totals[a]) for a in AREA_NAMES)
-    done = total - left
+    areas = [a for a in AREA_NAMES if totals[a]]
+    done_of = {a: totals[a] - min(missing[a], totals[a]) for a in areas}
+    total = sum(totals[a] for a in areas)
+    done = sum(done_of.values())
     frac = done / total if total else 0
-    cx, cy, r = 120, 120, 80
+
+    W, P = 590, 28
+    rows = len(areas)
+    H = max(260, 112 + rows * 26 + P)
+    cx, cy, r, sw = P + 104, H // 2, 92, 26
     circ = 2 * math.pi * r
-    arc = ""
-    if done:
-        arc = ('<circle cx="%d" cy="%d" r="%d" fill="none" class="done" stroke-width="22"'
-               ' stroke-linecap="round" stroke-dasharray="%.1f %.1f"'
-               ' transform="rotate(-90 %d %d)"/>' % (cx, cy, r, circ * frac, circ, cx, cy))
-    body = [
-        '<rect width="%d" height="%d" rx="12" class="bg"/>' % (W, H),
-        '<circle cx="%d" cy="%d" r="%d" fill="none" class="track" stroke-width="22"/>' % (cx, cy, r),
-        arc,
-        '<text x="%d" y="%d" text-anchor="middle" class="ink" font-size="38"'
-        ' font-weight="700">%d%%</text>' % (cx, cy + 13, round(frac * 100)),
-        '<text x="250" y="105" class="ink" font-size="20" font-weight="600">Mac app support</text>',
-        '<text x="250" y="135" class="mute" font-size="15">%s of %s functions</text>'
-        % (fmt(done), fmt(total)),
-        '<text x="250" y="158" class="mute" font-size="15">implemented</text>',
-        '<text x="250" y="190" class="mute" font-size="12">updated %s</text>' % esc(when[:10]),
-    ]
+
+    body = ['<rect width="%d" height="%d" rx="12" class="bg"/>' % (W, H),
+            '<circle cx="%d" cy="%d" r="%d" fill="none" class="track" stroke-width="%d"/>'
+            % (cx, cy, r, sw)]
+    # One arc per area, end to end from 12 o'clock; each is that area's
+    # implemented imports as a share of all imports.
+    start = 0.0
+    for a in areas:
+        f = done_of[a] / total if total else 0
+        if f <= 0:
+            continue
+        body.append('<circle cx="%d" cy="%d" r="%d" fill="none" class="s-%s"'
+                    ' stroke-width="%d" stroke-dasharray="%.2f %.2f"'
+                    ' stroke-dashoffset="%.2f" transform="rotate(-90 %d %d)"/>'
+                    % (cx, cy, r, a, sw, circ * f, circ, -circ * start, cx, cy))
+        start += f
+        # thin separator at the end of each segment
+        ang = 2 * math.pi * start - math.pi / 2
+        x1, y1 = cx + (r - sw / 2) * math.cos(ang), cy + (r - sw / 2) * math.sin(ang)
+        x2, y2 = cx + (r + sw / 2) * math.cos(ang), cy + (r + sw / 2) * math.sin(ang)
+        body.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" class="gap" stroke-width="2"/>'
+                    % (x1, y1, x2, y2))
+    body.append('<text x="%d" y="%d" text-anchor="middle" class="ink" font-size="36"'
+                ' font-weight="700">%d%%</text>' % (cx, cy + 6, round(frac * 100)))
+    body.append('<text x="%d" y="%d" text-anchor="middle" class="mute" font-size="12">'
+                'implemented</text>' % (cx, cy + 26))
+
+    lx = cx + r + sw + 36
+    y = cy - (rows * 26 + 64) // 2 + 18
+    body.append('<text x="%d" y="%d" class="ink" font-size="18" font-weight="600">'
+                'Mac app support</text>' % (lx, y))
+    body.append('<text x="%d" y="%d" class="mute" font-size="13">%s of %s functions'
+                ' implemented</text>' % (lx, y + 22, fmt(done), fmt(total)))
+    y += 52
+    for a in areas:
+        pa = round(100.0 * done_of[a] / totals[a])
+        body.append('<circle cx="%d" cy="%d" r="5" class="f-%s"/>' % (lx + 5, y - 4, a))
+        body.append('<text x="%d" y="%d" class="ink" font-size="13">%s</text>' % (lx + 18, y, esc(a)))
+        body.append('<text x="%d" y="%d" class="ink" font-size="13" font-weight="600"'
+                    ' text-anchor="end">%d%%</text>' % (W - P - 88, y, pa))
+        body.append('<text x="%d" y="%d" class="mute" font-size="12" text-anchor="end">'
+                    '%s/%s</text>' % (W - P, y, fmt(done_of[a]), fmt(totals[a])))
+        y += 26
+    body.append('<text x="%d" y="%d" class="mute" font-size="11">updated %s</text>'
+                % (lx, y + 6, esc(when[:10])))
+
     svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">\n'
-           '%s\n%s\n</svg>\n' % (W, H, W, H, STYLE, "\n".join(x for x in body if x)))
+           '%s\n%s\n</svg>\n' % (W, H, W, H, STYLE, "\n".join(body)))
     with open(os.path.join(out, "progress.svg"), "w") as f:
         f.write(svg)
 
