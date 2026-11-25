@@ -1,8 +1,6 @@
 // Mangled type names, conformances and associated types, as the compiler
-// emits them (driver: demangle.c). Only non-generic types for now: generic
-// types, and types whose value witnesses are the builtin ones, need
-// metadata.c. The structs have mixed-size fields so that the compiler emits
-// their own value witness tables.
+// emits them (driver: demangle.c). The structs have mixed-size fields so
+// that the compiler emits their own value witness tables.
 public protocol Q { static func id(_ x: Builtin.Int64) -> Builtin.Int64 }
 public protocol P {
   associatedtype A
@@ -49,3 +47,33 @@ func idOfB<T: P>(_ t: T.Type, _ x: Builtin.Int64) -> Builtin.Int64 {
 // An opaque result type: its descriptor records the underlying type and
 // conformance for swift_getOpaqueTypeMetadata2/Conformance2.
 public func opaque() -> some P { return S(x: Builtin.zeroInitializer(), y: Builtin.zeroInitializer()) }
+
+// Generic types: field types in terms of generic parameters, conditional
+// conformances with generic witness tables, nested generic contexts.
+public struct Pair<T, U> {
+  public var t: T
+  public var u: U
+}
+extension Pair: P where T: P {
+  public typealias B = T.B
+  public func get() -> T.A { return t.get() }
+}
+public struct Box<T: P> {
+  public var x: T
+  public var y: T.A
+  public var z: (T, Builtin.Int64)
+  public var w: Pair<T.B, T>
+}
+public struct Outer<X> {
+  public struct Inner<Y> { public var x: X; public var y: Y }
+}
+@inline(never) func meta<T>(_ t: T.Type) -> Builtin.RawPointer { return Builtin.reinterpretCast(t) }
+@_cdecl("demangle_pair_s_qq") public func demangle_pair_s_qq() -> Builtin.RawPointer { return meta(Pair<S, QQ>.self) }
+@_cdecl("demangle_box_s") public func demangle_box_s() -> Builtin.RawPointer { return meta(Box<S>.self) }
+@_cdecl("demangle_inner") public func demangle_inner() -> Builtin.RawPointer { return meta(Outer<S>.Inner<QQ>.self) }
+@_cdecl("demangle_assoc_a_of_pair") public func demangle_assoc_a_of_pair() -> Builtin.RawPointer {
+  return assocA(Pair<S, QQ>.self)
+}
+@_cdecl("demangle_id_of_b_of_pair") public func demangle_id_of_b_of_pair(_ x: Builtin.Int64) -> Builtin.Int64 {
+  return idOfB(Pair<S, QQ>.self, x)
+}

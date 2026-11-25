@@ -1891,6 +1891,56 @@ static void print_proto_ref(struct sbuf *b, proto_ref p, int qualified) {
         print_desc_name(b, (const sw_context_descriptor *)p, qualified);
     }
 }
+/* Generic parameters of a context that are its own (not its parents'). */
+static unsigned inherited_params(const sw_context_descriptor *c) {
+    for (const sw_context_descriptor *p = ctx_parent(c); p; p = ctx_parent(p)) {
+        const sw_generic_context_header *h = sw_generic_header(p);
+        if (h) return h->num_params;
+    }
+    return 0;
+}
+static void print_metadata(struct sbuf *b, const sw_metadata *m, int qualified);
+/* "Outer<A>.Inner<B>": each enclosing type with the arguments of its own
+ * generic parameters, taken from the innermost type's key arguments.
+ * Unqualified names are just the innermost type with its arguments. */
+static void print_generic_ctx(struct sbuf *b, const sw_context_descriptor *c, const void *const *args,
+                              int qualified, int innermost) {
+    unsigned k = sw_ctx_kind(c->flags);
+    const sw_context_descriptor *parent = ctx_parent(c);
+    if (k == SW_CTX_ANONYMOUS) {
+        if (parent) print_generic_ctx(b, parent, args, qualified, 0);
+        return;
+    }
+    if (k == SW_CTX_MODULE) {
+        if (qualified) sb_puts(b, ctx_name(c));
+        return;
+    }
+    if (k == SW_CTX_EXTENSION) {
+        print_ctx(b, c); /* the extended type */
+    } else {
+        if (qualified && parent) {
+            size_t before = b->n;
+            print_generic_ctx(b, parent, args, qualified, 0);
+            if (b->n != before) sb_puts(b, ".");
+        }
+        const char *name = ctx_name(c);
+        sb_puts(b, name ? name : "?");
+    }
+    const sw_generic_context_header *h = sw_generic_header(c);
+    if (!h || !args || (!qualified && !innermost)) return;
+    const uint8_t *params = (const uint8_t *)(h + 1);
+    unsigned from = inherited_params(c), key = 0, printed = 0;
+    for (unsigned i = 0; i < h->num_params; i++) {
+        if (!(params[i] & SW_GP_HAS_KEY_ARGUMENT)) continue;
+        if (i >= from) {
+            sb_puts(b, printed++ ? ", " : "<");
+            print_metadata(b, args[key], qualified);
+        }
+        key++;
+    }
+    if (printed) sb_puts(b, ">");
+}
+
 static const char *const builtin_syms[] = {"i1_", "i8_", "i16_", "i32_", "i64_", "i128_", "i256_", "i512_",
                                            "f16_", "f32_", "f64_", "f80_", "f128_", "o", "O", "b", "p", "w",
                                            "B", "D", "c", "e", "j", "I", NULL};
@@ -1916,19 +1966,7 @@ static void print_metadata(struct sbuf *b, const sw_metadata *m, int qualified) 
             sb_puts(b, "<unknown type>");
             return;
         }
-        print_desc_name(b, (const sw_context_descriptor *)d, qualified);
-        const sw_generic_context_header *h = sw_generic_header((const sw_context_descriptor *)d);
-        const void *const *args = sw_generic_args(m);
-        if (h && args) {
-            const uint8_t *params = (const uint8_t *)(h + 1);
-            unsigned k = 0, printed = 0;
-            for (unsigned i = 0; i < h->num_params; i++) {
-                if (!(params[i] & SW_GP_HAS_KEY_ARGUMENT)) continue;
-                sb_puts(b, printed++ ? ", " : "<");
-                print_metadata(b, args[k++], qualified);
-            }
-            if (printed) sb_puts(b, ">");
-        }
+        print_generic_ctx(b, (const sw_context_descriptor *)d, sw_generic_args(m), qualified, 1);
         return;
     }
     case SW_KIND_OBJC_CLASS_WRAPPER: {

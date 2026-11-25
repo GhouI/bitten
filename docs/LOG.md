@@ -591,3 +591,23 @@ for the Swift layer and for the smaller independent items.
   The `sw_get_*_metadata` helpers are now linked directly. Passes at `-O` and `-Onone`; suite 29/29. No Docker here:
   `tests/e2e/target-app.sh` not run.
 - The Mac app window imports unimplemented: 5,378 -> 5,366.
+
+## 2026-11-25: Swift generic type names, conformances and witness tables tested (PR: swift-generic-names)
+
+- With `metadata.c` merged, `tests/swift/demangle` now covers generic
+  types: `Pair<S, QQ>` named by symbolic references built in C and by name
+  resolves to the same uniqued metadata compiled code gets; field types in
+  the environment of a type's key arguments (`x`, `q_`, `T.A` through the
+  witness table among the key arguments, a tuple, `Pair<T.B, T>`); generic
+  requirements checked (`Box<QQ>` is refused); the conditional conformance
+  `Pair: P where T: P` instantiates a generic witness table holding the
+  `S: P` table in its private area, whose associated type (`T.A`) and
+  associated conformance (`T.B: Q`) compiled generic code resolves. Box's
+  metadata completion itself calls `swift_getTypeByMangledNameInContext`
+  for its field types.
+- `swift_getTypeName` prints nested generic types with each level's own
+  arguments (`demangle.Outer<demangle.S>.Inner<demangle.QQ>`); unqualified
+  names are the innermost type with its arguments.
+- Suite 29/29 at `-O` and `-Onone`. The Mac app window imports unimplemented:
+  5,366 (unchanged; tests and printing only). The Mac app still stops at
+  `$s7SwiftUI28NSApplicationDelegateAdaptorVMa`.

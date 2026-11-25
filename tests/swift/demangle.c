@@ -26,6 +26,10 @@ extern const char $s8demangle6opaqueQryFQOMQ[];
 struct response $s8demangle4BaseCMa(unsigned long);
 struct response $s8demangle7DerivedCMa(unsigned long);
 const void *demangle_assoc_a_of_s(void);
+const void *demangle_pair_s_qq(void), *demangle_box_s(void), *demangle_inner(void);
+const void *demangle_assoc_a_of_pair(void);
+long demangle_id_of_b_of_pair(long);
+extern const char $s8demangle4PairVMn[], $s8demangle3BoxVMn[], $s8demangle2QQVMn[];
 long demangle_id_of_b_of_s(long);
 
 static const struct { const char *in, *out; } names[] = {
@@ -62,7 +66,7 @@ static const struct { const char *in, *out; } names[] = {
 
 /* Mangled names with symbolic references are relative to their own
  * address, so they are built in place, next to the descriptors. */
-static char symref[16];
+static char symref[32];
 static const void *s_descriptor_slot = $s8demangle1SVMn;
 static size_t make_ref(int kind, const void *target) {
     symref[0] = (char)kind;
@@ -155,6 +159,62 @@ int main(void) {
     /* some P: underlying type #0 is S, #1 the S: P witness table. */
     CHECK(swift_getOpaqueTypeMetadata2(0, NULL, $s8demangle6opaqueQryFQOMQ, 0).value == S);
     CHECK(swift_getOpaqueTypeConformance2(NULL, $s8demangle6opaqueQryFQOMQ, 1) == $s8demangle1SVAA1PAAWP);
+
+    /* Generic types. Pair<S, QQ> named with symbolic references here is the
+     * same (uniqued) metadata compiled code gets. */
+    const void *pair = demangle_pair_s_qq();
+    make_ref(1, $s8demangle4PairVMn);
+    symref[5] = 'y';
+    int off = (int)($s8demangle1SVMn - (symref + 7));
+    symref[6] = 1;
+    memcpy(symref + 7, &off, 4);
+    off = (int)($s8demangle2QQVMn - (symref + 12));
+    symref[11] = 1;
+    memcpy(symref + 12, &off, 4);
+    symref[16] = 'G';
+    CHECK(swift_getTypeByMangledNameInContext(symref, 17, NULL, NULL) == pair);
+    CHECK(swift_getTypeByMangledNameInContext("8demangle4PairVyAA1SVAA2QQVG", 28, NULL, NULL) == pair);
+    n = swift_getTypeName(pair, 1);
+    CHECK(!strcmp(n.data, "demangle.Pair<demangle.S, demangle.QQ>"));
+    n = swift_getTypeName(demangle_inner(), 1);
+    CHECK(!strcmp(n.data, "demangle.Outer<demangle.S>.Inner<demangle.QQ>"));
+    n = swift_getTypeName(demangle_inner(), 0);
+    CHECK(!strcmp(n.data, "Inner<demangle.QQ>") || !strcmp(n.data, "Inner<QQ>"));
+    /* Field types in the environment of Pair<S, QQ>'s arguments: x, q_. */
+    const void *const *pargs = (const void *const *)pair + 2;
+    ft = field_type($s8demangle4PairVMn, 0, &len);
+    CHECK(swift_getTypeByMangledNameInContext(ft, len, $s8demangle4PairVMn, pargs) == S);
+    ft = field_type($s8demangle4PairVMn, 1, &len);
+    CHECK(swift_getTypeByMangledNameInContext(ft, len, $s8demangle4PairVMn, pargs) == QQ);
+    /* Box<S>: its key arguments are S and the S: P witness table; fields
+     * T.A, (T, Int64) and Pair<T.B, T> need both. */
+    const void *box = demangle_box_s();
+    const void *const *bargs = (const void *const *)box + 2;
+    CHECK(bargs[0] == S && bargs[1] == $s8demangle1SVAA1PAAWP);
+    ft = field_type($s8demangle3BoxVMn, 1, &len);
+    CHECK(swift_getTypeByMangledNameInContext(ft, len, $s8demangle3BoxVMn, bargs) == QQ);
+    ft = field_type($s8demangle3BoxVMn, 2, &len);
+    const unsigned long *tuple = swift_getTypeByMangledNameInContext(ft, len, $s8demangle3BoxVMn, bargs);
+    CHECK(tuple && tuple[0] == 0x301 && tuple[1] == 2 && (const void *)tuple[3] == S);
+    n = swift_getTypeName(tuple, 1);
+    CHECK(!strcmp(n.data, "(demangle.S, Builtin.Int64)"));
+    ft = field_type($s8demangle3BoxVMn, 3, &len);
+    const void *pqs = swift_getTypeByMangledNameInContext(ft, len, $s8demangle3BoxVMn, bargs);
+    n = swift_getTypeName(pqs, 1);
+    CHECK(!strcmp(n.data, "demangle.Pair<demangle.QQ, demangle.S>"));
+    CHECK(swift_getTypeByMangledNameInContext("x", 1, $s8demangle3BoxVMn, bargs) == S);
+    /* Requirements are checked: Box<QQ> is not a type (QQ is not P). */
+    CHECK(swift_getTypeByMangledNameInContext("8demangle3BoxVyAA2QQVG", 22, NULL, NULL) == NULL);
+
+    /* Conditional conformance Pair: P where T: P, with a generic witness
+     * table whose associated types are T.A and T.B. */
+    const void *const *wt = swift_conformsToProtocol(pair, $s8demangle1PMp);
+    CHECK(wt != NULL && wt != (const void *)$s8demangle1SVAA1PAAWP);
+    CHECK(wt[-1] == $s8demangle1SVAA1PAAWP); /* conditional conformance, in the private area */
+    CHECK(swift_conformsToProtocol(pair, $s8demangle1PMp) == wt);
+    CHECK(swift_conformsToProtocol(pqs, $s8demangle1PMp) == NULL);
+    CHECK(demangle_assoc_a_of_pair() == QQ);
+    CHECK(demangle_id_of_b_of_pair(5) == 10);
 
     puts("swift demangle ok");
     return 0;

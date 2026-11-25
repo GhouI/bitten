@@ -88,15 +88,17 @@ the structures the Swift compiler would emit:
 
 ### Step 2: metadata
 
-Status (PRs #19, #22): items 5-7 below are in `src/frameworks/swift/`
-`demangle.c`, `protocols.c`, `casts.c` and `errors.c`, tested with swiftc
-output (`tests/swift/demangle`, `casts`). What they still wait for: generic
-types and builtin, tuple, function, existential and metatype metadata come
-from `metadata.c` (until then those names resolve to NULL, logged with
-`BITTEN_DEBUG=1`); standard-library types (`Optional`, `Int`...) need the
-standard library; extended existentials (`any P<T>`), typed-throws function
-types, pack expansions and key paths are not handled; `swift_getMangledTypeName`
-and NSError bridging of error boxes are not written.
+Status (PRs #19, #22, and swift-generic-names): items 5-7 below are in
+`src/frameworks/swift/` `demangle.c`, `protocols.c`, `casts.c` and
+`errors.c`, tested with swiftc output (`tests/swift/demangle`, `casts`),
+including generic types, conditional conformances and generic witness
+tables. What they still wait for: function and existential metadata
+(`swift_getFunctionTypeMetadata*`, `swift_getExistentialTypeMetadata`,
+`swift_getExistentialMetatypeMetadata`; until they exist those names
+resolve to NULL, logged with `BITTEN_DEBUG=1`); standard-library types
+(`Optional`, `Int`...) need the standard library; extended existentials
+(`any P<T>`), typed-throws function types, pack expansions and key paths
+are not handled; `swift_getMangledTypeName` and NSError bridging of error boxes are not written.
 
 The compiler emits type metadata and reads its fields directly, so layouts
 must match the documented Swift ABI exactly (type metadata, value witness
