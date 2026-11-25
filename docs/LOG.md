@@ -670,3 +670,20 @@ for the Swift layer and for the smaller independent items.
   `tests/swiftlib/basics`: arithmetic, comparisons, Bool logic, nested
   Optionals, at -O and -Onone.
 - The Mac app window (total `^MISSING`): 5,366 -> 5,304.
+
+## 2026-11-25: integer protocol tower (PR: stdlib-numeric)
+
+- `AdditiveArithmetic`, `Numeric`, `SignedNumeric`, `Strideable`,
+  `BinaryInteger`, `FixedWidthInteger`, `SignedInteger`, `UnsignedInteger`,
+  with all ten integer types conforming: checked/clamping/truncating generic
+  conversions, overflow-reporting arithmetic, smart shifts, bit counts, byte
+  swapping, strides. Requirements that need types we do not have yet
+  (Hashable, String, floating point, `words`) come later.
+- One declared difference from Apple: `FixedWidthInteger` requires
+  `Stride: SignedInteger` but not also `Stride: FixedWidthInteger`. With
+  both, this compiler's requirement machine does not terminate on our
+  declarations; no program we have looked at binds to the descriptor the
+  dropped half produces.
+- `tests/swiftlib/numerics`: the tower used generically; at -Onone this goes
+  through the runtime's witness tables and generic metadata.
+- The Mac app window (total `^MISSING`): 5239.
