@@ -541,6 +541,10 @@ DX_PASS(sinf); DX_PASS(cosf); DX_PASS(tanf); DX_PASS(expf); DX_PASS(logf); DX_PA
 DX_PASS(sqrtf); DX_PASS(floorf); DX_PASS(ceilf); DX_PASS(roundf); DX_PASS(truncf);
 DX_PASS(fmodf); DX_PASS(fabsf); DX_PASS(atan2f); DX_PASS(log2f); DX_PASS(log10f);
 DX_PASS(fminf); DX_PASS(fmaxf); DX_PASS(lroundf); DX_PASS(rintf); DX_PASS(hypotf);
+DX_PASS(fma); DX_PASS(fmaf); DX_PASS(remainderf); DX_PASS(nearbyintf);
+/* long double is the x87 80-bit format on both systems */
+DX_PASS(floorl); DX_PASS(ceill); DX_PASS(truncl); DX_PASS(roundl); DX_PASS(rintl);
+DX_PASS(fmodl); DX_PASS(remainderl); DX_PASS(fmal); DX_PASS(sqrtl); DX_PASS(fabsl);
 
 /* ---- locale ------------------------------------------------------------ */
 

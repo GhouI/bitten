@@ -838,3 +838,41 @@ for the Swift layer and for the smaller independent items.
   from both sides, Optionals, implicit conversion. Suite 37/37 at -O and
   -Onone. No Docker here: `tests/e2e/target-app.sh` not run.
 - The Mac app window (total `^MISSING`): 4,983 -> 4,972.
+
+## 2026-11-25: floating point (PR: stdlib-float)
+
+- `FloatingPoint` and `BinaryFloatingPoint`, `FloatingPointSign`,
+  `FloatingPointClassification`, `FloatingPointRoundingRule`, and `Float`,
+  `Double`, `Float80` (`@frozen` around `Builtin.FPIEEE32/64/80`, generated
+  by `tools/gen-floats.py`): IEEE arithmetic and comparisons (NaN unordered),
+  rounding by every rule, `squareRoot`, fused multiply-add, IEEE `remainder`,
+  the bit-level view (`bitPattern`, sign/exponent/significand fields,
+  `ulp`, `nextUp`, `binade`, `significandWidth`, NaN payloads), `.pi`
+  (rounded toward zero, as documented), literals, `Strideable` with
+  `Stride == Self`.
+- Conversions both ways: concrete `IntN(Double)`/`init?(exactly:)` for every
+  integer and float type, and the generic ones (`BinaryInteger`'s
+  `init<T: BinaryFloatingPoint>` requirements, `BinaryFloatingPoint`'s
+  integer and cross-format inits). Generic conversions go through `Float80`,
+  which holds any Float or Double, and any integer up to 64 bits, exactly,
+  so they round once.
+- Runtime: `swift_intToFloat32/64` (integer literals wider than 64 bits,
+  reached through the literal witness at run time). libSystem: `fma`,
+  `fmaf`, `remainderf`, `nearbyintf` and the `long double` functions the
+  compiler calls for `Float80` (`floorl`, `fmodl`, `sqrtl`...).
+- `Hashable` (equal values hash alike: both zeros as +0), and for the three
+  enums. Left out until their protocols exist: `description`/
+  `TextOutputStreamable`, `CVarArg`, Codable, the `RawRepresentable`
+  conformance of `FloatingPointSign` (its `rawValue`/`init?(rawValue:)` are
+  there). `Float16` does not exist on
+  x86-64 macOS and the Mac app does not use it.
+- `CGFloat` is not a libswiftCore symbol: The Mac app imports it (4 symbols, mangled
+  in module `CoreGraphics`) from `libswiftCoreFoundation.dylib`.
+- `tests/swiftlib/floats`: IEEE corner cases, rounding, bit-level
+  properties, conversions (exactness, ranges, NaN), Float80, at -O and
+  -Onone; values checked from C in xmm registers. No Docker here:
+  `tests/e2e/target-app.sh` not run.
+- The Mac app window (total `^MISSING`): 4,972 -> 4,964 (`Double`/`Float` metadata
+  and descriptors, `Double: Equatable` and `BinaryFloatingPoint`
+  conformances, `Double.hash(into:)`,
+  `Double(sign:exponentBitPattern:significandBitPattern:)`).
