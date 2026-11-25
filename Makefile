@@ -141,7 +141,7 @@ $(BUILD)/tests/swift/%: tests/swift/%.swift tests/swift/%.c tests/swift/prelude.
 # against them. The runtime itself (swift_retain, metadata...) stays in mrun.
 SWIFT_MODDIR := $(BUILD)/swift
 LIBSWIFTCORE := $(FW_ROOT)/usr/lib/swift/libswiftCore.dylib
-STDLIB_SRCS  := $(wildcard stdlib/*.swift) $(BUILD)/stdlib/Integers.swift
+STDLIB_SRCS  := $(wildcard stdlib/*.swift) $(BUILD)/stdlib/Integers.swift $(BUILD)/stdlib/Floats.swift
 SWIFT_TARGET := -target x86_64-apple-macos11 -runtime-compatibility-version none
 FRAMEWORKS   += $(if $(and $(SWIFTC),$(HAVE_MACHO)),$(LIBSWIFTCORE))
 all: $(if $(and $(SWIFTC),$(HAVE_MACHO)),$(LIBSWIFTCORE))
@@ -149,6 +149,9 @@ all: $(if $(and $(SWIFTC),$(HAVE_MACHO)),$(LIBSWIFTCORE))
 $(BUILD)/stdlib/Integers.swift: tools/gen-integers.py
 	@mkdir -p $(dir $@)
 	python3 tools/gen-integers.py > $@
+$(BUILD)/stdlib/Floats.swift: tools/gen-floats.py
+	@mkdir -p $(dir $@)
+	python3 tools/gen-floats.py > $@
 $(BUILD)/stdlib/Swift.o: $(STDLIB_SRCS)
 	@mkdir -p $(dir $@) $(SWIFT_MODDIR)
 	$(SWIFTC) -parse-stdlib -module-name Swift -module-link-name swiftCore $(SWIFT_TARGET) \
