@@ -1,6 +1,6 @@
-# The Mac app: what it needs and how far bitten gets
+# The target app: what it needs and how far bitten gets
 
-Target: `App.dmg`, the Mac app Beta 0.1.0 build 1996. A UDIF image, GPT, one HFS+
+Target: a terminal app shipped as `App.dmg` ("the target app"). A UDIF image, GPT, one HFS+
 volume, LZMA-compressed chunks, 125 files. Both programs in the bundle are
 universal x86-64/arm64 Mach-O files built with the macOS 27 SDK for macOS 15.0
 or newer. bitten uses the x86-64 slices.
@@ -10,7 +10,7 @@ from running `mrun --check` and `llvm-nm -u` on a local copy.
 
 ## The two programs
 
-| | `appcli` (server and CLI) | `the Mac app` (the window) |
+| | `appcli` (server and CLI; the name stands for the app's own) | `App` (the window) |
 | --- | --- | --- |
 | Path in the bundle | `Contents/Helpers/Server.app/Contents/MacOS/app-server` | `Contents/MacOS/App` |
 | Size (universal) | 91 MB | 73 MB |
@@ -68,7 +68,7 @@ standard-library Python, and it is not the Mac app's interface: no tabs, splits,
 palettes or settings, a fixed 80x24 terminal, and a cursor drawn at the end
 of the text rather than at its true position.
 
-## `the Mac app`: does not run
+## `App`: does not run
 
 *The table below was measured before the Objective-C runtime, libdispatch,
 bridging and Foundation existed. The current total is in
@@ -142,13 +142,13 @@ Steps 1 and the C parts of 3 and 4 are tractable from scratch. Steps 2 and 6
 are not, on any timescale this project can promise, without importing
 existing code (open-source Swift for 2; nothing suitable exists for 6).
 
-### The realistic routes to "the Mac app window"
+### The realistic routes to the app's window
 
 - **Keep building the layer.** Objective-C runtime next, then decide about
   the Swift runtime. Even with both, SwiftUI stands in the way.
-- **A native front end over the real server.** The Mac app server runs here and
+- **A native front end over the real server.** The app's server runs here and
   speaks a documented control API (`appcli api list` shows it) plus a terminal
-  data stream. A Linux window that talks to that server gives the full the Mac app
+  data stream. A Linux window that talks to that server gives the app's full
   feature set of the engine with a different shell around it. That is a
   different program from `App.app`, so it would be presented as such.
 

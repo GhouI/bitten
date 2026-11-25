@@ -23,7 +23,9 @@ import threading
 import time
 import tty
 
-APPCLI = os.environ.get("APPCLI", "appcli")
+# The app's command-line program, by name (the container puts every program
+# in the bundle on PATH) or path.
+APPCLI = os.environ.get("APPCLI") or sys.exit("set APPCLI to the app's command-line program")
 SESSION = os.environ.get("APP_SESSION", "main")
 PORT = int(os.environ.get("PORT", "7680"))
 send_lock = threading.Lock()
@@ -36,14 +38,14 @@ def appcli(*args, data=None, timeout=20):
 def ensure_session():
     r = appcli("server", "start")
     if r.returncode != 0 and b"running" not in r.stdout + r.stderr:
-        sys.exit("could not start the Mac app server:\n" + (r.stderr or r.stdout).decode(errors="replace"))
+        sys.exit("could not start the app's server:\n" + (r.stderr or r.stdout).decode(errors="replace"))
     labels = [line.split()[0] for line in appcli("ls").stdout.decode().splitlines()[1:] if line.split()]
     if SESSION not in labels:
         r = appcli("new", SESSION, "--cwd", os.path.expanduser("~"))
         if r.returncode != 0:
-            sys.exit("could not create a Mac app session:\n" + r.stderr.decode(errors="replace"))
+            sys.exit("could not create a terminal session:\n" + r.stderr.decode(errors="replace"))
     version = appcli("version").stdout.decode().splitlines()
-    return version[0] if version else "appcli"
+    return version[0] if version else APPCLI
 
 
 def capture(fmt):
@@ -60,7 +62,7 @@ def send(data):
 PAGE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>the Mac app terminal</title>
+<title>Mac app terminal</title>
 <style>
   :root { color-scheme: dark; __PALETTE__ }
   html, body { height: 100%; margin: 0; background: #14161a; color: #d7dae0; }
@@ -75,7 +77,7 @@ PAGE = """<!doctype html>
   .cursor { display: inline-block; width: .6em; height: 1.1em; vertical-align: text-bottom; background: #d7dae0; opacity: .75; }
 </style></head>
 <body>
-<header><b>the Mac app terminal</b><span>__VERSION__ &middot; macOS binary running on Linux via bitten</span><span id="state">connecting</span></header>
+<header><b>Mac app terminal</b><span>__VERSION__ &middot; macOS binary running on Linux via bitten</span><span id="state">connecting</span></header>
 <div id="wrap" tabindex="0"><div id="screen"></div></div>
 <script>
 const wrap = document.getElementById('wrap'), screenEl = document.getElementById('screen'),
@@ -138,7 +140,7 @@ def palette_css():
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
-    version_line = "appcli"
+    version_line = ""
 
     def log_message(self, *args):
         pass
@@ -182,7 +184,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 def serve():
     Handler.version_line = ensure_session()
     srv = http.server.ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
-    print("the Mac app terminal: http://localhost:%d  (%s)" % (PORT, Handler.version_line), flush=True)
+    print("Mac app terminal: http://localhost:%d  (%s)" % (PORT, Handler.version_line), flush=True)
     srv.serve_forever()
 
 
@@ -209,7 +211,7 @@ def tty_view():
                 last = screen
                 rows = os.get_terminal_size().lines
                 lines = screen.replace(b"\r\n", b"\n").rstrip(b"\n").split(b"\n")[-(rows - 1):]
-                title = ("\x1b[7m the Mac app terminal | %s | Ctrl-] quits \x1b[0m" % version).encode()
+                title = ("\x1b[7m Mac app terminal | %s | Ctrl-] quits \x1b[0m" % version).encode()
                 out.write(b"\x1b[H" + title + b"\x1b[K\r\n" + b"\x1b[K\r\n".join(lines) + b"\x1b[K\x1b[J")
                 out.flush()
     finally:

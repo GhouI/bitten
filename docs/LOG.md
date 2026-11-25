@@ -1398,3 +1398,15 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   `___chkstk_darwin` (stack probe, assembly); unimplemented-import stubs
   now build an aligned frame (tail-called stubs crashed inside the error
   report).
+
+## 2026-11-25: the target app, unnamed
+
+- The project no longer names its yardstick app anywhere: it is "the target
+  app" (a terminal app shipped as `App.dmg`). History was rewritten to
+  match; `docs/TARGET-APP.md`, `examples/mac-terminal` and
+  `tests/e2e/target-app.sh` are the renamed files.
+- `examples/mac-terminal` and the e2e test take the app's command-line
+  program from `APPCLI` instead of a built-in name.
+- `tools/progress.py` finds the app's main executable from its
+  `Info.plist` (`CFBundleExecutable`) and counts the frameworks it bundles,
+  so it works for any `.app`; `progress-update.sh` takes `TARGET_APP`.

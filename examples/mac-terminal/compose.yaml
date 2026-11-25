@@ -1,15 +1,17 @@
-# The Mac app terminal from App.dmg, in a container, no VM.
+# The target app's terminal from App.dmg, in a container, no VM.
 #
-#   APP_DMG=/path/to/App.dmg docker compose -f examples/mac-terminal/compose.yaml up
+#   APP_DMG=/path/to/App.dmg APPCLI=<the app's CLI> docker compose -f examples/mac-terminal/compose.yaml up
 #   then open http://localhost:7680
 #
-# The Mac app server and CLI are the unmodified macOS binaries from your disk
-# image. The page is bitten's own viewer: The Mac app's SwiftUI window does not run
+# The app's server and CLI are the unmodified macOS binaries from your disk
+# image. The page is bitten's own viewer: the app's SwiftUI window does not run
 # yet (see docs/TARGET-APP.md).
 services:
-  appcli:
+  terminal:
     build: ../..
     image: bitten
+    environment:
+      APPCLI: "${APPCLI:?set APPCLI to the name of the app's command-line program}"
     command: ["shell", "-c", "exec python3 /usr/share/bitten/examples/mac-terminal/terminal.py"]
     volumes:
       - "${APP_DMG:?set APP_DMG to the path of your App.dmg}:/dmg/app.dmg:ro"

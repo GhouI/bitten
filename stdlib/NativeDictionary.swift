@@ -42,7 +42,7 @@ extension _NativeDictionary {
   @inlinable internal var age: Int32 {
     @inline(__always) get { return _storage._age }
   }
-  // Not inlined by every client: The Mac app calls these two.
+  // Not inlined by every client: the target app calls these two.
   @inlinable internal var _keys: UnsafeMutablePointer<Key> {
     return _storage._rawKeys.assumingMemoryBound(to: Key.self)
   }

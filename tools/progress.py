@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Measure how far bitten is from running the Mac app window, and draw it.
+"""Measure how far bitten is from running the target Mac app's window, and draw it.
 
   progress.py measure --mrun build/mrun --app path/App.app --out DIR [--commit SHA]
-      run `mrun --check` on the Mac app window, append one row to DIR/history.csv
+      run `mrun --check` on the app's main executable, append one row to DIR/history.csv
       (one row per commit) and redraw DIR/progress.svg
   progress.py backfill --out DIR   (all commands take --repo CHECKOUT)
-      seed DIR/history.csv from the "the Mac app window ... -> N" lines that every
+      seed DIR/history.csv from the "... app window ... -> N" lines that every
       merged pull request wrote into docs/LOG.md
   progress.py draw --app path/App.app --check FILE --out DIR
       redraw DIR/progress.svg from a saved `mrun --check` report
 
-The numbers are imports of the Mac app window (Contents/MacOS/App and the Sparkle
-framework it bundles): an import counts as done when bitten binds it. That is
+The numbers are imports of the target Mac app (its main executable and the
+frameworks it bundles): an import counts as done when bitten binds it. That is
 a floor, not a schedule: one SwiftUI symbol can be a day's work and one
 libSystem symbol a minute's. The roadmap layers in docs/ROADMAP.md are the
 other half of the picture and are drawn next to it.
@@ -72,19 +72,28 @@ def find_nm():
 
 
 def app_images(app):
-    appcli = os.path.join(app, "Contents", "MacOS", "App")
-    sparkle = os.path.join(app, "Contents", "Frameworks", "Sparkle.framework",
-                           "Versions", "B", "Sparkle")
-    imgs = [("App", appcli)]
-    if os.path.exists(sparkle):
-        imgs.append(("Sparkle", sparkle))
-    if not os.path.exists(appcli):
-        sys.exit("progress.py: no the Mac app window at %s" % appcli)
+    """(name, path) of the app's main executable (CFBundleExecutable) and of
+    each framework bundled in Contents/Frameworks: the code the app ships."""
+    import plistlib
+    try:
+        with open(os.path.join(app, "Contents", "Info.plist"), "rb") as f:
+            exe = plistlib.load(f)["CFBundleExecutable"]
+    except (OSError, KeyError, plistlib.InvalidFileException):
+        exe = os.path.basename(app).rsplit(".", 1)[0]
+    main = os.path.join(app, "Contents", "MacOS", exe)
+    if not os.path.exists(main):
+        sys.exit("progress.py: no main executable at %s" % main)
+    imgs = [(exe, main)]
+    fw = os.path.join(app, "Contents", "Frameworks")
+    for d in sorted(os.listdir(fw)) if os.path.isdir(fw) else []:
+        name = d[:-len(".framework")] if d.endswith(".framework") else None
+        if name and os.path.isfile(os.path.join(fw, d, name)):
+            imgs.append((name, os.path.realpath(os.path.join(fw, d, name))))
     return imgs
 
 
 def import_totals(app):
-    """Imports per area of the Mac app window and Sparkle (fixed by the binary)."""
+    """Imports per area of the app and its bundled frameworks (fixed by the binaries)."""
     nm = find_nm()
     totals = dict.fromkeys(AREA_NAMES, 0)
     for _, path in app_images(app):
@@ -97,18 +106,18 @@ def import_totals(app):
     return totals
 
 
-def missing_from_report(text):
+def missing_from_report(text, names):
     missing = dict.fromkeys(AREA_NAMES, 0)
     for line in text.splitlines():
         f = line.split("\t")
-        if f[0] == "MISSING" and len(f) >= 4 and f[1] in ("App", "Sparkle"):
+        if f[0] == "MISSING" and len(f) >= 4 and f[1] in names:
             missing[area_of(f[2])] += 1
     return missing
 
 
 def run_check(mrun, app):
-    appcli = app_images(app)[0][1]
-    p = subprocess.run([mrun, "--check", appcli], capture_output=True, text=True,
+    main = app_images(app)[0][1]
+    p = subprocess.run([mrun, "--check", main], capture_output=True, text=True,
                        timeout=900)
     if "SUMMARY" not in p.stdout:
         sys.exit("progress.py: mrun --check gave no report:\n" + p.stderr[-2000:])
@@ -145,9 +154,9 @@ NUM = r"(\d{1,2},\d{3}|\d{3,5})"
 
 
 def log_number(text):
-    """The last 'the Mac app window ...' measurement written in a version of LOG.md."""
+    """The last 'the target app's window ...' measurement written in a version of LOG.md."""
     last = None
-    for m in re.finditer(r"the Mac app window[^\n]*(?:\n(?!- |#)[^\n]*){0,2}", text):
+    for m in re.finditer(r"(?:[Tt]he (?:target |Mac )?app(?:'s)?|[Tt]arget app(?:'s)?) window[^\n]*(?:\n(?!- |#)[^\n]*){0,2}", text):
         nums = re.findall(NUM, m.group(0))
         nums = [int(n.replace(",", "")) for n in nums]
         nums = [n for n in nums if 1000 <= n <= 6000]
@@ -294,7 +303,7 @@ def draw(out, totals, missing, history, commit, when):
     y = 46
     T('<rect x="%d" y="%d" width="10" height="26" rx="3" fill="url(#brand)"/>' % (P, y - 21))
     text(P + 20, y, "bitten", size=22, weight=700)
-    text(P + 92, y, "· running the Mac app window on Linux", "mute", 15)
+    text(P + 92, y, "· running a Mac app on Linux", "mute", 15)
     cw = 9 + 7.2 * (len(commit[:7]) + 7)
     T('<rect x="%.1f" y="%d" width="%.1f" height="24" rx="12" class="chip"/>'
       % (W - P - cw, y - 17, cw))
@@ -314,7 +323,7 @@ def draw(out, totals, missing, history, commit, when):
       ' transform="rotate(-90 %d %d)"/>' % (cx, cy, r, circ * frac, circ, cx, cy))
     text(cx, cy + 9, "%d%%" % round(frac * 100), size=27, weight=750, anchor="middle")
     hx = P + 168
-    text(hx, y + 50, "the Mac app window imports implemented", "mute", 13, 500)
+    text(hx, y + 50, "Mac app imports implemented", "mute", 13, 500)
     text(hx, y + 88, '%s <tspan class="soft" font-size="20" font-weight="500">/ %s</tspan>'
          % (fmt(done), fmt(total)), size=34, weight=750, extra=' class="num"')
     text(hx, y + 116, "%s still to go" % fmt(left), "mute", 13.5)
@@ -493,7 +502,7 @@ def main():
         report = run_check(arg("--mrun", os.path.join(ROOT, "build", "mrun")), app)
     else:
         report = open(arg("--check")).read()
-    missing = missing_from_report(report)
+    missing = missing_from_report(report, {n for n, _ in app_images(app)})
     now = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
     history = read_history(hist_path)
     if cmd == "measure":

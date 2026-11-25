@@ -17,7 +17,7 @@ in this repository or in the image.
 
 ## Progress
 
-![How close bitten is to running the Mac app window](https://raw.githubusercontent.com/GhouI/bitten/progress/progress.svg)
+![How close bitten is to running the target Mac app's window](https://raw.githubusercontent.com/GhouI/bitten/progress/progress.svg)
 
 Redrawn after every change to `main` by `tools/progress-update.sh` (measured
 with `mrun --check` on a local copy of App.dmg; only counts are published, on
@@ -45,27 +45,28 @@ the [`progress`](https://github.com/GhouI/bitten/tree/progress) branch).
 The honest summary: bitten runs real macOS command-line and server programs
 today, and does not run graphical macOS apps yet.
 
-### The Mac app
+### The target app
 
-The project's first target is the Mac app terminal (`App.dmg`, the Mac app Beta 0.1.0
-build 1996). Its two programs stand like this:
+The project's yardstick is a real terminal app shipped as a `.dmg` (called
+`App.dmg`, "the target app", below). Its two programs stand like this:
 
 | Program in the bundle | What it is | Status |
 | --- | --- | --- |
-| `Contents/Helpers/Server.app/Contents/MacOS/app-server` | The Mac app server and CLI (Go, cgo, SQLite) | **Runs unmodified.** Server, sessions, terminals, shells, `send`, `capture`, the control API |
+| `Contents/Helpers/Server.app/Contents/MacOS/app-server` | The app's server and CLI (Go, cgo, SQLite) | **Runs unmodified.** Server, sessions, terminals, shells, `send`, `capture`, the control API |
 | `Contents/MacOS/App` | The window: SwiftUI + AppKit + Metal | **Does not run.** It loads and binds, with 5,377 of its 5,688 imports unimplemented |
 
-So the Mac app terminal *engine* from the disk image runs in the container, and
-you can use a Mac app terminal through it:
+So the app's terminal *engine* from the disk image runs in the container, and
+you can use its terminals through it:
 
 ```
-APP_DMG=/path/to/App.dmg docker compose -f examples/mac-terminal/compose.yaml up
+APP_DMG=/path/to/App.dmg APPCLI=<the app's CLI> docker compose -f examples/mac-terminal/compose.yaml up
 # open http://localhost:7680
 ```
 
-The page is a small viewer that belongs to bitten, not the Mac app's own window: it
-shows the screen with `appcli capture` and types with `appcli send`, both served by
-the unmodified macOS binary. The Mac app's real window needs a Swift runtime,
+The page is a small viewer that belongs to bitten, not the app's own window: it
+shows the screen with `appcli capture` and types with `appcli send` (`appcli`
+stands for the app's command-line program), both served by the unmodified
+macOS binary. The app's real window needs a Swift runtime,
 Foundation, AppKit, SwiftUI and a Metal renderer, none of which exist here
 yet. [docs/TARGET-APP.md](docs/TARGET-APP.md) has the numbers and what it would take.
 
@@ -127,12 +128,12 @@ src/include/     shared headers (Mach-O format, Darwin ABI layouts)
 tools/dmgx       .dmg extractor (UDIF, GPT/APM, HFS+), standard-library Python
 docker/          container entrypoint and macOS-style login
 ci/              GitHub Actions workflow, not yet enabled
-examples/mac-terminal/    Compose file and terminal viewer for the Mac app
+examples/mac-terminal/    Compose file and terminal viewer for the target app
 tests/c/         C tests, compiled to real Mach-O with clang + ld64.lld
 tests/objc/      Objective-C tests (ARC, blocks), same toolchain
 tests/foundation/ tests written against the SDK headers and Foundation
 tests/go/        Go tests, cross-compiled for darwin/amd64
-docs/            architecture, the Mac app analysis, decisions, work log
+docs/            architecture, target app analysis, decisions, work log
 ```
 
 ## Tests
@@ -144,7 +145,7 @@ docker build --target test .   # everything, in a clean container
 ```
 
 With a App.dmg of your own, `APP_DMG=/path/App.dmg tests/e2e/target-app.sh` checks
-the whole path in a container, down to a command typed into a Mac app terminal.
+the whole path in a container, down to a command typed into the app's terminal.
 
 A GitHub Actions workflow that runs the last command is in
 `ci/github-actions.yml`; copy it to `.github/workflows/ci.yml` to switch it
@@ -169,7 +170,7 @@ linker.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): design of the loader and the layer
 - [docs/NEXT.md](docs/NEXT.md): current state and exactly what to do next
 - [docs/ROADMAP.md](docs/ROADMAP.md): the layers still to build, in order
-- [docs/TARGET-APP.md](docs/TARGET-APP.md): what the Mac app imports, what is covered, what remains
+- [docs/TARGET-APP.md](docs/TARGET-APP.md): what the target app imports, what is covered, what remains
 - [docs/DECISIONS.md](docs/DECISIONS.md): choices made, and approaches that were dropped
 - [docs/DMG-FORMAT.md](docs/DMG-FORMAT.md): disk-image support
 - [docs/LOG.md](docs/LOG.md): running work log

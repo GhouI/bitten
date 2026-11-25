@@ -14,7 +14,7 @@
 //   +64  bitmap words, then the keys, then the values
 //
 // Programs read all of these fields directly (lookups and iteration are
-// inlined), so the layout is ABI. It is checked against the Mac app binary's
+// inlined), so the layout is ABI. It is checked against the target app binary's
 // inlined lookups (scale at +32, keys at +48, bitmap at +64).
 
 @usableFromInline @_fixed_layout
