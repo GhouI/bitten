@@ -101,9 +101,28 @@ $(BUILD)/tests/go/%: tests/go/%/main.go tests/go/go.mod
 	cd tests/go && GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 GOFLAGS=-buildvcs=false \
 	    $(GO) build -o $(abspath $@) ./$*
 
-test-bins: $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS)
+# Swift tests: real compiler output from the open-source Swift toolchain
+# (swift.org, any host) built with -parse-stdlib, so they need no standard
+# library and no Apple files: only the runtime entry points bitten provides.
+# Each test is tests/swift/NAME.swift (plus tests/swift/prelude.swift) and a
+# C driver tests/swift/NAME.c with main(). Built when swiftc is available.
+SWIFTC ?= $(or $(shell command -v swiftc 2>/dev/null),$(wildcard /opt/swift/usr/bin/swiftc))
+SWIFT_FLAGS ?= -O
+SWIFTFLAGS_ALL := -parse-stdlib -target x86_64-apple-macos11 -runtime-compatibility-version none \
+                  -wmo -parse-as-library $(SWIFT_FLAGS)
+TEST_SWIFT     := $(filter-out tests/swift/prelude.swift,$(wildcard tests/swift/*.swift))
+TEST_SWIFTBINS := $(if $(SWIFTC),$(patsubst tests/swift/%.swift,$(BUILD)/tests/swift/%,$(TEST_SWIFT)))
+$(BUILD)/tests/swift/%: tests/swift/%.swift tests/swift/%.c tests/swift/prelude.swift $(BUILD)/sdk/libSystem.tbd tests/include/darwin.h
+	@mkdir -p $(dir $@)
+	$(SWIFTC) $(SWIFTFLAGS_ALL) -module-name $(subst -,_,$*) -c -o $@.swift.o tests/swift/prelude.swift $<
+	$(MACHO_CC) -target x86_64-apple-macos11 -O1 -ffreestanding -fno-builtin -fblocks -nostdinc \
+	    -Itests/include -fno-stack-protector -c -o $@.o tests/swift/$*.c
+	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -e _main \
+	    -L$(BUILD)/sdk -lSystem -o $@ $@.o $@.swift.o
 
-check: $(BUILD)/mrun $(FRAMEWORKS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS)
+test-bins: $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS)
+
+check: $(BUILD)/mrun $(FRAMEWORKS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS)
 	BUILD=$(BUILD) tests/run.sh
 
 check-dmgx:

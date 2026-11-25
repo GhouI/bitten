@@ -86,6 +86,8 @@ void dx_run_initializers(void);
 int dx_is_macho_file(const char *path);
 const char *dx_loader_path(void);
 const char *dx_main_path(void);
+/* Start and size of a section of a loaded image, by section name (any segment). */
+void *dx_image_section(const struct dx_image *img, const char *sect, size_t *size);
 const struct dx_image *dx_image_for_address(const void *addr, const char **name_out,
                                             uintptr_t *base_out);
 uint32_t dx_image_count(void);
