@@ -939,3 +939,47 @@ library in progress, overlays and our own SDK), the three kinds of Swift
 tests, how the standard library is matched to Apple's by declaration, the
 work in flight, and what comes after it (Foundation's Swift surface, then
 SwiftUI with AppKit and the drawing stack).
+
+## 2026-11-25: String, part 1: the representation (PR: stdlib-string)
+
+- `stdlib/StringObject.swift`: `_StringObject` (count-and-flags word plus a
+  `Builtin.BridgeObject`), `_StringGuts`, and the native storage class
+  `__StringStorage` (header, real capacity, count and flags, UTF-8 at
+  offset 32 followed by a NUL). The bit layout is Apple's x86-64 one, read
+  off compiled code: small strings inline up to 15 bytes with discriminator
+  `0xE0|n` (ASCII) or `0xA0|n` in the top byte, empty is
+  `(0, 0xE000_0000_0000_0000)`; literals are `(0xD000_0000_0000_0000|n,
+  0x8000_0000_0000_0000|(address-32))` (`0x1000...|n` when not ASCII);
+  native strings `(0xF000...|n` or `0x3000...|n, storage pointer)`.
+  Verified both ways: Rex's code builds literals with exactly these
+  constants (`0xD000000000000011` with a pointer 32 bytes before the bytes,
+  `0xE000000000000000` for "", `0xE4...` for 4-byte literals), and our -O
+  test code folds its literals into the same constants.
+- `stdlib/String.swift`: literals (small or immortal, inlinable so the
+  optimizer constant-folds them), `+`, `+=`, `append`, `reserveCapacity`
+  with copy on write (`swift_isUniquelyReferenced_nonNull_native` on the
+  storage), `==`/`<` through Apple's entry points
+  `_stringCompareWithSmolCheck` / `_stringCompareInternal`, hashing (UTF-8
+  then 0xFF), `init(cString:)` (both), `init?(validatingCString:)`,
+  `withCString` (literals and native strings are already NUL-terminated),
+  `String(repeating:count:)`, `init(unsafeUninitializedCapacity:...)`,
+  `hasPrefix`/`hasSuffix`, `lowercased`/`uppercased` (ASCII and Latin-1 for
+  now), and the internal entry points Rex imports (`_StringGuts.grow`,
+  `_uncheckedFromUTF8`, `_fromUTF8Repairing`, `_StringObject.sharedUTF8`).
+  `stdlib/UTF8.swift`: validation (RFC 3629) and repair with U+FFFD per
+  maximal subpart.
+- `_convertConstStringToUTF8PointerArgument` is real: it passes the bytes
+  of literals and native strings directly and copies small ones.
+- Output protocols (`TextOutputStream`, `TextOutputStreamable`,
+  `CustomStringConvertible`, `CustomDebugStringConvertible`,
+  `LosslessStringConvertible`) with String's conformances; `fatalError`,
+  `precondition`, `preconditionFailure`, `assert`, `assertionFailure` and the
+  two `_assertionFailure` entry points with a String message.
+- Approximations, to be replaced by tables generated from the UCD: strings
+  that are not known NFC (non-ASCII ones) compare and hash by their bytes
+  rather than by canonical equivalence. Shared and foreign (bridged)
+  representations trap.
+- `tests/swiftlib/strings`: the layout word by word, literals small, large
+  and non-ASCII, copy on write, comparison, hashing, C strings both ways.
+  Suite 41/41 at -O and -Onone. No Docker here: `tests/e2e/rex.sh` not run.
+- Rex window (total `^MISSING`): 4,905 -> 4,866.

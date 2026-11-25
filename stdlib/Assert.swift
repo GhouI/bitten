@@ -320,3 +320,94 @@ internal func _bitten_reportUnimplementedInitializer(
   b.append(byte: 0x27); b.append(byte: 0x0A)
   b.writeToStderr()
 }
+
+// ---- the forms with a String message ----------------------------------------------
+
+extension _ReportBuffer {
+  internal mutating func appendString(_ s: String) {
+    s._guts.withFastUTF8 { b in
+      if b.count > 0 { append(bytes: b.baseAddress._unsafelyUnwrappedUnchecked._rawValue, count: b.count) }
+    }
+  }
+}
+
+internal func _reportFatalErrorString(_ prefix: StaticString, _ message: String,
+                                file: StaticString, line: UInt, hasFile: Bool) {
+  var b = _ReportBuffer(capacity: 4096 + message._guts.count)
+  if hasFile {
+    b.append(file)
+    b.append(byte: 0x3A)
+    b.append(decimal: line)
+    b.append(byte: 0x3A); b.append(byte: 0x20)
+  }
+  b.append(prefix)
+  if !message.isEmpty {
+    b.append(byte: 0x3A); b.append(byte: 0x20)
+    b.appendString(message)
+  }
+  b.append(byte: 0x0A)
+  b.writeToStderr()
+}
+
+@usableFromInline @inline(never) @_semantics("programtermination_point")
+internal func _assertionFailure(_ prefix: StaticString, _ message: String,
+                                file: StaticString, line: UInt, flags: UInt32) -> Never {
+  _reportFatalErrorString(prefix, message, file: file, line: line, hasFile: true)
+  Builtin.int_trap()
+}
+
+@usableFromInline @inline(never) @_semantics("programtermination_point")
+internal func _assertionFailure(_ prefix: StaticString, _ message: String, flags: UInt32) -> Never {
+  _reportFatalErrorString(prefix, message, file: "", line: 0, hasFile: false)
+  Builtin.int_trap()
+}
+
+/// Always reports, in every build configuration.
+@_transparent
+public func fatalError(_ message: @autoclosure () -> String = String(),
+                       file: StaticString = #file, line: UInt = #line) -> Never {
+  _assertionFailure("Fatal error", message(), file: file, line: line, flags: 0)
+}
+
+/// Checked in debug and release builds; reports only in debug builds.
+@_transparent
+public func precondition(_ condition: @autoclosure () -> Bool,
+                         _ message: @autoclosure () -> String = String(),
+                         file: StaticString = #file, line: UInt = #line) {
+  if _isDebugAssertConfiguration() {
+    if !_fastPath(condition()) {
+      _assertionFailure("Precondition failed", message(), file: file, line: line, flags: 0)
+    }
+  } else if _isReleaseAssertConfiguration() {
+    if !_fastPath(condition()) { Builtin.int_trap() }
+  }
+}
+
+@_transparent
+public func preconditionFailure(_ message: @autoclosure () -> String = String(),
+                                file: StaticString = #file, line: UInt = #line) -> Never {
+  if _isDebugAssertConfiguration() {
+    _assertionFailure("Fatal error", message(), file: file, line: line, flags: 0)
+  }
+  Builtin.int_trap()
+}
+
+/// Checked in debug builds only.
+@_transparent
+public func assert(_ condition: @autoclosure () -> Bool,
+                   _ message: @autoclosure () -> String = String(),
+                   file: StaticString = #file, line: UInt = #line) {
+  if _isDebugAssertConfiguration() {
+    if !_fastPath(condition()) {
+      _assertionFailure("Assertion failed", message(), file: file, line: line, flags: 0)
+    }
+  }
+}
+
+@inlinable @inline(__always)
+public func assertionFailure(_ message: @autoclosure () -> String = String(),
+                             file: StaticString = #file, line: UInt = #line) {
+  if _isDebugAssertConfiguration() {
+    _assertionFailure("Fatal error", message(), file: file, line: line, flags: 0)
+  }
+}
