@@ -1,57 +1,73 @@
-// Unicode-aware parts of String that need character data: canonical
-// equivalence, case mapping and character boundaries.
-//
-// First version: canonical equivalence is approximated by comparing the
-// UTF-8 bytes as they are (correct for text already in NFC, which is nearly
-// all text); case mapping covers ASCII and Latin-1. Tables generated from
-// the Unicode Character Database replace these.
+// The Unicode-aware parts of String's comparison, hashing and prefix
+// tests: strings compare and hash by their NFC form (canonical
+// equivalence), and prefixes must end on a character boundary.
+
+extension StaticString {
+  @_transparent
+  public var utf8Start: UnsafePointer<UInt8> {
+    _precondition(hasPointerRepresentation, "StaticString should have pointer representation")
+    return UnsafePointer(unsafeRawPointer)
+  }
+}
 
 internal func _stringCompareNormalized(_ lhs: _StringGuts, _ lhsRange: Range<Int>,
                                        _ rhs: _StringGuts, _ rhsRange: Range<Int>) -> Int {
-  return lhs.withFastUTF8(range: lhsRange) { a in
-    rhs.withFastUTF8(range: rhsRange) { b in _compareBytes(a, b) }
+  return lhs._withNormalizedUTF8(range: lhsRange) { a in
+    rhs._withNormalizedUTF8(range: rhsRange) { b in _compareBytes(a, b) }
   }
 }
 
 extension _StringGuts {
   internal func _withNormalizedUTF8<R>(range: Range<Int>, _ body: (UnsafeBufferPointer<UInt8>) -> R) -> R {
-    return withFastUTF8(range: range, body)
+    if isNFC { return withFastUTF8(range: range, body) }
+    return withFastUTF8(range: range) { _withNFC($0, body) }
+  }
+
+  /// Whether a character boundary falls at byte `i` (which must be on a
+  /// scalar boundary for a true answer).
+  internal func isCharacterBoundary(_ i: Int, start: Int = 0, end: Int? = nil) -> Bool {
+    let e = end ?? count
+    if i <= start || i >= e { return true }
+    return withFastUTF8 { b in
+      let p = b.baseAddress._unsafelyUnwrappedUnchecked
+      if _utf8IsContinuation(p[i]) { return false }
+      return _nextGraphemeBoundary(p, _previousGraphemeBoundary(p, i, start, e), e) == i
+    }
   }
 }
 
 extension String {
   internal func _isCharacterBoundary(utf8Offset i: Int) -> Bool {
-    if i == 0 || i == _guts.count { return true }
-    // Inside a scalar is never a boundary.
-    return !_utf8IsContinuation(_guts.utf8Byte(at: i))
+    return _guts.isCharacterBoundary(i)
   }
 
+  /// Prefix tests on the canonical forms: the prefix's NFC must be a
+  /// prefix of ours that ends on a character boundary.
   internal func _hasPrefixNormalized(_ prefix: String) -> Bool {
-    let n = prefix._guts.count
-    return _guts.withFastUTF8(range: 0..<n) { a in
-      prefix._guts.withFastUTF8 { b in _compareBytes(a, b) == 0 }
-    } && _isCharacterBoundary(utf8Offset: n)
+    return _guts._withNormalizedUTF8(range: 0..<_guts.count) { a in
+      prefix._guts._withNormalizedUTF8(range: 0..<prefix._guts.count) { b in
+        if b.count > a.count { return false }
+        if _compareBytes(UnsafeBufferPointer(start: a.baseAddress, count: b.count), b) != 0 { return false }
+        if b.count == a.count { return true }
+        let p = a.baseAddress._unsafelyUnwrappedUnchecked
+        return _nextGraphemeBoundary(p, _previousGraphemeBoundary(p, b.count, 0, a.count), a.count) == b.count
+      }
+    }
   }
 
   internal func _hasSuffixNormalized(_ suffix: String) -> Bool {
-    let n = suffix._guts.count, m = _guts.count
-    return _guts.withFastUTF8(range: (m - n)..<m) { a in
-      suffix._guts.withFastUTF8 { b in _compareBytes(a, b) == 0 }
-    } && _isCharacterBoundary(utf8Offset: m - n)
+    return _guts._withNormalizedUTF8(range: 0..<_guts.count) { a in
+      suffix._guts._withNormalizedUTF8(range: 0..<suffix._guts.count) { b in
+        if b.count > a.count { return false }
+        let k = a.count - b.count
+        if _compareBytes(UnsafeBufferPointer(start: a.baseAddress._unsafelyUnwrappedUnchecked + k, count: b.count), b) != 0 {
+          return false
+        }
+        if k == 0 { return true }
+        let p = a.baseAddress._unsafelyUnwrappedUnchecked
+        if _utf8IsContinuation(p[k]) { return false }
+        return _nextGraphemeBoundary(p, _previousGraphemeBoundary(p, k, 0, a.count), a.count) == k
+      }
+    }
   }
-}
-
-internal func _appendCaseMapped(_ s: UInt32, upper: Bool, to result: inout String) {
-  var m = s
-  if upper {
-    if s >= 0x61 && s <= 0x7A { m = s - 0x20 }
-    else if s == 0xB5 { m = 0x39C }
-    else if s == 0xDF { result._appendScalar(0x53); m = 0x53 }
-    else if s >= 0xE0 && s <= 0xFE && s != 0xF7 { m = s - 0x20 }
-    else if s == 0xFF { m = 0x178 }
-  } else {
-    if s >= 0x41 && s <= 0x5A { m = s + 0x20 }
-    else if s >= 0xC0 && s <= 0xDE && s != 0xD7 { m = s + 0x20 }
-  }
-  result._appendScalar(m)
 }
