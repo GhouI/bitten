@@ -72,3 +72,15 @@ NSString *const NSFilePathErrorKey = @"NSFilePath";
     return [NSString stringWithFormat:@"Error Domain=%@ Code=%ld \"%@\"", self.domain, (long)self.code, self.localizedDescription];
 }
 @end
+
+/* For Foundation's Swift overlay: an error with plain arguments (building
+ * userInfo dictionaries from Swift goes through generic bridging). */
+@implementation NSError (BittenSwift)
++ (NSError *)_bn_errorWithDomain:(NSString *)domain code:(NSInteger)code
+                        filePath:(NSString *)path underlyingPOSIX:(int)posix {
+    NSMutableDictionary *info = [NSMutableDictionary dictionary];
+    if (path) info[NSFilePathErrorKey] = path;
+    if (posix) info[NSUnderlyingErrorKey] = [NSError errorWithDomain:NSPOSIXErrorDomain code:posix userInfo:nil];
+    return [NSError errorWithDomain:domain code:code userInfo:info];
+}
+@end

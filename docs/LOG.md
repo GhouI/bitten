@@ -1509,3 +1509,23 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 
 - The soft glow behind the current area's legend dot is back; only the
   "now" line of text stays removed.
+
+## 2026-11-25: Data
+
+- Foundation's Swift overlay: `Data`, written to Apple's declared shape
+  because programs inline it: @frozen, 16 bytes, a @frozen
+  `_Representation` (`empty`, `inline` of 14 bytes, `slice` with Int32
+  bounds, `large` with a boxed range) over `__DataStorage`, whose fields
+  inlined code reaches only through accessors. Mutation, slicing (indices
+  kept), the 32-byte-block `Iterator`, base64, files (atomic writes),
+  search, Codable, NSData bridging. `DataProtocol`, `MutableDataProtocol`
+  and `ContiguousBytes` with Apple's requirement order, and the standard
+  library's buffers and arrays conforming.
+- `String`/`StringProtocol`: `data(using:)`, `init?(data:encoding:)`,
+  `init?(bytes:encoding:)`, `init(contentsOf:encoding:)`, `write(to:...)`.
+- Errors: `NSError: Error`, and the compiler's `_convertErrorToNSError` /
+  `_convertNSErrorToError` (for `as NSError`).
+- Headers: the NSData option types are NS_OPTIONS with Apple's Swift names.
+- stdlib: `Unsafe(Mutable)(Raw)BufferPointer(rebasing:)`.
+- Target app window (total `^MISSING`): 3,613 -> 3,522. It still stops at
+  `JSONEncoder` (next).

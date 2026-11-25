@@ -74,3 +74,44 @@ import Synchronization
   if counter.withLockIfAvailable({ $0 }) != 10 { bad |= 8 }
   return bad
 }
+
+@_silgen_name("swl_foundation_data") public func data() -> Int {
+  var bad = 0
+  // Apple's layout: 16 bytes, tag in spare bits.
+  if MemoryLayout<Data>.size != 16 || MemoryLayout<Data.Iterator>.size != 64 { bad |= 1 }
+  var d = Data([1, 2, 3])
+  if d.count != 3 || d[1] != 2 || Array(d) != [1, 2, 3] { bad |= 2 }
+  d.append(contentsOf: [UInt8](repeating: 7, count: 40)) // goes out of line
+  if d.count != 43 || d[42] != 7 || d[0] != 1 { bad |= 4 }
+  let slice = d[2..<5]
+  if slice.startIndex != 2 || slice.count != 3 || slice[2] != 3 || slice[3] != 7 { bad |= 8 }
+  var copy = d
+  copy[0] = 99
+  if d[0] != 1 || copy[0] != 99 { bad |= 16 } // value semantics
+  d.replaceSubrange(0..<3, with: Data([9]))
+  if d.count != 41 || d[0] != 9 || d[1] != 7 { bad |= 32 }
+  if Data("hello".utf8).base64EncodedString() != "aGVsbG8=" { bad |= 64 }
+  if Data(base64Encoded: "aGVsbG8=").map({ Array($0) }) != Array("hello".utf8) { bad |= 128 }
+  if Data(base64Encoded: "@@") != nil { bad |= 256 }
+  if Data([1, 2, 3, 4, 2, 3]).range(of: Data([2, 3]), options: .backwards) != 4..<6 { bad |= 512 }
+  var sum = 0
+  for b in Data(repeating: 1, count: 100) { sum += Int(b) }
+  if sum != 100 { bad |= 1024 }
+  let url = URL(fileURLWithPath: "/tmp/bitten-swl-data")
+  do {
+    try Data("file contents".utf8).write(to: url, options: .atomic)
+    let back = try Data(contentsOf: url)
+    if String(data: back, encoding: .utf8) != "file contents" { bad |= 2048 }
+  } catch { bad |= 4096 }
+  do {
+    _ = try Data(contentsOf: URL(fileURLWithPath: "/nonexistent/bitten"))
+    bad |= 8192
+  } catch { if (error as NSError).code != 260 { bad |= 16384 } }
+  let ns = d as NSData
+  if ns.length != 41 || (ns as Data) != d { bad |= 32768 }
+  if "é".data(using: .utf8) != Data([0xC3, 0xA9]) || "é".data(using: .ascii) != nil { bad |= 65536 }
+  var big = Data(count: 20)
+  big.withUnsafeMutableBytes { $0[19] = 5 }
+  if big[19] != 5 || big.count != 20 { bad |= 131072 }
+  return bad
+}
