@@ -22,7 +22,7 @@
     .s-Other { stroke: #22d3ee; } .f-Other { fill: #22d3ee; }
   }
 </style>
-<defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4"/></filter></defs>
+
 <rect width="620" height="334" rx="12" class="bg"/>
 <circle cx="132" cy="161" r="92" fill="none" class="track" stroke-width="26"/>
 <circle cx="132" cy="161" r="92" fill="none" class="s-System" stroke-width="26" stroke-dasharray="32.95 578.05" stroke-dashoffset="-0.00" transform="rotate(-90 132 161)"/>
@@ -53,7 +53,6 @@
 <text x="592" y="134" class="mute" font-size="12" text-anchor="end">1,420/1,794</text>
 <circle cx="291" cy="156" r="5" class="f-Foundation"/>
 <text x="304" y="160" class="ink" font-size="13">Foundation</text>
-<circle cx="291" cy="156" r="7" class="f-Foundation" filter="url(#glow)" opacity="0.6"/>
 <text x="504" y="160" class="ink" font-size="13" font-weight="600" text-anchor="end">24%</text>
 <text x="592" y="160" class="mute" font-size="12" text-anchor="end">178/736</text>
 <circle cx="291" cy="182" r="5" class="f-Graphics"/>
@@ -72,6 +71,5 @@
 <text x="304" y="264" class="ink" font-size="13">Other</text>
 <text x="504" y="264" class="ink" font-size="13" font-weight="600" text-anchor="end">2%</text>
 <text x="592" y="264" class="mute" font-size="12" text-anchor="end">12/639</text>
-<text x="286" y="296" class="mute" font-size="11">now: Foundation, +119 today</text>
-<text x="28" y="320" class="mute" font-size="10.5">2026-11-25 23:53 UTC</text>
+<text x="28" y="320" class="mute" font-size="10.5">2026-11-25 23:54 UTC</text>
 </svg>
