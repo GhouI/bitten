@@ -73,7 +73,7 @@ SEL SEL_retain, SEL_release, SEL_autorelease, SEL_dealloc, SEL_alloc, SEL_init, 
     SEL_copyWithZone, SEL_mutableCopyWithZone, SEL_initialize, SEL_load, SEL_cxx_destruct,
     SEL_cxx_construct, SEL_resolveInstanceMethod, SEL_resolveClassMethod,
     SEL_forwardingTargetForSelector, SEL_respondsToSelector, SEL_isKindOfClass, SEL_self,
-    SEL_allocWithZone, SEL_retainCount, SEL_copy;
+    SEL_allocWithZone, SEL_retainCount, SEL_copy, SEL_allowsWeakReference, SEL_retainWeakReference;
 
 /* ---- class table -------------------------------------------------------- */
 
@@ -1220,6 +1220,8 @@ __attribute__((constructor(101))) static void runtime_init(void) {
     SEL_respondsToSelector = sel_intern("respondsToSelector:");
     SEL_isKindOfClass = sel_intern("isKindOfClass:");
     SEL_retainCount = sel_intern("retainCount");
+    SEL_allowsWeakReference = sel_intern("allowsWeakReference");
+    SEL_retainWeakReference = sel_intern("retainWeakReference");
     dx_objc_arc_init();
     make_class(&protocol_class, &protocol_meta, &dx_NSObject_class, "Protocol", 0);
     register_class(&protocol_class);

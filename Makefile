@@ -110,11 +110,15 @@ SWIFTC ?= $(or $(shell command -v swiftc 2>/dev/null),$(wildcard /opt/swift/usr/
 SWIFT_FLAGS ?= -O
 SWIFTFLAGS_ALL := -parse-stdlib -target x86_64-apple-macos11 -runtime-compatibility-version none \
                   -wmo -parse-as-library $(SWIFT_FLAGS)
+# A test whose first line is "// module: Swift" is compiled as the module
+# Swift itself: the compiler looks up a few types (Optional, for weak
+# references) in the standard library by name, and the test declares them.
+swift_module = $(or $(shell sed -n '1s|^// module: *||p' $(1)),$(subst -,_,$(2)))
 TEST_SWIFT     := $(filter-out tests/swift/prelude.swift,$(wildcard tests/swift/*.swift))
 TEST_SWIFTBINS := $(if $(SWIFTC),$(patsubst tests/swift/%.swift,$(BUILD)/tests/swift/%,$(TEST_SWIFT)))
 $(BUILD)/tests/swift/%: tests/swift/%.swift tests/swift/%.c tests/swift/prelude.swift $(BUILD)/sdk/libSystem.tbd tests/include/darwin.h
 	@mkdir -p $(dir $@)
-	$(SWIFTC) $(SWIFTFLAGS_ALL) -module-name $(subst -,_,$*) -c -o $@.swift.o tests/swift/prelude.swift $<
+	$(SWIFTC) $(SWIFTFLAGS_ALL) -module-name $(call swift_module,$<,$*) -c -o $@.swift.o tests/swift/prelude.swift $<
 	$(MACHO_CC) -target x86_64-apple-macos11 -O1 -ffreestanding -fno-builtin -fblocks -nostdinc \
 	    -Itests/include -fno-stack-protector -c -o $@.o tests/swift/$*.c
 	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -e _main \
