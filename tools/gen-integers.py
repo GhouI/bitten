@@ -252,3 +252,10 @@ for t in TYPES:
     print(hashing(*t))
 for t in TYPES:
     print(from_floats(*t))
+# A hint for the optimizer that a signed value is not negative.
+for name, bits, signed in TYPES:
+    if signed:
+        print(f"""@_transparent public func _assumeNonNegative(_ x: {name}) -> {name} {{
+  _ = Builtin.assume_Int1((x >= 0)._value)
+  return x
+}}""")

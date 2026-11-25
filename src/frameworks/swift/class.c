@@ -385,3 +385,4 @@ static void d_swift_updateClassMetadata(sw_class_metadata *self, uintptr_t flags
     d_swift_updateClassMetadata2(self, flags, n, fields, offsets);
 }
 DX_FN(swift_updateClassMetadata);
+

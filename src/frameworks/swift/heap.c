@@ -633,6 +633,16 @@ const sw_vwt sw_vwt_bridge_object = REF_VWT_INIT(bridge);
 DX_EXPORT("_$sBoWV", &sw_vwt_native_object);
 DX_EXPORT("_$sBOWV", &sw_vwt_unknown_object);
 DX_EXPORT("_$sBbWV", &sw_vwt_bridge_object);
+/* Their metadata ({value witnesses, kind}; the address point is the second
+ * word), which the runtime needs when a generic type has a field of one of
+ * these types, e.g. _BridgeStorage's Builtin.BridgeObject. */
+static const struct { const sw_vwt *vwt; uintptr_t kind; }
+    md_native_object = {&sw_vwt_native_object, SW_KIND_OPAQUE},
+    md_unknown_object = {&sw_vwt_unknown_object, SW_KIND_OPAQUE},
+    md_bridge_object = {&sw_vwt_bridge_object, SW_KIND_OPAQUE};
+DX_EXPORT("_$sBoN", &md_native_object);
+DX_EXPORT("_$sBON", &md_unknown_object);
+DX_EXPORT("_$sBbN", &md_bridge_object);
 
 /* () -> () ($syycWV), the table swiftc uses for any thick closure value:
  * a function pointer and a (nullable) native context. A function pointer
