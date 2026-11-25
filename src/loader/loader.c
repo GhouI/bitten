@@ -649,6 +649,9 @@ void *dx_image_section(const struct dx_image *img, const char *sect, size_t *siz
 /* Objective-C runtime hooks (src/frameworks/objc). */
 void dx_objc_image_fixups(const struct dx_image *img) __attribute__((weak));
 void dx_objc_images_ready(void) __attribute__((weak));
+/* Swift runtime hook (src/frameworks/swift): records the image's
+ * __swift5_* sections (types, conformances, protocols, field metadata). */
+void dx_swift_image_added(const struct dx_image *img) __attribute__((weak));
 
 static void tlv_scan_cb(struct dx_image *img, struct section_64 *s, void *ctx) {
     (void)ctx;
@@ -1042,6 +1045,7 @@ static void bind_image(struct dx_image *img) {
     each_section(img, tlv_scan_cb, NULL);
     each_section(img, tlv_desc_cb, NULL);
     if (dx_objc_image_fixups) dx_objc_image_fixups(img);
+    if (dx_swift_image_added) dx_swift_image_added(img);
     for (int i = 0; i < img->nsegs; i++) {
         struct seg *s = &img->segs[i];
         if (!strcmp(s->name, "__PAGEZERO") || !s->vmsize) continue;

@@ -129,3 +129,12 @@ batch. The pull requests say so.
 - **Project names.** The repository was created as `dmgbox` and renamed by
   the owner to `scion`, `galapagos` and then `bitten` during the first day.
   Environment variables are `BITTEN_*`.
+
+### Swift tests from the open-source toolchain with -parse-stdlib
+There is no Swift compiler that targets macOS without Apple's SDK, which is
+not ours to use. But the swift.org Linux toolchain's `swiftc` can emit
+`x86_64-apple-macos` objects when the code does not import the standard
+library (`-parse-stdlib`, `Builtin` types only). That code exercises exactly
+the runtime surface (metadata, classes, generics, closures, protocols), so
+it is how the Swift runtime is tested. The toolchain is a test-time tool
+like clang and Go; nothing from it ships.
