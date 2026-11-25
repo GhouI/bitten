@@ -1,6 +1,0 @@
-build/
-build-*/
-.git/
-*.dmg
-*.app/
-docs/
