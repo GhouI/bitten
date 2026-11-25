@@ -1440,3 +1440,8 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - The README chart is now one simple picture: the share of the target
   app's imports implemented, and one bar per area. The history is still
   recorded in `history.csv` on the `progress` branch but no longer drawn.
+
+## 2026-11-25: progress chart as a ring (PR: progress-ring)
+
+- The README chart is a single progress ring: the share of the target
+  app's imports implemented, with the counts beside it. Light and dark.
