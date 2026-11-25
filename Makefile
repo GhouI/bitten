@@ -165,11 +165,18 @@ $(BUILD)/stdlib/Swift.o: $(STDLIB_SRCS)
 	    -Xfrontend -disable-implicit-concurrency-module-import \
 	    -Xfrontend -disable-implicit-string-processing-module-import -O \
 	    -o $(BUILD)/stdlib/SwiftOnoneSupport.o -c $(BUILD)/stdlib/SwiftOnoneSupport.swift
-$(LIBSWIFTCORE): $(BUILD)/stdlib/Swift.o $(BUILD)/sdk/libSystem.tbd
+# The few parts of Apple's runtime that live in libswiftCore as C data
+# (the empty collection singletons) are C here too: stdlib/*.c.
+STDLIB_COBJS := $(patsubst stdlib/%.c,$(BUILD)/stdlib/%.o,$(wildcard stdlib/*.c))
+$(BUILD)/stdlib/%.o: stdlib/%.c
+	@mkdir -p $(dir $@)
+	$(MACHO_CC) -target x86_64-apple-macos11 -O1 -ffreestanding -fno-builtin -nostdlibinc \
+	    -fno-stack-protector -Wall -c -o $@ $<
+$(LIBSWIFTCORE): $(BUILD)/stdlib/Swift.o $(STDLIB_COBJS) $(BUILD)/sdk/libSystem.tbd
 	@mkdir -p $(dir $@)
 	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
 	    -install_name /usr/lib/swift/libswiftCore.dylib \
-	    -L$(BUILD)/sdk -lSystem -o $@ $(BUILD)/stdlib/Swift.o
+	    -L$(BUILD)/sdk -lSystem -o $@ $(BUILD)/stdlib/Swift.o $(STDLIB_COBJS)
 
 # ---- an SDK and the Swift overlays ----------------------------------------
 # build/MacOSX.sdk is bitten's own macOS SDK: the headers in sdk/include

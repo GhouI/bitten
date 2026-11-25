@@ -1029,3 +1029,50 @@ SwiftUI with AppKit and the drawing stack).
   arguments, generic use at -Onone. No Docker here: `tests/e2e/target-app.sh` not
   run.
 - The Mac app window (total `^MISSING`): 4,866 -> 4,776.
+## 2026-11-25: Dictionary and Set, part 1: storage, hash table, core API (PR: stdlib-dictionary)
+
+- Apple's Darwin representation: `Dictionary`/`Set` are one word, a
+  `_BridgeStorage` (new, with the Builtin.BridgeObject helpers, `_isUnique`,
+  `swap`) of native storage or a bridged NS collection. Native storage is
+  `__RawDictionaryStorage`/`_DictionaryStorage<K,V>` (and the Set pair):
+  count +16, capacity +24, scale +32, reservedScale +33, extra +34, age +36,
+  seed +40, keys/elements +48, values +56, then the bitmap (+64 / +56), keys,
+  values, all tail-allocated. Offsets checked against the Mac app's inlined lookups
+  (`movb 0x20(%r14)`, bitmap at `0x40(%r14,...)`, keys `0x30`) and from C in
+  the test, which walks storage and probes exactly like inlined code.
+- `_HashTable` (+`_UnsafeBitset`): open addressing, linear probing,
+  backward-shift deletion (no tombstones); in tables under 64 buckets the
+  bitmap bits past the end stay set, which ends inlined iteration and hole
+  searches. Max load 3/4; per-storage seed from the storage address
+  (scale under deterministic hashing).
+- `_swiftEmptyDictionarySingleton` / `_swiftEmptySetSingleton`: immortal C
+  objects in `stdlib/GlobalObjects.c` (now linked into libswiftCore) whose
+  isa is the Swift class `__EmptyDictionarySingleton` / `__EmptySetSingleton`.
+- `_NativeDictionary`/`_NativeSet` with every entry point the Mac app imports
+  (`_insert`, `_delete`, `mutatingFind`, `ensureUnique`, `uncheckedRemove`,
+  `_unsafeInsertNew`, storage `allocate`/`copy`/`resize`...). Cocoa halves
+  (`__CocoaDictionary`, `__CocoaSet` with Index/Iterator) are declared with
+  Apple's shapes and trap until bridging exists.
+- API: subscripts (incl. `default:`), `updateValue`, `removeValue`,
+  `index(forKey:)`, `remove(at:)`, `popFirst`, `keys`/`values` views,
+  iteration, `init(uniqueKeysWithValues:)`, `init(_:uniquingKeysWith:)`,
+  `merge`/`merging`, `mapValues`, `compactMapValues`, `filter`,
+  `reserveCapacity`, `removeAll`, Equatable/Hashable; Set insert/update/
+  remove/contains, `Set(seq)`, union/intersection/subtracting/
+  symmetricDifference and the subset/superset/disjoint tests;
+  `_DictionaryBuilder`/`_SetBuilder`. Copy-on-write throughout.
+- Waiting for Array: literals, `SetAlgebra` (refines
+  ExpressibleByArrayLiteral), `init(grouping:by:)`; for Error: `_MergeError`;
+  for printing: `description`.
+- Runtime fixes found on the way: `swift_lookUpClassMethod` (method lookup
+  functions of classes in resilient modules); metadata for
+  `Builtin.NativeObject/UnknownObject/BridgeObject` (`$sBoN`, `$sBON`,
+  `$sBbN`); the value-witness pointer of a generic value metadata pattern is
+  indirectable (`$sBbWV` from another image came through the GOT and was used
+  as the table itself). `_assumeNonNegative` for the signed integers.
+- `tests/swiftlib/dictionaries`: trivial, colliding and class keys/values
+  with exact deinit counts, 2000-element insert/remove rounds, churn at
+  constant size, COW, iteration order stability, the views, set algebra.
+  No Docker here: `tests/e2e/target-app.sh` not run.
+- The Mac app window (total `^MISSING`): 4,866 -> 4,738. Left from this area:
+  literals, SetAlgebra, Codable, `description`.
