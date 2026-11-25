@@ -1788,8 +1788,12 @@ static const sw_metadata *resolve(struct resolver *R, const struct node *n) {
     case NK_BUILTIN: {
         char sym[48];
         snprintf(sym, sizeof sym, "_$sB%sN", n->text);
-        const sw_metadata *m = rt(sym);
-        return m ? m : rfail(R, n, "builtin type metadata is not available");
+        /* $sB...N names the full metadata {value witnesses, kind}; the
+         * metadata itself (address point) is the word after it, which is
+         * also how compiled code refers to it. */
+        const char *full = rt(sym);
+        return full ? (const sw_metadata *)(full + sizeof(void *))
+                    : rfail(R, n, "builtin type metadata is not available");
     }
     case NK_OPAQUE: return resolve_opaque(R, n);
     default: return rfail(R, n, "not a type");
@@ -2033,7 +2037,8 @@ static void print_metadata(struct sbuf *b, const sw_metadata *m, int qualified) 
         char sym[32], tmp[32];
         for (int i = 0; builtin_syms[i]; i++) {
             snprintf(sym, sizeof sym, "_$sB%sN", builtin_syms[i]);
-            if (rt(sym) == (void *)m) {
+            const char *full = rt(sym);
+            if (full && full + sizeof(void *) == (const char *)m) {
                 sb_puts(b, "Builtin.");
                 sb_puts(b, builtin_name(builtin_syms[i], tmp, sizeof tmp));
                 return;

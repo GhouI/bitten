@@ -86,6 +86,14 @@ typedef struct sw_vwt {
     uint32_t extraInhabitantCount;
 } sw_vwt;
 
+/* Extra-inhabitant callbacks handed to swift_{get,store}EnumTagSinglePayloadGeneric
+ * by compiled value witnesses (swiftcc, identical to C for these arguments).
+ * get returns 0 for a valid payload, else 1 + the extra inhabitant's index;
+ * store's `which` is 1 + the index. */
+typedef unsigned (*sw_xi_get_fn)(const sw_opaque *v, unsigned num_xi, const sw_metadata *payload);
+typedef void (*sw_xi_store_fn)(sw_opaque *v, unsigned which, unsigned num_xi,
+                               const sw_metadata *payload);
+
 /* Present when flags & SW_VW_HAS_ENUM_WITNESSES. */
 typedef struct sw_enum_vwt {
     sw_vwt base;
@@ -104,7 +112,16 @@ enum {
     SW_VW_INCOMPLETE = 0x00400000,
     SW_VW_IS_NON_COPYABLE = 0x00800000,
     SW_VW_IS_NON_BITWISE_BORROWABLE = 0x01000000,
+    SW_VW_MAX_NUM_EXTRA_INHABITANTS = 0x7FFFFFFF,
 };
+/* Values fit in an existential's 3-word inline buffer when they are bitwise
+ * takable, at most 24 bytes and at most 8-byte aligned. */
+static inline int sw_is_inline(int bitwise_takable, size_t size, size_t align_mask) {
+    return bitwise_takable && size <= sizeof(sw_value_buffer) && align_mask < 8;
+}
+/* Struct and enum layout flags passed to swift_init*Metadata: the low 8
+ * bits are the layout algorithm version, 0x100 says the VWT is writable. */
+enum { SW_LAYOUT_VWT_MUTABLE = 0x100 };
 
 /* The "type layout" the compiler passes to swift_initStructMetadata and
  * friends: a pointer to the `size` field of a value witness table. */
@@ -180,7 +197,8 @@ typedef struct sw_heap_metadata_header {
 
 typedef struct sw_tuple_element {
     const sw_metadata *type;
-    size_t offset;
+    uint32_t offset; /* compiled code loads it as i32 */
+    uint32_t pad;
 } sw_tuple_element;
 typedef struct sw_tuple_metadata {
     uintptr_t kind;
