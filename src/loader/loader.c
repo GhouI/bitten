@@ -635,7 +635,11 @@ struct section_query {
 };
 static void section_query_cb(struct dx_image *img, struct section_64 *s, void *ctx) {
     struct section_query *q = ctx;
-    if (q->addr || strncmp(s->segname, "__DATA", 6) || strncmp(s->sectname, q->name, 16)) return;
+    /* Objective-C metadata is in __DATA*, Swift metadata (__swift5_*) in
+     * __TEXT; the names queried are unique across both. */
+    if (q->addr || (strncmp(s->segname, "__DATA", 6) && strncmp(s->segname, "__TEXT", 16)) ||
+        strncmp(s->sectname, q->name, 16))
+        return;
     q->addr = (void *)(s->addr + img->slide);
     q->size = s->size;
 }
