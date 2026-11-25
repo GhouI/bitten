@@ -135,7 +135,25 @@ static void weak_unregister(id referent, id *slot) {
         }
 }
 
+static int custom_rr(Class c);
+
+/* Classes with their own reference counting (Swift's root class) decide
+ * whether a weak reference may be formed or loaded, through the same
+ * messages as on macOS. Returns -1 when the class has no say. */
+static int ask_custom_weak(id obj, SEL sel) {
+    Class c = objc_class_of(obj);
+    if (!class_realized(c)) {
+        pthread_mutex_lock(&dx_objc_lock);
+        realize_class(c);
+        pthread_mutex_unlock(&dx_objc_lock);
+    }
+    if (!custom_rr(c) || !class_lookup_imp(c, sel)) return -1;
+    return MSG(char, id, SEL)(obj, sel) != 0;
+}
+
 static int is_deallocating(id obj) {
+    int allowed = ask_custom_weak(obj, SEL_allowsWeakReference);
+    if (allowed >= 0) return !allowed;
     struct shard *s = shard_for(obj);
     pthread_mutex_lock(&s->lock);
     struct rc_entry *e = rc_find(s, obj, 0);
@@ -202,7 +220,9 @@ static id d_objc_loadWeakRetained(id *location) {
     id obj = *location;
     if (obj) {
         /* objects with their own retain/release decide for themselves */
-        if (!root_try_retain(obj)) obj = NULL;
+        int r = ask_custom_weak(obj, SEL_retainWeakReference);
+        if (r < 0) r = root_try_retain(obj);
+        if (!r) obj = NULL;
     }
     pthread_mutex_unlock(&weak_lock);
     return obj;
@@ -221,6 +241,12 @@ static void d_objc_moveWeak(id *dst, id *src) {
     d_objc_destroyWeak(src);
 }
 DX_FN(objc_moveWeak);
+void *dx_objc_init_weak(void **slot, void *obj) { return d_objc_initWeak((id *)slot, obj); }
+void *dx_objc_store_weak(void **slot, void *obj) { return store_weak((id *)slot, obj); }
+void *dx_objc_load_weak_retained(void **slot) { return d_objc_loadWeakRetained((id *)slot); }
+void dx_objc_destroy_weak(void **slot) { d_objc_destroyWeak((id *)slot); }
+void dx_objc_copy_weak(void **dst, void **src) { d_objc_copyWeak((id *)dst, (id *)src); }
+void dx_objc_move_weak(void **dst, void **src) { d_objc_moveWeak((id *)dst, (id *)src); }
 
 /* ---- associated objects --------------------------------------------------- */
 
@@ -388,6 +414,8 @@ static void ns_release(id self, SEL _cmd);
 static id ns_autorelease(id self, SEL _cmd);
 
 /* Does this class use NSObject's own retain/release? */
+static int default_rr(Class cls);
+static int custom_rr(Class c) { return !default_rr(c); }
 static int default_rr(Class cls) {
     struct class_rw *rw = RW(cls);
     if (!rw->rr_state) {

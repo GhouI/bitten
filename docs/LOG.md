@@ -395,3 +395,24 @@ for the Swift layer and for the smaller independent items.
 - The Mac app window imports unimplemented: 5,484 -> 5,434 (5,484 is what
   `fdecc90` gives on this machine, not the 5,360 recorded in the previous
   entry).
+
+## 2026-11-25: Swift weak and unowned references to any object (PR: swift-weak)
+
+- `swift_unknownObjectWeak*` and `swift_unknownObjectUnowned*` (references
+  through `AnyObject` and class-bound protocols), in
+  `src/frameworks/swift/objc.c`. Unlike native weak references, these are
+  not bitwise-takable, so they use the Objective-C `__weak` table for both
+  kinds of object; an unowned reference to a Swift object holds its unowned
+  count instead.
+- `arc.c`: a class with its own reference counting now decides whether a
+  weak reference may be formed or loaded, through `-allowsWeakReference` and
+  `-retainWeakReference` as on macOS. Swift's root class answers from the
+  Swift counts, so `objc_loadWeak*` returns nil once a Swift object's deinit
+  has started. The weak functions are reachable from C through `dx_objc.h`.
+- Tests can be compiled as the module `Swift` (first line
+  `// module: Swift`): the compiler finds `Optional`, needed for `weak`, in
+  the standard library by name, so `tests/swift/weak.swift` declares it.
+  The test covers native weak references becoming nil, copies of structs
+  holding weak references, `AnyObject` weak and unowned references to Swift
+  and Objective-C objects. Passes at `-O` and `-Onone`; suite 23/23.
+- The Mac app window imports unimplemented: 5,434 -> 5,423.
