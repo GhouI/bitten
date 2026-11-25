@@ -338,3 +338,23 @@ its first Swift runtime call, `swift_getSingletonMetadata`. Classified its
 standard-library symbols, of which 149 are C-ABI runtime functions.
 `docs/NEXT.md` records the state, the checks to run, and the order of work
 for the Swift layer and for the smaller independent items.
+
+## 2026-11-25: Swift runtime groundwork (PR: swift-base)
+
+- Tests can now be real Swift compiler output. The open-source Swift
+  toolchain for Linux (swift.org, 6.3.1 here) compiles for
+  `x86_64-apple-macos11` with `-parse-stdlib`: no standard library and no
+  Apple files are involved, and the objects import only Swift runtime entry
+  points. `tests/swift/NAME.swift` + a C driver `tests/swift/NAME.c` build when
+  `swiftc` is on `PATH` (or in `/opt/swift/usr/bin`). This settles the open
+  question in `NEXT.md` without Apple's toolchain package.
+- `src/frameworks/swift/`: `swift_abi.h` (compiler-fixed layouts: metadata,
+  value witnesses, context descriptors, generic patterns, conformances),
+  `swift_internal.h` (the contract between the runtime's files), `images.c`
+  (records every image's `__swift5_*` sections through a new loader hook,
+  `dx_swift_image_added`).
+- `tests/swift/layout`: struct metadata, its descriptor, field offsets and
+  value witness table read through those layouts.
+- Measured here: the Rex window has 5,360 unimplemented imports with this
+  build (`NEXT.md` recorded 5,307 on the previous machine; the difference is
+  being looked into, the deltas below are against 5,360).
