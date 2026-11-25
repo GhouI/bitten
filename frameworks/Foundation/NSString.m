@@ -242,6 +242,9 @@ static void check_index(NSString *s, NSUInteger index, const char *what) {
     CFDataRef d = (__bridge CFDataRef)data;
     return adopt(self, CFStringCreateWithBytes(NULL, CFDataGetBytePtr(d), CFDataGetLength(d), BNCFEncoding(e), e == NSUTF16StringEncoding));
 }
++ (instancetype)stringWithCharacters:(const unichar *)chars length:(NSUInteger)length {
+    return [[self alloc] initWithCharacters:chars length:length];
+}
 - (instancetype)initWithCharacters:(const unichar *)chars length:(NSUInteger)length {
     return adopt(self, CFStringCreateWithBytes(NULL, (const uint8_t *)chars, (CFIndex)length * 2, kCFStringEncodingUTF16LE, 0));
 }

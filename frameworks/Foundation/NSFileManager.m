@@ -203,7 +203,93 @@ static const char *FS(NSString *path) { return path.fileSystemRepresentation; }
              NSFileOwnerAccountID: @(st.st_uid), NSFileGroupOwnerAccountID: @(st.st_gid)};
 }
 - (NSURL *)temporaryDirectory { return [NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES]; }
+- (NSURL *)homeDirectoryForCurrentUser { return [NSURL fileURLWithPath:NSHomeDirectory() isDirectory:YES]; }
+- (NSArray<NSURL *> *)URLsForDirectory:(NSSearchPathDirectory)directory inDomains:(NSSearchPathDomainMask)domainMask {
+    NSMutableArray *out = [NSMutableArray array];
+    for (NSString *p in NSSearchPathForDirectoriesInDomains(directory, domainMask, YES))
+        [out addObject:[NSURL fileURLWithPath:p isDirectory:YES]];
+    return out;
+}
+- (NSURL *)URLForDirectory:(NSSearchPathDirectory)directory inDomain:(NSSearchPathDomainMask)domain
+         appropriateForURL:(NSURL *)url create:(BOOL)shouldCreate error:(NSError **)error {
+    NSString *path;
+    if (directory == NSItemReplacementDirectory) {
+        path = [NSTemporaryDirectory() stringByAppendingPathComponent:
+                                           [NSString stringWithFormat:@"TemporaryItems/%@", [NSUUID UUID].UUIDString]];
+        shouldCreate = YES;
+    } else {
+        path = NSSearchPathForDirectoriesInDomains(directory, domain, YES).firstObject;
+    }
+    if (!path) {
+        errno = ENOENT;
+        BNSetPOSIXError(error, nil, YES);
+        return nil;
+    }
+    if (shouldCreate && ![self createDirectoryAtPath:path withIntermediateDirectories:YES attributes:nil error:error]) return nil;
+    return [NSURL fileURLWithPath:path isDirectory:YES];
+}
+- (BOOL)createDirectoryAtURL:(NSURL *)url withIntermediateDirectories:(BOOL)intermediates
+                  attributes:(NSDictionary *)attributes error:(NSError **)error {
+    return [self createDirectoryAtPath:url.path withIntermediateDirectories:intermediates attributes:attributes error:error];
+}
+- (BOOL)removeItemAtURL:(NSURL *)url error:(NSError **)error { return [self removeItemAtPath:url.path error:error]; }
+- (BOOL)copyItemAtURL:(NSURL *)src toURL:(NSURL *)dst error:(NSError **)error {
+    return [self copyItemAtPath:src.path toPath:dst.path error:error];
+}
+- (BOOL)moveItemAtURL:(NSURL *)src toURL:(NSURL *)dst error:(NSError **)error {
+    return [self moveItemAtPath:src.path toPath:dst.path error:error];
+}
+- (NSArray<NSURL *> *)contentsOfDirectoryAtURL:(NSURL *)url includingPropertiesForKeys:(NSArray *)keys
+                                       options:(NSDirectoryEnumerationOptions)mask error:(NSError **)error {
+    NSArray *names = [self contentsOfDirectoryAtPath:url.path error:error];
+    if (!names) return nil;
+    NSMutableArray *out = [NSMutableArray array];
+    for (NSString *n in names) {
+        if ((mask & NSDirectoryEnumerationSkipsHiddenFiles) && [n hasPrefix:@"."]) continue;
+        [out addObject:[url URLByAppendingPathComponent:n]];
+    }
+    return out;
+}
 @end
+
+/* The standard directories, rooted at $HOME for the user domain. */
+NSArray<NSString *> *NSSearchPathForDirectoriesInDomains(NSSearchPathDirectory directory, NSSearchPathDomainMask mask,
+                                                         BOOL expandTilde) {
+    NSString *sub = nil;
+    switch (directory) {
+    case NSApplicationDirectory: sub = @"Applications"; break;
+    case NSDemoApplicationDirectory: sub = @"Applications/Demos"; break;
+    case NSDeveloperApplicationDirectory: sub = @"Developer/Applications"; break;
+    case NSAdminApplicationDirectory: sub = @"Applications/Utilities"; break;
+    case NSLibraryDirectory: sub = @"Library"; break;
+    case NSDeveloperDirectory: sub = @"Developer"; break;
+    case NSDocumentationDirectory: sub = @"Library/Documentation"; break;
+    case NSDocumentDirectory: sub = @"Documents"; break;
+    case NSAutosavedInformationDirectory: sub = @"Library/Autosave Information"; break;
+    case NSDesktopDirectory: sub = @"Desktop"; break;
+    case NSCachesDirectory: sub = @"Library/Caches"; break;
+    case NSApplicationSupportDirectory: sub = @"Library/Application Support"; break;
+    case NSDownloadsDirectory: sub = @"Downloads"; break;
+    case NSInputMethodsDirectory: sub = @"Library/Input Methods"; break;
+    case NSMoviesDirectory: sub = @"Movies"; break;
+    case NSMusicDirectory: sub = @"Music"; break;
+    case NSPicturesDirectory: sub = @"Pictures"; break;
+    case NSSharedPublicDirectory: sub = @"Public"; break;
+    case NSPreferencePanesDirectory: sub = @"Library/PreferencePanes"; break;
+    case NSApplicationScriptsDirectory: sub = @"Library/Application Scripts"; break;
+    case NSTrashDirectory: sub = @".Trash"; break;
+    case NSAllApplicationsDirectory: sub = @"Applications"; break;
+    case NSAllLibrariesDirectory: sub = @"Library"; break;
+    default: return @[];
+    }
+    NSMutableArray *out = [NSMutableArray array];
+    if (mask & NSUserDomainMask)
+        [out addObject:expandTilde ? [NSHomeDirectory() stringByAppendingPathComponent:sub]
+                                   : [@"~" stringByAppendingPathComponent:sub]];
+    if ((mask & NSLocalDomainMask) && directory != NSTrashDirectory) [out addObject:[@"/" stringByAppendingString:sub]];
+    if ((mask & NSSystemDomainMask) && [sub hasPrefix:@"Library"]) [out addObject:[@"/System/" stringByAppendingString:sub]];
+    return out;
+}
 
 @implementation NSString (Files)
 - (const char *)fileSystemRepresentation { return self.UTF8String; }

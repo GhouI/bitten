@@ -95,6 +95,10 @@ const char *dx_image_name(uint32_t i);
 const void *dx_image_header(uint32_t i);
 intptr_t dx_image_slide(uint32_t i);
 
+/* Objective-C runtime: a placeholder class (or its metaclass) for a class
+ * a program imports but nobody provides. */
+void *dx_objc_placeholder_class(const char *name, int want_meta) __attribute__((weak));
+
 extern int dx_argc;
 extern char **dx_argv;
 extern char **dx_envp;

@@ -1410,3 +1410,27 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - `tools/progress.py` finds the app's main executable from its
   `Info.plist` (`CFBundleExecutable`) and counts the frameworks it bundles,
   so it works for any `.app`; `progress-update.sh` takes `TARGET_APP`.
+
+## 2026-11-25: bundles, user defaults, property lists
+
+- Foundation: `NSPropertyListSerialization` (XML and binary `bplist00`
+  reading, XML writing), `NSBundle` (main bundle from the executable's
+  `.app`; `Contents/` and flat layouts, so SwiftPM resource bundles work;
+  Info.plist, resources, `.strings` tables in text or plist form),
+  `NSUserDefaults` (argument, app, suite, global and registration domains,
+  saved under `~/Library/Preferences`; no KVO yet), standard directories
+  (`NSSearchPathForDirectoriesInDomains`, `URLsForDirectory:inDomains:`,
+  `URLForDirectory:...`) and URL forms of the file operations.
+- Foundation Swift overlay: `URL`, `UUID`; re-exports Darwin.
+- stdlib: `Unicode.UTF8/UTF16/UTF32`, `String(decoding:as:)`,
+  `FixedWidthInteger.init?(_:radix:)`, `Collection.split`, generic `+`
+  for range-replaceable collections.
+- `@[]` and `@{}` were the `__NSCFArray`/`__NSCFDictionary` class objects:
+  clang loads `___NSArray0__` as an `id` variable, so the symbol now points
+  at the empty collection instead of being it.
+- Loader: a symbol a system library lacks is looked up in the other loaded
+  system images (apps bind `NSUserDefaults` to CoreFoundation); classes
+  nobody provides get a placeholder class whose messages report "class X is
+  not implemented in bitten yet" instead of crashing in a stub.
+- Target app window (total `^MISSING`): 3,724 -> 3,658. It now runs past
+  user defaults, bundles and UUIDs and stops at `Synchronization.Mutex`.

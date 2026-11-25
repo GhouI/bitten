@@ -500,11 +500,13 @@ static void d_CFSetGetValues(const struct cf_dict *set, const void **values) {
 DX_FN(CFSetGetValues);
 
 /* The shared empty collections the compiler references for `@[]` and `@{}`
- * literals: the symbols are the objects themselves. */
+ * literals. The symbols are `id` variables pointing at the objects: clang
+ * loads them, it does not take their address. */
 static struct cf_array empty_array = {.base = CF_STATIC(CF_ARRAY, &array_ops)};
 static struct cf_dict empty_dict = {.base = CF_STATIC(CF_DICTIONARY, &dict_ops)};
-DX_EXPORT("___NSArray0__", &empty_array);
-DX_EXPORT("___NSDictionary0__", &empty_dict);
+static void *empty_array_ref = &empty_array, *empty_dict_ref = &empty_dict;
+DX_EXPORT("___NSArray0__", &empty_array_ref);
+DX_EXPORT("___NSDictionary0__", &empty_dict_ref);
 __attribute__((constructor)) static void empty_collections_init(void) {
     empty_array.callbacks = d_kCFTypeArrayCallBacks;
     empty_dict.keys = d_kCFTypeDictionaryKeyCallBacks;

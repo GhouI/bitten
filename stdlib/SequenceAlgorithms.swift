@@ -155,3 +155,31 @@ extension Collection {
     return Array(result)
   }
 }
+
+extension Collection {
+  @inlinable
+  public __consuming func split(maxSplits: Int = Int.max, omittingEmptySubsequences: Bool = true,
+                                whereSeparator isSeparator: (Element) throws -> Bool) rethrows -> [SubSequence] {
+    var result: [SubSequence] = []
+    var start = startIndex
+    var i = startIndex
+    while i != endIndex {
+      if result.count < maxSplits, try isSeparator(self[i]) {
+        if !(omittingEmptySubsequences && start == i) { result.append(self[start..<i]) }
+        start = index(after: i)
+      }
+      formIndex(after: &i)
+    }
+    if !(omittingEmptySubsequences && start == endIndex) { result.append(self[start..<endIndex]) }
+    return result
+  }
+}
+
+extension Collection where Element: Equatable {
+  @inlinable
+  public __consuming func split(separator: Element, maxSplits: Int = Int.max,
+                                omittingEmptySubsequences: Bool = true) -> [SubSequence] {
+    return split(maxSplits: maxSplits, omittingEmptySubsequences: omittingEmptySubsequences,
+                 whereSeparator: { $0 == separator })
+  }
+}
