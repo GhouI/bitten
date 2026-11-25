@@ -1076,3 +1076,55 @@ SwiftUI with AppKit and the drawing stack).
   No Docker here: `tests/e2e/target-app.sh` not run.
 - The Mac app window (total `^MISSING`): 4,866 -> 4,738. Left from this area:
   literals, SetAlgebra, Codable, `description`.
+## 2026-11-25: Swift Concurrency, part 1: the async runtime and _Concurrency (PR: conc-runtime)
+
+- `src/frameworks/concurrency/` (C, built with clang: functions with the
+  `swiftasync` convention, async context in r14, error/self in r13 and
+  guaranteed tail calls, cannot be written for gcc; the Makefile has a clang
+  rule for this directory):
+  - `task.c`: `swift_task_create` (async function pointer, option records
+    for the initial executor, task groups and async let; priority, child,
+    copy-task-locals, enqueue and discarding flags), one allocation holding
+    the task, its result and its initial context; the per-task LIFO slab
+    allocator (`swift_task_alloc/dealloc`, `_dealloc_through`,
+    `swift_job_allocate`); futures (`swift_task_future_wait`,
+    `_throwing`, direct-continuation convention); cancellation with
+    handler records and child propagation; continuations
+    (`swift_continuation_init/await/resume/throwingResume*`);
+    `swift_task_switch`; task-local values; current task/priorities.
+  - `executor.c`: the generic executor on our libdispatch's global queues,
+    the main executor on the main queue (`swift_task_asyncMainDrainQueue` is
+    `dispatch_main`), default actors (a FIFO in the actor's 12 private words,
+    drained on the global queues in batches), custom `SerialExecutor`s through
+    a Swift helper found by name, `swift_job_run`, delayed and deadline
+    enqueues, clocks, `isCurrentExecutor`/`checkIsolated`/unexpected-executor
+    reports (warn and continue, as macOS does in Swift 5 mode).
+  - `group.c`: task groups (`swift_taskGroup_*`, `wait_next_throwing`,
+    `waitAll`) and async let (`swift_asyncLet_begin/get/get_throwing/finish`).
+- ABI checked against swiftc 6.3 output: Job is 64 bytes (run function at
+  56), the task's resume context at 64 (compiled code reads it to store a
+  continuation's result), continuation contexts `{parent, resume, flags,
+  await state, error, result pointer, executor}`, `swift_continuation_await`
+  takes its context in rdi (not r14), non-throwing task closures reach the
+  completion with r13 zeroed by their thunk, the special waiting functions
+  get (caller context, ..., resume function, 40-byte scratch context).
+  `swift_async_extendedFramePointerFlags` is weak-imported and left
+  unresolved so it binds to 0.
+- `overlays/_Concurrency/` (our own Swift, module `_Concurrency`, which
+  mangles as `Swift`): `Actor`, `Executor`, `SerialExecutor`,
+  `TaskExecutor`, `UnownedSerialExecutor`, `UnownedJob`/`Job`/`ExecutorJob`,
+  `JobPriority`, `GlobalActor`, `MainActor`, `Task` (init/detached, value,
+  result, cancel, yield, isCancelled, checkCancellation, priorities),
+  `TaskPriority`, `CancellationError`, `withTaskCancellationHandler`,
+  `UnsafeCurrentTask`, `UnsafeContinuation`, `CheckedContinuation` (a cell
+  in the runtime catches double resumes and leaks; the `function: String`
+  initializer is still to come), `withUnsafe/CheckedContinuation`
+  (+throwing). `swift_task_getCurrent` returns +0: Swift callers retain.
+- Swift tests now import `_Concurrency` implicitly; `tests/swiftlib/async`
+  starts a task from C and runs the main queue: futures, typed errors,
+  continuations resumed from dispatch threads, 100 tasks racing on an actor,
+  `@MainActor` state from detached tasks, cancellation.
+- Also needed: `stdlib/Error.swift` (`Error`, `Result`, the `try!`/error-in-main
+  entry points), `swift_getObjectType`, `swift_lookUpClassMethod`.
+- No Docker here: `tests/e2e/target-app.sh` not run.
+- The Mac app window (total `^MISSING`): BEFORE -> AFTER.
