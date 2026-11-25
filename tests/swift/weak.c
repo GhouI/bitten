@@ -16,21 +16,6 @@ _Bool weak_pair_any_nil(void);
 void *weak_strong(void), *weak_any_get(void), *weak_unowned_get(void);
 unsigned long swift_retainCount(void *);
 
-// Optional<T> is generic, so the compiled module refers to the generic
-// metadata entry points (its metadata accessor and value witnesses). The
-// paths this test runs never call them.
-#define UNUSED(name)                                   \
-    void name(void) {                                  \
-        puts("unexpected call to " #name);             \
-        exit(1);                                       \
-    }
-UNUSED(swift_getGenericMetadata)
-UNUSED(swift_allocateGenericValueMetadata)
-UNUSED(swift_checkMetadataState)
-UNUSED(swift_initEnumMetadataSinglePayload)
-UNUSED(swift_getEnumTagSinglePayloadGeneric)
-UNUSED(swift_storeEnumTagSinglePayloadGeneric)
-
 static long notes[64];
 static int nnotes;
 void note(long x) {
