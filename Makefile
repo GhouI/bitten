@@ -216,8 +216,14 @@ $(SWIFTRES)/.stamp:
 	ln -sfn $(abspath $(SWIFT_TOOLRES))/shims $(SWIFTRES)/shims
 	@touch $@
 
+# Overlays that import other overlays: the full list of overlays each one
+# needs (built first, linked against).
+OVERLAY_DEPS_Darwin     := _errno _signal
+overlay_lib = $(FW_ROOT)/usr/lib/swift/libswift$(1).dylib
+overlay_deps = $(foreach d,$(OVERLAY_DEPS_$(1)),$(call overlay_lib,$(d)))
+
 .SECONDEXPANSION:
-$(FW_ROOT)/usr/lib/swift/libswift%.dylib: $$(wildcard overlays/%/*.swift) $(LIBSWIFTCORE) $(SDKROOT)/.stamp $(SWIFTRES)/.stamp
+$(FW_ROOT)/usr/lib/swift/libswift%.dylib: $$(wildcard overlays/%/*.swift) $$(call overlay_deps,$$*) $(LIBSWIFTCORE) $(SDKROOT)/.stamp $(SWIFTRES)/.stamp
 	@mkdir -p $(dir $@) $(BUILD)/overlays
 	$(SWIFTC) -module-name $* -module-link-name swift$* $(SWIFT_TARGET) $(SWIFT_SDKFLAGS) \
 	    $(shell cat overlays/$*/swiftc.flags 2>/dev/null) -enable-library-evolution -wmo -parse-as-library -O \
@@ -225,24 +231,31 @@ $(FW_ROOT)/usr/lib/swift/libswift%.dylib: $$(wildcard overlays/%/*.swift) $(LIBS
 	    -c -o $(BUILD)/overlays/$*.o $(wildcard overlays/$*/*.swift)
 	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
 	    -install_name /usr/lib/swift/libswift$*.dylib \
-	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) -o $@ $(BUILD)/overlays/$*.o
+	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(call overlay_deps,$*) -o $@ $(BUILD)/overlays/$*.o
 
 # Tests in ordinary Swift, against that standard library: tests/swiftlib/
 # NAME.swift with a C driver NAME.c (functions exported with @_silgen_name;
 # swiftcc and C agree for plain integer and pointer arguments).
 TEST_SWLIB     := $(wildcard tests/swiftlib/*.swift)
 TEST_SWLIBBINS := $(if $(and $(SWIFTC),$(HAVE_MACHO)),$(patsubst tests/swiftlib/%.swift,$(BUILD)/tests/swiftlib/%,$(TEST_SWLIB)))
-# They import _Concurrency implicitly, as ordinary Swift code does.
+# They import _Concurrency implicitly, as ordinary Swift code does, and can
+# import the SDK's modules and overlays.
 LIBCONCURRENCY := $(FW_ROOT)/usr/lib/swift/libswift_Concurrency.dylib
-$(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTCORE) $(LIBCONCURRENCY) tests/include/darwin.h
+# A test can name a later deployment target: symbols that moved between
+# dylibs (errno into _errno, the signal constants into _signal, both in
+# macOS 14) are hidden from older targets by $ld$hide directives.
+SWLIB_MACOS_darwin := 14.0
+swlib_macos = $(or $(SWLIB_MACOS_$(1)),11.0)
+$(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTCORE) $(OVERLAY_LIBS) tests/include/darwin.h
 	@mkdir -p $(dir $@)
-	$(SWIFTC) $(SWIFT_TARGET) -I $(SWIFT_MODDIR) -module-name $(subst -,_,$*) -parse-as-library \
+	$(SWIFTC) -target x86_64-apple-macos$(call swlib_macos,$*) -runtime-compatibility-version none -sdk $(SDKROOT) -resource-dir $(SWIFTRES) -I $(SWIFT_MODDIR) \
+	    -module-name $(subst -,_,$*) -parse-as-library \
 	    -Xfrontend -disable-implicit-string-processing-module-import \
 	    -wmo $(SWIFT_FLAGS) -c -o $@.swift.o $<
 	$(MACHO_CC) -target x86_64-apple-macos11 -O1 -ffreestanding -fno-builtin -fblocks -nostdinc \
 	    -Itests/include -fno-stack-protector -c -o $@.o tests/swiftlib/$*.c
-	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -e _main \
-	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(LIBCONCURRENCY) -o $@ $@.o $@.swift.o
+	$(MACHO_LD) -arch x86_64 -platform_version macos $(call swlib_macos,$*) $(call swlib_macos,$*) -e _main \
+	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(OVERLAY_LIBS) -o $@ $@.o $@.swift.o
 
 test-bins: $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
 

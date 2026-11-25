@@ -6,16 +6,13 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <objc/runtime.h>
+#include <objc/NSObject.h>
 #include <CoreFoundation/CoreFoundation.h>
 
-typedef long NSInteger;
-typedef unsigned long NSUInteger;
 typedef double CGFloat;
 typedef double NSTimeInterval;
 typedef unsigned short unichar;
 typedef struct _NSZone NSZone;
-#define NSIntegerMax 0x7fffffffffffffffL
-#define NSUIntegerMax (~0UL)
 enum { NSNotFound = NSIntegerMax };
 typedef struct _NSRange {
     NSUInteger location, length;
@@ -47,23 +44,6 @@ enum { NSCaseInsensitiveSearch = 1, NSLiteralSearch = 2, NSBackwardsSearch = 4 }
     NSDictionary<KeyType, ObjectType>, NSMutableDictionary<KeyType, ObjectType>, NSData, NSNumber, NSError,
     NSEnumerator<ObjectType>, NSCharacterSet, NSDate, NSURL, NSSet<ObjectType>, NSNotification;
 
-@protocol NSObject
-- (BOOL)isEqual:(id)object;
-- (NSUInteger)hash;
-- (Class)class;
-- (Class)superclass;
-- (id)self;
-- (BOOL)isKindOfClass:(Class)cls;
-- (BOOL)isMemberOfClass:(Class)cls;
-- (BOOL)respondsToSelector:(SEL)sel;
-- (BOOL)conformsToProtocol:(Protocol *)protocol;
-- (id)performSelector:(SEL)sel;
-- (id)performSelector:(SEL)sel withObject:(id)object;
-- (NSString *)description;
-@optional
-- (NSString *)debugDescription;
-@end
-
 @protocol NSCopying
 - (id)copyWithZone:(NSZone *)zone;
 @end
@@ -83,31 +63,6 @@ typedef struct {
                                     count:(NSUInteger)len;
 @end
 
-__attribute__((objc_root_class))
-@interface NSObject <NSObject> {
-    Class isa;
-}
-+ (void)load;
-+ (void)initialize;
-+ (instancetype)alloc;
-+ (instancetype)allocWithZone:(NSZone *)zone;
-+ (instancetype)new;
-+ (Class)class;
-+ (Class)superclass;
-+ (BOOL)isSubclassOfClass:(Class)cls;
-+ (BOOL)instancesRespondToSelector:(SEL)sel;
-+ (BOOL)conformsToProtocol:(Protocol *)protocol;
-+ (BOOL)resolveInstanceMethod:(SEL)sel;
-+ (BOOL)resolveClassMethod:(SEL)sel;
-+ (NSString *)description;
-- (instancetype)init;
-- (void)dealloc;
-- (id)copy;
-- (id)mutableCopy;
-- (id)forwardingTargetForSelector:(SEL)sel;
-- (void)doesNotRecognizeSelector:(SEL)sel;
-- (IMP)methodForSelector:(SEL)sel;
-@end
 
 @interface NSString : NSObject <NSCopying, NSMutableCopying>
 + (instancetype)string;
