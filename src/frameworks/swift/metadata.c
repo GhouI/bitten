@@ -281,13 +281,13 @@ size_t sw_type_descriptor_size(const sw_type_context_descriptor *desc) {
     }
 }
 
-const sw_type_generic_context_header *sw_generic_header(const sw_type_context_descriptor *desc) {
+const sw_type_generic_context_header *sw_type_generic_header(const sw_type_context_descriptor *desc) {
     if (!sw_ctx_is_generic(desc->flags)) return NULL;
     return (const void *)((const char *)desc + sw_type_descriptor_size(desc));
 }
 
 unsigned sw_generic_key_argument_count(const sw_type_context_descriptor *desc) {
-    const sw_type_generic_context_header *g = sw_generic_header(desc);
+    const sw_type_generic_context_header *g = sw_type_generic_header(desc);
     return g ? g->base.num_key_arguments : 0;
 }
 

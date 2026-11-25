@@ -67,7 +67,7 @@ static void insert(struct gm_entry *e) {
 }
 
 static const sw_generic_metadata_pattern *default_pattern(const sw_type_context_descriptor *desc) {
-    const sw_type_generic_context_header *g = sw_generic_header(desc);
+    const sw_type_generic_context_header *g = sw_type_generic_header(desc);
     return g ? sw_rel(&g->default_instantiation_pattern) : NULL;
 }
 
@@ -75,7 +75,7 @@ static const sw_generic_metadata_pattern *default_pattern(const sw_type_context_
  *     const void *const *arguments, const TypeContextDescriptor *description) */
 static sw_response d_swift_getGenericMetadata(sw_request req, const void *const *args,
                                               const sw_type_context_descriptor *desc) {
-    const sw_type_generic_context_header *g = sw_generic_header(desc);
+    const sw_type_generic_context_header *g = sw_type_generic_header(desc);
     if (!g) dx_fatal("swift_getGenericMetadata: %s is not generic", sw_descriptor_name(desc));
     if (g->base.flags & 1) dx_fatal("swift: generic type %s has parameter packs", sw_descriptor_name(desc));
     unsigned n = g->base.num_key_arguments;

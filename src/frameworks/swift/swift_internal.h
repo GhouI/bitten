@@ -94,7 +94,7 @@ void sw_descriptor_qualified_name(const sw_context_descriptor *desc, char *buf, 
 
 /* Descriptor trailing objects. */
 size_t sw_type_descriptor_size(const sw_type_context_descriptor *desc);
-const sw_type_generic_context_header *sw_generic_header(const sw_type_context_descriptor *desc);
+const sw_type_generic_context_header *sw_type_generic_header(const sw_type_context_descriptor *desc);
 const sw_singleton_metadata_initialization *sw_singleton_init(const sw_type_context_descriptor *desc);
 
 /* Metadata built by the runtime and its completion state. */

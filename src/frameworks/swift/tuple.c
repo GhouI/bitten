@@ -213,6 +213,41 @@ static sw_response d_swift_getTupleTypeMetadata3(sw_request req, const sw_metada
 }
 DX_FN(swift_getTupleTypeMetadata3);
 
+/* The layout of a tuple without its metadata, for compiled code that lays
+ * out a generic tuple itself (closure contexts, async frames).
+ * void swift_getTupleTypeLayout(TypeLayout *result, uint32_t *elementOffsets,
+ *     TupleTypeFlags flags, const TypeLayout *const *elements) */
+static void d_swift_getTupleTypeLayout(sw_type_layout *out, uint32_t *offsets, uintptr_t flags,
+                                       const sw_type_layout *const *elements) {
+    sw_basic_layout(out, flags & TUPLE_NUM_ELEMENTS_MASK, elements, offsets);
+}
+DX_FN(swift_getTupleTypeLayout);
+
+/* size_t swift_getTupleTypeLayout2(TypeLayout *, const TypeLayout *, const TypeLayout *):
+ * returns the second element's offset. */
+static size_t d_swift_getTupleTypeLayout2(sw_type_layout *out, const sw_type_layout *e0,
+                                          const sw_type_layout *e1) {
+    const sw_type_layout *el[2] = {e0, e1};
+    uint32_t off[2];
+    sw_basic_layout(out, 2, el, off);
+    return off[1];
+}
+DX_FN(swift_getTupleTypeLayout2);
+
+/* OffsetPair swift_getTupleTypeLayout3(TypeLayout *, elt0, elt1, elt2): the
+ * offsets of the second and third elements, returned in rax:rdx. */
+typedef struct {
+    size_t first, second;
+} offset_pair;
+static offset_pair d_swift_getTupleTypeLayout3(sw_type_layout *out, const sw_type_layout *e0,
+                                               const sw_type_layout *e1, const sw_type_layout *e2) {
+    const sw_type_layout *el[3] = {e0, e1, e2};
+    uint32_t off[3];
+    sw_basic_layout(out, 3, el, off);
+    return (offset_pair){off[1], off[2]};
+}
+DX_FN(swift_getTupleTypeLayout3);
+
 /* ---- metatypes ------------------------------------------------------------------------
  * A thick metatype value is a metadata pointer. Its extra inhabitants are
  * the values below 4 GiB (the zero page on Darwin x86-64) with the low bit
