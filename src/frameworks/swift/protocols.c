@@ -144,6 +144,8 @@ static void conf_tail(const sw_conformance_descriptor *c, struct conf_tail *t) {
 }
 
 typedef void (*wt_instantiator)(void **table, const sw_metadata *type, const void *const *args);
+typedef const sw_witness_table *(*assoc_conf_accessor)(const sw_metadata *assoc, const sw_metadata *self,
+                                                       const sw_witness_table *wt);
 
 static const sw_witness_table *d_swift_getWitnessTable(const sw_conformance_descriptor *c,
                                                        const sw_metadata *type, const void *const *args) {
@@ -191,6 +193,28 @@ static const sw_witness_table *d_swift_getWitnessTable(const sw_conformance_desc
         wt_instantiator fn = (wt_instantiator)sw_rel(&t.gwt->instantiator);
         fn(table, type, args);
     }
+    /* Base-protocol entries are read directly by compiled code (wt[n] is
+     * the base protocol's witness table), so they cannot stay as the
+     * tagged references a resilient conformance carries: resolve them now
+     * through the accessor the reference names (\xFF \x07 <rel32>), with
+     * Self as the "associated type". */
+    if (t.resilient)
+        for (uint32_t i = 0; i < proto->num_requirements && 1 + i < size; i++) {
+            uintptr_t v = (uintptr_t)table[1 + i];
+            if ((reqs[i].flags & 0xF) != 0 || !(v & 1)) continue;
+            const unsigned char *name = (const unsigned char *)(v & ~(uintptr_t)1);
+            if (name[0] == 0xFF) name++;
+            const sw_witness_table *base = NULL;
+            if (name[0] == 0x07 || name[0] == 0x09) {
+                int32_t off;
+                memcpy(&off, name + 1, 4);
+                assoc_conf_accessor fn = (assoc_conf_accessor)(name + 1 + off);
+                base = fn(type, type, (const sw_witness_table *)table);
+            }
+            if (!base) dx_fatal("swift: base protocol #%u of a conformance of %s could not be resolved", i,
+                                sw_type_name(type, 1));
+            table[1 + i] = (void *)base;
+        }
 
     pthread_mutex_lock(&lock);
     const sw_witness_table *again = sw_map_get(&tables, (uintptr_t)c, (uintptr_t)type, NULL);
@@ -361,8 +385,6 @@ static sw_response d_swift_getAssociatedTypeWitness(sw_request req, const sw_wit
 }
 DX_FN(swift_getAssociatedTypeWitness);
 
-typedef const sw_witness_table *(*assoc_conf_accessor)(const sw_metadata *assoc, const sw_metadata *self,
-                                                       const sw_witness_table *wt);
 
 static const sw_witness_table *d_swift_getAssociatedConformanceWitness(
     const sw_witness_table *wt, const sw_metadata *type, const sw_metadata *assoc_type,

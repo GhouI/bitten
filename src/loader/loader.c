@@ -960,7 +960,12 @@ static struct dx_image *map_image(const char *path, int is_main) {
      * main executable so addresses match static disassembly */
     size_t span = PAGE_UP(img->hi - img->lo);
     void *base = MAP_FAILED;
-    if (is_main || !(mh.flags & MH_PIE))
+    /* Only executables are placed at their linked address (a non-PIE one
+     * must be). Libraries always slide, as with dyld: MH_PIE is an
+     * executable flag, and a dylib linked at 0 would otherwise land on page
+     * zero when the kernel allows it (running as root), making NULL
+     * dereferences read the library. */
+    if (is_main || (mh.filetype == MH_EXECUTE && !(mh.flags & MH_PIE)))
         base = mmap((void *)img->lo, span, PROT_NONE,
                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE | MAP_FIXED_NOREPLACE, -1, 0);
     if (base == MAP_FAILED) {
