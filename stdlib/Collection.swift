@@ -587,3 +587,31 @@ extension Repeated: RandomAccessCollection {
 @inlinable public func repeatElement<T>(_ element: T, count n: Int) -> Repeated<T> {
   return Repeated(_repeating: element, count: n)
 }
+
+// Concatenation with any sequence of the same element type.
+extension RangeReplaceableCollection {
+  @inlinable
+  public static func + <Other: Sequence>(lhs: Self, rhs: Other) -> Self where Element == Other.Element {
+    var lhs = lhs
+    lhs.append(contentsOf: rhs)
+    return lhs
+  }
+  @inlinable
+  public static func + <Other: Sequence>(lhs: Other, rhs: Self) -> Self where Element == Other.Element {
+    var result = Self()
+    result.reserveCapacity(rhs.count + lhs.underestimatedCount)
+    result.append(contentsOf: lhs)
+    result.append(contentsOf: rhs)
+    return result
+  }
+  @inlinable
+  public static func += <Other: Sequence>(lhs: inout Self, rhs: Other) where Element == Other.Element {
+    lhs.append(contentsOf: rhs)
+  }
+  @inlinable
+  public static func + <Other: RangeReplaceableCollection>(lhs: Self, rhs: Other) -> Self where Element == Other.Element {
+    var lhs = lhs
+    lhs.append(contentsOf: rhs)
+    return lhs
+  }
+}

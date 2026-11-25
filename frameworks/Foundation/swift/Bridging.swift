@@ -5,6 +5,7 @@
 // itself, where macOS keeps it.
 
 @_exported import Foundation
+@_exported import Darwin
 
 /// An Objective-C object converted to `T`: by bridging when T is
 /// bridgeable, by a cast otherwise.

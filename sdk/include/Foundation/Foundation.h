@@ -98,6 +98,7 @@ __attribute__((swift_bridge("Swift.String")))
 - (instancetype)initWithString:(NSString *)string;
 - (instancetype)initWithFormat:(NSString *)format, ... NS_FORMAT_FUNCTION(1, 2);
 - (instancetype)initWithFormat:(NSString *)format arguments:(va_list)args NS_FORMAT_FUNCTION(1, 0);
++ (instancetype)stringWithCharacters:(const unichar *)characters length:(NSUInteger)length;
 - (instancetype)initWithCharacters:(const unichar *)characters length:(NSUInteger)length;
 @property (readonly) NSUInteger length;
 - (unichar)characterAtIndex:(NSUInteger)index;
@@ -501,24 +502,25 @@ NSString *NSTemporaryDirectory(void);
 NSString *NSHomeDirectory(void);
 NSString *NSUserName(void);
 
+__attribute__((swift_bridge("Foundation.URL")))
 @interface NSURL : NSObject <NSCopying>
-+ (instancetype)URLWithString:(NSString *)string;
++ (nullable instancetype)URLWithString:(NSString *)string;
 + (instancetype)fileURLWithPath:(NSString *)path;
 + (instancetype)fileURLWithPath:(NSString *)path isDirectory:(BOOL)isDirectory;
-- (instancetype)initWithString:(NSString *)string;
+- (nullable instancetype)initWithString:(NSString *)string;
 - (instancetype)initFileURLWithPath:(NSString *)path;
-@property (readonly, copy) NSString *absoluteString;
-@property (readonly, copy) NSString *scheme;
-@property (readonly, copy) NSString *host;
-@property (readonly, copy) NSNumber *port;
-@property (readonly, copy) NSString *path;
-@property (readonly, copy) NSString *query;
-@property (readonly, copy) NSString *fragment;
+@property (nullable, readonly, copy) NSString *absoluteString;
+@property (nullable, readonly, copy) NSString *scheme;
+@property (nullable, readonly, copy) NSString *host;
+@property (nullable, readonly, copy) NSNumber *port;
+@property (nullable, readonly, copy) NSString *path;
+@property (nullable, readonly, copy) NSString *query;
+@property (nullable, readonly, copy) NSString *fragment;
 @property (readonly, copy) NSString *lastPathComponent;
 @property (readonly, copy) NSString *pathExtension;
 @property (readonly, getter=isFileURL) BOOL fileURL;
 - (NSURL *)URLByAppendingPathComponent:(NSString *)component;
-@property (readonly, copy) NSURL *URLByDeletingLastPathComponent;
+@property (nullable, readonly, copy) NSURL *URLByDeletingLastPathComponent;
 @end
 
 typedef NSUInteger NSJSONReadingOptions;
@@ -530,6 +532,111 @@ enum { NSJSONWritingPrettyPrinted = 1, NSJSONWritingSortedKeys = 2, NSJSONWritin
 + (BOOL)isValidJSONObject:(id)object;
 + (NSData *)dataWithJSONObject:(id)object options:(NSJSONWritingOptions)options error:(NSError **)error;
 + (id)JSONObjectWithData:(NSData *)data options:(NSJSONReadingOptions)options error:(NSError **)error;
+@end
+
+typedef NS_OPTIONS(NSUInteger, NSPropertyListMutabilityOptions) {
+    NSPropertyListImmutable = 0,
+    NSPropertyListMutableContainers = 1,
+    NSPropertyListMutableContainersAndLeaves = 2
+};
+typedef NSPropertyListMutabilityOptions NSPropertyListReadOptions;
+typedef NSUInteger NSPropertyListWriteOptions;
+typedef NS_ENUM(NSUInteger, NSPropertyListFormat) {
+    NSPropertyListOpenStepFormat = 1,
+    NSPropertyListXMLFormat_v1_0 = 100,
+    NSPropertyListBinaryFormat_v1_0 = 200
+};
+@interface NSPropertyListSerialization : NSObject
++ (BOOL)propertyList:(id)plist isValidForFormat:(NSPropertyListFormat)format;
++ (nullable NSData *)dataWithPropertyList:(id)plist format:(NSPropertyListFormat)format
+                                  options:(NSPropertyListWriteOptions)opt error:(NSError **)error;
++ (nullable id)propertyListWithData:(NSData *)data options:(NSPropertyListReadOptions)opt
+                             format:(nullable NSPropertyListFormat *)format error:(NSError **)error;
+@end
+
+@interface NSBundle : NSObject
+@property (class, readonly, strong) NSBundle *mainBundle;
++ (nullable instancetype)bundleWithPath:(NSString *)path;
++ (nullable instancetype)bundleWithURL:(NSURL *)url;
++ (NSBundle *)bundleForClass:(Class)aClass;
++ (nullable NSBundle *)bundleWithIdentifier:(NSString *)identifier;
+@property (class, readonly, copy) NSArray<NSBundle *> *allBundles;
+@property (class, readonly, copy) NSArray<NSBundle *> *allFrameworks;
+- (nullable instancetype)initWithPath:(NSString *)path;
+- (nullable instancetype)initWithURL:(NSURL *)url;
+@property (readonly, copy) NSString *bundlePath;
+@property (readonly, copy) NSURL *bundleURL;
+@property (nullable, readonly, copy) NSString *resourcePath;
+@property (nullable, readonly, copy) NSURL *resourceURL;
+@property (nullable, readonly, copy) NSString *executablePath;
+@property (nullable, readonly, copy) NSURL *executableURL;
+@property (nullable, readonly, copy) NSString *privateFrameworksPath;
+@property (nullable, readonly, copy) NSURL *privateFrameworksURL;
+@property (nullable, readonly, copy) NSString *sharedFrameworksPath;
+@property (nullable, readonly, copy) NSString *builtInPlugInsPath;
+@property (nullable, readonly, copy) NSURL *builtInPlugInsURL;
+@property (nullable, readonly, copy) NSURL *appStoreReceiptURL;
+@property (nullable, readonly, copy) NSString *bundleIdentifier;
+@property (nullable, readonly, copy) NSDictionary<NSString *, id> *infoDictionary;
+@property (nullable, readonly, copy) NSDictionary<NSString *, id> *localizedInfoDictionary;
+- (nullable id)objectForInfoDictionaryKey:(NSString *)key;
+@property (nullable, readonly) Class principalClass;
+@property (readonly, copy) NSArray<NSString *> *localizations;
+@property (readonly, copy) NSArray<NSString *> *preferredLocalizations;
+@property (nullable, readonly, copy) NSString *developmentLocalization;
+- (BOOL)load;
+@property (readonly, getter=isLoaded) BOOL loaded;
+- (BOOL)unload;
+- (BOOL)loadAndReturnError:(NSError **)error;
+- (nullable NSString *)pathForResource:(nullable NSString *)name ofType:(nullable NSString *)ext;
+- (nullable NSString *)pathForResource:(nullable NSString *)name ofType:(nullable NSString *)ext inDirectory:(nullable NSString *)subpath;
+- (NSArray<NSString *> *)pathsForResourcesOfType:(nullable NSString *)ext inDirectory:(nullable NSString *)subpath;
+- (nullable NSURL *)URLForResource:(nullable NSString *)name withExtension:(nullable NSString *)ext;
+- (nullable NSURL *)URLForResource:(nullable NSString *)name withExtension:(nullable NSString *)ext subdirectory:(nullable NSString *)subpath;
+- (nullable NSArray<NSURL *> *)URLsForResourcesWithExtension:(nullable NSString *)ext subdirectory:(nullable NSString *)subpath;
+- (NSString *)localizedStringForKey:(NSString *)key value:(nullable NSString *)value table:(nullable NSString *)tableName;
+@end
+#define NSLocalizedString(key, comment) [NSBundle.mainBundle localizedStringForKey:(key) value:@"" table:nil]
+
+extern NSString *const NSGlobalDomain, *const NSArgumentDomain, *const NSRegistrationDomain;
+extern NSString *const NSUserDefaultsDidChangeNotification;
+@interface NSUserDefaults : NSObject
+@property (class, readonly, strong) NSUserDefaults *standardUserDefaults;
++ (void)resetStandardUserDefaults;
+- (instancetype)init;
+- (nullable instancetype)initWithSuiteName:(nullable NSString *)suitename;
+- (nullable id)objectForKey:(NSString *)defaultName;
+- (void)setObject:(nullable id)value forKey:(NSString *)defaultName;
+- (void)removeObjectForKey:(NSString *)defaultName;
+- (nullable NSString *)stringForKey:(NSString *)defaultName;
+- (nullable NSArray *)arrayForKey:(NSString *)defaultName;
+- (nullable NSDictionary<NSString *, id> *)dictionaryForKey:(NSString *)defaultName;
+- (nullable NSData *)dataForKey:(NSString *)defaultName;
+- (nullable NSArray<NSString *> *)stringArrayForKey:(NSString *)defaultName;
+- (NSInteger)integerForKey:(NSString *)defaultName;
+- (float)floatForKey:(NSString *)defaultName;
+- (double)doubleForKey:(NSString *)defaultName;
+- (BOOL)boolForKey:(NSString *)defaultName;
+- (nullable NSURL *)URLForKey:(NSString *)defaultName;
+- (void)setInteger:(NSInteger)value forKey:(NSString *)defaultName;
+- (void)setFloat:(float)value forKey:(NSString *)defaultName;
+- (void)setDouble:(double)value forKey:(NSString *)defaultName;
+- (void)setBool:(BOOL)value forKey:(NSString *)defaultName;
+- (void)setURL:(nullable NSURL *)url forKey:(NSString *)defaultName;
+- (void)registerDefaults:(NSDictionary<NSString *, id> *)registrationDictionary;
+- (void)addSuiteNamed:(NSString *)suiteName;
+- (void)removeSuiteNamed:(NSString *)suiteName;
+- (NSDictionary<NSString *, id> *)dictionaryRepresentation;
+@property (readonly, copy) NSArray<NSString *> *volatileDomainNames;
+- (NSDictionary<NSString *, id> *)volatileDomainForName:(NSString *)domainName;
+- (void)setVolatileDomain:(NSDictionary<NSString *, id> *)domain forName:(NSString *)domainName;
+- (void)removeVolatileDomainForName:(NSString *)domainName;
+- (nullable NSDictionary<NSString *, id> *)persistentDomainForName:(NSString *)domainName;
+- (void)setPersistentDomain:(NSDictionary<NSString *, id> *)domain forName:(NSString *)domainName;
+- (void)removePersistentDomainForName:(NSString *)domainName;
+- (BOOL)synchronize;
+- (BOOL)objectIsForcedForKey:(NSString *)key;
+- (BOOL)objectIsForcedForKey:(NSString *)key inDomain:(NSString *)domain;
 @end
 
 typedef NSString *NSNotificationName;

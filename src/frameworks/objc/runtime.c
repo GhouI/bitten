@@ -347,6 +347,7 @@ Class objc_class_of(id obj) {
 
 void ensure_initialized(Class cls) {
     if (!cls) return;
+    if (RW(cls)->flags & RW_PLACEHOLDER) return; /* nothing to initialize; real messages report */
     if (__atomic_load_n(&RW(cls)->flags, __ATOMIC_ACQUIRE) & RW_INITIALIZED) return;
     if (cls->superclass) ensure_initialized(cls->superclass);
     pthread_mutex_lock(&dx_objc_lock);
@@ -380,6 +381,10 @@ void ensure_initialized(Class cls) {
 static void unrecognized(id self, SEL sel) {
     Class cls = objc_class_of(self);
     int meta = class_realized(cls) && class_is_meta(cls);
+    Class named = meta ? (Class)self : cls;
+    if (class_realized(named) && (RW(named)->flags & RW_PLACEHOLDER))
+        dx_fatal("objc: %c[%s %s]: class %s is not implemented in bitten yet", meta ? '+' : '-',
+                 class_name(named), sel, class_name(named));
     dx_fatal("objc: %c[%s %s]: unrecognized selector sent to %s %p\n"
              "  (full message forwarding through NSInvocation is not implemented)",
              meta ? '+' : '-', class_name(meta ? (Class)self : cls), sel, meta ? "class" : "instance",
@@ -629,6 +634,22 @@ Class make_class(Class storage, Class meta_storage, Class super, const char *nam
     realized_list = meta;
     pthread_mutex_unlock(&dx_objc_lock);
     return cls;
+}
+
+/* A class a program imports but bitten does not provide: an empty root
+ * class with the right name, so that loading succeeds and the first message
+ * to it fails with a clear report instead of jumping into a stub. */
+void *dx_objc_placeholder_class(const char *name, int want_meta) {
+    Class c = class_table_get(name);
+    if (!c) {
+        c = make_class(NULL, NULL, NULL, name, 0);
+        RW(c)->flags |= RW_PLACEHOLDER;
+        RW(c->isa)->flags |= RW_PLACEHOLDER;
+        pthread_mutex_lock(&dx_objc_lock);
+        class_table_put(name, c);
+        pthread_mutex_unlock(&dx_objc_lock);
+    }
+    return want_meta ? (void *)c->isa : (void *)c;
 }
 
 static void register_class(Class cls) {

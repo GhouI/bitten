@@ -397,6 +397,13 @@ static void *resolve(struct dx_image *img, int64_t ordinal, const char *name, in
     if (r) return r;
     if (weak) return NULL;
     note_missing(img, lib, name);
+    /* Objective-C classes nobody provides get a placeholder class rather
+     * than a code stub: messaging a stub crashes without saying what was
+     * missing. */
+    if (dx_objc_placeholder_class && !strncmp(name, "_OBJC_CLASS_$_", 14))
+        return dx_objc_placeholder_class(name + 14, 0);
+    if (dx_objc_placeholder_class && !strncmp(name, "_OBJC_METACLASS_$_", 18))
+        return dx_objc_placeholder_class(name + 18, 1);
     return make_stub(name);
 }
 

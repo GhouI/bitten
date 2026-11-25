@@ -123,6 +123,7 @@ struct mlist {
 #define RW_INITIALIZING 0x4
 #define RW_DYNAMIC 0x8      /* created with objc_allocateClassPair */
 #define RW_REGISTERED 0x10
+#define RW_PLACEHOLDER 0x20 /* stands in for a class bitten does not implement */
 struct class_rw {
     uint32_t flags; /* first, so it overlays class_ro.flags; bit 31 tells them apart */
     uint32_t instance_size;
