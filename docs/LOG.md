@@ -1451,3 +1451,26 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - The ring's filled arc is split into one coloured segment per area (its
   implemented imports as a share of all of them), with a legend of each
   area's own progress beside it. No grey: open work is a pale blue.
+
+## 2026-11-25: Synchronization, CharacterSet, String's Foundation API
+
+- New overlay `Synchronization`: `Mutex`, `_MutexHandle`, `_Cell` and
+  `Atomic` with Apple's raw layouts (programs inline their operations, so
+  only metadata comes from the library). `os/lock.h` (`os_unfair_lock`) in
+  the SDK; runtime gains `swift_copyPOD` and
+  `swift_runtimeSupportsNoncopyableTypes`; stdlib gains `BitwiseCopyable`.
+- Foundation's Swift overlay: `CharacterSet` (sorted scalar ranges;
+  predefined sets from NSCharacterSet; SetAlgebra), `Locale` (identifier,
+  current from the environment), `String.Encoding`, `String(format:)`,
+  `String.CompareOptions`/`ComparisonResult`, and StringProtocol's
+  Foundation methods: `components(separatedBy:)`, `trimmingCharacters`,
+  `replacingOccurrences`, `range(of:options:range:locale:)`, the compare
+  family (numeric and case-insensitive), percent encoding, `capitalized`.
+  NSObject, String and Substring are `CVarArg` (as objects for `%@`).
+- stdlib: `withVaList`/`getVaList` build an x86-64 va_list.
+- Headers: `NSStringCompareOptions` and `NSComparisonResult` are proper
+  NS_OPTIONS/NS_ENUM types with Apple's Swift names.
+- Tests: `tests/swiftlib/foundation` (swiftlib tests can now link
+  frameworks via `SWLIB_LIBS_<name>`).
+- Target app window (total `^MISSING`): 3,658 -> 3,613. It now stops at
+  `JSONEncoder`.

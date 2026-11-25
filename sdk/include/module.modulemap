@@ -116,6 +116,7 @@ module AppKit [system] {
 }
 
 module os [system] {
+  header "os/lock.h"
   header "os/object.h"
   header "os/log.h"
   header "os/signpost.h"

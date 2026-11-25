@@ -260,6 +260,7 @@ $(SWIFTRES)/.stamp:
 OVERLAY_DEPS_Darwin     := _errno _signal
 OVERLAY_DEPS_CoreGraphics := CoreFoundation
 OVERLAY_DEPS_os := ObjectiveC
+OVERLAY_DEPS_Synchronization := os ObjectiveC
 overlay_lib = $(FW_ROOT)/usr/lib/swift/libswift$(1).dylib
 overlay_deps = $(foreach d,$(OVERLAY_DEPS_$(1)),$(call overlay_lib,$(d)))
 
@@ -332,7 +333,9 @@ LIBCONCURRENCY := $(FW_ROOT)/usr/lib/swift/libswift_Concurrency.dylib
 # macOS 14) are hidden from older targets by $ld$hide directives.
 SWLIB_MACOS_darwin := 14.0
 swlib_macos = $(or $(SWLIB_MACOS_$(1)),11.0)
-$(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTCORE) $(OVERLAY_LIBS) tests/include/darwin.h
+# Frameworks a test links besides the overlays.
+SWLIB_LIBS_foundation := $(FOUNDATION)
+$(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTCORE) $(OVERLAY_LIBS) tests/include/darwin.h $$(SWLIB_LIBS_$$*)
 	@mkdir -p $(dir $@)
 	$(SWIFTC) -target x86_64-apple-macos$(call swlib_macos,$*) -runtime-compatibility-version none -sdk $(SDKROOT) -resource-dir $(SWIFTRES) -I $(SWIFT_MODDIR) \
 	    -module-name $(subst -,_,$*) -parse-as-library \
@@ -341,7 +344,7 @@ $(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTC
 	$(MACHO_CC) -target x86_64-apple-macos11 -O1 -ffreestanding -fno-builtin -fblocks -nostdinc \
 	    -Itests/include -fno-stack-protector -c -o $@.o tests/swiftlib/$*.c
 	$(MACHO_LD) -arch x86_64 -platform_version macos $(call swlib_macos,$*) $(call swlib_macos,$*) -e _main \
-	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(OVERLAY_LIBS) -o $@ $@.o $@.swift.o
+	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(OVERLAY_LIBS) $(SWLIB_LIBS_$*) -o $@ $@.o $@.swift.o
 
 test-bins: $(TEST_APPKITBINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
 

@@ -139,6 +139,8 @@ extension Bool {
 // ---- marker protocols ------------------------------------------------------------
 @_marker public protocol Sendable {}
 @_marker public protocol SendableMetatype {}
+@_marker public protocol BitwiseCopyable {}
+public typealias _BitwiseCopyable = BitwiseCopyable
 
 // Expression patterns (`case 3:`) match through ~=.
 @_transparent
