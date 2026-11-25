@@ -719,7 +719,37 @@ for the Swift layer and for the smaller independent items.
   stored property (`swift_updateClassMetadata2`); field offsets, instance
   sizes, superclass and metaclass chains, Objective-C names, lookup by name,
   ivar offsets, objects allocated by compiled code, dynamic dispatch through
-  the runtime-built vtables. Suite 33/33 at `-O` and `-Onone`. No Docker
+  the runtime-built vtables. Suite 34/34 at `-O` and `-Onone`. No Docker
   here: `tests/e2e/target-app.sh` not run.
 - The Mac app window imports unimplemented: 5,239 -> 5,236. `mrun` still stops at
   `$s7SwiftUI28NSApplicationDelegateAdaptorVMa`.
+
+## 2026-11-25: standard library: StaticString, text literal protocols, failure reports (PR: stdlib-staticstring)
+
+- `stdlib/StaticString.swift`: `StaticString` (@frozen: start word, UTF-8
+  count, flags byte; pointer or single-scalar representation) with all the
+  literal conformances, `Unicode` and `Unicode.Scalar` (@frozen `UInt32`,
+  validating initializers, Equatable/Comparable, `UInt8(ascii:)`).
+- `stdlib/Core.swift`: the unicode-scalar, grapheme-cluster and string
+  literal protocols (builtin and public), with their default initializers.
+- `stdlib/Assert.swift`: `_fastPath`/`_slowPath`, the assert-configuration
+  queries, `_precondition`, `_preconditionFailure`, `_debugPrecondition`,
+  `_overflowChecked`, and the entry points compiled code calls:
+  `_fatalErrorMessage`, `_assertionFailure` (StaticString form),
+  `_diagnoseUnexpectedNilOptional` (now reports instead of only trapping),
+  `_diagnoseUnexpectedEnumCase{,Value}` (type name from the runtime),
+  `_diagnoseUnavailableCodeReached`, `_unimplementedInitializer` and the C
+  entry points `_swift_stdlib_reportUnimplementedInitializer{,InFile}`.
+  Reports are written to stderr in one write, in today's macOS format
+  `<file>:<line>: Fatal error: <message>`, then the process traps. As on
+  macOS, a force-unwrap of nil reports only in debug (`-Onone`) builds.
+- Not yet: `fatalError`, `precondition`, `assert` and the other forms with a
+  `String` message, and the output protocols (`TextOutputStream`,
+  `CustomStringConvertible`...) whose requirements are written in `String`;
+  they come with String.
+- `tools/gen-integers.py`: `Int`/`UInt` from and to `Builtin.Word`.
+- `tests/swiftlib/failures`: literals, scalars, and each failure in a forked
+  child (report text and death by signal), at -O and -Onone. Suite 34/34 at
+  both. No Docker here: `tests/e2e/target-app.sh` not run.
+- The Mac app window (total `^MISSING`): 5,236 -> 5,217.
+
