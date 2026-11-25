@@ -1504,3 +1504,8 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 
 - The current-area marker and its line are gone; the card is the ring,
   the legend and a timestamp.
+
+## 2026-11-25: progress ring, glow back (PR: progress-glow-back)
+
+- The soft glow behind the current area's legend dot is back; only the
+  "now" line of text stays removed.
