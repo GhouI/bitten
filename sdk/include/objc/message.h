@@ -19,6 +19,7 @@ id objc_msgSend(id self, SEL op, ...) OBJC_SWIFT_UNAVAILABLE("calls through the 
 id objc_msgSendSuper(struct objc_super *super, SEL op, ...)
     OBJC_SWIFT_UNAVAILABLE("calls through the messenger are not typed");
 void objc_msgSend_stret(void) OBJC_SWIFT_UNAVAILABLE("calls through the messenger are not typed");
+struct objc_method;
 id method_invoke(id receiver, struct objc_method *m, ...)
     OBJC_SWIFT_UNAVAILABLE("calls through the messenger are not typed");
 __END_DECLS
