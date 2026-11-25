@@ -1,6 +1,100 @@
 // Clang modules over bitten's SDK headers, for Swift code that imports
 // them (the Swift overlays in overlays/). C and Objective-C builds of
 // bitten itself do not use modules and ignore this file.
+//
+// The C library is split the way current macOS SDKs split it, so that the
+// Swift overlays _errno and _signal can sit below Darwin: the base types
+// (DarwinFoundation), errno, signals, then everything else (Darwin).
+
+module DarwinFoundation [system] [extern_c] {
+  module cdefs { header "sys/cdefs.h" export * }
+  module _types { header "sys/_types.h" export * }
+  module types { header "sys/types.h" export * }
+  module qos { header "sys/qos.h" export * }
+}
+
+module _errno [system] [extern_c] {
+  header "errno.h"
+  header "sys/errno.h"
+  export *
+}
+
+module _signal [system] [extern_c] {
+  header "signal.h"
+  header "sys/signal.h"
+  export *
+}
+
+module Darwin [system] [extern_c] {
+  export *
+  module C {
+    export *
+    module ctype { header "ctype.h" export * }
+    module inttypes { header "inttypes.h" export * }
+    module limits { header "limits.h" header "sys/syslimits.h" export * }
+    module locale { header "locale.h" export * }
+    module math { header "math.h" export * }
+    module setjmp { header "setjmp.h" export * }
+    module stdio { header "stdio.h" export * }
+    module stdlib { header "stdlib.h" header "malloc/_malloc.h" export * }
+    module string { header "string.h" export * }
+    module time { header "time.h" export * }
+  }
+  module POSIX {
+    export *
+    module arpa_inet { header "arpa/inet.h" export * }
+    module dirent { header "dirent.h" export * }
+    module dlfcn { header "dlfcn.h" export * }
+    module fcntl { header "fcntl.h" header "sys/fcntl.h" export * }
+    module grp { header "grp.h" export * }
+    module libgen { header "libgen.h" export * }
+    module net_if { header "net/if.h" export * }
+    module netdb { header "netdb.h" export * }
+    module netinet_in { header "netinet/in.h" export * }
+    module netinet_tcp { header "netinet/tcp.h" export * }
+    module poll { header "poll.h" export * }
+    module pthread { header "pthread.h" export * }
+    module pwd { header "pwd.h" export * }
+    module sched { header "sched.h" export * }
+    module spawn { header "spawn.h" export * }
+    module strings { header "strings.h" export * }
+    module termios { header "termios.h" export * }
+    module unistd { header "unistd.h" export * }
+    module sys {
+      export *
+      module event { header "sys/event.h" export * }
+      module file { header "sys/file.h" export * }
+      module ioctl { header "sys/ioctl.h" export * }
+      module mman { header "sys/mman.h" export * }
+      module mount { header "sys/mount.h" export * }
+      module param { header "sys/param.h" export * }
+      module resource { header "sys/resource.h" export * }
+      module select { header "sys/select.h" export * }
+      module socket { header "sys/socket.h" export * }
+      module stat { header "sys/stat.h" export * }
+      module sysctl { header "sys/sysctl.h" export * }
+      module time { header "sys/time.h" export * }
+      module uio { header "sys/uio.h" export * }
+      module un { header "sys/un.h" export * }
+      module utsname { header "sys/utsname.h" export * }
+      module wait { header "sys/wait.h" export * }
+      module xattr { header "sys/xattr.h" export * }
+    }
+  }
+  module malloc { header "malloc/malloc.h" export * }
+  module mach_time { header "mach/mach_time.h" export * }
+  module util { header "util.h" export * }
+}
+
+module ObjectiveC [system] [extern_c] {
+  export *
+  module objc { header "objc/objc.h" export * }
+  module runtime { header "objc/runtime.h" export * }
+  module message { header "objc/message.h" export * }
+  module NSObjCRuntime { header "objc/NSObjCRuntime.h" export * }
+  module NSObject { header "objc/NSObject.h" export * }
+}
+
 module CoreFoundation [system] {
   header "CoreFoundation/CoreFoundation.h"
   export *
