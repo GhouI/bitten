@@ -1298,3 +1298,26 @@ SwiftUI with AppKit and the drawing stack).
   hierarchy, hit testing, conversion, display passes.
 - The Mac app window (total `^MISSING`): 4,358 -> 4,099; every Objective-C AppKit
   import resolves (the rest are AppKit's Swift extensions).
+
+## 2026-11-25: Combine, Observation, the CoreGraphics overlay; Swift frameworks (PR: combine-observation)
+
+- Frameworks written in Swift: `frameworks/NAME/*.swift` builds into
+  `NAME.framework/Versions/A/NAME` (module in `build/swift`), against the
+  SDK, every overlay, Foundation and AppKit; `SWIFT_FW_DEPS_NAME` orders
+  and links frameworks that import each other.
+- Combine (`frameworks/Combine`): Publisher/Subscriber/Subscription,
+  demand, `Sink`, `AnyCancellable`, subjects, `AnyPublisher`, `Just`,
+  `Map`/`Drop`/`ReceiveOn`/`MergeMany`/`Autoconnect`, schedulers,
+  `ObservableObject` with its per-object `objectWillChange` publisher, and
+  `@Published` (with the enclosing-instance subscript the compiler uses
+  for class properties). Synchronous delivery.
+- Observation (`overlays/Observation`, libswiftObservation):
+  `ObservationRegistrar` and `withObservationTracking`: reads are recorded
+  per (object, key path) while tracking; the first write to any of them
+  calls `onChange` once.
+- CoreGraphics overlay: the importer maps the C `CGFloat` typedef to the
+  Swift `CGFloat` it finds in a Swift module named CoreGraphics; this
+  overlay re-exports the C module and the CoreFoundation overlay's
+  `CGFloat`, so `CGSize.width` and friends are CGFloat in Swift.
+- The Mac app window (total `^MISSING`): 4,099 -> 4,060 (all Combine and
+  Observation imports resolve).
