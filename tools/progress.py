@@ -20,6 +20,7 @@ Nothing from the disk image is written out: only counts.
 Standard-library Python, like tools/dmgx."""
 import csv
 import datetime
+import math
 import os
 import re
 import subprocess
@@ -217,6 +218,87 @@ def roadmap_layers():
 
 
 # --------------------------------------------------------------------- svg
+#
+# The chart is one card, shown through <img> in the README, so it is plain
+# SVG: no script, no web fonts, light and dark from one <style> block.
+# Three pictures, top to bottom, all drawn in the same three columns
+# (labels, picture, values). The first and the last are stacks and read
+# from the bottom up, the way the system is built:
+#
+#   areas    every import as one block, a row per area. A row's height is
+#            how many imports the area has and its filled part is how many
+#            are implemented, so filled area against the whole block is the
+#            headline percentage
+#   history  imports implemented over time, the axis zoomed to the range
+#   roadmap  the layers as a stack, first layer at the bottom, the app on top
+#
+#   type     four sizes, two weights (TYPE); nothing else is used
+#   spacing  multiples of 4, PAD at the card edge and around section rules
+#   colour   one blue means "implemented" everywhere, a lighter step of the
+#            same blue is work still open. Text never wears the blue.
+
+W = 880                  # drawn width: GitHub's README column
+PAD = 32                 # card edge, and the air above and below a rule
+COL_L, COL_R = 108, 164  # label column and value column either side of a picture
+GAP = 4                  # between rows of a picture
+FONT = 'system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif'
+
+# class: (font-size, font-weight)
+T_HERO, T_TITLE, T_BODY, T_SMALL = 56, 20, 14, 12
+TYPE = {
+    "hero":  (T_HERO, 600),
+    "title": (T_TITLE, 600),
+    "head":  (T_BODY, 600),
+    "body":  (T_BODY, 400),
+    "small": (T_SMALL, 400),
+}
+
+# role: (light, dark). Neutrals sit on GitHub's own page colours; the blues
+# are steps of one ramp, checked for contrast against each surface.
+COLORS = {
+    "surface": ("#ffffff", "#0d1117"),
+    "border":  ("#d1d9e0", "#3d444d"),
+    "ink":     ("#1f2328", "#f0f6fc"),   # primary text
+    "sec":     ("#59636e", "#9198a1"),   # secondary text
+    "rule":    ("#e6eaef", "#262c36"),   # section rules and gridlines
+    "axis":    ("#c2cad3", "#3d444d"),   # tick marks, outline of an unstarted layer
+    "accent":  ("#2370cd", "#338ced"),   # implemented, done
+    "track":   ("#84b9f3", "#0f4a96"),   # not yet implemented, in progress
+}
+
+
+def build_style():
+    def rules(i):
+        c = {k: v[i] for k, v in COLORS.items()}
+        return [
+            ".card { fill: %(surface)s; stroke: %(border)s; }" % c,
+            ".ink { fill: %(ink)s; }" % c,
+            ".sec { fill: %(sec)s; }" % c,
+            ".rule { stroke: %(rule)s; }" % c,
+            ".axis { stroke: %(axis)s; }" % c,
+            ".fill { fill: %(accent)s; }" % c,
+            ".track { fill: %(track)s; }" % c,
+            ".notch { stroke: %(surface)s; stroke-opacity: 0.45; }" % c,
+            ".line { stroke: %(accent)s; fill: none; }" % c,
+            ".on { fill: %(surface)s; }" % c,
+            ".dot { fill: %(accent)s; stroke: %(surface)s; }" % c,
+            ".open { fill: %(surface)s; stroke: %(axis)s; }" % c,
+            ".goal { fill: %(surface)s; stroke: %(ink)s; }" % c,
+        ]
+    out = ["<style>", "  text { font-family: %s; }" % FONT]
+    for name, (size, weight) in TYPE.items():
+        out.append("  .%s { font-size: %dpx; font-weight: %d; }" % (name, size, weight))
+    out.append("  .hero { letter-spacing: -1.5px; }")
+    out.append("  .num { font-variant-numeric: tabular-nums; }")
+    out += ["  " + r for r in rules(0)]
+    out.append("  @media (prefers-color-scheme: dark) {")
+    out += ["    " + r for r in rules(1)]
+    out += ["  }", "</style>"]
+    return "\n".join(out)
+
+
+STYLE = build_style()
+
 
 def esc(s):
     return (str(s).replace("&", "&amp;").replace("<", "&lt;")
@@ -227,249 +309,293 @@ def fmt(n):
     return "{:,}".format(int(n))
 
 
-AREA_COLORS = {
-    "System": "#6366f1", "Swift": "#f97316", "Foundation": "#0ea5e9",
-    "Graphics": "#14b8a6", "AppKit": "#8b5cf6", "SwiftUI": "#ec4899",
-    "Other": "#64748b",
-}
+def est_width(s, size):
+    """Advance width of a string, roughly. There are no font metrics here and
+    the reader's system font is unknown, so this errs on the wide side."""
+    w = 0.0
+    for ch in s:
+        if ch in " .,:;'|iljI!":
+            w += 0.34
+        elif ch in "tfr":
+            w += 0.44
+        elif ch in "mwMW%@":
+            w += 0.98
+        elif ch.isupper() or ch.isdigit():
+            w += 0.72
+        else:
+            w += 0.64
+    return w * size
 
-STYLE = """
-<style>
-  .card  { fill: #ffffff; stroke: #e5e7eb; }
-  .panel { fill: #f8fafc; stroke: #eef2f6; }
-  .ink   { fill: #0f172a; }
-  .mute  { fill: #64748b; }
-  .soft  { fill: #94a3b8; }
-  .track { fill: #e9edf3; }
-  .grid  { stroke: #e5e7eb; }
-  .chip  { fill: #eef2ff; }
-  .chipt { fill: #4338ca; }
-  .ringtrack { stroke: #e9edf3; }
-  .halo  { fill: #ffffff; }
-  .done  { fill: #10b981; } .donet { fill: #047857; } .doneb { fill: #d1fae5; }
-  .part  { fill: #f59e0b; } .partt { fill: #b45309; } .partb { fill: #fef3c7; }
-  .todo  { fill: #cbd5e1; } .todot { fill: #64748b; } .todob { fill: #f1f5f9; }
-  @media (prefers-color-scheme: dark) {
-    .card  { fill: #0d1117; stroke: #30363d; }
-    .panel { fill: #161b22; stroke: #21262d; }
-    .ink   { fill: #e6edf3; }
-    .mute  { fill: #9198a1; }
-    .soft  { fill: #6e7681; }
-    .track { fill: #21262d; }
-    .grid  { stroke: #21262d; }
-    .chip  { fill: #1f2447; }
-    .chipt { fill: #a5b4fc; }
-    .ringtrack { stroke: #21262d; }
-    .halo  { fill: #0d1117; }
-    .donet { fill: #34d399; } .doneb { fill: #0b3b2c; }
-    .partt { fill: #fbbf24; } .partb { fill: #3d2e0a; }
-    .todo  { fill: #484f58; } .todot { fill: #9198a1; } .todob { fill: #21262d; }
-  }
-  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter",
-         Helvetica, Arial, sans-serif; }
-  .num { font-variant-numeric: tabular-nums; }
-</style>
-"""
+
+def wrap(s, size, width):
+    """Break a string at spaces into the fewest lines no wider than `width`,
+    then even the lines out so the last one is not a single stray word."""
+    def fill(limit):
+        lines, cur = [], ""
+        for word in s.split():
+            trial = (cur + " " + word).strip()
+            if cur and est_width(trial, size) > limit:
+                lines.append(cur)
+                cur = word
+            else:
+                cur = trial
+        return lines + [cur] if cur else lines
+    best = fill(width)
+    limit = width - size
+    while limit > 0 and len(best) > 1:
+        tighter = fill(limit)
+        if len(tighter) != len(best):
+            break
+        best, limit = tighter, limit - size
+    return best
+
+
+def nice_step(span, most=5):
+    """A 1/2/5 step that crosses `span` in at most `most` intervals."""
+    mag = 10 ** math.floor(math.log10(max(span, 1) / most))
+    for m in (1, 2, 5, 10):
+        if span / (m * mag) <= most:
+            return int(m * mag) or 1
+    return int(10 * mag)
+
+
+def time_ticks(t0, t1, most=6):
+    """Round clock times between t0 and t1 (UTC) as (time, label, date).
+    The date is given where a reader needs it: on the first tick and at
+    each midnight; ticks a day or more apart are labelled by date alone."""
+    hour, day = 3600, 86400
+    span = (t1 - t0).total_seconds()
+    for step in (hour, 2 * hour, 3 * hour, 6 * hour, 12 * hour, day, 2 * day,
+                 7 * day, 14 * day, 30 * day, 91 * day, 365 * day):
+        if span / step <= most:
+            break
+    epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
+    k = math.ceil((t0 - epoch).total_seconds() / step) * step
+    ticks = []
+    while k <= (t1 - epoch).total_seconds():
+        t = epoch + datetime.timedelta(seconds=k)
+        date = "%s %d" % (t.strftime("%b"), t.day)
+        if step >= day:
+            ticks.append((t, date, ""))
+        else:
+            midnight = not (t.hour or t.minute)
+            ticks.append((t, t.strftime("%H:%M"), date if midnight or not ticks else ""))
+        k += step
+    return ticks
+
+
+def history_points(history, total):
+    """(time in UTC, imports implemented) per history row, oldest first."""
+    utc = datetime.timezone.utc
+    pts = []
+    for r in history:
+        if not r.get("missing"):
+            continue
+        t = datetime.datetime.fromisoformat(r["date"])
+        t = t.replace(tzinfo=utc) if t.tzinfo is None else t.astimezone(utc)
+        pts.append((t, max(total - int(r["missing"]), 0)))
+    pts.sort()
+    return pts
 
 
 def draw(out, totals, missing, history, commit, when):
-    import math
-    W, P = 880, 28                       # width, outer padding
     total = sum(totals.values())
     left = sum(min(missing[a], totals[a]) for a in AREA_NAMES)
     done = total - left
     frac = done / total if total else 0
     layers = roadmap_layers()
-    n_done = sum(1 for l in layers if l[2] == "done")
-    n_part = sum(1 for l in layers if l[2] == "partial")
-    n_todo = len(layers) - n_done - n_part
-    pts = [(datetime.datetime.fromisoformat(r["date"]), int(r["missing"]))
-           for r in history if r.get("missing")]
+    count = {st: sum(1 for l in layers if l[2] == st)
+             for st in ("done", "partial", "todo")}
+    pts = history_points(history, total)
+    x0, x1 = PAD, W - PAD                # the content column
 
     s = []
-    T = s.append
+    add = s.append
 
-    def text(x, y, body, cls="ink", size=13, weight=400, anchor="start", extra=""):
-        if ' class="num"' in extra:
-            extra = extra.replace(' class="num"', "")
-            cls = (cls + " num").strip()
-        T('<text x="%.1f" y="%.1f" class="%s" font-size="%s" font-weight="%d"'
-          ' text-anchor="%s"%s>%s</text>' % (x, y, cls, size, weight, anchor, extra, body))
+    def text(x, y, body, cls, anchor="start"):
+        """One line of text; `cls` is a size from TYPE plus a colour."""
+        add('<text x="%.1f" y="%.1f" class="%s"%s>%s</text>'
+            % (x, y, cls, "" if anchor == "start" else ' text-anchor="%s"' % anchor,
+               body))
 
-    def panel(x, y, w, h):
-        T('<rect x="%d" y="%d" width="%d" height="%d" rx="14" class="panel"/>' % (x, y, w, h))
+    def hline(y, xa=x0, xb=x1, cls="rule"):
+        add('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" class="%s"/>'
+            % (xa, y, xb, y, cls))
 
-    # ---- header
-    y = 46
-    T('<rect x="%d" y="%d" width="10" height="26" rx="3" fill="url(#brand)"/>' % (P, y - 21))
-    text(P + 20, y, "bitten", size=22, weight=700)
-    text(P + 92, y, "· running a Mac app on Linux", "mute", 15)
-    cw = 9 + 7.2 * (len(commit[:7]) + 7)
-    T('<rect x="%.1f" y="%d" width="%.1f" height="24" rx="12" class="chip"/>'
-      % (W - P - cw, y - 17, cw))
-    text(W - P - cw / 2, y - 1, "main @ " + esc(commit[:7]), "chipt", 12, 600, "middle",
-         ' font-family="ui-monospace, SFMono-Regular, Menlo, monospace"')
-    text(W - P - cw - 12, y - 1, "updated " + esc(when), "mute", 12, anchor="end")
+    def slab(x, y, w, h, cls, extra=""):
+        add('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" class="%s"%s/>'
+            % (x, y, w, h, min(4, h / 2, w / 2), cls, extra))
 
-    # ---- hero: ring + numbers + stat tiles
-    y = 76
-    panel(P, y, W - 2 * P, 156)
-    cx, cy, r = P + 86, y + 78, 52
-    circ = 2 * math.pi * r
-    T('<circle cx="%d" cy="%d" r="%d" fill="none" class="ringtrack" stroke-width="13"/>'
-      % (cx, cy, r))
-    T('<circle cx="%d" cy="%d" r="%d" fill="none" stroke="url(#ring)" stroke-width="13"'
-      ' stroke-linecap="round" stroke-dasharray="%.1f %.1f"'
-      ' transform="rotate(-90 %d %d)"/>' % (cx, cy, r, circ * frac, circ, cx, cy))
-    text(cx, cy + 9, "%d%%" % round(frac * 100), size=27, weight=750, anchor="middle")
-    hx = P + 168
-    text(hx, y + 50, "Mac app imports implemented", "mute", 13, 500)
-    text(hx, y + 88, '%s <tspan class="soft" font-size="20" font-weight="500">/ %s</tspan>'
-         % (fmt(done), fmt(total)), size=34, weight=750, extra=' class="num"')
-    text(hx, y + 116, "%s still to go" % fmt(left), "mute", 13.5)
+    def section(y, title, note=""):
+        """Rule, heading and right-hand note; returns where the content starts."""
+        hline(y)
+        text(x0, y + PAD + 4, esc(title), "head ink")
+        if note:
+            text(x1, y + PAD + 4, esc(note), "small sec", "end")
+        return y + PAD + 4 + 24
 
-    tiles = [("%d / %d" % (n_done, len(layers)), "layers done", "donet")]
-    tiles.append(("%d" % n_part, "layers in progress", "partt"))
-    if len(pts) >= 2 and pts[0][1] > pts[-1][1]:
-        tiles.append(("−%s" % fmt(pts[0][1] - pts[-1][1]),
-                      "since %s" % pts[0][0].strftime("%b %-d"), "ink"))
-    tw, th, gap = 118, 58, 10
-    tx = W - P - 18 - len(tiles) * tw - (len(tiles) - 1) * gap
-    for i, (big, small, cls) in enumerate(tiles):
-        x = tx + i * (tw + gap)
-        T('<rect x="%d" y="%d" width="%d" height="%d" rx="11" class="card"/>'
-          % (x, y + 49, tw, th))
-        text(x + 14, y + 76, big, cls, 19, 700, extra=' class="num"')
-        text(x + 14, y + 95, small, "mute", 11.5)
+    # ---- title
+    y = PAD + 12
+    text(x0, y, "How close bitten is to running the target Mac app", "head ink")
+    text(x1, y, "main @ %s · updated %s" % (esc(commit[:7]), esc(when)),
+         "small sec", "end")
 
-    # ---- by area
-    y += 156 + 22
+    # ---- headline: the one number, and the sentence it stands for
+    y += 84
+    pct = "%d%%" % round(frac * 100)
+    text(x0, y, pct, "hero ink")
+    hx = x0 + est_width(pct, T_HERO) + 20
+    text(hx, y - 26, "%s of %s imports implemented" % (fmt(done), fmt(total)),
+         "title ink")
+    more = "%s still to go" % fmt(left)
+    if len(pts) >= 2 and pts[-1][1] > pts[0][1]:
+        more = "%s of them since %s %d · %s" % (
+            fmt(pts[-1][1] - pts[0][1]), pts[0][0].strftime("%b"), pts[0][0].day, more)
+    text(hx, y, more, "body sec")
+
+    px0, px1 = x0 + COL_L, x1 - COL_R    # the picture column
+    pw = px1 - px0
+
+    def key(y, items, note=""):
+        """Swatches and what they mean, above a picture."""
+        kx = px0
+        for cls, label in items:
+            slab(kx + (0.5 if cls == "open" else 0), y - 10.5, 12, 12, cls)
+            text(kx + 20, y, esc(label), "small sec")
+            kx += 20 + est_width(label, T_SMALL) + 16
+        if note:
+            text(px1, y, esc(note), "small sec", "end")
+
+    # ---- areas: all the imports as one block, a row per area, the system
+    #      at the bottom and the app's own frameworks on top
     rows = [a for a in AREAS if totals[a[0]]]
-    ph = 52 + len(rows) * 38
-    panel(P, y, W - 2 * P, ph)
-    text(P + 22, y + 32, "By area", size=15, weight=650)
-    text(W - P - 22, y + 32, "implemented / imported", "soft", 11.5, anchor="end")
-    bx, bw = P + 262, W - 2 * P - 262 - 178
-    yy = y + 52
-    for name, desc, _ in rows:
-        t = totals[name]
-        d = t - min(missing[name], t)
-        col = AREA_COLORS.get(name, "#64748b")
-        T('<circle cx="%d" cy="%d" r="5" fill="%s"/>' % (P + 28, yy + 13, col))
-        text(P + 42, yy + 13, esc(name), size=13.5, weight=600, extra=' dominant-baseline="middle"')
-        text(P + 42, yy + 29, esc(desc), "soft", 10.5)
-        T('<rect x="%d" y="%d" width="%d" height="12" rx="6" class="track"/>'
-          % (bx, yy + 7, bw))
-        if d:
-            T('<rect x="%d" y="%d" width="%.1f" height="12" rx="6" fill="%s"/>'
-              % (bx, yy + 7, max(bw * d / t, 12), col))
-        text(W - P - 102, yy + 17, "%d%%" % round(100.0 * d / t), size=13.5, weight=700,
-             anchor="end", extra=' class="num"')
-        text(W - P - 22, yy + 17, "%s/%s" % (fmt(d), fmt(t)), "soft", 11,
-             anchor="end", extra=' class="num"')
-        yy += 38
+    if rows:
+        y += 48
+        key(y, (("fill", "implemented"), ("track", "still to go")),
+            "row height = imports in the area")
+        y += 16
+        # tall enough that the thinnest row still takes a line of text
+        ph = min(max(340.0, 16.0 * total / min(totals[a[0]] for a in rows)), 480.0)
+        top_y = y
+        for name, _, _ in reversed(rows):
+            t = totals[name]
+            d = t - min(missing[name], t)
+            h = ph * t / total
+            slab(px0, y, pw, h, "track")
+            if d:
+                slab(px0, y, max(pw * d / t, 2), h, "fill")
+            mid = y + h / 2 + 5
+            text(px0 - 12, mid, esc(name), "head ink", "end")
+            text(px1 + 56, mid, "%d%%" % round(100.0 * d / t), "head ink num", "end")
+            text(x1, mid, "%s of %s" % (fmt(d), fmt(t)), "small sec num", "end")
+            y += h + GAP
+        y -= GAP
+        for k in (0, 25, 50, 75, 100):
+            lx = px0 + pw * k / 100
+            if 0 < k < 100:
+                add('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" class="notch"/>'
+                    % (lx, top_y, lx, y))
+            add('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" class="axis"/>'
+                % (lx, y + 4, lx, y + 8))
+            text(lx, y + 24, "%d%%" % k, "small sec num", "middle")
+        y += 28
 
-    # ---- trend
-    y += ph + 22
-    ch = 170
-    ph = ch + 86
-    panel(P, y, W - 2 * P, ph)
-    text(P + 22, y + 32, "Imports still missing", size=15, weight=650)
-    text(W - P - 22, y + 32, "one step per merged change", "soft", 11.5, anchor="end")
-    gx, gy, gw = P + 64, y + 52, W - 2 * P - 64 - 30
+    # ---- history: imports implemented, stepping up with each merged change
+    y = section(y + PAD, "Imports implemented over time",
+                "each step is a merged change · times in UTC")
     if len(pts) >= 2:
+        gh = 168
+        gy = y + 8
         t0, t1 = pts[0][0], pts[-1][0]
         span = max((t1 - t0).total_seconds(), 1)
-        top = max(total, max(v for _, v in pts))
-        top = (top + 999) // 1000 * 1000
-        for k in range(0, top + 1, 1000):
-            ly = gy + ch - ch * k / top
-            T('<line x1="%d" y1="%.1f" x2="%d" y2="%.1f" class="grid" stroke-width="1"%s/>'
-              % (gx, ly, gx + gw, ly, "" if k == 0 else ' stroke-dasharray="3 5"'))
-            text(gx - 10, ly + 4, fmt(k), "soft", 10.5, anchor="end", extra=' class="num"')
+        lo, hi = min(v for _, v in pts), max(v for _, v in pts)
+        step = nice_step(hi - lo, 4)
+        base = lo // step * step         # the axis starts here, not at zero
+        top = max(hi + 0.08 * (hi - base), base + step)
 
         def px(t, v):
-            return (gx + gw * (t - t0).total_seconds() / span, gy + ch - ch * v / top)
-        line = []
+            return (px0 + pw * (t - t0).total_seconds() / span,
+                    gy + gh - gh * (v - base) / (top - base))
+        for k in range(base, int(top) + 1, step):
+            ly = px(t0, k)[1]
+            hline(ly, px0, px1)
+            text(px0 - 12, ly + 4, fmt(k), "small sec num", "end")
+        dated = False
+        for t, label, date in time_ticks(t0, t1):
+            lx = px(t, base)[0]
+            add('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" class="axis"/>'
+                % (lx, gy + gh + 4, lx, gy + gh + 8))
+            text(lx, gy + gh + 24, label, "small sec num", "middle")
+            if date:
+                text(lx, gy + gh + 40, date, "small sec", "middle")
+                dated = True
+        path = []
         for i, (t, v) in enumerate(pts):
             x_, y_ = px(t, v)
-            line.append(("M%.1f %.1f" % (x_, y_)) if not i else ("H%.1f V%.1f" % (x_, y_)))
-        line = " ".join(line)
-        x0, _ = px(*pts[0])
+            path.append("M%.1f %.1f" % (x_, y_) if not i else "H%.1f V%.1f" % (x_, y_))
+        add('<path d="%s" stroke-width="2" stroke-linejoin="round"'
+            ' stroke-linecap="round" class="line"/>' % " ".join(path))
+        xs, ys = px(*pts[0])
         xe, ye = px(*pts[-1])
-        T('<path d="%s V%.1f H%.1f Z" fill="url(#area)"/>' % (line, gy + ch, x0))
-        T('<path d="%s" fill="none" stroke="#6366f1" stroke-width="2.4"'
-          ' stroke-linejoin="round"/>' % line)
-        T('<circle cx="%.1f" cy="%.1f" r="9" fill="#6366f1" opacity="0.18"/>' % (xe, ye))
-        T('<circle cx="%.1f" cy="%.1f" r="4.5" class="halo" stroke="#6366f1"'
-          ' stroke-width="2.4"/>' % (xe, ye))
-        lbl = fmt(pts[-1][1])
-        lw = 12 + 7.6 * len(lbl)
-        T('<rect x="%.1f" y="%.1f" width="%.1f" height="22" rx="11" fill="#6366f1"/>'
-          % (xe - lw - 12, ye - 32, lw))
-        text(xe - 12 - lw / 2, ye - 17, lbl, "", 12, 700, "middle",
-             ' fill="#ffffff" style="fill:#fff"')
-        text(gx, gy + ch + 22, t0.strftime("%b %-d, %H:%M"), "soft", 11)
-        text(gx + gw, gy + ch + 22, t1.strftime("%b %-d, %H:%M"), "soft", 11, anchor="end")
-        days = (t1 - t0).total_seconds() / 86400
-        gone = pts[0][1] - pts[-1][1]
-        if days >= 3 and gone > 0:
-            text(gx + gw / 2, gy + ch + 22, "about %s fewer a day" % fmt(gone / days),
-                 "mute", 11, anchor="middle")
+        text(xs, ys - 10, fmt(pts[0][1]), "small sec num")
+        add('<circle cx="%.1f" cy="%.1f" r="6" stroke-width="2" class="dot"/>' % (xe, ye))
+        text(xe + 14, ye + 5, fmt(pts[-1][1]), "head ink num")
+        y = gy + gh + (44 if dated else 28)
     else:
-        text(gx, gy + 40, "Not enough history yet.", "mute", 12)
+        text(x0, y + 12, "Not enough history yet.", "body sec")
+        y += 16
 
-    # ---- roadmap
-    y += ph + 22
-    half = (len(layers) + 1) // 2
-    ph = 66 + half * 30 + 8
-    panel(P, y, W - 2 * P, ph)
-    text(P + 22, y + 32, "Roadmap", size=15, weight=650)
-    text(W - P - 22, y + 32, "%d done · %d in progress · %d not started"
-         % (n_done, n_part, n_todo), "soft", 11.5, anchor="end")
-    # stacked strip of the layers
-    sx, sw = P + 22, W - 2 * P - 44
-    seg = sw / max(len(layers), 1)
-    for i, (_, _, st) in enumerate(layers):
-        T('<rect x="%.1f" y="%d" width="%.1f" height="6" rx="3" class="%s"/>'
-          % (sx + i * seg + 1, y + 44, seg - 2, {"done": "done", "partial": "part",
-                                                  "todo": "todo"}[st]))
-    colw = (W - 2 * P - 44) / 2
-    for i, (num, name, st) in enumerate(layers):
-        col, row = (0, i) if i < half else (1, i - half)
-        lx, ly = P + 22 + col * colw, y + 66 + row * 30
-        pill = {"done": ("doneb", "donet", "done"),
-                "partial": ("partb", "partt", "in progress"),
-                "todo": ("todob", "todot", "to do")}[st]
-        text(lx, ly + 14, "%2d" % num, "soft", 11.5, 600, extra=' class="num"')
-        label = name if len(name) <= 38 else name[:37].rstrip(" ,") + "…"
-        text(lx + 24, ly + 14, esc(label), "ink" if st != "todo" else "mute", 12.5,
-             500 if st != "todo" else 400)
-        pw = 14 + 6.6 * len(pill[2])
-        T('<rect x="%.1f" y="%d" width="%.1f" height="19" rx="9.5" class="%s"/>'
-          % (lx + colw - pw - 18, ly + 1, pw, pill[0]))
-        text(lx + colw - 18 - pw / 2, ly + 14, pill[2], pill[1], 10.5, 650, "middle")
+    # ---- roadmap: the layers as a stack, built from the bottom up; a layer
+    #      is solid once done, tinted while in progress, an outline before
+    if layers:
+        y = section(y + PAD, "Roadmap",
+                    "built from the bottom up: each layer stands on the ones below")
+        key(y, (("fill", "%d done" % count["done"]),
+                ("track", "%d in progress" % count["partial"]),
+                ("open", "%d not started" % count["todo"])))
+        y += 16
+        slab(px0 + 0.75, y + 0.75, pw - 1.5, 26.5, "goal", ' stroke-width="1.5"')
+        text(px0 + 12, y + 19, "The target Mac app", "head ink")
+        text(px1 + 12, y + 18, "the goal", "small sec")
+        y += 28 + GAP
+        look = {"done": ("fill", "body on"), "partial": ("track", "body ink"),
+                "todo": ("open", "body sec")}
+        for num, name, state in reversed(layers):
+            box, ink = look[state]
+            lines = wrap(name, T_BODY, pw - 24)
+            h = 4 + 20 * len(lines)
+            if state == "todo":
+                slab(px0 + 0.5, y + 0.5, pw - 1, h - 1, box)
+            else:
+                slab(px0, y, pw, h, box)
+            text(px0 - 12, y + 16, "%d" % num, "small sec num", "end")
+            for i, line in enumerate(lines):
+                text(px0 + 12, y + 17 + 20 * i, esc(line), ink)
+            y += h + GAP
+        y -= GAP
 
-    y += ph + 20
-    text(W / 2, y + 4, "Counts are a floor, not a schedule: one SwiftUI symbol can be a"
-         " day of work, one libSystem symbol a minute.", "soft", 11, anchor="middle")
-    H = y + 26
+    # ---- the caveat
+    hline(y + PAD)
+    y += PAD + 12
+    for line in wrap("Import counts are a floor, not a schedule: one SwiftUI symbol can"
+                     " be a day of work, one libSystem symbol a minute.",
+                     T_SMALL, x1 - x0):
+        y += 16
+        text(x0, y, esc(line), "small sec")
+    H = int(y + PAD - 4)
 
-    defs = ('<defs>'
-            '<linearGradient id="brand" x1="0" y1="0" x2="0" y2="1">'
-            '<stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#ec4899"/>'
-            '</linearGradient>'
-            '<linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">'
-            '<stop offset="0" stop-color="#10b981"/><stop offset="1" stop-color="#0ea5e9"/>'
-            '</linearGradient>'
-            '<linearGradient id="area" x1="0" y1="0" x2="0" y2="1">'
-            '<stop offset="0" stop-color="#6366f1" stop-opacity="0.28"/>'
-            '<stop offset="1" stop-color="#6366f1" stop-opacity="0.02"/>'
-            '</linearGradient></defs>')
-    svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">\n'
-           '%s%s\n<rect x="0.5" y="0.5" width="%d" height="%d" rx="18" class="card"/>\n%s\n</svg>\n'
-           % (W, H, W, H, STYLE, defs, W - 1, H - 1, "\n".join(s)))
-    with open(os.path.join(out, "progress.svg"), "w") as f:
+    summary = ("%d%% done: bitten implements %s of the %s symbols the target Mac"
+               " app imports; %s still to go. %d of %d roadmap layers are done."
+               % (round(frac * 100), fmt(done), fmt(total), fmt(left),
+                  count["done"], len(layers)))
+    svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d"'
+           ' viewBox="0 0 %d %d" role="img" aria-labelledby="t d">\n'
+           '<title id="t">How close bitten is to running the target Mac app</title>\n'
+           '<desc id="d">%s</desc>\n%s\n'
+           '<rect x="0.5" y="0.5" width="%d" height="%d" rx="12" class="card"/>\n'
+           '%s\n</svg>\n'
+           % (W, H, W, H, esc(summary), STYLE, W - 1, H - 1, "\n".join(s)))
+    with open(os.path.join(out, "progress.svg"), "w", encoding="utf-8") as f:
         f.write(svg)
 
 
