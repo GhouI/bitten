@@ -32,13 +32,3 @@ public func ?? <T>(optional: T?, defaultValue: @autoclosure () throws -> T) reth
   case .none: return try defaultValue()
   }
 }
-
-// The compiler emits calls to this when a force-unwrap finds nil.
-@_transparent
-public func _diagnoseUnexpectedNilOptional(_filenameStart: Builtin.RawPointer,
-                                           _filenameLength: Builtin.Word,
-                                           _filenameIsASCII: Builtin.Int1,
-                                           _line: Builtin.Word,
-                                           _isImplicitUnwrap: Builtin.Int1) {
-  Builtin.int_trap()
-}
