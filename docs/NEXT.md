@@ -56,6 +56,13 @@ start, because every other Swift symbol depends on them.
 
 ### Step 1: Swift runtime, object model (C, inside `mrun`)
 
+Status (PRs #16-#18): items 1-3 below and `swift_once`/exclusivity are done
+in `src/frameworks/swift/heap.c` and `objc.c`, tested with real swiftc
+output (`tests/swift/heap`, `weak`, `objc`). Left from this step:
+`swift_arrayInitWithCopy` and friends, `swift_getObjectType` (with the
+metadata work), and `@objc` methods on Swift classes (needs Foundation's
+`NSObject` subclassing and is untested).
+
 New directory `src/swift/`. Suggested order, each with C tests that build
 the structures the Swift compiler would emit:
 

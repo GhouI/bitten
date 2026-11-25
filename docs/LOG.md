@@ -416,3 +416,22 @@ for the Swift layer and for the smaller independent items.
   holding weak references, `AnyObject` weak and unowned references to Swift
   and Objective-C objects. Passes at `-O` and `-Onone`; suite 23/23.
 - The Mac app window imports unimplemented: 5,434 -> 5,423.
+
+## 2026-11-25: Swift objects in Objective-C; class metadata and casts (PR: swift-objc)
+
+- `src/frameworks/swift/objc.c`: `swift_getObjCClassMetadata` (a Swift
+  class is its own metadata; a plain Objective-C class gets a cached
+  ObjCClassWrapper), `swift_getObjCClassFromMetadata` (+`Conditional`),
+  `swift_getObjCClassFromObject`, `swift_getInitializedObjCClass`,
+  `swift_dynamicCastObjCClass{,Unconditional}`,
+  `swift_dynamicCastObjCClassMetatype{,Unconditional}`, the foreign-class
+  (CoreFoundation) casts, and `swift_isaMask`.
+- `tests/swift/objc`: a swiftc-compiled class seen from Objective-C: its
+  class is registered under its mangled name with SwiftObject as superclass,
+  answers the NSObject-protocol basics, and `-retain`/`objc_retain`,
+  autorelease pools and `__weak` variables all use Swift counts;
+  `+alloc` from Objective-C makes a Swift-counted object whose last release
+  runs the Swift deinit; unknown-object and bridge-object counting (spare
+  bits stripped, tagged and immortal values untouched); casts and wrapper
+  metadata. Passes at `-O` and `-Onone`; suite 24/24.
+- The Mac app window imports unimplemented: 5,423 -> 5,418.
