@@ -29,6 +29,11 @@ final class Box {
   deinit { deinits += 1 }
 }
 
+extension Box: Hashable {
+  static func == (a: Box, b: Box) -> Bool { a.id == b.id }
+  func hash(into h: inout Hasher) { h.combine(id) }
+}
+
 class Base {
   var v = 1
   var u: Int8 = 2
@@ -146,7 +151,7 @@ struct G<T> {
   let h = Holder()
   setRef(h, \Holder.nonmut, 8)
   h[keyPath: \Holder.c.doubled] += 2
-  if h.c.raw != 9 || get(h, \Holder.c.[1]) != 10 { bad |= 32 }
+  if h.c.raw != 9 || get(h, \Holder.c[1]) != 10 { bad |= 32 }
   // a subscript capturing a class reference: copied into the key path,
   // released with it
   deinits = 0
@@ -156,7 +161,7 @@ struct G<T> {
     if get(Comp(raw: 2), k) != 10 { bad |= 64 }
     let k2 = boxIndexPath(3, b)
     if k != k2 || k.hashValue != k2.hashValue { bad |= 128 }
-    if k == boxIndexPath(3, Box(4)) { bad |= 256 } // different id: not equal
+    if k == boxIndexPath(3, Box(5)) { bad |= 256 } // different id: not equal
   }
   if deinits != 2 { bad |= 512 }
   return bad
@@ -237,7 +242,7 @@ struct G<T> {
   let ci = (\Holder.c).appending(path: indexPath(4))
   let h = Holder()
   setRef(h, ci, 14)
-  if h.c.raw != 10 || ci != \Holder.c.[4] { bad |= 16 }
+  if h.c.raw != 10 || ci != \Holder.c[4] { bad |= 16 }
   // read-only + writable is read-only; through Any
   let ro: KeyPath<Box, Int16> = (\Box.p).appending(path: \Point.z)
   if get(b, ro) != 0 || any(ro) is WritableKeyPath<Box, Int16> { bad |= 32 }
