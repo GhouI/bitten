@@ -39,10 +39,11 @@
 /* ---- runtime entry points reached through the registry -------------------
  * Public Swift and Objective-C runtime functions implemented elsewhere in
  * bitten are looked up by their exported names, so this file does not
- * depend on how (or whether yet) they are implemented. */
+ * depend on how (or whether yet) they are implemented. Loaded images come
+ * first, as with dyld: a Mach-O image may define standard-library types
+ * itself (tests compiled as the module Swift do). */
 static void *rt(const char *name) {
-    void *p = dx_registry_lookup(name);
-    return p;
+    return dx_global_lookup(name);
 }
 #define RT(type, var, sym)          \
     static __typeof__(type) var;    \
