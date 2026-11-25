@@ -45,6 +45,12 @@ static sw_opaque *pod_copy(sw_opaque *d, sw_opaque *s, const sw_metadata *m) {
     memcpy(d, s, vw_size(m));
     return d;
 }
+/* The compiler's copy witness for trivial types it lays out itself. */
+DX_EXPORT("_swift_copyPOD", pod_copy);
+/* Code that handles noncopyable types checks this symbol's presence (it is
+ * weakly referenced from mangled-name accessors) before using them. */
+static const char supports_noncopyable = 1;
+DX_EXPORT("_swift_runtimeSupportsNoncopyableTypes", &supports_noncopyable);
 
 /* Extra inhabitants of the builtin types, as the compiler defines them:
  * Builtin.Int1 uses the byte values 2...255 (254 of them, in order),

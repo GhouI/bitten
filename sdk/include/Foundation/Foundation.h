@@ -40,7 +40,9 @@ static inline NSRange NSMakeRange(NSUInteger loc, NSUInteger len) {
     return r;
 }
 static inline NSUInteger NSMaxRange(NSRange r) { return r.location + r.length; }
-typedef enum : NSInteger { NSOrderedAscending = -1, NSOrderedSame = 0, NSOrderedDescending = 1 } NSComparisonResult;
+typedef NS_CLOSED_ENUM(NSInteger, NSComparisonResult) {
+    NSOrderedAscending = -1, NSOrderedSame = 0, NSOrderedDescending = 1
+} NS_SWIFT_NAME(ComparisonResult);
 typedef NSComparisonResult (^NSComparator)(id a, id b);
 typedef NSUInteger NSStringEncoding;
 enum {
@@ -52,8 +54,17 @@ enum {
     NSUTF16LittleEndianStringEncoding = 0x94000100,
     NSUTF16BigEndianStringEncoding = 0x90000100
 };
-typedef NSUInteger NSStringCompareOptions;
-enum { NSCaseInsensitiveSearch = 1, NSLiteralSearch = 2, NSBackwardsSearch = 4 };
+typedef NS_OPTIONS(NSUInteger, NSStringCompareOptions) {
+    NSCaseInsensitiveSearch NS_SWIFT_NAME(caseInsensitive) = 1,
+    NSLiteralSearch NS_SWIFT_NAME(literal) = 2,
+    NSBackwardsSearch NS_SWIFT_NAME(backwards) = 4,
+    NSAnchoredSearch NS_SWIFT_NAME(anchored) = 8,
+    NSNumericSearch NS_SWIFT_NAME(numeric) = 64,
+    NSDiacriticInsensitiveSearch NS_SWIFT_NAME(diacriticInsensitive) = 128,
+    NSWidthInsensitiveSearch NS_SWIFT_NAME(widthInsensitive) = 256,
+    NSForcedOrderingSearch NS_SWIFT_NAME(forcedOrdering) = 512,
+    NSRegularExpressionSearch NS_SWIFT_NAME(regularExpression) = 1024
+} NS_SWIFT_NAME(NSString.CompareOptions);
 
 #define NS_FORMAT_FUNCTION(F, A) __attribute__((format(__NSString__, F, A)))
 #define NS_REQUIRES_NIL_TERMINATION __attribute__((sentinel))
@@ -370,11 +381,11 @@ enum {
     NSPropertyListReadCorruptError = 3840
 };
 @interface NSError : NSObject <NSCopying>
-+ (instancetype)errorWithDomain:(NSErrorDomain)domain code:(NSInteger)code userInfo:(NSDictionary *)userInfo;
-- (instancetype)initWithDomain:(NSErrorDomain)domain code:(NSInteger)code userInfo:(NSDictionary *)userInfo;
++ (instancetype)errorWithDomain:(NSErrorDomain)domain code:(NSInteger)code userInfo:(nullable NSDictionary *)userInfo;
+- (instancetype)initWithDomain:(NSErrorDomain)domain code:(NSInteger)code userInfo:(nullable NSDictionary *)userInfo;
 @property (readonly, copy) NSErrorDomain domain;
 @property (readonly) NSInteger code;
-@property (readonly, copy) NSDictionary *userInfo;
+@property (nullable, readonly, copy) NSDictionary *userInfo;
 @property (readonly, copy) NSString *localizedDescription;
 @property (readonly, copy) NSString *localizedFailureReason;
 @end
@@ -413,16 +424,16 @@ __attribute__((swift_bridge("Swift.Set")))
 @end
 
 @interface NSCharacterSet : NSObject <NSCopying, NSMutableCopying>
-@property (class, readonly, copy) NSCharacterSet *whitespaceCharacterSet;
-@property (class, readonly, copy) NSCharacterSet *whitespaceAndNewlineCharacterSet;
-@property (class, readonly, copy) NSCharacterSet *newlineCharacterSet;
-@property (class, readonly, copy) NSCharacterSet *decimalDigitCharacterSet;
-@property (class, readonly, copy) NSCharacterSet *letterCharacterSet;
-@property (class, readonly, copy) NSCharacterSet *alphanumericCharacterSet;
-@property (class, readonly, copy) NSCharacterSet *uppercaseLetterCharacterSet;
-@property (class, readonly, copy) NSCharacterSet *lowercaseLetterCharacterSet;
-@property (class, readonly, copy) NSCharacterSet *punctuationCharacterSet;
-@property (class, readonly, copy) NSCharacterSet *controlCharacterSet;
+@property (class, readonly, copy) NSCharacterSet *whitespaceCharacterSet NS_SWIFT_NAME(whitespaces);
+@property (class, readonly, copy) NSCharacterSet *whitespaceAndNewlineCharacterSet NS_SWIFT_NAME(whitespacesAndNewlines);
+@property (class, readonly, copy) NSCharacterSet *newlineCharacterSet NS_SWIFT_NAME(newlines);
+@property (class, readonly, copy) NSCharacterSet *decimalDigitCharacterSet NS_SWIFT_NAME(decimalDigits);
+@property (class, readonly, copy) NSCharacterSet *letterCharacterSet NS_SWIFT_NAME(letters);
+@property (class, readonly, copy) NSCharacterSet *alphanumericCharacterSet NS_SWIFT_NAME(alphanumerics);
+@property (class, readonly, copy) NSCharacterSet *uppercaseLetterCharacterSet NS_SWIFT_NAME(uppercaseLetters);
+@property (class, readonly, copy) NSCharacterSet *lowercaseLetterCharacterSet NS_SWIFT_NAME(lowercaseLetters);
+@property (class, readonly, copy) NSCharacterSet *punctuationCharacterSet NS_SWIFT_NAME(punctuationCharacters);
+@property (class, readonly, copy) NSCharacterSet *controlCharacterSet NS_SWIFT_NAME(controlCharacters);
 + (instancetype)characterSetWithCharactersInString:(NSString *)string;
 + (instancetype)characterSetWithRange:(NSRange)range;
 - (BOOL)characterIsMember:(unichar)character;
@@ -446,7 +457,7 @@ extern NSExceptionName const NSGenericException, NSRangeException, NSInvalidArgu
 - (instancetype)initWithName:(NSExceptionName)name reason:(NSString *)reason userInfo:(NSDictionary *)userInfo;
 @property (readonly, copy) NSExceptionName name;
 @property (readonly, copy) NSString *reason;
-@property (readonly, copy) NSDictionary *userInfo;
+@property (nullable, readonly, copy) NSDictionary *userInfo;
 - (void)raise __attribute__((noreturn));
 @end
 
@@ -515,7 +526,7 @@ typedef NS_OPTIONS(NSUInteger, NSDirectoryEnumerationOptions) {
 - (BOOL)isExecutableFileAtPath:(NSString *)path;
 - (NSArray<NSString *> *)contentsOfDirectoryAtPath:(NSString *)path error:(NSError **)error;
 - (NSArray<NSString *> *)subpathsOfDirectoryAtPath:(NSString *)path error:(NSError **)error;
-- (BOOL)createDirectoryAtPath:(NSString *)path withIntermediateDirectories:(BOOL)intermediates attributes:(NSDictionary *)attributes error:(NSError **)error;
+- (BOOL)createDirectoryAtPath:(NSString *)path withIntermediateDirectories:(BOOL)intermediates attributes:(nullable NSDictionary *)attributes error:(NSError **)error;
 - (BOOL)createFileAtPath:(NSString *)path contents:(NSData *)data attributes:(NSDictionary *)attributes;
 - (NSData *)contentsAtPath:(NSString *)path;
 - (BOOL)removeItemAtPath:(NSString *)path error:(NSError **)error;
@@ -672,7 +683,7 @@ typedef NSString *NSNotificationName;
 + (instancetype)notificationWithName:(NSNotificationName)name object:(id)object userInfo:(NSDictionary *)userInfo;
 @property (readonly, copy) NSNotificationName name;
 @property (readonly, strong) id object;
-@property (readonly, copy) NSDictionary *userInfo;
+@property (nullable, readonly, copy) NSDictionary *userInfo;
 @end
 @interface NSNotificationCenter : NSObject
 @property (class, readonly, strong) NSNotificationCenter *defaultCenter;

@@ -599,3 +599,11 @@ static void d_os_unfair_lock_unlock(uint32_t *l) {
         syscall(SYS_futex, l, FUTEX_WAKE, 1, NULL, NULL, 0);
 }
 DX_FN(os_unfair_lock_unlock);
+/* Ownership isn't recorded (the word holds 0/1/2), so the assertions only
+ * check what they can: that the lock is held at all. */
+static void d_os_unfair_lock_assert_owner(const uint32_t *l) {
+    if (!__atomic_load_n(l, __ATOMIC_RELAXED)) dx_fatal("os_unfair_lock_assert_owner: lock is not held");
+}
+DX_FN(os_unfair_lock_assert_owner);
+static void d_os_unfair_lock_assert_not_owner(const uint32_t *l) { (void)l; }
+DX_FN(os_unfair_lock_assert_not_owner);
