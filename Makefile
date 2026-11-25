@@ -133,9 +133,58 @@ $(BUILD)/tests/swift/%: tests/swift/%.swift tests/swift/%.c tests/swift/prelude.
 	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -e _main \
 	    -L$(BUILD)/sdk -lSystem -o $@ $@.o $@.swift.o $(if $(call swift_lib,$*),$@.lib.o)
 
-test-bins: $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS)
+# ---- the Swift standard library ------------------------------------------
+# libswiftCore.dylib is Swift source of our own (stdlib/), compiled as the
+# module Swift. Declaring the same public API as Apple's standard library
+# makes the compiler emit the same symbol names, which is what programs
+# bind to; @frozen types keep Apple's layouts because programs inline
+# against them. The runtime itself (swift_retain, metadata...) stays in mrun.
+SWIFT_MODDIR := $(BUILD)/swift
+LIBSWIFTCORE := $(FW_ROOT)/usr/lib/swift/libswiftCore.dylib
+STDLIB_SRCS  := $(wildcard stdlib/*.swift) $(BUILD)/stdlib/Integers.swift
+SWIFT_TARGET := -target x86_64-apple-macos11 -runtime-compatibility-version none
+FRAMEWORKS   += $(if $(and $(SWIFTC),$(HAVE_MACHO)),$(LIBSWIFTCORE))
+all: $(if $(and $(SWIFTC),$(HAVE_MACHO)),$(LIBSWIFTCORE))
 
-check: $(BUILD)/mrun $(FRAMEWORKS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS)
+$(BUILD)/stdlib/Integers.swift: tools/gen-integers.py
+	@mkdir -p $(dir $@)
+	python3 tools/gen-integers.py > $@
+$(BUILD)/stdlib/Swift.o: $(STDLIB_SRCS)
+	@mkdir -p $(dir $@) $(SWIFT_MODDIR)
+	$(SWIFTC) -parse-stdlib -module-name Swift -module-link-name swiftCore $(SWIFT_TARGET) \
+	    -enable-library-evolution -wmo -parse-as-library -O \
+	    -emit-module -emit-module-path $(SWIFT_MODDIR)/Swift.swiftmodule -c -o $@ $(STDLIB_SRCS)
+	echo > $(BUILD)/stdlib/SwiftOnoneSupport.swift
+	$(SWIFTC) -module-name SwiftOnoneSupport $(SWIFT_TARGET) -I $(SWIFT_MODDIR) -parse-as-library \
+	    -emit-module -emit-module-path $(SWIFT_MODDIR)/SwiftOnoneSupport.swiftmodule \
+	    -Xfrontend -disable-implicit-concurrency-module-import \
+	    -Xfrontend -disable-implicit-string-processing-module-import -O \
+	    -o $(BUILD)/stdlib/SwiftOnoneSupport.o -c $(BUILD)/stdlib/SwiftOnoneSupport.swift
+$(LIBSWIFTCORE): $(BUILD)/stdlib/Swift.o $(BUILD)/sdk/libSystem.tbd
+	@mkdir -p $(dir $@)
+	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
+	    -install_name /usr/lib/swift/libswiftCore.dylib \
+	    -L$(BUILD)/sdk -lSystem -o $@ $(BUILD)/stdlib/Swift.o
+
+# Tests in ordinary Swift, against that standard library: tests/swiftlib/
+# NAME.swift with a C driver NAME.c (functions exported with @_silgen_name;
+# swiftcc and C agree for plain integer and pointer arguments).
+TEST_SWLIB     := $(wildcard tests/swiftlib/*.swift)
+TEST_SWLIBBINS := $(if $(and $(SWIFTC),$(HAVE_MACHO)),$(patsubst tests/swiftlib/%.swift,$(BUILD)/tests/swiftlib/%,$(TEST_SWLIB)))
+$(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTCORE) tests/include/darwin.h
+	@mkdir -p $(dir $@)
+	$(SWIFTC) $(SWIFT_TARGET) -I $(SWIFT_MODDIR) -module-name $(subst -,_,$*) -parse-as-library \
+	    -Xfrontend -disable-implicit-concurrency-module-import \
+	    -Xfrontend -disable-implicit-string-processing-module-import \
+	    -wmo $(SWIFT_FLAGS) -c -o $@.swift.o $<
+	$(MACHO_CC) -target x86_64-apple-macos11 -O1 -ffreestanding -fno-builtin -fblocks -nostdinc \
+	    -Itests/include -fno-stack-protector -c -o $@.o tests/swiftlib/$*.c
+	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -e _main \
+	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) -o $@ $@.o $@.swift.o
+
+test-bins: $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
+
+check: $(BUILD)/mrun $(FRAMEWORKS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
 	BUILD=$(BUILD) tests/run.sh
 
 check-dmgx:
