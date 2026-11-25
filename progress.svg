@@ -1,43 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="720" height="364" viewBox="0 0 720 364">
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="240" viewBox="0 0 480 240">
 <style>
   text { font-family: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
   .bg { fill: #ffffff; } .ink { fill: #1f2328; } .mute { fill: #656d76; }
-  .track { fill: #eaeef2; } .done { fill: #2da44e; }
+  .track { stroke: #eaeef2; } .done { stroke: #2da44e; }
   @media (prefers-color-scheme: dark) {
     .bg { fill: #0d1117; } .ink { fill: #e6edf3; } .mute { fill: #8d96a0; }
-    .track { fill: #21262d; } .done { fill: #3fb950; }
+    .track { stroke: #21262d; } .done { stroke: #3fb950; }
   }
 </style>
-<rect width="720" height="364" rx="12" class="bg"/>
-<text x="32" y="72" class="ink" font-size="40" font-weight="700">39%</text>
-<text x="148" y="54" class="ink" font-size="16" font-weight="600">of the target Mac app's imports are implemented</text>
-<text x="148" y="74" class="mute" font-size="14">2,324 of 5,982, updated 2026-11-25</text>
-<text x="32" y="140" class="ink" font-size="14">AppKit</text>
-<rect x="136" y="131" width="500" height="10" rx="5" class="track"/>
-<rect x="136" y="131" width="466.3" height="10" rx="5" class="done"/>
-<text x="688" y="140" class="mute" font-size="14" text-anchor="end">93%</text>
-<text x="32" y="172" class="ink" font-size="14">Swift</text>
-<rect x="136" y="163" width="500" height="10" rx="5" class="track"/>
-<rect x="136" y="163" width="394.4" height="10" rx="5" class="done"/>
-<text x="688" y="172" class="mute" font-size="14" text-anchor="end">79%</text>
-<text x="32" y="204" class="ink" font-size="14">System</text>
-<rect x="136" y="195" width="500" height="10" rx="5" class="track"/>
-<rect x="136" y="195" width="370.7" height="10" rx="5" class="done"/>
-<text x="688" y="204" class="mute" font-size="14" text-anchor="end">74%</text>
-<text x="32" y="236" class="ink" font-size="14">Foundation</text>
-<rect x="136" y="227" width="500" height="10" rx="5" class="track"/>
-<rect x="136" y="227" width="93.8" height="10" rx="5" class="done"/>
-<text x="688" y="236" class="mute" font-size="14" text-anchor="end">19%</text>
-<text x="32" y="268" class="ink" font-size="14">Graphics</text>
-<rect x="136" y="259" width="500" height="10" rx="5" class="track"/>
-<rect x="136" y="259" width="53.6" height="10" rx="5" class="done"/>
-<text x="688" y="268" class="mute" font-size="14" text-anchor="end">11%</text>
-<text x="32" y="300" class="ink" font-size="14">SwiftUI</text>
-<rect x="136" y="291" width="500" height="10" rx="5" class="track"/>
-<rect x="136" y="291" width="42.0" height="10" rx="5" class="done"/>
-<text x="688" y="300" class="mute" font-size="14" text-anchor="end">8%</text>
-<text x="32" y="332" class="ink" font-size="14">Other</text>
-<rect x="136" y="323" width="500" height="10" rx="5" class="track"/>
-<rect x="136" y="323" width="10.0" height="10" rx="5" class="done"/>
-<text x="688" y="332" class="mute" font-size="14" text-anchor="end">2%</text>
+<rect width="480" height="240" rx="12" class="bg"/>
+<circle cx="120" cy="120" r="80" fill="none" class="track" stroke-width="22"/>
+<circle cx="120" cy="120" r="80" fill="none" class="done" stroke-width="22" stroke-linecap="round" stroke-dasharray="195.3 502.7" transform="rotate(-90 120 120)"/>
+<text x="120" y="133" text-anchor="middle" class="ink" font-size="38" font-weight="700">39%</text>
+<text x="250" y="105" class="ink" font-size="20" font-weight="600">Mac app support</text>
+<text x="250" y="135" class="mute" font-size="15">2,324 of 5,982 functions</text>
+<text x="250" y="158" class="mute" font-size="15">implemented</text>
+<text x="250" y="190" class="mute" font-size="12">updated 2026-11-25</text>
 </svg>
