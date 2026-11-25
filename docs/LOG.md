@@ -1343,3 +1343,19 @@ SwiftUI with AppKit and the drawing stack).
 - `tests/swiftlib/codable`: synthesized conformances round-tripped through
   a tree encoder/decoder written in the test.
 - The Mac app window (total `^MISSING`): 4,060 -> 3,927.
+
+## 2026-11-25: progress chart (PR: progress-chart)
+
+- `tools/progress.py`: counts the Mac app window's imports (Contents/MacOS/App
+  and Sparkle, with `llvm-nm -m -u`) per area, takes what is still missing
+  from `mrun --check`, reads the layer states from `docs/ROADMAP.md`, and
+  draws `progress.svg` (light and dark) with the history in `history.csv`.
+  `backfill` seeds the history from the "the Mac app window" lines of this log,
+  one point per merged change.
+- `tools/progress-update.sh`: for cron on a machine with App.dmg. When
+  `main` moves it builds a clean checkout (`nice`, `make -j2`, skipped
+  when memory is short), measures, and pushes the chart to the `progress`
+  branch, which the README shows. Nothing from the image is published.
+- ROADMAP: layers 13, 14 and 16 are in progress (CoreGraphics geometry,
+  AppKit, Combine and Observation), no longer "not started".
+- The Mac app window (total `^MISSING`): 3,927 (unchanged).
