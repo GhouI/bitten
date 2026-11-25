@@ -876,3 +876,28 @@ for the Swift layer and for the smaller independent items.
   and descriptors, `Double: Equatable` and `BinaryFloatingPoint`
   conformances, `Double.hash(into:)`,
   `Double(sign:exponentBitPattern:significandBitPattern:)`).
+
+## 2026-11-25: pointers (PR: stdlib-pointers)
+
+- `MemoryLayout`, the `_Pointer` protocol, `UnsafePointer`,
+  `UnsafeMutablePointer`, `UnsafeRawPointer`, `UnsafeMutableRawPointer`,
+  `OpaquePointer`, `AutoreleasingUnsafeMutablePointer`, the four buffer
+  pointers (random-access collections; the mutable ones mutable
+  collections), `withUnsafe(Mutable)Pointer`, `withUnsafe(Mutable)Bytes`,
+  `Optional.map`/`flatMap`, integer `init(bitPattern:)`, and the
+  `Sequence`/`MutableCollection` requirements that mention buffer pointers.
+- Typed pointers are declared as plain generics: Apple's are
+  `Pointee: ~Copyable` but keep their pre-Swift-6 mangling, which plain
+  generics reproduce.
+- The compiler allows implicit pointer conversions (`&x`, mutable to
+  immutable) only when all pointer types and five conversion intrinsics
+  exist (`ASTContext::hasPointerArgumentIntrinsics`). The array and string
+  ones are placeholders until Array and String land.
+- Runtime: `swift_arrayInitWithCopy`, `...TakeNoAlias/FrontToBack/
+  BackToFront`, `swift_arrayAssignWithCopy*`, `swift_arrayAssignWithTake`,
+  `swift_arrayDestroy` (new `src/frameworks/swift/array.c`), which the
+  compiler emits for bulk pointer operations on non-trivial types.
+- `tests/swiftlib/pointers`: copies, overlapping moves and destruction of
+  class references checked through deinit counts; buffer sorting and
+  slicing; raw loads and stores.
+- The Mac app window (total `^MISSING`): 4,964 -> 4,913.
