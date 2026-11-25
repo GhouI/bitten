@@ -222,17 +222,17 @@ def roadmap_layers():
 # filled arc split by area, with a legend of each area's own progress.
 # The history stays in history.csv; it is not drawn.
 
-AREA_COLORS = {
-    "System": ("#0969da", "#4493f8"), "Swift": ("#bf3989", "#db61a2"),
-    "Foundation": ("#1a7f37", "#3fb950"), "Graphics": ("#9a6700", "#d29922"),
-    "AppKit": ("#8250df", "#a371f7"), "SwiftUI": ("#cf222e", "#f85149"),
-    "Other": ("#1b7c83", "#39c5cf"),
+AREA_COLORS = {      # (light, dark): warm, saturated, same hue in both
+    "System": ("#3b82f6", "#60a5fa"), "Swift": ("#f97316", "#fb923c"),
+    "Foundation": ("#10b981", "#34d399"), "Graphics": ("#f59e0b", "#fbbf24"),
+    "AppKit": ("#8b5cf6", "#a78bfa"), "SwiftUI": ("#ec4899", "#f472b6"),
+    "Other": ("#06b6d4", "#22d3ee"),
 }
 
 STYLE = ("<style>\n"
          "  text { font-family: system-ui, -apple-system, \"Segoe UI\", Helvetica, Arial, sans-serif; }\n"
-         "  .bg { fill: #ffffff; } .ink { fill: #1f2328; } .mute { fill: #3d6aa3; }\n"
-         "  .track { stroke: #ddf4ff; } .gap { stroke: #ffffff; }\n"
+         "  .bg { fill: #ffffff; } .ink { fill: #1e293b; } .mute { fill: #4a6fa5; }\n"
+         "  .track { stroke: #eef2ff; } .gap { stroke: #ffffff; }\n"
          + "".join("  .s-%s { stroke: %s; } .f-%s { fill: %s; }\n" % (k, v[0], k, v[0])
                    for k, v in AREA_COLORS.items())
          + "  @media (prefers-color-scheme: dark) {\n"
@@ -328,8 +328,6 @@ def draw(out, totals, missing, history, commit, when):
                ' stroke-width="%%d" stroke-dasharray="%.2f %.2f"'
                ' stroke-dashoffset="%.2f" transform="rotate(-90 %d %d)"%%s/>'
                % (cx, cy, r, a, circ * f, circ, -circ * start, cx, cy))
-        if a == active:
-            body.append(arc % (sw + 6, ' filter="url(#glow)" opacity="0.77"'))
         body.append(arc % (sw, ""))
         start += f
         # thin separator at the end of each segment
@@ -355,13 +353,9 @@ def draw(out, totals, missing, history, commit, when):
         body.append('<circle cx="%d" cy="%d" r="5" class="f-%s"/>' % (lx + 5, y - 4, a))
         body.append('<text x="%d" y="%d" class="ink" font-size="13">%s</text>' % (lx + 18, y, esc(a)))
         if a == active:
-            # a small neon marker: the dot glows and a NOW tag follows the name
-            body.append('<circle cx="%d" cy="%d" r="8" class="f-%s" filter="url(#glow)"'
-                        ' opacity="0.98"/>' % (lx + 5, y - 4, a))
-            tag = ('<text x="%d" y="%d" font-size="10" font-weight="800" letter-spacing="1"'
-                   ' class="f-%s"%%s>NOW</text>' % (lx + 26 + int(7.6 * len(a)), y - 1, a))
-            body.append(tag % ' filter="url(#glow)" opacity="0.84"')
-            body.append(tag % "")
+            # a quiet marker: a soft glow behind the area's dot
+            body.append('<circle cx="%d" cy="%d" r="7" class="f-%s" filter="url(#glow)"'
+                        ' opacity="0.6"/>' % (lx + 5, y - 4, a))
         body.append('<text x="%d" y="%d" class="ink" font-size="13" font-weight="600"'
                     ' text-anchor="end">%d%%</text>' % (W - P - 88, y, pa))
         body.append('<text x="%d" y="%d" class="mute" font-size="12" text-anchor="end">'
@@ -369,7 +363,7 @@ def draw(out, totals, missing, history, commit, when):
         y += 26
     note = "updated %s" % when[:10]
     if active and gained > 0:
-        note += " · %s +%s in the last day" % (active, fmt(gained))
+        note += " · now: %s, +%s today" % (active, fmt(gained))
     body.append('<text x="%d" y="%d" class="mute" font-size="11">%s</text>'
                 % (lx, y + 6, esc(note)))
 
