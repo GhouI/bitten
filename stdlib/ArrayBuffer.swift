@@ -31,13 +31,6 @@ public func isKnownUniquelyReferenced<T: AnyObject>(_ object: inout T?) -> Bool 
   return Bool(Builtin.isUnique(&object))
 }
 
-@inlinable
-public func swap<T>(_ a: inout T, _ b: inout T) {
-  let tmp = a
-  a = b
-  b = tmp
-}
-
 /// Whether values of `T` are class references (or class-bound
 /// existentials without witness tables), the elements an NSArray can hold
 /// as they are.
@@ -202,71 +195,7 @@ internal func getContiguousArrayStorageType<Element>(for: Element.Type)
 
 // ---- _BridgeStorage -------------------------------------------------------------
 
-// Pointer bits of a Builtin.BridgeObject on x86-64 Darwin (the runtime's
-// swift_abi.h agrees): Objective-C tagged pointers use bits 63 and 0, bit 62
-// marks an Objective-C object, and the lowest spare bit (1) is free for a
-// flag on native references.
-@inlinable internal var _bridgeObjectTaggedPointerBits: UInt {
-  @inline(__always) get { return 0x8000_0000_0000_0001 }
-}
-@inlinable internal var _objectPointerIsObjCBit: UInt {
-  @inline(__always) get { return 0x4000_0000_0000_0000 }
-}
-@inlinable internal var _bridgeStorageFlagBit: UInt {
-  @inline(__always) get { return 0x2 }
-}
-
-@frozen @usableFromInline
-internal struct _BridgeStorage<NativeClass: AnyObject> {
-  @usableFromInline internal typealias Native = NativeClass
-  @usableFromInline internal typealias ObjC = AnyObject
-
-  @usableFromInline internal var rawValue: Builtin.BridgeObject
-
-  @inlinable @inline(__always)
-  internal init(native: Native, isFlagged flag: Bool) {
-    rawValue = Builtin.castToBridgeObject(native, (flag ? _bridgeStorageFlagBit : 0)._builtinWordValue)
-  }
-  @inlinable @inline(__always)
-  internal init(native: Native) {
-    rawValue = Builtin.castToBridgeObject(native, (0 as UInt)._builtinWordValue)
-  }
-  @inlinable @inline(__always)
-  internal init(objC: ObjC) {
-    rawValue = Builtin.castToBridgeObject(objC, _objectPointerIsObjCBit._builtinWordValue)
-  }
-
-  @inlinable internal var _bits: UInt {
-    @inline(__always) get { return UInt(Builtin.castBitPatternFromBridgeObject(rawValue)) }
-  }
-  @inlinable internal var isNative: Bool {
-    @inline(__always) get {
-      return _bits & (_bridgeObjectTaggedPointerBits | _objectPointerIsObjCBit) == 0
-    }
-  }
-  @inlinable internal var isUnflaggedNative: Bool {
-    @inline(__always) get {
-      return _bits & (_bridgeObjectTaggedPointerBits | _objectPointerIsObjCBit | _bridgeStorageFlagBit) == 0
-    }
-  }
-  @inlinable internal var isObjC: Bool {
-    @inline(__always) get { return !isNative }
-  }
-  @inlinable internal var nativeInstance: Native {
-    @inline(__always) get { return Builtin.castReferenceFromBridgeObject(rawValue) }
-  }
-  @inlinable internal var objCInstance: ObjC {
-    @inline(__always) get { return Builtin.castReferenceFromBridgeObject(rawValue) }
-  }
-  @inlinable @inline(__always)
-  internal mutating func isUniquelyReferencedNative() -> Bool {
-    return isNative && Bool(Builtin.isUnique(&rawValue))
-  }
-  @inlinable @inline(__always)
-  internal mutating func isUniquelyReferencedUnflaggedNative() -> Bool {
-    return isUnflaggedNative && Bool(Builtin.isUnique(&rawValue))
-  }
-}
+// _BridgeStorage itself is in BridgeStorage.swift (shared with Dictionary and Set).
 
 @usableFromInline
 internal typealias _ArrayBridgeStorage = _BridgeStorage<__ContiguousArrayStorageBase>
