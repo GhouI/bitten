@@ -51,3 +51,15 @@ public func _openExistential<ExistentialType, ContainedType, ResultType>(
 ) rethrows -> ResultType {
   Builtin.unreachable()
 }
+
+// Metatype identity (`T.self == Int.self`).
+@inlinable
+public func == (t0: Any.Type?, t1: Any.Type?) -> Bool {
+  switch (t0, t1) {
+  case (.none, .none): return true
+  case let (.some(a), .some(b)): return Bool(Builtin.is_same_metatype(a, b))
+  default: return false
+  }
+}
+@inlinable
+public func != (t0: Any.Type?, t1: Any.Type?) -> Bool { return !(t0 == t1) }

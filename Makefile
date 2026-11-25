@@ -186,7 +186,11 @@ $(BUILD)/tests/swift/%: tests/swift/%.swift tests/swift/%.c tests/swift/prelude.
 # they would also be inlined into programs (array storage accesses).
 SWIFT_MODDIR := $(BUILD)/swift
 LIBSWIFTCORE := $(FW_ROOT)/usr/lib/swift/libswiftCore.dylib
-STDLIB_SRCS  := $(wildcard stdlib/*.swift) $(BUILD)/stdlib/Integers.swift $(BUILD)/stdlib/Floats.swift
+STDLIB_SRCS  := $(wildcard stdlib/*.swift) $(BUILD)/stdlib/Integers.swift $(BUILD)/stdlib/Floats.swift \
+                $(BUILD)/stdlib/Codable.swift
+$(BUILD)/stdlib/Codable.swift: tools/gen-codable.py
+	@mkdir -p $(dir $@)
+	python3 tools/gen-codable.py > $@
 SWIFT_TARGET := -target x86_64-apple-macos11 -runtime-compatibility-version none
 FRAMEWORKS   += $(if $(and $(SWIFTC),$(HAVE_MACHO)),$(LIBSWIFTCORE))
 all: $(if $(and $(SWIFTC),$(HAVE_MACHO)),$(LIBSWIFTCORE))
