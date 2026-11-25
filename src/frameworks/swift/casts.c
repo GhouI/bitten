@@ -67,6 +67,11 @@ static const sw_metadata *class_metadata(const void *cls) {
     RT(const sw_metadata *(*)(const void *), wrap, "_swift_getObjCClassMetadata");
     return wrap ? wrap(cls) : cls;
 }
+/* The dynamic type of a class instance: its Swift class, or the wrapper
+ * metadata of its Objective-C class. */
+static const sw_metadata *d_swift_getObjectType(const void *obj) { return class_metadata(class_of(obj)); }
+DX_FN(swift_getObjectType);
+
 static int class_is_kind(const void *cls, const void *target) {
     for (const sw_class_metadata *c = cls; c; c = c->superclass)
         if ((const void *)c == target) return 1;

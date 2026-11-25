@@ -139,6 +139,8 @@ $(BUILD)/tests/swift/%: tests/swift/%.swift tests/swift/%.c tests/swift/prelude.
 # makes the compiler emit the same symbol names, which is what programs
 # bind to; @frozen types keep Apple's layouts because programs inline
 # against them. The runtime itself (swift_retain, metadata...) stays in mrun.
+# Like Apple's, the library is built without dynamic exclusivity checks:
+# they would also be inlined into programs (array storage accesses).
 SWIFT_MODDIR := $(BUILD)/swift
 LIBSWIFTCORE := $(FW_ROOT)/usr/lib/swift/libswiftCore.dylib
 STDLIB_SRCS  := $(wildcard stdlib/*.swift) $(BUILD)/stdlib/Integers.swift $(BUILD)/stdlib/Floats.swift
@@ -155,7 +157,7 @@ $(BUILD)/stdlib/Floats.swift: tools/gen-floats.py
 $(BUILD)/stdlib/Swift.o: $(STDLIB_SRCS)
 	@mkdir -p $(dir $@) $(SWIFT_MODDIR)
 	$(SWIFTC) -parse-stdlib -module-name Swift -module-link-name swiftCore $(SWIFT_TARGET) \
-	    -enable-library-evolution -wmo -parse-as-library -O \
+	    -enable-library-evolution -wmo -parse-as-library -O -enforce-exclusivity=unchecked \
 	    -emit-module -emit-module-path $(SWIFT_MODDIR)/Swift.swiftmodule -c -o $@ $(STDLIB_SRCS)
 	echo > $(BUILD)/stdlib/SwiftOnoneSupport.swift
 	$(SWIFTC) -module-name SwiftOnoneSupport $(SWIFT_TARGET) -I $(SWIFT_MODDIR) -parse-as-library \

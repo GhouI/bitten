@@ -235,6 +235,18 @@ static void init_vtable(sw_class_metadata *self) {
     }
 }
 
+/* The implementation of a vtable method in a class: what a resilient
+ * class's method lookup function (`CMu`) returns for a method descriptor. */
+static void *d_swift_lookUpClassMethod(const sw_class_metadata *self, const sw_method_descriptor *method,
+                                       const sw_class_descriptor *d) {
+    struct class_info ci;
+    class_info(d, &ci);
+    if (!ci.vtable || method < ci.methods || method >= ci.methods + ci.vtable->size)
+        dx_fatal("swift: method lookup outside the vtable of %s", sw_descriptor_name(&d->base));
+    return ((void *const *)self)[vtable_word(d, &ci) + (size_t)(method - ci.methods)];
+}
+DX_FN(swift_lookUpClassMethod);
+
 /* Lays out the class's stored properties after its superclass's. */
 static void layout_fields(sw_class_metadata *self, size_t n, const sw_type_layout *const *fields,
                           size_t *offsets) {
