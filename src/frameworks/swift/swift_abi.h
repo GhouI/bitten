@@ -122,6 +122,8 @@ static inline int sw_is_inline(int bitwise_takable, size_t size, size_t align_ma
 /* Struct and enum layout flags passed to swift_init*Metadata: the low 8
  * bits are the layout algorithm version, 0x100 says the VWT is writable. */
 enum { SW_LAYOUT_VWT_MUTABLE = 0x100 };
+/* Class layout flags: 0x100 says the vtable is already filled in statically. */
+enum { SW_CLASS_LAYOUT_HAS_STATIC_VTABLE = 0x100 };
 
 /* The "type layout" the compiler passes to swift_initStructMetadata and
  * friends: a pointer to the `size` field of a value witness table. */
@@ -405,14 +407,47 @@ typedef struct sw_generic_value_metadata_pattern {
     int32_t value_witnesses; /* relative direct -> sw_vwt */
     /* optional extra data pattern {int32 relative pattern, uint16 offset, uint16 size} */
 } sw_generic_value_metadata_pattern;
+/* The Objective-C parts of a generic class (metaclass object, class and
+ * metaclass class_ro) live in the extra data pattern, which is copied right
+ * after the class's metadata bounds; the offsets are words into it. Pattern
+ * flag 0x80000000: an immediate-members pattern follows the extra data one. */
 typedef struct sw_generic_class_metadata_pattern {
     sw_generic_metadata_pattern base;
     int32_t destroy;          /* relative direct -> heap object destructor */
-    int32_t ivar_destroyer;   /* relative direct */
+    int32_t ivar_destroyer;   /* relative direct, may be 0 */
     uint32_t class_flags;     /* SW_CLASS_* */
-    int32_t class_ro_data;    /* relative direct, offset from pattern (rodata) */
-    int32_t metaclass_ro_data;
+    uint16_t class_ro_offset;
+    uint16_t metaclass_offset;
+    uint16_t metaclass_ro_offset;
+    uint16_t reserved;
+    /* then {int32 relative pattern, uint16 offset, uint16 size} partial
+     * patterns: extra data (flag 0x1), immediate members (flag 0x80000000) */
 } sw_generic_class_metadata_pattern;
+typedef struct sw_partial_pattern {
+    int32_t pattern; /* relative direct -> words */
+    uint16_t offset_in_words, size_in_words;
+} sw_partial_pattern;
+
+/* Class descriptor trailing objects used by metadata initialisation. */
+typedef struct sw_vtable_header {
+    uint32_t offset; /* words, from the address point (or the immediate members with a resilient superclass) */
+    uint32_t size;
+} sw_vtable_header;
+typedef struct sw_method_descriptor {
+    uint32_t flags; /* kind low 4 bits; 0x10 instance; 0x40 async */
+    int32_t impl;   /* relative direct, may be 0 */
+} sw_method_descriptor;
+typedef struct sw_method_override_descriptor {
+    int32_t cls;    /* relative indirectable -> base class descriptor */
+    int32_t method; /* relative indirectable -> base method descriptor */
+    int32_t impl;   /* relative direct, may be 0 */
+} sw_method_override_descriptor;
+/* With SW_CLASS_HAS_RESILIENT_SUPERCLASS, metadata_negative_size_in_words
+ * is a relative pointer to these, filled in by the runtime. */
+typedef struct sw_stored_class_bounds {
+    intptr_t immediate_members_offset; /* bytes from the address point */
+    uint32_t negative_size_in_words, positive_size_in_words;
+} sw_stored_class_bounds;
 
 /* ---- heap objects ------------------------------------------------------------
  * Every native Swift object starts with its metadata and a reference-count

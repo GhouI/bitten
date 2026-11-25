@@ -687,3 +687,39 @@ for the Swift layer and for the smaller independent items.
 - `tests/swiftlib/numerics`: the tower used generically; at -Onone this goes
   through the runtime's witness tables and generic metadata.
 - Rex window (total `^MISSING`): 5239.
+
+## 2026-11-25: Swift metadata, part 4: classes (PR: swift-classes)
+
+- `src/frameworks/swift/class.c`: `swift_allocateGenericClassMetadata`
+  (metadata bounds from the descriptor, or computed and stored for classes
+  with a resilient superclass; extra data pattern with the metaclass and
+  both class_ro, immediate-members pattern, header, generic arguments),
+  `swift_initClassMetadata2` (superclass from its mangled name, SwiftObject
+  for root classes; ancestors' generic arguments, field offsets and vtables
+  copied; own vtable and override table unless the vtable is static; field
+  layout after the superclass's instance size), `swift_updateClassMetadata2`
+  (layout only), and the pre-5.4 `swift_initClassMetadata` /
+  `swift_updateClassMetadata`.
+- Objective-C side: class_ro gets the instance start and size, generic
+  instantiations a name (their Swift type name, unique per instantiation),
+  an ivar list copied with offsets pointing into the field offset vector
+  (field offset globals updated only when wrong: they are read-only when
+  the compiler knew the offset), the metaclass's superclass, then the class
+  is realised and registered by name.
+- `swift_abi.h`: the generic class metadata pattern was wrong. After
+  {destroy, ivar destroyer, class flags} come four 16-bit word offsets into
+  the extra data (class_ro, metaclass object, metaclass class_ro,
+  reserved), not relative pointers; added the vtable, method, override and
+  stored-bounds layouts. `swift_getSingletonMetadata` now stops with a clear
+  message for a class with a resilient superclass (metadata relocation is
+  not implemented).
+- `tests/swift/classes` (+ `classes.lib.swift`): generic classes three
+  levels deep at two argument types, a non-generic subclass of a generic
+  class (singleton initialisation, static vtable), a class with a resilient
+  stored property (`swift_updateClassMetadata2`); field offsets, instance
+  sizes, superclass and metaclass chains, Objective-C names, lookup by name,
+  ivar offsets, objects allocated by compiled code, dynamic dispatch through
+  the runtime-built vtables. Suite 33/33 at `-O` and `-Onone`. No Docker
+  here: `tests/e2e/rex.sh` not run.
+- Rex window imports unimplemented: 5,239 -> 5,236. `mrun` still stops at
+  `$s7SwiftUI28NSApplicationDelegateAdaptorVMa`.
