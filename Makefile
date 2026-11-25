@@ -34,6 +34,14 @@ $(BUILD)/obj/%.o: src/%.c $(wildcard src/include/*.h)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -fPIE -c -o $@ $<
 
+# The concurrency runtime implements functions with the swiftasync calling
+# convention (async context in r14, guaranteed tail calls), which only
+# clang can emit.
+CLANG ?= clang
+$(BUILD)/obj/frameworks/concurrency/%.o: src/frameworks/concurrency/%.c $(wildcard src/include/*.h src/frameworks/concurrency/*.h src/frameworks/swift/*.h)
+	@mkdir -p $(dir $@)
+	$(CLANG) $(CFLAGS) -Wno-unused-function -fPIE -c -o $@ $<
+
 $(BUILD)/obj/%.o: src/%.S
 	@mkdir -p $(dir $@)
 	$(CC) -c -o $@ $<
@@ -212,7 +220,7 @@ $(SWIFTRES)/.stamp:
 $(FW_ROOT)/usr/lib/swift/libswift%.dylib: $$(wildcard overlays/%/*.swift) $(LIBSWIFTCORE) $(SDKROOT)/.stamp $(SWIFTRES)/.stamp
 	@mkdir -p $(dir $@) $(BUILD)/overlays
 	$(SWIFTC) -module-name $* -module-link-name swift$* $(SWIFT_TARGET) $(SWIFT_SDKFLAGS) \
-	    -enable-library-evolution -wmo -parse-as-library -O \
+	    $(shell cat overlays/$*/swiftc.flags 2>/dev/null) -enable-library-evolution -wmo -parse-as-library -O \
 	    -emit-module -emit-module-path $(SWIFT_MODDIR)/$*.swiftmodule \
 	    -c -o $(BUILD)/overlays/$*.o $(wildcard overlays/$*/*.swift)
 	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
@@ -224,16 +232,17 @@ $(FW_ROOT)/usr/lib/swift/libswift%.dylib: $$(wildcard overlays/%/*.swift) $(LIBS
 # swiftcc and C agree for plain integer and pointer arguments).
 TEST_SWLIB     := $(wildcard tests/swiftlib/*.swift)
 TEST_SWLIBBINS := $(if $(and $(SWIFTC),$(HAVE_MACHO)),$(patsubst tests/swiftlib/%.swift,$(BUILD)/tests/swiftlib/%,$(TEST_SWLIB)))
-$(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTCORE) tests/include/darwin.h
+# They import _Concurrency implicitly, as ordinary Swift code does.
+LIBCONCURRENCY := $(FW_ROOT)/usr/lib/swift/libswift_Concurrency.dylib
+$(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTCORE) $(LIBCONCURRENCY) tests/include/darwin.h
 	@mkdir -p $(dir $@)
 	$(SWIFTC) $(SWIFT_TARGET) -I $(SWIFT_MODDIR) -module-name $(subst -,_,$*) -parse-as-library \
-	    -Xfrontend -disable-implicit-concurrency-module-import \
 	    -Xfrontend -disable-implicit-string-processing-module-import \
 	    -wmo $(SWIFT_FLAGS) -c -o $@.swift.o $<
 	$(MACHO_CC) -target x86_64-apple-macos11 -O1 -ffreestanding -fno-builtin -fblocks -nostdinc \
 	    -Itests/include -fno-stack-protector -c -o $@.o tests/swiftlib/$*.c
 	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -e _main \
-	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) -o $@ $@.o $@.swift.o
+	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(LIBCONCURRENCY) -o $@ $@.o $@.swift.o
 
 test-bins: $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
 
