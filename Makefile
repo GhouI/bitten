@@ -169,6 +169,47 @@ $(LIBSWIFTCORE): $(BUILD)/stdlib/Swift.o $(BUILD)/sdk/libSystem.tbd
 	    -install_name /usr/lib/swift/libswiftCore.dylib \
 	    -L$(BUILD)/sdk -lSystem -o $@ $(BUILD)/stdlib/Swift.o
 
+# ---- an SDK and the Swift overlays ----------------------------------------
+# build/MacOSX.sdk is bitten's own macOS SDK: the headers in sdk/include
+# with Clang module maps, so Swift code compiled for macOS can import our
+# C and Objective-C modules. The Swift overlays (overlays/NAME/*.swift) are
+# built against it into build/root/usr/lib/swift/libswiftNAME.dylib, each
+# with its module in build/swift. The compiler gets a resource directory of
+# our own with only the Clang builtin headers and shims, so the Linux
+# modules shipped with the toolchain (its CoreFoundation, Dispatch...)
+# cannot shadow ours.
+SDKROOT      := $(BUILD)/MacOSX.sdk
+SWIFTRES     := $(BUILD)/swift-res
+SWIFT_TOOLRES = $(dir $(SWIFTC))../lib/swift
+OVERLAYS     := $(notdir $(wildcard overlays/*))
+OVERLAY_LIBS := $(if $(and $(SWIFTC),$(HAVE_MACHO)),$(foreach o,$(OVERLAYS),$(FW_ROOT)/usr/lib/swift/libswift$(o).dylib))
+FRAMEWORKS   += $(OVERLAY_LIBS)
+all: $(OVERLAY_LIBS)
+SWIFT_SDKFLAGS = -sdk $(SDKROOT) -resource-dir $(SWIFTRES) -I $(SWIFT_MODDIR) \
+                 -Xfrontend -disable-implicit-concurrency-module-import \
+                 -Xfrontend -disable-implicit-string-processing-module-import
+
+$(SDKROOT)/.stamp: $(shell find sdk/include -type f)
+	@mkdir -p $(SDKROOT)/usr/include
+	cp -r sdk/include/. $(SDKROOT)/usr/include/
+	@touch $@
+$(SWIFTRES)/.stamp:
+	@mkdir -p $(SWIFTRES)
+	ln -sfn $(abspath $(SWIFT_TOOLRES))/clang $(SWIFTRES)/clang
+	ln -sfn $(abspath $(SWIFT_TOOLRES))/shims $(SWIFTRES)/shims
+	@touch $@
+
+.SECONDEXPANSION:
+$(FW_ROOT)/usr/lib/swift/libswift%.dylib: $$(wildcard overlays/%/*.swift) $(LIBSWIFTCORE) $(SDKROOT)/.stamp $(SWIFTRES)/.stamp
+	@mkdir -p $(dir $@) $(BUILD)/overlays
+	$(SWIFTC) -module-name $* -module-link-name swift$* $(SWIFT_TARGET) $(SWIFT_SDKFLAGS) \
+	    -enable-library-evolution -wmo -parse-as-library -O \
+	    -emit-module -emit-module-path $(SWIFT_MODDIR)/$*.swiftmodule \
+	    -c -o $(BUILD)/overlays/$*.o $(wildcard overlays/$*/*.swift)
+	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
+	    -install_name /usr/lib/swift/libswift$*.dylib \
+	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) -o $@ $(BUILD)/overlays/$*.o
+
 # Tests in ordinary Swift, against that standard library: tests/swiftlib/
 # NAME.swift with a C driver NAME.c (functions exported with @_silgen_name;
 # swiftcc and C agree for plain integer and pointer arguments).
