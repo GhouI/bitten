@@ -60,6 +60,11 @@ public struct ObservationRegistrar: Sendable {
   }
 }
 
+extension ObservationRegistrar: Codable {
+  public init(from decoder: any Decoder) throws { self.init() }
+  public func encode(to encoder: any Encoder) throws {}
+}
+
 extension ObservationRegistrar: Hashable {
   public static func == (lhs: ObservationRegistrar, rhs: ObservationRegistrar) -> Bool { return true }
   public func hash(into hasher: inout Hasher) {}

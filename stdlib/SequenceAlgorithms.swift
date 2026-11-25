@@ -53,3 +53,105 @@ public func _convertConstArrayToPointerArgument<FromElement, ToPointer: _Pointer
   let copy = arr._copyToContiguousArray()
   return (copy._buffer.owner, ToPointer(copy._buffer.firstElementAddress._rawValue))
 }
+
+// ---- operations that return arrays -------------------------------------------------
+// Declared with `rethrows`, the form programs bind to (Swift 6's typed-throws
+// spellings are emitted into clients).
+
+extension Sequence {
+  @inlinable
+  public func map<T>(_ transform: (Element) throws -> T) rethrows -> [T] {
+    var result = ContiguousArray<T>()
+    result.reserveCapacity(underestimatedCount)
+    for e in self { result.append(try transform(e)) }
+    return Array(result)
+  }
+
+  @inlinable
+  public __consuming func filter(_ isIncluded: (Element) throws -> Bool) rethrows -> [Element] {
+    var result = ContiguousArray<Element>()
+    for e in self where try isIncluded(e) { result.append(e) }
+    return Array(result)
+  }
+
+  @inlinable
+  public func compactMap<ElementOfResult>(_ transform: (Element) throws -> ElementOfResult?) rethrows -> [ElementOfResult] {
+    var result = ContiguousArray<ElementOfResult>()
+    for e in self {
+      if let v = try transform(e) { result.append(v) }
+    }
+    return Array(result)
+  }
+
+  @inlinable
+  public func flatMap<SegmentOfResult: Sequence>(_ transform: (Element) throws -> SegmentOfResult) rethrows
+    -> [SegmentOfResult.Element] {
+    var result: [SegmentOfResult.Element] = []
+    for e in self { result.append(contentsOf: try transform(e)) }
+    return result
+  }
+
+  @inlinable
+  public func sorted(by areInIncreasingOrder: (Element, Element) throws -> Bool) rethrows -> [Element] {
+    var result = ContiguousArray(self)
+    try result.sort(by: areInIncreasingOrder)
+    return Array(result)
+  }
+
+  @inlinable
+  public __consuming func reversed() -> [Element] {
+    var result = Array(self)
+    result.reverse()
+    return result
+  }
+
+  @inlinable
+  public __consuming func split(maxSplits: Int = Int.max, omittingEmptySubsequences: Bool = true,
+                                whereSeparator isSeparator: (Element) throws -> Bool) rethrows -> [ArraySlice<Element>] {
+    let all = Array(self)
+    var result: [ArraySlice<Element>] = []
+    var start = 0
+    var i = 0
+    while i < all.count {
+      if result.count < maxSplits, try isSeparator(all[i]) {
+        if !(omittingEmptySubsequences && start == i) { result.append(all[start..<i]) }
+        start = i + 1
+      }
+      i += 1
+    }
+    if !(omittingEmptySubsequences && start == all.count) { result.append(all[start..<all.count]) }
+    return result
+  }
+}
+
+extension Sequence where Element: Comparable {
+  @inlinable public func sorted() -> [Element] { return sorted(by: <) }
+}
+
+extension Sequence where Element: Equatable {
+  @inlinable
+  public __consuming func split(separator: Element, maxSplits: Int = Int.max,
+                                omittingEmptySubsequences: Bool = true) -> [ArraySlice<Element>] {
+    return split(maxSplits: maxSplits, omittingEmptySubsequences: omittingEmptySubsequences,
+                 whereSeparator: { $0 == separator })
+  }
+}
+
+extension Sequence where Element: Sequence {
+  @inlinable
+  public __consuming func joined() -> [Element.Element] {
+    var result: [Element.Element] = []
+    for s in self { result.append(contentsOf: s) }
+    return result
+  }
+}
+
+extension Collection {
+  @inlinable
+  public func map<T>(_ transform: (Element) throws -> T) rethrows -> [T] {
+    var result = ContiguousArray<T>()
+    result.reserveCapacity(count)
+    for e in self { result.append(try transform(e)) }
+    return Array(result)
+  }
+}
