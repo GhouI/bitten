@@ -611,3 +611,40 @@ for the Swift layer and for the smaller independent items.
 - Suite 29/29 at `-O` and `-Onone`. Rex window imports unimplemented:
   5,366 (unchanged; tests and printing only). Rex still stops at
   `$s7SwiftUI28NSApplicationDelegateAdaptorVMa`.
+
+## 2026-11-25: Swift metadata, part 3: functions, existentials, foreign types (PR: swift-structural)
+
+- `tuple.c`: `swift_getFunctionTypeMetadata{,0,1,2,3}`,
+  `...Differentiable`, `...GlobalActor` and
+  `swift_getExtendedFunctionTypeMetadata`, uniqued by every field. Layout:
+  kind, flags word, result, parameters, then 32-bit parameter flags
+  (padded), differentiability kind, global actor, extended flags, thrown
+  error type. Witnesses by convention: escaping Swift closures `$syycWV`
+  (heap.c), non-escaping ones a POD pair, thin and C function pointers a
+  POD word (extra inhabitants: values below 4 GiB), blocks the unknown-object
+  table.
+- `existential.c`: `swift_getExistentialTypeMetadata`,
+  `swift_getExistentialMetatypeMetadata`, and the static `Any` and
+  `AnyObject` metadata the compiler refers to by symbol (`$sypN`/`$sypWV`,
+  `$syXlN`/`$syXlWV`). Opaque existentials (3-word buffer, type, witness
+  tables; values boxed when not inline), class-bound ones (unknown-object
+  reference, witness tables), `any Error` (one reference), existential
+  metatypes (POD). Extra inhabitants measured against swiftc: the type word
+  of an opaque existential and the reference of a class-bound one, value
+  i << 1, 2^31-1 of them.
+- `metadata.c`: `swift_getForeignTypeMetadata` (imported C types: the first
+  candidate registered under a name wins; foreign completion run if any).
+- `sw_utable.h`: the uniquing table shared by the structural metadata.
+- `tests/swift/weak.c`: the abort-on-call stand-ins for the generic
+  metadata entry points are gone (the runtime has them now).
+- `tests/swift/structural`: function types (conventions, throws, parameter
+  flags), Any/AnyObject/compositions/class-bound protocols and their
+  metatypes, extra inhabitants through generic Optional against the
+  compiler's fixed layouts, opaque existential witnesses, a closure passed
+  through generic code. Suite 30/30 at `-O` and `-Onone`. No Docker here:
+  `tests/e2e/rex.sh` not run.
+- Rex window imports unimplemented (total `^MISSING` lines, with
+  Foundation built): 5,366 -> 5,361. The "before" figures in the two
+  previous metadata entries were measured without `build/root` (Foundation)
+  and are too high; with it, main measured 5,366 before this PR. `mrun`
+  still stops at `$s7SwiftUI28NSApplicationDelegateAdaptorVMa`.
