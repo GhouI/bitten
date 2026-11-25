@@ -6,63 +6,7 @@
 #include <string.h>
 
 #include "swift_internal.h"
-
-/* ---- a small uniquing table ------------------------------------------------------
- * Keys are arrays of words; entries keep their key next to the value. */
-struct uentry {
-    size_t hash, nwords;
-    const void *value;
-    uintptr_t key[];
-};
-struct utable {
-    struct uentry **slots;
-    size_t cap, count;
-};
-
-static size_t words_hash(const uintptr_t *w, size_t n) {
-    uint64_t h = 0xcbf29ce484222325ULL ^ n;
-    for (size_t i = 0; i < n; i++) {
-        h ^= w[i];
-        h *= 0xff51afd7ed558ccdULL;
-        h ^= h >> 31;
-    }
-    return (size_t)h;
-}
-
-static const void *ufind(struct utable *t, const uintptr_t *key, size_t n, size_t h) {
-    if (!t->cap) return NULL;
-    for (size_t j = h & (t->cap - 1); t->slots[j]; j = (j + 1) & (t->cap - 1)) {
-        struct uentry *e = t->slots[j];
-        if (e->hash == h && e->nwords == n && !memcmp(e->key, key, n * sizeof *key))
-            return e->value;
-    }
-    return NULL;
-}
-
-static void uinsert(struct utable *t, const uintptr_t *key, size_t n, size_t h, const void *value) {
-    if ((t->count + 1) * 2 > t->cap) {
-        size_t cap = t->cap ? t->cap * 2 : 64;
-        struct uentry **s = calloc(cap, sizeof *s);
-        for (size_t i = 0; i < t->cap; i++) {
-            if (!t->slots[i]) continue;
-            size_t j = t->slots[i]->hash & (cap - 1);
-            while (s[j]) j = (j + 1) & (cap - 1);
-            s[j] = t->slots[i];
-        }
-        free(t->slots);
-        t->slots = s;
-        t->cap = cap;
-    }
-    struct uentry *e = malloc(sizeof *e + n * sizeof *key);
-    e->hash = h;
-    e->nwords = n;
-    e->value = value;
-    memcpy(e->key, key, n * sizeof *key);
-    size_t j = h & (t->cap - 1);
-    while (t->slots[j]) j = (j + 1) & (t->cap - 1);
-    t->slots[j] = e;
-    t->count++;
-}
+#include "sw_utable.h"
 
 /* ---- tuples -------------------------------------------------------------------------- */
 
@@ -307,3 +251,165 @@ static const sw_metadata *d_swift_getMetatypeMetadata(const sw_metadata *instanc
     return sw_get_metatype_metadata(instance);
 }
 DX_FN(swift_getMetatypeMetadata);
+
+/* ---- function types --------------------------------------------------------------------
+ * FunctionTypeMetadata: kind, flags (one word), result, parameters, then as
+ * the flags say: 32-bit parameter flags (padded to a word), the
+ * differentiability kind, the global actor, 32-bit extended flags (padded)
+ * and the thrown error type. */
+
+/* Thin and C function pointers: one word, extra inhabitants are the values
+ * below 4 GiB (no reserved bits). */
+static unsigned fnptr_xi_get(const sw_opaque *v, unsigned n, const sw_metadata *m) {
+    uintptr_t p = *(const uintptr_t *)v;
+    return p < n ? (unsigned)p + 1 : 0;
+}
+static void fnptr_xi_store(sw_opaque *v, unsigned which, unsigned n, const sw_metadata *m) {
+    *(uintptr_t *)v = which - 1;
+}
+static unsigned fnptr_get_tag(const sw_opaque *v, unsigned empty, const sw_metadata *m) {
+    return sw_get_enum_tag_single_payload(v, empty, m, fnptr_xi_get);
+}
+static void fnptr_store_tag(sw_opaque *v, unsigned which, unsigned empty, const sw_metadata *m) {
+    sw_store_enum_tag_single_payload(v, which, empty, m, fnptr_xi_store);
+}
+const sw_vwt sw_vwt_thin_function = {word_buffer_copy, word_destroy, word_copy, word_copy,
+                                     word_copy, word_copy, fnptr_get_tag, fnptr_store_tag,
+                                     8, 8, 7, SW_VW_MAX_NUM_EXTRA_INHABITANTS};
+
+/* Non-escaping closures: function and context, neither owned. */
+static sw_opaque *pair_copy(sw_opaque *d, sw_opaque *s, const sw_metadata *m) {
+    memcpy(d, s, 16);
+    return d;
+}
+static sw_opaque *pair_buffer_copy(sw_value_buffer *d, sw_value_buffer *s, const sw_metadata *m) {
+    return pair_copy((sw_opaque *)d, (sw_opaque *)s, m);
+}
+const sw_vwt sw_vwt_noescape_function = {pair_buffer_copy, word_destroy, pair_copy, pair_copy,
+                                         pair_copy, pair_copy, fnptr_get_tag, fnptr_store_tag,
+                                         16, 16, 7, SW_VW_MAX_NUM_EXTRA_INHABITANTS};
+
+static const sw_vwt *function_vwt(uintptr_t flags) {
+    switch ((flags & SW_FN_CONVENTION_MASK) >> SW_FN_CONVENTION_SHIFT) {
+    case 0: return (flags & SW_FN_ESCAPING) ? &sw_vwt_thick_closure : &sw_vwt_noescape_function;
+    case 1: return &sw_vwt_unknown_object; /* blocks are Objective-C objects */
+    default: return &sw_vwt_thin_function;  /* thin, C */
+    }
+}
+
+struct full_function {
+    const sw_vwt *vwt;
+    sw_function_metadata md;
+};
+static struct utable functions;
+
+static const sw_metadata *get_function(uintptr_t flags, uintptr_t diff_kind,
+                                       const sw_metadata *const *params, const uint32_t *pflags,
+                                       const sw_metadata *result, const sw_metadata *actor,
+                                       uint32_t ext_flags, const sw_metadata *thrown) {
+    size_t n = flags & SW_FN_NUM_PARAMS_MASK;
+    int has_pflags = (flags & SW_FN_PARAM_FLAGS) && pflags;
+    int typed_throws = (flags & SW_FN_EXTENDED_FLAGS) && (ext_flags & 1);
+    /* Key: flags, result, params, param flags, the optional parts. */
+    size_t nkey = 0;
+    uintptr_t key[2 * n + 8];
+    key[nkey++] = flags;
+    key[nkey++] = (uintptr_t)result;
+    for (size_t i = 0; i < n; i++) key[nkey++] = (uintptr_t)params[i];
+    if (has_pflags)
+        for (size_t i = 0; i < n; i++) key[nkey++] = pflags[i];
+    if (flags & SW_FN_DIFFERENTIABLE) key[nkey++] = diff_kind;
+    if (flags & SW_FN_GLOBAL_ACTOR) key[nkey++] = (uintptr_t)actor;
+    if (flags & SW_FN_EXTENDED_FLAGS) key[nkey++] = ext_flags;
+    if (typed_throws) key[nkey++] = (uintptr_t)thrown;
+    size_t h = words_hash(key, nkey);
+
+    sw_md_lock();
+    const sw_metadata *m = ufind(&functions, key, nkey, h);
+    if (!m) {
+        size_t words = n + (has_pflags ? (n + 1) / 2 : 0) + 6;
+        struct full_function *f = calloc(1, sizeof *f + words * sizeof(void *));
+        f->vwt = function_vwt(flags);
+        f->md.kind = SW_KIND_FUNCTION;
+        f->md.flags = flags;
+        f->md.result = result;
+        uintptr_t *w = (uintptr_t *)f->md.params;
+        for (size_t i = 0; i < n; i++) *w++ = (uintptr_t)params[i];
+        if (flags & SW_FN_PARAM_FLAGS) {
+            if (has_pflags) memcpy(w, pflags, n * sizeof *pflags);
+            w += (n + 1) / 2;
+        }
+        if (flags & SW_FN_DIFFERENTIABLE) *w++ = diff_kind;
+        if (flags & SW_FN_GLOBAL_ACTOR) *w++ = (uintptr_t)actor;
+        if (flags & SW_FN_EXTENDED_FLAGS) *w++ = ext_flags;
+        if (typed_throws) *w++ = (uintptr_t)thrown;
+        m = (const sw_metadata *)&f->md;
+        uinsert(&functions, key, nkey, h, m);
+    }
+    sw_md_unlock();
+    return m;
+}
+
+/* const FunctionTypeMetadata *swift_getFunctionTypeMetadata(FunctionTypeFlags,
+ *     const Metadata *const *parameters, const uint32_t *parameterFlags, const Metadata *result) */
+static const sw_metadata *d_swift_getFunctionTypeMetadata(uintptr_t flags,
+                                                          const sw_metadata *const *params,
+                                                          const uint32_t *pflags,
+                                                          const sw_metadata *result) {
+    return get_function(flags, 0, params, pflags, result, NULL, 0, NULL);
+}
+DX_FN(swift_getFunctionTypeMetadata);
+
+static const sw_metadata *d_swift_getFunctionTypeMetadata0(uintptr_t flags, const sw_metadata *result) {
+    return get_function(flags, 0, NULL, NULL, result, NULL, 0, NULL);
+}
+DX_FN(swift_getFunctionTypeMetadata0);
+
+static const sw_metadata *d_swift_getFunctionTypeMetadata1(uintptr_t flags, const sw_metadata *a0,
+                                                           const sw_metadata *result) {
+    const sw_metadata *p[1] = {a0};
+    return get_function(flags, 0, p, NULL, result, NULL, 0, NULL);
+}
+DX_FN(swift_getFunctionTypeMetadata1);
+
+static const sw_metadata *d_swift_getFunctionTypeMetadata2(uintptr_t flags, const sw_metadata *a0,
+                                                           const sw_metadata *a1,
+                                                           const sw_metadata *result) {
+    const sw_metadata *p[2] = {a0, a1};
+    return get_function(flags, 0, p, NULL, result, NULL, 0, NULL);
+}
+DX_FN(swift_getFunctionTypeMetadata2);
+
+static const sw_metadata *d_swift_getFunctionTypeMetadata3(uintptr_t flags, const sw_metadata *a0,
+                                                           const sw_metadata *a1,
+                                                           const sw_metadata *a2,
+                                                           const sw_metadata *result) {
+    const sw_metadata *p[3] = {a0, a1, a2};
+    return get_function(flags, 0, p, NULL, result, NULL, 0, NULL);
+}
+DX_FN(swift_getFunctionTypeMetadata3);
+
+/* (flags, differentiabilityKind, params, paramFlags, result) */
+static const sw_metadata *d_swift_getFunctionTypeMetadataDifferentiable(
+    uintptr_t flags, uintptr_t diff, const sw_metadata *const *params, const uint32_t *pflags,
+    const sw_metadata *result) {
+    return get_function(flags, diff, params, pflags, result, NULL, 0, NULL);
+}
+DX_FN(swift_getFunctionTypeMetadataDifferentiable);
+
+/* (flags, differentiabilityKind, params, paramFlags, result, globalActor) */
+static const sw_metadata *d_swift_getFunctionTypeMetadataGlobalActor(
+    uintptr_t flags, uintptr_t diff, const sw_metadata *const *params, const uint32_t *pflags,
+    const sw_metadata *result, const sw_metadata *actor) {
+    return get_function(flags, diff, params, pflags, result, actor, 0, NULL);
+}
+DX_FN(swift_getFunctionTypeMetadataGlobalActor);
+
+/* (flags, differentiabilityKind, params, paramFlags, result, globalActor,
+ *  extendedFlags, thrownError) */
+static const sw_metadata *d_swift_getExtendedFunctionTypeMetadata(
+    uintptr_t flags, uintptr_t diff, const sw_metadata *const *params, const uint32_t *pflags,
+    const sw_metadata *result, const sw_metadata *actor, uint32_t ext, const sw_metadata *thrown) {
+    return get_function(flags, diff, params, pflags, result, actor, ext, thrown);
+}
+DX_FN(swift_getExtendedFunctionTypeMetadata);

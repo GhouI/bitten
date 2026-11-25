@@ -395,3 +395,45 @@ static void d_swift_initStructMetadata(sw_metadata *self, uintptr_t flags, size_
     sw_publish_layout(w, &l);
 }
 DX_FN(swift_initStructMetadata);
+
+/* ---- foreign types -------------------------------------------------------------------
+ * Imported C types (structs, enums, CF classes) have no owning image: every
+ * module that uses one emits its own candidate metadata, and the runtime
+ * picks the first one registered for the type's name so that they all
+ * agree. A candidate may need completion (a foreign class's superclass),
+ * given by the descriptor's foreign metadata initialisation. */
+struct foreign {
+    struct foreign *next;
+    char *name;
+    uintptr_t kind;
+    struct sw_md_entry *md;
+};
+static struct foreign *foreigns;
+
+/* MetadataResponse swift_getForeignTypeMetadata(MetadataRequest, ForeignTypeMetadata *candidate) */
+static sw_response d_swift_getForeignTypeMetadata(sw_request req, sw_metadata *candidate) {
+    const sw_type_context_descriptor *desc = ((const sw_value_metadata *)candidate)->description;
+    char name[512];
+    sw_descriptor_qualified_name((const sw_context_descriptor *)desc, name, sizeof name);
+    uintptr_t kind = sw_kind(candidate);
+    sw_md_lock();
+    struct foreign *f;
+    for (f = foreigns; f; f = f->next)
+        if (f->kind == kind && !strcmp(f->name, name)) break;
+    if (!f) {
+        f = calloc(1, sizeof *f);
+        f->name = strdup(name);
+        f->kind = kind;
+        sw_completion_fn complete = NULL;
+        if ((sw_ctx_kind_flags(desc->flags) & SW_TYPE_METADATA_INIT_MASK) == SW_TYPE_METADATA_INIT_FOREIGN)
+            complete = (sw_completion_fn)sw_rel((const int32_t *)((const char *)desc + sw_type_descriptor_size(desc)));
+        f->md = sw_md_entry_new(candidate, complete, NULL);
+        f->next = foreigns;
+        foreigns = f;
+    }
+    sw_md_unlock();
+    uintptr_t st = f->md->state;
+    if (!satisfies(st, req & SW_REQUEST_STATE_MASK)) st = sw_md_complete(f->md, req);
+    return (sw_response){f->md->metadata, st};
+}
+DX_FN(swift_getForeignTypeMetadata);
