@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 B=${BUILD:-build}
 fail=0; n=0
 for t in "$B"/tests/c/* "$B"/tests/objc/* "$B"/tests/foundation/* "$B"/tests/go/* "$B"/tests/swift/*; do
-    case "$t" in *.o|*'*') continue;; esac
+    case "$t" in *.o|*.lib|*'*') continue;; esac
     [ -x "$t" ] || continue
     n=$((n+1))
     if out=$(timeout 60 "$B"/mrun "$t" 2>&1); then

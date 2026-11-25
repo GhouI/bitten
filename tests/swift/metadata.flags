@@ -1,0 +1,1 @@
+-Xfrontend -disable-concrete-type-metadata-mangled-name-accessors

@@ -114,15 +114,24 @@ SWIFTFLAGS_ALL := -parse-stdlib -target x86_64-apple-macos11 -runtime-compatibil
 # Swift itself: the compiler looks up a few types (Optional, for weak
 # references) in the standard library by name, and the test declares them.
 swift_module = $(or $(shell sed -n '1s|^// module: *||p' $(1)),$(subst -,_,$(2)))
-TEST_SWIFT     := $(filter-out tests/swift/prelude.swift,$(wildcard tests/swift/*.swift))
+# Optional per-test files: NAME.flags holds extra swiftc flags; NAME.lib.swift
+# is a separate resilient module (-enable-library-evolution, named NAME_lib)
+# that the test imports, which is how compiled code meets types whose layout
+# it cannot know.
+TEST_SWIFT     := $(filter-out tests/swift/prelude.swift tests/swift/%.lib.swift,$(wildcard tests/swift/*.swift))
 TEST_SWIFTBINS := $(if $(SWIFTC),$(patsubst tests/swift/%.swift,$(BUILD)/tests/swift/%,$(TEST_SWIFT)))
-$(BUILD)/tests/swift/%: tests/swift/%.swift tests/swift/%.c tests/swift/prelude.swift $(BUILD)/sdk/libSystem.tbd tests/include/darwin.h
+swift_lib = $(wildcard tests/swift/$(1).lib.swift)
+$(BUILD)/tests/swift/%: tests/swift/%.swift tests/swift/%.c tests/swift/prelude.swift $(wildcard tests/swift/*.flags tests/swift/*.lib.swift) $(BUILD)/sdk/libSystem.tbd tests/include/darwin.h
 	@mkdir -p $(dir $@)
-	$(SWIFTC) $(SWIFTFLAGS_ALL) -module-name $(call swift_module,$<,$*) -c -o $@.swift.o tests/swift/prelude.swift $<
+	$(if $(call swift_lib,$*),$(SWIFTC) $(SWIFTFLAGS_ALL) -enable-library-evolution -module-name $(subst -,_,$*)_lib \
+	    -emit-module -emit-module-path $@.lib/$(subst -,_,$*)_lib.swiftmodule -c -o $@.lib.o \
+	    tests/swift/prelude.swift $(call swift_lib,$*))
+	$(SWIFTC) $(SWIFTFLAGS_ALL) -module-name $(call swift_module,$<,$*) $(shell cat tests/swift/$*.flags 2>/dev/null) \
+	    $(if $(call swift_lib,$*),-I $@.lib) -c -o $@.swift.o tests/swift/prelude.swift $<
 	$(MACHO_CC) -target x86_64-apple-macos11 -O1 -ffreestanding -fno-builtin -fblocks -nostdinc \
 	    -Itests/include -fno-stack-protector -c -o $@.o tests/swift/$*.c
 	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -e _main \
-	    -L$(BUILD)/sdk -lSystem -o $@ $@.o $@.swift.o
+	    -L$(BUILD)/sdk -lSystem -o $@ $@.o $@.swift.o $(if $(call swift_lib,$*),$@.lib.o)
 
 test-bins: $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS)
 
