@@ -931,3 +931,11 @@ for the Swift layer and for the smaller independent items.
 - Rex window: 8 of its 9 imports from libswiftCoreFoundation now resolve
   (the last, `CGFloat: CVarArg`, needs Array). Total `^MISSING`:
   4,913 -> 4,905.
+
+## 2026-11-25: resume notes rewritten (PR: next-notes)
+
+`docs/NEXT.md` now describes the Swift state (runtime done, standard
+library in progress, overlays and our own SDK), the three kinds of Swift
+tests, how the standard library is matched to Apple's by declaration, the
+work in flight, and what comes after it (Foundation's Swift surface, then
+SwiftUI with AppKit and the drawing stack).
