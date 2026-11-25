@@ -1,25 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="620" height="340" viewBox="0 0 620 340">
 <style>
   text { font-family: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
-  .bg { fill: #ffffff; } .ink { fill: #1f2328; } .mute { fill: #3d6aa3; }
-  .track { stroke: #ddf4ff; } .gap { stroke: #ffffff; }
-  .s-System { stroke: #0969da; } .f-System { fill: #0969da; }
-  .s-Swift { stroke: #bf3989; } .f-Swift { fill: #bf3989; }
-  .s-Foundation { stroke: #1a7f37; } .f-Foundation { fill: #1a7f37; }
-  .s-Graphics { stroke: #9a6700; } .f-Graphics { fill: #9a6700; }
-  .s-AppKit { stroke: #8250df; } .f-AppKit { fill: #8250df; }
-  .s-SwiftUI { stroke: #cf222e; } .f-SwiftUI { fill: #cf222e; }
-  .s-Other { stroke: #1b7c83; } .f-Other { fill: #1b7c83; }
+  .bg { fill: #ffffff; } .ink { fill: #1e293b; } .mute { fill: #4a6fa5; }
+  .track { stroke: #eef2ff; } .gap { stroke: #ffffff; }
+  .s-System { stroke: #3b82f6; } .f-System { fill: #3b82f6; }
+  .s-Swift { stroke: #f97316; } .f-Swift { fill: #f97316; }
+  .s-Foundation { stroke: #10b981; } .f-Foundation { fill: #10b981; }
+  .s-Graphics { stroke: #f59e0b; } .f-Graphics { fill: #f59e0b; }
+  .s-AppKit { stroke: #8b5cf6; } .f-AppKit { fill: #8b5cf6; }
+  .s-SwiftUI { stroke: #ec4899; } .f-SwiftUI { fill: #ec4899; }
+  .s-Other { stroke: #06b6d4; } .f-Other { fill: #06b6d4; }
   @media (prefers-color-scheme: dark) {
     .bg { fill: #0d1117; } .ink { fill: #e6edf3; } .mute { fill: #8fb4e3; }
     .track { stroke: #12263f; } .gap { stroke: #0d1117; }
-    .s-System { stroke: #4493f8; } .f-System { fill: #4493f8; }
-    .s-Swift { stroke: #db61a2; } .f-Swift { fill: #db61a2; }
-    .s-Foundation { stroke: #3fb950; } .f-Foundation { fill: #3fb950; }
-    .s-Graphics { stroke: #d29922; } .f-Graphics { fill: #d29922; }
-    .s-AppKit { stroke: #a371f7; } .f-AppKit { fill: #a371f7; }
-    .s-SwiftUI { stroke: #f85149; } .f-SwiftUI { fill: #f85149; }
-    .s-Other { stroke: #39c5cf; } .f-Other { fill: #39c5cf; }
+    .s-System { stroke: #60a5fa; } .f-System { fill: #60a5fa; }
+    .s-Swift { stroke: #fb923c; } .f-Swift { fill: #fb923c; }
+    .s-Foundation { stroke: #34d399; } .f-Foundation { fill: #34d399; }
+    .s-Graphics { stroke: #fbbf24; } .f-Graphics { fill: #fbbf24; }
+    .s-AppKit { stroke: #a78bfa; } .f-AppKit { fill: #a78bfa; }
+    .s-SwiftUI { stroke: #f472b6; } .f-SwiftUI { fill: #f472b6; }
+    .s-Other { stroke: #22d3ee; } .f-Other { fill: #22d3ee; }
   }
 </style>
 <defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4"/></filter></defs>
@@ -29,7 +29,6 @@
 <line x1="159.7" y1="96.0" x2="168.8" y2="71.7" class="gap" stroke-width="2"/>
 <circle cx="132" cy="170" r="92" fill="none" class="s-Swift" stroke-width="26" stroke-dasharray="137.22 578.05" stroke-dashoffset="-32.95" transform="rotate(-90 132 170)"/>
 <line x1="207.9" y1="191.7" x2="232.9" y2="198.9" class="gap" stroke-width="2"/>
-<circle cx="132" cy="170" r="92" fill="none" class="s-Foundation" stroke-width="32" stroke-dasharray="17.20 578.05" stroke-dashoffset="-170.17" transform="rotate(-90 132 170)" filter="url(#glow)" opacity="0.77"/>
 <circle cx="132" cy="170" r="92" fill="none" class="s-Foundation" stroke-width="26" stroke-dasharray="17.20 578.05" stroke-dashoffset="-170.17" transform="rotate(-90 132 170)"/>
 <line x1="202.6" y1="205.5" x2="225.8" y2="217.2" class="gap" stroke-width="2"/>
 <circle cx="132" cy="170" r="92" fill="none" class="s-Graphics" stroke-width="26" stroke-dasharray="2.90 578.05" stroke-dashoffset="-187.37" transform="rotate(-90 132 170)"/>
@@ -54,9 +53,7 @@
 <text x="592" y="143" class="mute" font-size="12" text-anchor="end">1,420/1,794</text>
 <circle cx="291" cy="165" r="5" class="f-Foundation"/>
 <text x="304" y="169" class="ink" font-size="13">Foundation</text>
-<circle cx="291" cy="165" r="8" class="f-Foundation" filter="url(#glow)" opacity="0.98"/>
-<text x="388" y="168" font-size="10" font-weight="800" letter-spacing="1" class="f-Foundation" filter="url(#glow)" opacity="0.84">NOW</text>
-<text x="388" y="168" font-size="10" font-weight="800" letter-spacing="1" class="f-Foundation">NOW</text>
+<circle cx="291" cy="165" r="7" class="f-Foundation" filter="url(#glow)" opacity="0.6"/>
 <text x="504" y="169" class="ink" font-size="13" font-weight="600" text-anchor="end">24%</text>
 <text x="592" y="169" class="mute" font-size="12" text-anchor="end">178/736</text>
 <circle cx="291" cy="191" r="5" class="f-Graphics"/>
@@ -75,6 +72,6 @@
 <text x="304" y="273" class="ink" font-size="13">Other</text>
 <text x="504" y="273" class="ink" font-size="13" font-weight="600" text-anchor="end">2%</text>
 <text x="592" y="273" class="mute" font-size="12" text-anchor="end">12/639</text>
-<text x="286" y="305" class="mute" font-size="11">updated 2026-11-25 · Foundation +119 in the last day</text>
+<text x="286" y="305" class="mute" font-size="11">updated 2026-11-25 · now: Foundation, +119 today</text>
 <text x="286" y="323" class="mute" font-size="11">estimate: about 2 days left (rough, at the recent pace)</text>
 </svg>
