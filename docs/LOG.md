@@ -1258,3 +1258,18 @@ SwiftUI with AppKit and the drawing stack).
   stdout. Suite 47/47 at -O and -Onone. No Docker here: `tests/e2e/target-app.sh`
   not run.
 - The Mac app window (total `^MISSING`): 4,432 -> 4,392.
+
+## 2026-11-25: SetAlgebra and OptionSet (PR: stdlib-setalgebra)
+
+- `stdlib/SetAlgebra.swift`: `SetAlgebra` with Apple's requirements
+  (including which arguments are `__owned`: that is in the method
+  descriptors programs bind to) and its default implementations;
+  `OptionSet` with the defaults for `Element == Self` and for
+  FixedWidthInteger raw values (what NS_OPTIONS types and Swift option sets
+  use); Set conforms to SetAlgebra (the four same-type operations it lacked
+  were added).
+- `tests/swiftlib/optionsets`: a Swift option set (literals, insert, remove,
+  update, the algebra), generic SetAlgebra code over an option set and over
+  Set. Suite 48/48 at -O and -Onone. No Docker here: `tests/e2e/target-app.sh` not
+  run.
+- The Mac app window (total `^MISSING`): 4,392 -> 4,358.
