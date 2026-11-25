@@ -9,7 +9,25 @@
 #include <objc/NSObject.h>
 #include <CoreFoundation/CoreFoundation.h>
 
-typedef double CGFloat;
+#include <CoreGraphics/CGGeometry.h>
+typedef CGPoint NSPoint;
+typedef CGSize NSSize;
+typedef CGRect NSRect;
+typedef struct NSEdgeInsets { CGFloat top, left, bottom, right; } NSEdgeInsets;
+static inline NSRect NSMakeRect(CGFloat x, CGFloat y, CGFloat w, CGFloat h) { return CGRectMake(x, y, w, h); }
+static inline NSPoint NSMakePoint(CGFloat x, CGFloat y) { return CGPointMake(x, y); }
+static inline NSSize NSMakeSize(CGFloat w, CGFloat h) { return CGSizeMake(w, h); }
+#define NSZeroRect CGRectZero
+static inline BOOL NSPointInRect(NSPoint p, NSRect r) {
+    return p.x >= r.origin.x && p.y >= r.origin.y && p.x < r.origin.x + r.size.width &&
+           p.y < r.origin.y + r.size.height;
+}
+static inline BOOL NSEqualRects(NSRect a, NSRect b) {
+    return a.origin.x == b.origin.x && a.origin.y == b.origin.y && a.size.width == b.size.width &&
+           a.size.height == b.size.height;
+}
+#define NSZeroPoint CGPointZero
+#define NSZeroSize CGSizeZero
 typedef double NSTimeInterval;
 typedef unsigned short unichar;
 typedef struct _NSZone NSZone;

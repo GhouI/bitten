@@ -1273,3 +1273,28 @@ SwiftUI with AppKit and the drawing stack).
   Set. Suite 48/48 at -O and -Onone. No Docker here: `tests/e2e/target-app.sh` not
   run.
 - The Mac app window (total `^MISSING`): 4,392 -> 4,358.
+
+## 2026-11-25: AppKit, first part; CoreGraphics geometry; dispatch header (PR: appkit-skeleton)
+
+- `frameworks/AppKit`: AppKit as an Objective-C Mach-O framework like
+  Foundation. Every class the Mac app links against exists in its place in the
+  hierarchy (the table in `tools/gen-appkit.py` generates the skeleton and
+  `sdk/include/AppKit/AppKitClasses.h`), with every exported constant at
+  its documented value. Hand-written: NSResponder (responder chain),
+  NSView (hierarchy, frames/bounds, display pass, coordinate conversion,
+  hit testing), NSControl, NSWindow (content view, title bar geometry,
+  ordering, key window, resize notifications), NSApplication (delegate
+  life cycle, activation, `run` handing the main thread to the main
+  dispatch queue, terminate), NSEvent, NSColor, NSFont, NSScreen
+  (`BITTEN_SCREEN=WxH`), NSGraphicsContext, NSMenu/NSMenuItem.
+- CoreGraphics geometry in `mrun` (`src/frameworks/coregraphics`): CGRect
+  arithmetic with null/infinite rectangles, affine transforms; headers in
+  `sdk/include/CoreGraphics`. Foundation's header now takes CGFloat and the
+  NS geometry types from there.
+- SDK: `NS_ENUM`/`NS_OPTIONS`/`NS_SWIFT_NAME` with the attributes the Swift
+  importer reads; `dispatch/dispatch.h` (C interface); Clang modules for
+  CoreGraphics, Foundation and AppKit, so Swift code can `import AppKit`.
+- `tests/appkit/basics`: application and delegate, windows, view
+  hierarchy, hit testing, conversion, display passes.
+- The Mac app window (total `^MISSING`): 4,358 -> 4,099; every Objective-C AppKit
+  import resolves (the rest are AppKit's Swift extensions).
