@@ -1219,3 +1219,42 @@ SwiftUI with AppKit and the drawing stack).
   ObjCBool, Selector equality/hash/name. Suite 46/46 at -O and -Onone. No
   Docker here: `tests/e2e/rex.sh` not run.
 - Rex window (total `^MISSING`): 4,468 -> 4,432.
+
+## 2026-11-25: String, part 3: printing, interpolation, descriptions (PR: stdlib-string-3)
+
+- `stdlib/Print.swift`: `print`/`debugPrint` (to stdout and to any
+  `TextOutputStream`), `_print_unlocked`/`_debugPrint_unlocked` (Optionals
+  through their debugDescription, then TextOutputStreamable, description,
+  debugDescription), `String(describing:)`, `String(reflecting:)`,
+  `String(_: LosslessStringConvertible)`, `_typeName`.
+- `stdlib/StringInterpolation.swift`: `StringInterpolationProtocol`,
+  `ExpressibleByStringInterpolation`, `DefaultStringInterpolation` (Apple's
+  one-String layout; programs inline it), String and Substring literals.
+- `stdlib/Descriptions.swift`: `BinaryInteger.description` and
+  `String(_:radix:uppercase:)`, `FixedWidthInteger.init?(_: String)`;
+  Float/Double/Float80 description, debugDescription, `write(to:)`,
+  `init?(_: String)` and `init?(_: Substring)`; Bool; Optional's
+  debugDescription; Array, ContiguousArray, ArraySlice, Set, Dictionary
+  ("[k: v]", "[:]"); Range/ClosedRange; String, Substring, Character and
+  Unicode.Scalar debug text (`escaped(asASCII:)`); StaticString; AnyHashable.
+- `stdlib/StringProtocol.swift`: `StringProtocol` (the requirements used so
+  far; the protocol is resilient) with String and Substring, `joined(separator:)`
+  over StringProtocol sequences and over String bidirectional collections.
+- `ExpressibleByDictionaryLiteral` and Dictionary's literal init;
+  `_OptionalNilComparisonType` (`x == nil` for non-Equatable wrapped types
+  did not compile before). BinaryInteger now refines CustomStringConvertible
+  and FixedWidthInteger LosslessStringConvertible, as Apple's do.
+- Runtime: `src/frameworks/swift/format.c` with Apple's entry points
+  `swift_float{32,64,80}ToString` (shortest round-trip digits, Swift's
+  decimal/exponential switch at 1e-4 and 2^24/2^53/2^64, "inf", "nan",
+  debug NaN payloads), `swift_{u,}int64ToString`,
+  `_swift_stdlib_strto{f,d,ld}_clocale`; `swift_getDynamicType` in casts.c.
+- Approximation until Mirror exists: a value with no description protocol
+  prints its type name (qualified for classes), not Apple's
+  "Point(x: 1, y: 2)" or enum case name.
+- `tests/swiftlib/printing`: integers (all widths, radix, parsing), floats
+  (shortest digits, both notations, specials, parsing), Optional,
+  collections, ranges, escaping, interpolation, print to a string and to
+  stdout. Suite 47/47 at -O and -Onone. No Docker here: `tests/e2e/rex.sh`
+  not run.
+- Rex window (total `^MISSING`): 4,432 -> 4,392.

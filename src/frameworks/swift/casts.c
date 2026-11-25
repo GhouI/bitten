@@ -240,6 +240,31 @@ static int open_existential(sw_opaque *src, const sw_metadata *type, sw_opaque *
 
 static int cast(sw_opaque *dest, sw_opaque *src, const sw_metadata *src_type, const sw_metadata *target);
 
+/* const Metadata *swift_getDynamicType(OpaqueValue *value, const Metadata *self,
+ * bool existentialMetatype): what type(of:) returns. A class instance's
+ * class, the type inside an existential (opened all the way down), and for
+ * anything else the static type. */
+static const sw_metadata *d_swift_getDynamicType(sw_opaque *value, const sw_metadata *self,
+                                                 _Bool existential_metatype) {
+    for (;;) {
+        uintptr_t k = sw_kind(self);
+        if (k == SW_KIND_CLASS || k > SW_KIND_LAST_ENUMERATED || k == SW_KIND_OBJC_CLASS_WRAPPER) {
+            const sw_metadata *m = class_metadata(class_of(*(void **)value));
+            return m ? m : self;
+        }
+        if (k != SW_KIND_EXISTENTIAL && !(existential_metatype && k == SW_KIND_EXISTENTIAL_METATYPE))
+            return self;
+        sw_opaque *inner;
+        const sw_metadata *dyn;
+        void *scratch[4];
+        if (!open_existential(value, self, &inner, &dyn, scratch)) return self;
+        if (k == SW_KIND_EXISTENTIAL_METATYPE) return dyn;
+        value = inner;
+        self = dyn;
+    }
+}
+DX_FN(swift_getDynamicType);
+
 /* Witness tables for `type` (the dynamic type of `value`) against the
  * protocols of existential `x`, in the container's order. */
 static int conformances(const struct exinfo *x, const sw_metadata *type, const void **wts) {
