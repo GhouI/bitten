@@ -54,7 +54,7 @@ extension Strideable {
   }
 }
 
-public protocol BinaryInteger: Hashable, Numeric, Strideable
+public protocol BinaryInteger: Hashable, Numeric, CustomStringConvertible, Strideable
 where Magnitude: BinaryInteger, Magnitude.Magnitude == Magnitude {
   static var isSigned: Bool { get }
   init?<T>(exactly source: T) where T: BinaryFloatingPoint
@@ -129,7 +129,7 @@ extension BinaryInteger {
   }
 }
 
-public protocol FixedWidthInteger: BinaryInteger
+public protocol FixedWidthInteger: BinaryInteger, LosslessStringConvertible
 where Magnitude: FixedWidthInteger & UnsignedInteger, Stride: SignedInteger {
   // Apple's declaration also requires Stride: FixedWidthInteger. With both,
   // this compiler's requirement machine does not terminate; nothing we

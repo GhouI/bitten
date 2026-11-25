@@ -55,3 +55,54 @@ extension Optional {
     }
   }
 }
+
+// ---- comparison with nil --------------------------------------------------------
+// `x == nil` and `x != nil` for any Optional, Equatable or not: nil converts
+// to this type, which has the operators.
+
+@frozen
+public struct _OptionalNilComparisonType: ExpressibleByNilLiteral {
+  @_transparent public init(nilLiteral: ()) {}
+}
+
+extension Optional {
+  @_transparent
+  public static func ~= (lhs: _OptionalNilComparisonType, rhs: Wrapped?) -> Bool {
+    switch rhs {
+    case .some: return false
+    case .none: return true
+    }
+  }
+
+  @_transparent
+  public static func == (lhs: Wrapped?, rhs: _OptionalNilComparisonType) -> Bool {
+    switch lhs {
+    case .some: return false
+    case .none: return true
+    }
+  }
+
+  @_transparent
+  public static func != (lhs: Wrapped?, rhs: _OptionalNilComparisonType) -> Bool {
+    switch lhs {
+    case .some: return true
+    case .none: return false
+    }
+  }
+
+  @_transparent
+  public static func == (lhs: _OptionalNilComparisonType, rhs: Wrapped?) -> Bool {
+    switch rhs {
+    case .some: return false
+    case .none: return true
+    }
+  }
+
+  @_transparent
+  public static func != (lhs: _OptionalNilComparisonType, rhs: Wrapped?) -> Bool {
+    switch rhs {
+    case .some: return true
+    case .none: return false
+    }
+  }
+}
