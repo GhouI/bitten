@@ -795,3 +795,24 @@ for the Swift layer and for the smaller independent items.
   conformance in another module, at -Onone.
 - `swift_coroFrameAlloc`: frames of `modify`/`read` coroutines that do not
   fit the caller's buffer (plain malloc; the compiler frees them).
+
+## 2026-11-25: the collection protocols (PR: stdlib-collections)
+
+- `IteratorProtocol`, `Sequence`, `Collection`, `BidirectionalCollection`,
+  `RandomAccessCollection`, `MutableCollection`,
+  `RangeReplaceableCollection`, `RangeExpression`, with their default
+  implementations (counting, indexing, `first`/`last`, `firstIndex`,
+  `prefix`/`suffix`/`dropFirst`, range subscripts, `reduce`, `contains`,
+  `allSatisfy`, `elementsEqual`, `partition`, an in-place `sort`,
+  `reverse`, `swapAt`, `removeAll(where:)`...).
+- Types: `Range`, `ClosedRange`, the partial ranges and `UnboundedRange`,
+  `Slice`, `DefaultIndices`, `IndexingIterator`, `EnumeratedSequence`,
+  `Zip2Sequence`/`zip`, `PrefixSequence`, `IteratorSequence`,
+  `CollectionOfOne`, `EmptyCollection`, `Repeated`, and the generic
+  `~=`, `min`, `max`.
+- Left for the pointer and Array work: the `Sequence` requirements that
+  mention buffer pointers or `ContiguousArray`, and everything returning an
+  array (`map`, `filter`, `sorted`, `compactMap`...).
+- `tests/swiftlib/collections`: a user-defined mutable random-access
+  collection and a forward-only sequence driven through the defaults.
+- Rex window (total `^MISSING`): 5,181 -> 4,983.

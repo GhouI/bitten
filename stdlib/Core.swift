@@ -139,3 +139,7 @@ extension Bool {
 // ---- marker protocols ------------------------------------------------------------
 @_marker public protocol Sendable {}
 @_marker public protocol SendableMetatype {}
+
+// Expression patterns (`case 3:`) match through ~=.
+@_transparent
+public func ~= <T: Equatable>(a: T, b: T) -> Bool { return a == b }
