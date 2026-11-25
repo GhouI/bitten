@@ -1,7 +1,5 @@
-// Iterators and sequences.
-//
-// Still to come with the Array work: the requirement _copyToContiguousArray
-// and the operations that return arrays (map, filter, sorted, compactMap...).
+// Iterators and sequences. The operations that return arrays (map,
+// filter, sorted...) are in SequenceAlgorithms.swift.
 
 public protocol IteratorProtocol<Element> {
   associatedtype Element
@@ -17,6 +15,7 @@ public protocol Sequence<Element> {
   __consuming func _copyContents(initializing ptr: UnsafeMutableBufferPointer<Element>)
     -> (Iterator, UnsafeMutableBufferPointer<Element>.Index)
   func withContiguousStorageIfAvailable<R>(_ body: (_ buffer: UnsafeBufferPointer<Element>) throws -> R) rethrows -> R?
+  __consuming func _copyToContiguousArray() -> ContiguousArray<Element>
 }
 
 extension Sequence where Self: IteratorProtocol {
@@ -42,6 +41,10 @@ extension Sequence {
   @inlinable
   public func withContiguousStorageIfAvailable<R>(_ body: (UnsafeBufferPointer<Element>) throws -> R) rethrows -> R? {
     return nil
+  }
+
+  @inlinable public __consuming func _copyToContiguousArray() -> ContiguousArray<Element> {
+    return _copySequenceToContiguousArray(self)
   }
 
   @inlinable public func forEach(_ body: (Element) throws -> Void) rethrows {

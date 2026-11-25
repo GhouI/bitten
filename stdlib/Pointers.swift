@@ -372,18 +372,8 @@ public func _convertInOutToPointerArgument<ToPointer: _Pointer>(_ from: Builtin.
 // The compiler accepts implicit pointer conversions only when all of these
 // exist (ASTContext::hasPointerArgumentIntrinsics): every pointer type,
 // AutoreleasingUnsafeMutablePointer under Objective-C interop, and the
-// five conversion functions. The array ones below are
-// placeholders that trap: they are replaced by the real conversions when
-// Array exists (the String one is in String.swift). Programs never import them (they are inlined at
-// the call site), so the placeholders only matter to our own tests.
-@_transparent
-public func _convertMutableArrayToPointerArgument<A, ToPointer: _Pointer>(_ a: inout A) -> (AnyObject?, ToPointer) {
-  Builtin.int_trap()
-}
-@_transparent
-public func _convertConstArrayToPointerArgument<A, ToPointer: _Pointer>(_ arr: A) -> (AnyObject?, ToPointer) {
-  Builtin.int_trap()
-}
+// five conversion functions. The array ones are in SequenceAlgorithms.swift,
+// the String one in String.swift.
 
 /// A pointer to an Objective-C object reference argument (`NSError **`),
 /// written with autorelease semantics.

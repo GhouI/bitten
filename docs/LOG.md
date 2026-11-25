@@ -983,3 +983,49 @@ SwiftUI with AppKit and the drawing stack).
   and non-ASCII, copy on write, comparison, hashing, C strings both ways.
   Suite 41/41 at -O and -Onone. No Docker here: `tests/e2e/target-app.sh` not run.
 - The Mac app window (total `^MISSING`): 4,905 -> 4,866.
+
+## 2026-11-25: standard library: Array, ContiguousArray, ArraySlice (PR: stdlib-array)
+
+- Apple's representation on Darwin, checked against the code swiftc inlines
+  into our tests and against the Mac app's own inlined array code: `Array` is one
+  `Builtin.BridgeObject` (`_ArrayBuffer` / `_BridgeStorage<__ContiguousArrayStorageBase>`):
+  native storage, bit 62 for an NSArray, bit 1 for native storage whose
+  elements still need a type check (both sides test `0xC000000000000003`
+  for "native and type-checked", mask the pointer with
+  `0x00FFFFFFFFFFFFF8`). `ContiguousArray` is one storage reference;
+  `ArraySlice` is {owner, subscript base address, startIndex,
+  endIndex << 1 | native}. Storage is a tail-allocated `@_fixed_layout`
+  class: count at +16, capacity << 1 | bridgedVerbatim at +24, elements at
+  +32. The empty array is the runtime's immortal `_swiftEmptyArrayStorage`
+  (array.c), whose isa is set to the stdlib's `__EmptyArrayStorage` when
+  libswiftCore loads; Swift takes its address as a thin function value
+  with that symbol name. `__StaticArrayStorage` exists for constant arrays.
+- The mutation entry points programs inline and call keep Apple's names
+  and meanings (`_makeUniqueAndReserveCapacityIfNotUnique`,
+  `_reserveCapacityAssumingUniqueBuffer`, `_appendElementAssumeUniqueAndCapacity`,
+  `_createNewBuffer`, `_consumeAndCreateNew`, `_getElementSlowPath`,
+  `_typeCheckSlowPath`, `_adoptStorage`, `_allocateUninitialized`...),
+  with the `AnyObject` pre-specializations (`@_specialize(exported:)`,
+  `...yXl_Ts5`) the Mac app binds to.
+- Array literals (`_allocateUninitializedArray`, `_finalizeUninitializedArray`,
+  `_deallocateUninitializedArray`), `ExpressibleByArrayLiteral`, the real
+  array-to-pointer conversions, `Sequence._copyToContiguousArray` (new
+  requirement), `Array(seq)`, append/insert/remove/replaceSubrange/
+  reserveCapacity/removeAll with copy on write, `withUnsafe(Mutable)BufferPointer`,
+  the collection conformances, conditional Equatable/Hashable,
+  `isKnownUniquelyReferenced`, `swap`. NSArray bridging traps
+  (`_CocoaArrayWrapper`); the representation leaves room for it.
+- Build: the stdlib is compiled with `-enforce-exclusivity=unchecked`, as
+  Apple's is; otherwise every inlined access to array storage called
+  `swift_beginAccess`.
+- Runtime: generic value metadata patterns reference their value witness
+  table through an indirectable pointer (a builtin type's table in another
+  image: `[Int]`'s is `$sBbWV`), which was read as direct; new
+  `swift_getObjectType`, `swift_lookUpClassMethod` (resilient classes'
+  `CMu`), `swift_bufferAllocate`, `swift_isClassType`,
+  `_swift_isClassOrObjCExistentialType`.
+- `tests/swiftlib/arrays`: layout word by word, literals, mutation, COW,
+  slices, class elements with deinit counts, generic structs, C pointer
+  arguments, generic use at -Onone. No Docker here: `tests/e2e/target-app.sh` not
+  run.
+- The Mac app window (total `^MISSING`): 4,866 -> 4,776.

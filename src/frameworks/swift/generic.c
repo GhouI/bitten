@@ -129,7 +129,9 @@ static sw_metadata *d_swift_allocateGenericValueMetadata(const sw_type_context_d
         const uint16_t *os = (const uint16_t *)(xd + 1);
         memcpy(m + VALUE_METADATA_WORDS + os[0], sw_rel(xd), os[1] * sizeof(void *));
     }
-    m[-1] = (void *)sw_rel(&pat->value_witnesses);
+    /* indirectable: a table in another image (a builtin type's) is reached
+     * through a pointer slot */
+    m[-1] = (void *)sw_rel_indirect(&pat->value_witnesses);
     m[0] = (void *)(uintptr_t)(pflags >> 21);
     m[1] = (void *)desc;
     unsigned n = sw_generic_key_argument_count(desc);
