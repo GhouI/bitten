@@ -484,3 +484,50 @@ for the Swift layer and for the smaller independent items.
   wait for `metadata.c`. Passes at `-O` and `-Onone`; suite 25/25. No
   Docker here: `tests/e2e/rex.sh` not run.
 - Rex window imports unimplemented: 5,418 -> 5,406.
+
+## 2026-11-25: Swift metadata, part 1: builtins, structs, singletons, generics (PR: swift-metadata)
+
+- `src/frameworks/swift/metadata.c`: value witness tables and metadata of
+  the plain builtin types (`$sBi{1,7,8,16,32,63,64,128,256,512}_`, `Bw`,
+  `Bp`, `$sBf{16,32,64,80,128}_`, `WV` and `N`) and of the empty tuple
+  (`$sytWV`, `$sytN`). The `N` symbols name the full metadata
+  `{witnesses, kind}`, as compiled code expects (it adds one word); the
+  demangler now does the same. Extra inhabitants measured against swiftc:
+  `Int1` has 254 (values 2...255), `RawPointer` only null; metatypes and
+  function pointers have 2^31-1 (values below 4 GiB, metatypes with the low
+  bit clear).
+- Metadata states: entries for every metadata the runtime builds, one
+  recursive lock, completion functions retried after their dependencies are
+  completed; `swift_checkMetadataState`. `swift_getSingletonMetadata`
+  publishes the type's cache (which compiled accessors read directly) once
+  complete. `swift_initStructMetadata`: field layout, size/stride/alignment,
+  POD, bitwise-takable and inline flags, extra inhabitants of the richest
+  field; the compiler's constant VWT pattern is copied unless the flags say
+  it is writable.
+- `generic.c`: `swift_getGenericMetadata` with an instantiation cache keyed
+  by descriptor and key arguments (entries inserted before completion so
+  recursive requests see them), `swift_allocateGenericValueMetadata` (extra
+  data pattern, VWT pattern, generic arguments).
+- `tuple.c`: `swift_getTupleTypeMetadata{,2,3}` (uniqued by elements and
+  labels, with runtime value witnesses that run each element's),
+  `swift_getTupleTypeLayout{,2,3}`, `swift_getMetatypeMetadata`. Helpers
+  for the demangler and casts: `sw_get_tuple_metadata`,
+  `sw_get_metatype_metadata`, `sw_get_generic_metadata`,
+  `sw_generic_key_argument_count`, `sw_descriptor_name`,
+  `sw_descriptor_qualified_name`.
+- `enum.c` (start): `swift_{get,store}EnumTagSinglePayloadGeneric`, the
+  single-payload tag encoding compiled witnesses call.
+- `swift_abi.h`: tuple element offsets are 32-bit (compiled code loads an
+  i32; the field was a `size_t`).
+- Tests: `tests/swift/NAME.lib.swift` is built as a separate resilient
+  module the test imports (that is what makes swiftc emit singleton
+  initialisation), `NAME.flags` adds swiftc flags. `tests/swift/metadata`:
+  generic structs at several types and nested, tuples, metatypes, a C-defined
+  non-POD type with counted copies/destroys and its extra inhabitants seen
+  through compiled and runtime witnesses, generic code calling the runtime.
+  `tests/swift/singleton`: structs holding resilient fields, nested and
+  generic. Suite 27/27 at `-O` and at `-Onone`. No Docker here:
+  `tests/e2e/rex.sh` not run.
+- Rex window imports unimplemented: 5,453 -> 5,382. `mrun` on it now gets
+  through `swift_getSingletonMetadata` for `RexMacOSApp` and stops at
+  `$s7SwiftUI28NSApplicationDelegateAdaptorVMa`, a SwiftUI metadata accessor.

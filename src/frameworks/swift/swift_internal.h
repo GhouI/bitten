@@ -73,12 +73,14 @@ void sw_unknown_release(void *obj);
 void *sw_bridge_retain(void *bits);
 void sw_bridge_release(void *bits);
 
-/* ---- metadata.c -------------------------------------------------------------- */
+/* ---- metadata.c, generic.c, enum.c, tuple.c ----------------------------------- */
 /* Value witness tables of the builtin types, exported as $sB*WV. The
  * reference types' tables ($sBoWV, $sBOWV, $sBbWV) and the closure one
  * ($syycWV) are defined in heap.c. */
-extern const sw_vwt sw_vwt_pod8, sw_vwt_native_object, sw_vwt_unknown_object, sw_vwt_bridge_object;
+extern const sw_vwt sw_vwt_pod8, sw_vwt_empty, sw_vwt_native_object, sw_vwt_unknown_object,
+    sw_vwt_bridge_object;
 extern const sw_vwt sw_vwt_thick_closure; /* $syycWV, heap.c */
+extern const sw_metadata *const sw_empty_tuple_metadata; /* $sytN */
 const sw_metadata *sw_get_tuple_metadata(size_t n, const sw_metadata *const *elements,
                                      const char *labels);
 const sw_metadata *sw_get_metatype_metadata(const sw_metadata *instance);
@@ -89,6 +91,42 @@ unsigned sw_generic_key_argument_count(const sw_type_context_descriptor *desc);
 /* The descriptor's name, e.g. "Pair"; `qualified` writes "Module.Outer.Pair". */
 const char *sw_descriptor_name(const sw_type_context_descriptor *desc);
 void sw_descriptor_qualified_name(const sw_context_descriptor *desc, char *buf, size_t len);
+
+/* Descriptor trailing objects. */
+size_t sw_type_descriptor_size(const sw_type_context_descriptor *desc);
+const sw_type_generic_context_header *sw_type_generic_header(const sw_type_context_descriptor *desc);
+const sw_singleton_metadata_initialization *sw_singleton_init(const sw_type_context_descriptor *desc);
+
+/* Metadata built by the runtime and its completion state. */
+struct sw_md_entry {
+    const sw_metadata *metadata;
+    sw_completion_fn complete;    /* NULL: complete once allocated */
+    const void *pattern;          /* passed to `complete` */
+    void *context[4];             /* MetadataCompletionContext, kept across retries */
+    const sw_metadata **published; /* set to `metadata` once complete (singleton caches) */
+    uintptr_t state;              /* SW_STATE_* */
+    int busy;                     /* its completion function is running */
+};
+void sw_md_lock(void);
+void sw_md_unlock(void);
+struct sw_md_entry *sw_md_entry_new(const sw_metadata *m, sw_completion_fn complete,
+                                    const void *pattern);
+/* Completes `e` up to state `want`; returns the state reached. */
+uintptr_t sw_md_complete(struct sw_md_entry *e, uintptr_t want);
+
+/* Layout helpers shared by struct, enum and tuple layout. */
+void sw_basic_layout(sw_type_layout *out, size_t n, const sw_type_layout *const *fields,
+                     uint32_t *offsets);
+sw_vwt *sw_mutable_vwt(sw_metadata *m, uintptr_t layout_flags);
+void sw_publish_layout(sw_vwt *w, const sw_type_layout *l);
+sw_opaque *sw_vw_initialize_buffer_with_copy(sw_value_buffer *dst, sw_value_buffer *src,
+                                             const sw_metadata *m);
+/* Single-payload enum tags in terms of the payload's extra inhabitants
+ * (swift_{get,store}EnumTagSinglePayloadGeneric). */
+unsigned sw_get_enum_tag_single_payload(const sw_opaque *v, unsigned empty_cases,
+                                        const sw_metadata *payload, sw_xi_get_fn get);
+void sw_store_enum_tag_single_payload(sw_opaque *v, unsigned which, unsigned empty_cases,
+                                      const sw_metadata *payload, sw_xi_store_fn store);
 
 /* ---- demangle.c ---------------------------------------------------------------- */
 /* A generic environment: what the generic parameters of a mangled name
