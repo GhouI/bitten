@@ -1,0 +1,1 @@
+-parse-stdlib -swift-version 5 -enforce-exclusivity=unchecked
