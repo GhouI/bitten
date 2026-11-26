@@ -580,6 +580,20 @@ extension Label where Title == Text, Icon == Image {
 }
 
 internal enum _LabelAppearance { case titleAndIcon, iconOnly, titleOnly }
+struct _LabelsHiddenKey: EnvironmentKey { static let defaultValue = false }
+struct _FormGroupedKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+  internal var _formGrouped: Bool {
+    get { return self[_FormGroupedKey.self] }
+    set { self[_FormGroupedKey.self] = newValue }
+  }
+}
+extension EnvironmentValues {
+  internal var _labelsHidden: Bool {
+    get { return self[_LabelsHiddenKey.self] }
+    set { self[_LabelsHiddenKey.self] = newValue }
+  }
+}
 struct _LabelStyleKey: EnvironmentKey { static let defaultValue = _LabelAppearance.titleAndIcon }
 extension EnvironmentValues {
   internal var _labelStyle: _LabelAppearance {
@@ -612,7 +626,8 @@ extension View {
     let a: _LabelAppearance = style is IconOnlyLabelStyle ? .iconOnly : style is TitleOnlyLabelStyle ? .titleOnly : .titleAndIcon
     return environment(\._labelStyle, a)
   }
-  public func labelsHidden() -> some View { return self }
+  /// Controls inside leave out their labels (the label still names them).
+  public func labelsHidden() -> some View { return environment(\._labelsHidden, true) }
   public func labeledContentStyle<S: LabeledContentStyle>(_ style: S) -> some View { return self }
 }
 
@@ -626,6 +641,7 @@ extension LabeledContent: View where Label: View, Content: View {
     let v = view.value
     var secondary = inputs
     secondary.environment._foregroundStyle = AnyShapeStyle(HierarchicalShapeStyle.secondary)
+    if inputs.environment._labelsHidden { return _ViewOutputs(_makeNode(v.content, inputs: inputs.named("content"))) }
     return _ViewOutputs(_StackNode(axis: .horizontal, alignment: .center, spacing: 8, environment: inputs.environment,
                                    children: [_makeNode(v.label, inputs: inputs.named("label")),
                                               _SpacerNode(minLength: 8, environment: inputs.environment),
@@ -709,7 +725,11 @@ public struct ColumnsFormStyle: FormStyle { public init() {} }
 extension FormStyle where Self == GroupedFormStyle { public static var grouped: GroupedFormStyle { return .init() } }
 extension FormStyle where Self == ColumnsFormStyle { public static var columns: ColumnsFormStyle { return .init() } }
 extension View {
-  public func formStyle<S: FormStyle>(_ style: S) -> some View { return self }
+  /// Grouped forms put each control row's label on the left and the
+  /// control on the right, as macOS settings do.
+  public func formStyle<S: FormStyle>(_ style: S) -> some View {
+    return environment(\._formGrouped, style is GroupedFormStyle)
+  }
 }
 
 public struct ControlGroup<Content: View>: View {
@@ -820,9 +840,10 @@ public struct Toggle<Label: View>: View {
     let binding = v.isOn
     let row = _ControlNode(environment: inputs.environment, children: [
       _StackNode(axis: .horizontal, alignment: .center, spacing: 6, environment: inputs.environment,
-                 children: isSwitch ? [_makeNode(v.label, inputs: inputs.named("label")),
-                                       _SpacerNode(minLength: 8, environment: inputs.environment), sized]
-                                    : [sized, _makeNode(v.label, inputs: inputs.named("label"))]),
+                 children: inputs.environment._labelsHidden ? [sized]
+                   : isSwitch ? [_makeNode(v.label, inputs: inputs.named("label")),
+                                 _SpacerNode(minLength: 8, environment: inputs.environment), sized]
+                              : [sized, _makeNode(v.label, inputs: inputs.named("label"))]),
     ])
     row.onTap = { _ in binding.wrappedValue.toggle() }
     return _ViewOutputs(row)
@@ -959,8 +980,8 @@ public struct Stepper<Label: View>: View {
       return b
     }
     return _ViewOutputs(_StackNode(axis: .horizontal, alignment: .center, spacing: 4, environment: inputs.environment,
-                                   children: [_makeNode(v.label, inputs: inputs.named("label")),
-                                              button("−", v.decrement), button("+", v.increment)]))
+                                   children: (inputs.environment._labelsHidden ? [] : [_makeNode(v.label, inputs: inputs.named("label"))]) +
+                                             [button("−", v.decrement), button("+", v.increment)]))
   }
 }
 extension Stepper where Label == Text {
@@ -1030,7 +1051,10 @@ public struct Picker<Label: View, SelectionValue: Hashable, Content: View>: View
       binding.wrappedValue = tags[(i + 1) % tags.count]
     }, style: .bordered, environment: inputs.environment)
     var children: [_ViewNode] = []
-    if Label.self != EmptyView.self { children.append(_makeNode(v.label, inputs: inputs.named("label"))) }
+    if Label.self != EmptyView.self && !inputs.environment._labelsHidden {
+      children.append(_makeNode(v.label, inputs: inputs.named("label")))
+      if inputs.environment._formGrouped { children.append(_SpacerNode(minLength: 8, environment: inputs.environment)) }
+    }
     children.append(menu)
     return _ViewOutputs(_StackNode(axis: .horizontal, alignment: .center, spacing: 6, environment: inputs.environment,
                                    children: children))

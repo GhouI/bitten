@@ -3759,3 +3759,13 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   (use after free). Isolated tests of the same patterns are clean.
 - Target app (total `^MISSING`): 0 -> 0. Its Settings window opens, the
   sidebar responds, and the Interface page renders.
+
+## SwiftUI: labelsHidden and grouped forms
+
+- `labelsHidden()` now hides the labels of Toggle, Picker, Stepper and
+  LabeledContent (it was a no-op). The target app's settings rows show
+  their own text and hide the controls' labels, so each toggle repeated it.
+- `formStyle(.grouped)` lays menu pickers out as label, space, control, as
+  macOS settings rows do. They used to sit centred.
+- Test: tests/swiftlib/swiftui.swift `labels`.
+- Target app (total `^MISSING`): 0 -> 0.

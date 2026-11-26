@@ -309,3 +309,22 @@ struct Forwarding: PrimitiveButtonStyle {
     return bad
   }
 }
+
+/// `labelsHidden()` leaves controls' labels out: a hidden toggle label draws
+/// no text.
+@_silgen_name("swl_swiftui_labels") public func labels() -> Int {
+  return MainActor.assumeIsolated {
+    @MainActor func ink(_ v: some View) -> Int {
+      let px = render(v.frame(width: 200, height: 30, alignment: .leading), 200, 30)
+      var n = 0
+      for y in 0..<30 { for x in 40..<200 where px(x, y) != white { n += 1 } }
+      return n
+    }
+    var bad = 0
+    let shown = ink(Toggle("WWWWWWWWWW", isOn: .constant(false)))
+    let hidden = ink(Toggle("WWWWWWWWWW", isOn: .constant(false)).labelsHidden())
+    if shown == 0 { bad |= 1 }
+    if hidden != 0 { bad |= 2 }
+    return bad
+  }
+}
