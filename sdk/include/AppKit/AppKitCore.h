@@ -47,6 +47,10 @@ typedef NS_ENUM(NSInteger, NSViewLayerContentsPlacement) {
 - (instancetype)initWithFrame:(NSRect)frame;
 @property NSRect frame;
 @property NSRect bounds;
+- (void)setFrameOrigin:(NSPoint)newOrigin;
+- (void)setFrameSize:(NSSize)newSize;
+- (void)setBoundsOrigin:(NSPoint)newOrigin;
+- (void)setBoundsSize:(NSSize)newSize;
 @property (copy) NSArray<__kindof NSView *> *subviews;
 @property (nullable, readonly, assign) NSView *superview;
 @property (nullable, readonly, assign) NSWindow *window;

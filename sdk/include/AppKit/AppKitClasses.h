@@ -7,14 +7,6 @@
 @end
 @interface NSColorWell : NSControl
 @end
-@interface NSCell : NSObject
-@end
-@interface NSActionCell : NSCell
-@end
-@interface NSButtonCell : NSActionCell
-@end
-@interface NSTextFieldCell : NSActionCell
-@end
 @interface NSTouchBar : NSObject
 @end
 @interface NSTouchBarItem : NSObject

@@ -709,11 +709,10 @@ WRITING_TOOLS
 WRITING_TOOLS
 @end
 
-/* Controls have no cells here; the class to use is remembered per class. */
+/* The cell class set for a control class (cells: AppKitCells.m). */
 @implementation NSControl (BittenCellClass)
 + (Class)cellClass { return objc_getAssociatedObject(self, @selector(cellClass)); }
 + (void)setCellClass:(Class)c { objc_setAssociatedObject(self, @selector(cellClass), c, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
-- (void)setCell:(id)cell {}
 - (BOOL)isContinuous { return [objc_getAssociatedObject(self, @selector(isContinuous)) boolValue]; }
 - (void)setContinuous:(BOOL)b {
     objc_setAssociatedObject(self, @selector(isContinuous), @(b), OBJC_ASSOCIATION_RETAIN_NONATOMIC);

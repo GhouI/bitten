@@ -42,15 +42,33 @@ NSApplication *NSApp;
     return self;
 }
 - (NSRect)frame { return _frame; }
+/* As in AppKit, setFrame: goes through setFrameOrigin: and setFrameSize:,
+ * which subclasses override (calling super). */
 - (void)setFrame:(NSRect)frame {
-    _frame = frame;
-    _bounds.size = frame.size;
+    if (!NSEqualPoints(frame.origin, _frame.origin)) [self setFrameOrigin:frame.origin];
+    if (!NSEqualSizes(frame.size, _frame.size)) [self setFrameSize:frame.size];
+}
+- (void)setFrameOrigin:(NSPoint)origin {
+    _frame.origin = origin;
+    _needsDisplay = YES;
+}
+- (void)setFrameSize:(NSSize)size {
+    _frame.size = size;
+    _bounds.size = size;
     _needsDisplay = YES;
     id l = self.layer;
     if (l) [l setValue:[NSValue valueWithRect:_bounds] forKey:@"bounds"];
 }
 - (NSRect)bounds { return _bounds; }
 - (void)setBounds:(NSRect)bounds { _bounds = bounds; }
+- (void)setBoundsOrigin:(NSPoint)origin {
+    _bounds.origin = origin;
+    _needsDisplay = YES;
+}
+- (void)setBoundsSize:(NSSize)size {
+    _bounds.size = size;
+    _needsDisplay = YES;
+}
 - (NSArray *)subviews { return [_subviews copy]; }
 - (NSView *)superview { return _superview; }
 - (NSWindow *)window { return _window; }

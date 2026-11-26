@@ -179,6 +179,52 @@ static sw_class_metadata *d_swift_allocateGenericClassMetadata(const sw_class_de
 }
 DX_FN(swift_allocateGenericClassMetadata);
 
+/* ---- classes with a resilient superclass ------------------------------------------------
+ * Their metadata's size depends on the superclass, so the image holds a
+ * pattern and the runtime allocates the metadata (the pattern's relocation
+ * function calls swift_relocateClassMetadata). The completion function
+ * then fills in the superclass, layout and vtable as for any class. */
+typedef struct {
+    int32_t relocation_function; /* -> Metadata *(desc, pattern) */
+    int32_t destroy;
+    int32_t ivar_destroyer;
+    uint32_t flags;
+    int32_t data;      /* -> class_ro_t */
+    int32_t metaclass; /* -> the metaclass object */
+} sw_resilient_class_pattern;
+
+static sw_class_metadata *d_swift_relocateClassMetadata(const sw_class_descriptor *desc,
+                                                        const sw_resilient_class_pattern *pat) {
+    struct bounds b = class_bounds(desc);
+    void **full = calloc(b.neg + b.pos, sizeof(void *));
+    void **words = full + b.neg;
+    sw_class_metadata *m = (sw_class_metadata *)words;
+    words[-2] = (void *)sw_rel(&pat->destroy);
+    words[-1] = (void *)&sw_vwt_unknown_object;
+    m->isa = (const sw_class_metadata *)sw_rel(&pat->metaclass);
+    m->superclass = NULL;
+    m->cache_data[0] = empty_cache();
+    m->cache_data[1] = NULL;
+    m->data = (uintptr_t)sw_rel(&pat->data) | 2; /* the "Swift class" bit */
+    m->flags = pat->flags;
+    m->class_size = (b.neg + b.pos) * 8;
+    m->class_address_point = b.neg * 8;
+    m->description = desc;
+    m->ivar_destroyer = (sw_ivar_destroyer)sw_rel(&pat->ivar_destroyer);
+    return m;
+}
+DX_FN(swift_relocateClassMetadata);
+
+/* The incomplete metadata of a class with a resilient superclass, made
+ * from its pattern by the pattern's relocation function. */
+const sw_metadata *sw_relocate_class(const sw_class_descriptor *desc, const void *pattern) {
+    const sw_resilient_class_pattern *pat = pattern;
+    typedef const sw_metadata *(*relocator)(const sw_class_descriptor *, const void *);
+    relocator fn = (relocator)sw_rel(&pat->relocation_function);
+    if (fn) return fn(desc, pattern);
+    return (const sw_metadata *)d_swift_relocateClassMetadata(desc, pat);
+}
+
 /* ---- initialisation --------------------------------------------------------------------- */
 
 static int is_swift_class(const sw_class_metadata *c) {
