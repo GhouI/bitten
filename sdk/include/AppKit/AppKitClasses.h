@@ -7,10 +7,6 @@
 @end
 @interface NSColorWell : NSControl
 @end
-@interface NSText : NSView
-@end
-@interface NSTextView : NSText
-@end
 @interface NSPanel : NSWindow
 @end
 @interface NSSavePanel : NSPanel
@@ -25,8 +21,6 @@
 @end
 @interface NSTextFieldCell : NSActionCell
 @end
-@interface NSFontManager : NSObject
-@end
 @interface NSDraggingItem : NSObject
 @end
 @interface NSTouchBar : NSObject
@@ -35,23 +29,16 @@
 @end
 @interface NSCustomTouchBarItem : NSTouchBarItem
 @end
-@interface NSTextAttachment : NSObject
-@end
-@interface NSTextContainer : NSObject
-@end
-@interface NSLayoutManager : NSObject
-@end
 @interface NSTextContentManager : NSObject
 @end
 @interface NSTextContentStorage : NSTextContentManager
 @end
 @interface NSTextLayoutManager : NSObject
 @end
-@interface NSTextRange : NSObject
-@end
-@interface NSTextInputContext : NSObject
-@end
 
+APPKIT_EXTERN NSNotificationName const NSTextDidChangeNotification;
+APPKIT_EXTERN NSNotificationName const NSTextDidBeginEditingNotification;
+APPKIT_EXTERN NSNotificationName const NSTextDidEndEditingNotification;
 APPKIT_EXTERN NSNotificationName const NSToolbarWillAddItemNotification;
 APPKIT_EXTERN NSNotificationName const NSToolbarDidRemoveItemNotification;
 APPKIT_EXTERN NSNotificationName const NSPopoverWillShowNotification;

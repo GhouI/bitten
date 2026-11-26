@@ -104,9 +104,9 @@ $(BUILD)/fw/AppKit/%.o: frameworks/AppKit/%.m sdk/include/AppKit/AppKitClasses.h
 	$(MACHO_CC) $(FW_CFLAGS) -c -o $@ $<
 $(APPKIT): $(APPKIT_OBJS) $(FOUNDATION) $(BUILD)/sdk/libSystem.tbd
 	@mkdir -p $(dir $@)
-	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
+	$(MACHO_LD) -arch x86_64 -platform_version macos $(if $(APPKIT_SWIFT_OBJ),$(FOUNDATION_MACOS) $(FOUNDATION_MACOS),11.0 11.0) -dylib \
 	    -install_name /System/Library/Frameworks/AppKit.framework/Versions/C/AppKit \
-	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) -o $@ $(APPKIT_OBJS)
+	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) -o $@ $(APPKIT_OBJS) $(APPKIT_SWIFT_LINK)
 
 # ---- UserNotifications -------------------------------------------------------
 # Objective-C over Foundation, like AppKit (frameworks/UserNotifications).
@@ -408,6 +408,21 @@ $(BUILD)/fw/Foundation/FoundationSwift.o: $(FOUNDATION_SWIFT_SRCS) $(OVERLAY_LIB
 	    -emit-module -emit-module-path $(SWIFT_MODDIR)/Foundation.swiftmodule \
 	    -c -o $@ $(FOUNDATION_SWIFT_SRCS)
 	@touch $@
+
+# frameworks/AppKit/swift/*.swift is compiled as module AppKit (over the
+# Clang module of the same name) and linked in with the Objective-C
+# objects, as Foundation's Swift part is.
+APPKIT_SWIFT_SRCS := $(wildcard frameworks/AppKit/swift/*.swift)
+APPKIT_SWIFT_OBJ  := $(if $(and $(SWIFTC),$(HAVE_MACHO),$(APPKIT_SWIFT_SRCS)),$(BUILD)/fw/AppKit/AppKitSwift.o)
+APPKIT_SWIFT_LINK  = $(if $(APPKIT_SWIFT_OBJ),$(APPKIT_SWIFT_OBJ) $(LIBSWIFTCORE) $(OVERLAY_LIBS))
+$(BUILD)/fw/AppKit/AppKitSwift.o: $(APPKIT_SWIFT_SRCS) $(FOUNDATION) $(OVERLAY_LIBS) $(wildcard sdk/include/AppKit/*.h) sdk/include/AppKit/AppKitClasses.h $(SDKROOT)/.stamp $(SWIFTRES)/.stamp
+	@mkdir -p $(dir $@)
+	$(SWIFTC) -module-name AppKit -target x86_64-apple-macos$(FOUNDATION_MACOS) -runtime-compatibility-version none $(SWIFT_SDKFLAGS) \
+	    -enable-library-evolution -wmo -parse-as-library -O \
+	    -emit-module -emit-module-path $(SWIFT_MODDIR)/AppKit.swiftmodule \
+	    -c -o $@ $(APPKIT_SWIFT_SRCS)
+	@touch $@
+$(APPKIT): $(APPKIT_SWIFT_OBJ)
 
 # ---- QuartzCore ----------------------------------------------------------------
 # Objective-C over Foundation, CoreGraphics and CoreText (frameworks/

@@ -87,6 +87,7 @@ extern const CFDictionaryValueCallBacks kCFTypeDictionaryValueCallBacks;
 extern const CFSetCallBacks kCFTypeSetCallBacks;
 
 CFTypeRef CFRetain(CFTypeRef cf);
+CFIndex CFGetRetainCount(CFTypeRef cf);
 void CFRelease(CFTypeRef cf);
 CFTypeID CFGetTypeID(CFTypeRef cf);
 Boolean CFEqual(CFTypeRef a, CFTypeRef b);

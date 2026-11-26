@@ -774,6 +774,22 @@ static const char *d_class_getName(Class cls) { return cls ? class_name(cls) : "
 DX_FN(class_getName);
 static Class d_class_getSuperclass(Class cls) { return cls ? cls->superclass : NULL; }
 DX_FN(class_getSuperclass);
+/* Re-parents a class and its metaclass (deprecated, still exported).
+ * Toll-free bridging uses it to put a CF type's class under its public
+ * class once that class is loaded (CTFont under NSFont). */
+static Class d_class_setSuperclass(Class cls, Class super) {
+    if (!cls || !super) return NULL;
+    pthread_mutex_lock(&dx_objc_lock);
+    realize_class(cls);
+    realize_class(super);
+    Class old = cls->superclass;
+    cls->superclass = super;
+    if (cls->isa && super->isa) cls->isa->superclass = super->isa;
+    pthread_mutex_unlock(&dx_objc_lock);
+    flush_caches();
+    return old;
+}
+DX_FN(class_setSuperclass);
 static char d_class_isMetaClass(Class cls) {
     if (!cls) return 0;
     REALIZED(cls);

@@ -590,35 +590,7 @@ static const struct { unsigned short code; char plain, shifted; } bn_us_keys[] =
 
 /* ---- NSFont ------------------------------------------------------------------------------ */
 
-@implementation NSFont {
-    NSString *_name;
-    CGFloat _size;
-}
-+ (NSFont *)fontWithName:(NSString *)name size:(CGFloat)size {
-    NSFont *f = [[self alloc] init];
-    f->_name = [name copy];
-    f->_size = size > 0 ? size : [self systemFontSize];
-    return f;
-}
-+ (NSFont *)systemFontOfSize:(CGFloat)size { return [self fontWithName:@".AppleSystemUIFont" size:size]; }
-+ (NSFont *)systemFontOfSize:(CGFloat)size weight:(NSFontWeight)weight {
-    return [self fontWithName:weight >= NSFontWeightSemibold ? @".AppleSystemUIFontBold" : @".AppleSystemUIFont"
-                         size:size];
-}
-+ (NSFont *)boldSystemFontOfSize:(CGFloat)size { return [self fontWithName:@".AppleSystemUIFontBold" size:size]; }
-+ (NSFont *)monospacedSystemFontOfSize:(CGFloat)size weight:(NSFontWeight)weight {
-    return [self fontWithName:@".AppleSystemUIFontMonospaced" size:size];
-}
-+ (NSFont *)userFixedPitchFontOfSize:(CGFloat)size { return [self fontWithName:@"Menlo-Regular" size:size]; }
-+ (CGFloat)systemFontSize { return 13; }
-- (id)copyWithZone:(NSZone *)zone { return self; }
-- (NSString *)fontName { return _name; }
-- (CGFloat)pointSize { return _size; }
-/* Metrics in the proportions of common UI fonts until real fonts load. */
-- (CGFloat)ascender { return _size * 0.95; }
-- (CGFloat)descender { return -_size * 0.25; }
-- (CGFloat)leading { return 0; }
-@end
+/* NSFont: AppKitFonts.m (toll-free bridged to CTFont). */
 
 /* ---- NSScreen ---------------------------------------------------------------------------------- */
 

@@ -162,6 +162,7 @@ static int is_deallocating(id obj) {
     return d;
 }
 
+extern int dx_objc_weak_custom_rr;
 static id store_weak(id *location, id obj) {
     pthread_mutex_lock(&weak_lock);
     id old = *location;
@@ -179,10 +180,15 @@ static id store_weak(id *location, id obj) {
         pthread_mutex_lock(&s->lock);
         rc_find(s, obj, 1)->weakly_referenced = 1;
         pthread_mutex_unlock(&s->lock);
+        /* Objects that count their own references (CF's) die without
+         * NSObject's dealloc; they clear their weak references through
+         * dx_objc_weak_referent_dying. */
+        if (custom_rr(objc_class_of(obj))) __atomic_store_n(&dx_objc_weak_custom_rr, 1, __ATOMIC_RELAXED);
     }
     pthread_mutex_unlock(&weak_lock);
     return obj;
 }
+
 
 static void weak_clear(id obj) {
     pthread_mutex_lock(&weak_lock);
@@ -195,6 +201,19 @@ static void weak_clear(id obj) {
         } else pp = &w->next;
     }
     pthread_mutex_unlock(&weak_lock);
+}
+
+int dx_objc_weak_custom_rr;
+/* Called by objects with their own reference counts as they die: clears
+ * the weak references to them. */
+void dx_objc_weak_referent_dying(void *obj) {
+    struct shard *s = shard_for(obj);
+    pthread_mutex_lock(&s->lock);
+    struct rc_entry *e = rc_find(s, obj, 0);
+    int weak = e && e->weakly_referenced;
+    if (e) rc_remove(s, e);
+    pthread_mutex_unlock(&s->lock);
+    if (weak) weak_clear(obj);
 }
 
 static id d_objc_retain(id obj);
@@ -221,6 +240,13 @@ static id d_objc_loadWeakRetained(id *location) {
     if (obj) {
         /* objects with their own retain/release decide for themselves */
         int r = ask_custom_weak(obj, SEL_retainWeakReference);
+        if (r < 0 && custom_rr(objc_class_of(obj))) {
+            /* Their own retain, not the side table's: a side-table retain
+             * would be balanced by a release of their own count. They clear
+             * their weak references before they die, so obj is alive. */
+            d_objc_retain(obj);
+            r = 1;
+        }
         if (r < 0) r = root_try_retain(obj);
         if (!r) obj = NULL;
     }
