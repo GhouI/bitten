@@ -19,5 +19,6 @@ typedef unsigned long NSUInteger;
 #define NS_OPTIONS(_type, _name) enum __attribute__((flag_enum, enum_extensibility(open))) _name : _type _name; \
     enum __attribute__((flag_enum, enum_extensibility(open))) _name : _type
 #define NS_SWIFT_NAME(_name) __attribute__((swift_name(#_name)))
+#define NS_NOESCAPE __attribute__((noescape))
 #define NS_REFINED_FOR_SWIFT __attribute__((swift_private))
 #endif

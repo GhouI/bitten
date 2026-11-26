@@ -78,6 +78,33 @@ int main(void) {
         [dc postNotificationName:@"org.example.ping" object:nil userInfo:nil deliverImmediately:YES];
         CHECK(counter.hits == 1);
         [dc removeObserver:counter];
+        // Hash and map tables, strong and weak.
+        NSHashTable *strong = [NSHashTable hashTableWithOptions:NSPointerFunctionsStrongMemory];
+        [strong addObject:@"a"];
+        [strong addObject:[@"a" mutableCopy]]; // equal: not added again
+        [strong addObject:@"b"];
+        CHECK(strong.count == 2 && [strong containsObject:@"b"] && ![strong containsObject:@"c"]);
+        NSHashTable *weak = [NSHashTable weakObjectsHashTable];
+        @autoreleasepool {
+            NSObject *temp = [NSObject new];
+            [weak addObject:temp];
+            CHECK(weak.count == 1);
+        }
+        CHECK(weak.count == 0); // the member went away
+        int members = 0;
+        for (id o in strong) members += o != nil;
+        CHECK(members == 2);
+        NSMapTable *map = [NSMapTable strongToWeakObjectsMapTable];
+        NSObject *value = [NSObject new];
+        [map setObject:value forKey:@"k"];
+        CHECK([map objectForKey:@"k"] == value && map.count == 1);
+        value = nil;
+        CHECK([map objectForKey:@"k"] == nil && map.count == 0);
+        NSMapTable *ident = [NSMapTable mapTableWithKeyOptions:NSPointerFunctionsObjectPointerPersonality
+                                                  valueOptions:NSPointerFunctionsStrongMemory];
+        NSString *k1 = [@"key" mutableCopy], *k2 = [@"key" mutableCopy];
+        [ident setObject:@1 forKey:k1];
+        CHECK([ident objectForKey:k2] == nil && [[ident objectForKey:k1] intValue] == 1);
         printf("ok\n");
     }
     return 0;
