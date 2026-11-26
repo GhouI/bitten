@@ -5,6 +5,7 @@ import CoreAudio
 import Accessibility
 import CryptoKit
 import Security
+import Symbols
 
 @_silgen_name("swl_small_coreaudio") public func coreaudio() -> Int {
   var bad = 0
@@ -26,5 +27,9 @@ import Security
   if AccessibilityNotification.Announcement("Saved").text != "Saved" { bad |= 1 }
   if SecureEnclave.isAvailable { bad |= 2 }
   if (try? SecureEnclave.P256.Signing.PrivateKey(dataRepresentation: Data([1, 2, 3]))) != nil { bad |= 4 }
+  let effect = VariableColorSymbolEffect().iterative.reversing
+  if effect.configuration.name != "variableColor" || effect.configuration.options != ["iterative", "reversing"] { bad |= 8 }
+  if ReplaceSymbolEffect().configuration.name != "replace" || SymbolEffectOptions.default.repeats { bad |= 0x10 }
+  if SymbolEffectOptions.default.speed(2).speed != 2 { bad |= 0x20 }
   return bad
 }

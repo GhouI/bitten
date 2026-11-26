@@ -2255,3 +2255,23 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Build: an `OBJC_FWS` framework can link more (`OBJC_FW_EXTRA_<name>`).
 - Test: `tests/media/webkit`.
 - Target app window (total `^MISSING`): 1,040 -> 1,033.
+
+## 2026-11-26: libSystem odds, CoreFoundation over Foundation, Symbols, QuickLookUI (PR: odds)
+
+- libSystem (`src/libsystem/extras.c`): `getifaddrs`/`freeifaddrs` in
+  Darwin's layout (BSD sockaddrs, IFF_ bits, AF_LINK entries with the
+  hardware address), `waitid` with Darwin's siginfo, `renamex_np` and
+  `renameatx_np` (swap, exclusive), `mkpath_np`, `memset_s`, `errx`,
+  `verrx`, `warnx`, `qos_class_main`, `notify_register_dispatch` (nothing
+  is posted here), `__fpclassifyd`/`f` with Darwin's classes, `__exp10`.
+- CoreFoundation (`corefoundation/bundle.c`): bundle info dictionaries
+  (through NSPropertyListSerialization), executable architectures from
+  Mach-O headers (thin and fat), `CFPreferences` app values (NSUserDefaults,
+  suites for other ids), `CFCharacterSetCreateWithCharactersInRange`,
+  IANA charset names and NSStringEncoding conversions.
+- `Symbols.framework`: SymbolEffect and its kinds, variable colour and
+  replace effects with their options, SymbolEffectOptions.
+- `QuickLookUI.framework`: QLPreviewPanel, an empty NSPanel titled with
+  the current item (there are no QuickLook generators).
+- Tests: `tests/c/odds`, `tests/media/cfbridge`, `tests/swiftlib/smallswift`.
+- Target app window (total `^MISSING`): 1,033 -> 1,005.
