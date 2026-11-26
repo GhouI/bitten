@@ -113,19 +113,30 @@ static uint64_t unimplemented_called(const char *name) {
 }
 
 #define MAX_STUB_ARENAS 64
+#define STUB_SIZE 48
 static uint8_t *arenas[MAX_STUB_ARENAS];
 static int n_arenas;
 
 /* The symbol name when `p` is an unimplemented-import stub, else NULL.
  * Data imports (descriptors, metadata) that nobody provides are bound to
  * stubs too, so runtime code handed one can say what is missing. */
+/* The symbol name when `v` is 8 bytes read from a stub as if it were a
+ * pointer-sized constant, else NULL. */
+const char *dx_stub_value_name(uintptr_t v) {
+    if ((v & 0xffff) != 0x08eb) return NULL;
+    const char *name = (const char *)(v >> 16);
+    for (struct stub *s = stubs; s; s = s->next)
+        if (s->name == name) return name;
+    return NULL;
+}
+
 const char *dx_stub_name(const void *p) {
     const uint8_t *b = p;
     for (int i = 0; i < n_arenas; i++) {
         if (b >= arenas[i] && b < arenas[i] + (1 << 20)) {
-            if ((uintptr_t)(b - arenas[i]) % 32 != 0) return "(inside a stub)";
+            if ((uintptr_t)(b - arenas[i]) % STUB_SIZE != 0) return "(inside a stub)";
             const char *name;
-            memcpy(&name, b + 10, sizeof name);
+            memcpy(&name, b + 2, sizeof name);
             return name;
         }
     }
@@ -135,7 +146,7 @@ const char *dx_stub_name(const void *p) {
 static void *make_stub(const char *name) {
     for (struct stub *s = stubs; s; s = s->next)
         if (!strcmp(s->name, name)) return s->code;
-    if (!stub_arena || stub_used + 32 > stub_cap) {
+    if (!stub_arena || stub_used + STUB_SIZE > stub_cap) {
         stub_cap = 1 << 20;
         stub_arena = mmap(NULL, stub_cap, PROT_READ | PROT_WRITE | PROT_EXEC,
                           MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -146,20 +157,25 @@ static void *make_stub(const char *name) {
     struct stub *s = malloc(sizeof *s);
     s->name = strdup(name);
     uint8_t *c = stub_arena + stub_used;
-    stub_used += 32;
+    stub_used += STUB_SIZE;
     /* A frame of its own with the stack aligned: callers may reach the stub
      * by a tail call (Swift async and tail-calling code), leaving the stack
      * misaligned for the C handler. leave/ret keeps the return path intact
      * for BITTEN_STUBS=zero. */
     uint64_t n = (uint64_t)s->name, h = (uint64_t)unimplemented_called;
-    c[0] = 0x55;                                             /* push %rbp */
-    c[1] = 0x48; c[2] = 0x89; c[3] = 0xe5;                   /* mov %rsp, %rbp */
-    c[4] = 0x48; c[5] = 0x83; c[6] = 0xe4; c[7] = 0xf0;      /* and $-16, %rsp */
-    c[8] = 0x48; c[9] = 0xbf; memcpy(c + 10, &n, 8);         /* movabs $name, %rdi */
-    c[18] = 0x48; c[19] = 0xb8; memcpy(c + 20, &h, 8);       /* movabs $handler, %rax */
-    c[28] = 0xff; c[29] = 0xd0;                              /* call *%rax */
-    c[30] = 0xc9;                                            /* leave */
-    c[31] = 0xc3;                                            /* ret */
+    /* The stub starts by jumping over its own name pointer, so a program
+     * that reads it as data (an object constant it thinks it imported)
+     * gets EB 08 followed by the name's address: dx_stub_value_name()
+     * decodes that back. */
+    c[0] = 0xeb; c[1] = 0x08; memcpy(c + 2, &n, 8);           /* jmp +8; .quad name */
+    c[10] = 0x55;                                            /* push %rbp */
+    c[11] = 0x48; c[12] = 0x89; c[13] = 0xe5;                /* mov %rsp, %rbp */
+    c[14] = 0x48; c[15] = 0x83; c[16] = 0xe4; c[17] = 0xf0;  /* and $-16, %rsp */
+    c[18] = 0x48; c[19] = 0xbf; memcpy(c + 20, &n, 8);       /* movabs $name, %rdi */
+    c[28] = 0x48; c[29] = 0xb8; memcpy(c + 30, &h, 8);       /* movabs $handler, %rax */
+    c[38] = 0xff; c[39] = 0xd0;                              /* call *%rax */
+    c[40] = 0xc9;                                            /* leave */
+    c[41] = 0xc3;                                            /* ret */
     s->code = c;
     s->next = stubs;
     stubs = s;
@@ -392,6 +408,30 @@ void *dx_global_lookup(const char *name) {
 /* Symbols the loader itself provides. */
 static void *loader_symbol(const char *name);
 
+struct cf_string;
+struct cf_string *d___CFStringMakeConstantString(const char *bytes) __attribute__((weak));
+
+static int ends_with(const char *s, const char *suffix) {
+    size_t n = strlen(s), m = strlen(suffix);
+    return n > m && !strcmp(s + n - m, suffix);
+}
+/* NSURLIsDirectoryKey, NSURLErrorDomain, kCTFontNameAttribute, ...: names
+ * of Apple's string constants. (Not a bare "...Name": NSFullUserName and
+ * friends are functions.) */
+static int looks_like_object_constant(const char *name) {
+    static const char *const prefixes[] = {"_NS", "_k", "_UN", "_WK", "_AV", "_CA", "_UT", "_CI", "_MT", NULL};
+    static const char *const suffixes[] = {"Notification", "Key", "Domain", "Identifier", "Mode", "Attribute",
+                                           "AttributeName", "TransformerName", "Modes", NULL};
+    int prefixed = 0;
+    for (int i = 0; prefixes[i]; i++)
+        if (!strncmp(name, prefixes[i], strlen(prefixes[i]))) prefixed = 1;
+    if (!prefixed || strchr(name, '$')) return 0;
+    if (!strncmp(name, "_k", 2) && strstr(name, "Notify")) return 1; /* kTISNotify..., kAXNotify... */
+    for (int i = 0; suffixes[i]; i++)
+        if (ends_with(name, suffixes[i])) return 1;
+    return 0;
+}
+
 static void *resolve(struct dx_image *img, int64_t ordinal, const char *name, int weak) {
     void *r = NULL;
     const char *lib = NULL;
@@ -423,6 +463,16 @@ static void *resolve(struct dx_image *img, int64_t ordinal, const char *name, in
     if (r) return r;
     if (weak) return NULL;
     note_missing(img, lib, name);
+    /* Object constants (extern NSString *const NSFooKey and the like) are
+     * read, not called: binding them to code hands programs the stub's
+     * instruction bytes as an object pointer. Give them a slot holding an
+     * immortal string of their own name, which is what most of Apple's
+     * constants contain. */
+    if (looks_like_object_constant(name) && d___CFStringMakeConstantString) {
+        void **slot = malloc(sizeof *slot);
+        *slot = d___CFStringMakeConstantString(name + 1);
+        return slot;
+    }
     /* Objective-C classes nobody provides get a placeholder class rather
      * than a code stub: messaging a stub crashes without saying what was
      * missing. */

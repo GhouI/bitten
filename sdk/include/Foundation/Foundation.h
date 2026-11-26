@@ -10,6 +10,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 #include <CoreGraphics/CGGeometry.h>
+#include <dispatch/dispatch.h>
 typedef CGPoint NSPoint;
 typedef CGSize NSSize;
 typedef CGRect NSRect;
@@ -761,6 +762,61 @@ typedef NS_OPTIONS(NSUInteger, NSDistributedNotificationOptions) {
 - (void)postNotificationName:(NSNotificationName)name object:(nullable NSString *)object
                     userInfo:(nullable NSDictionary *)userInfo options:(NSDistributedNotificationOptions)options;
 @property BOOL suspended;
+@end
+
+typedef NS_ENUM(NSInteger, NSQualityOfService) {
+    NSQualityOfServiceUserInteractive = 0x21,
+    NSQualityOfServiceUserInitiated = 0x19,
+    NSQualityOfServiceUtility = 0x11,
+    NSQualityOfServiceBackground = 0x09,
+    NSQualityOfServiceDefault = -1
+};
+typedef NS_ENUM(NSInteger, NSOperationQueuePriority) {
+    NSOperationQueuePriorityVeryLow = -8, NSOperationQueuePriorityLow = -4, NSOperationQueuePriorityNormal = 0,
+    NSOperationQueuePriorityHigh = 4, NSOperationQueuePriorityVeryHigh = 8
+};
+@interface NSOperation : NSObject
+- (void)start;
+- (void)main;
+@property (readonly, getter=isCancelled) BOOL cancelled;
+- (void)cancel;
+@property (readonly, getter=isExecuting) BOOL executing;
+@property (readonly, getter=isFinished) BOOL finished;
+@property (readonly, getter=isConcurrent) BOOL concurrent;
+@property (readonly, getter=isAsynchronous) BOOL asynchronous;
+@property (readonly, getter=isReady) BOOL ready;
+- (void)addDependency:(NSOperation *)op;
+- (void)removeDependency:(NSOperation *)op;
+@property (readonly, copy) NSArray<NSOperation *> *dependencies;
+@property NSOperationQueuePriority queuePriority;
+@property (nullable, copy) void (^completionBlock)(void);
+- (void)waitUntilFinished;
+@property double threadPriority;
+@property NSQualityOfService qualityOfService;
+@property (nullable, copy) NSString *name;
+@end
+@interface NSBlockOperation : NSOperation
++ (instancetype)blockOperationWithBlock:(void (^)(void))block;
+- (void)addExecutionBlock:(void (^)(void))block;
+@property (readonly, copy) NSArray<void (^)(void)> *executionBlocks;
+@end
+#define NSOperationQueueDefaultMaxConcurrentOperationCount (-1)
+@interface NSOperationQueue : NSObject
+- (void)addOperation:(NSOperation *)op;
+- (void)addOperations:(NSArray<NSOperation *> *)ops waitUntilFinished:(BOOL)wait;
+- (void)addOperationWithBlock:(void (^)(void))block;
+- (void)addBarrierBlock:(void (^)(void))barrier;
+@property NSInteger maxConcurrentOperationCount;
+@property (getter=isSuspended) BOOL suspended;
+@property (nullable, copy) NSString *name;
+@property NSQualityOfService qualityOfService;
+@property (nullable, assign) dispatch_queue_t underlyingQueue;
+- (void)cancelAllOperations;
+- (void)waitUntilAllOperationsAreFinished;
+@property (class, readonly, strong, nullable) NSOperationQueue *currentQueue;
+@property (class, readonly, strong) NSOperationQueue *mainQueue;
+@property (readonly, copy) NSArray<__kindof NSOperation *> *operations;
+@property (readonly) NSUInteger operationCount;
 @end
 
 @protocol NSLocking

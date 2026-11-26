@@ -1576,3 +1576,21 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   descriptor by name instead of crashing on the stub's code bytes.
 - Target app window (total `^MISSING`): 3,378 -> 3,304. It now stops at
   `NSOperationQueue`.
+
+## 2026-11-26: operation queues; object constants; stubs that say what they are
+
+- Foundation: `NSOperation`, `NSBlockOperation`, `NSOperationQueue` over
+  dispatch (dependencies, max concurrency, priorities, suspension,
+  cancellation, completion blocks, `currentQueue`/`mainQueue`, barriers).
+  Without key-value observing, operations that finish asynchronously are
+  noticed by polling `isFinished`. Test: `tests/foundation/operations`.
+- Loader: unimplemented imports shaped like Apple's string constants
+  (`NS...Key`, `...Notification`, `...Domain`, `k...Attribute`,
+  `k...Notify...`) are bound to a slot holding an immortal string of their
+  name, the value most such constants have, instead of to code.
+- Stubs now begin with a jump over their name pointer, so a stub read as
+  data decodes to its name (`dx_stub_value_name`); messaging one reports
+  "object constant X is not implemented" instead of a bogus tagged pointer.
+- libSystem: `__sincos_stret`, `__sincosf_stret` and the `pi` variants.
+- Target app window (total `^MISSING`): 3,304 -> 3,301. It now runs into
+  AppKit: `-[NSApplication effectiveAppearance]`.
