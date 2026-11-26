@@ -148,6 +148,34 @@ $(BUILD)/tests/metal/%: tests/metal/%.m $(METAL) $(wildcard sdk/include/*/*.h)
 	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -e _main \
 	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) $(METAL) -o $@ $@.o
 
+# ---- small Objective-C frameworks ----------------------------------------------
+# Each of OBJC_FWS is frameworks/NAME/*.m over Foundation, built into
+# NAME.framework/Versions/A/NAME; tests/media links them all.
+OBJC_FWS := CoreImage AVFAudio ScreenCaptureKit
+objc_fw_lib = $(FW_ROOT)/System/Library/Frameworks/$(1).framework/Versions/A/$(1)
+objc_fw_objs = $(patsubst frameworks/$(1)/%.m,$(BUILD)/fw/$(1)/%.o,$(wildcard frameworks/$(1)/*.m))
+OBJC_FW_LIBS := $(if $(HAVE_MACHO),$(foreach f,$(OBJC_FWS),$(call objc_fw_lib,$(f))))
+FRAMEWORKS += $(OBJC_FW_LIBS)
+all: $(OBJC_FW_LIBS)
+define objc_framework
+$(BUILD)/fw/$(1)/%.o: frameworks/$(1)/%.m $(wildcard sdk/include/$(1)/*.h sdk/include/Foundation/*.h sdk/include/CoreGraphics/*.h)
+	@mkdir -p $$(dir $$@)
+	$(MACHO_CC) $(FW_CFLAGS) -c -o $$@ $$<
+$(call objc_fw_lib,$(1)): $(call objc_fw_objs,$(1)) $(FOUNDATION) $(BUILD)/sdk/libSystem.tbd
+	@mkdir -p $$(dir $$@)
+	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
+	    -install_name /System/Library/Frameworks/$(1).framework/Versions/A/$(1) \
+	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) -o $$@ $(call objc_fw_objs,$(1))
+endef
+$(foreach f,$(OBJC_FWS),$(eval $(call objc_framework,$(f))))
+TEST_MEDIA     := $(wildcard tests/media/*.m)
+TEST_MEDIABINS := $(if $(HAVE_MACHO),$(patsubst tests/media/%.m,$(BUILD)/tests/media/%,$(TEST_MEDIA)))
+$(BUILD)/tests/media/%: tests/media/%.m $(OBJC_FW_LIBS) $(wildcard sdk/include/*/*.h)
+	@mkdir -p $(dir $@)
+	$(MACHO_CC) $(FW_CFLAGS) -O1 -c -o $@.o $<
+	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -e _main \
+	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) $(OBJC_FW_LIBS) -o $@ $@.o
+
 # UserNotifications tests, like the AppKit ones.
 TEST_UN     := $(wildcard tests/usernotifications/*.m)
 TEST_UNBINS := $(if $(HAVE_MACHO),$(patsubst tests/usernotifications/%.m,$(BUILD)/tests/usernotifications/%,$(TEST_UN)))
@@ -499,6 +527,7 @@ SWLIB_LIBS_localized := $(FOUNDATION) $(FOUNDATION_COMBINE)
 SWLIB_MACOS_localized := 14.0
 SWLIB_LIBS_appintents := $(FOUNDATION) $(FOUNDATION_COMBINE) $(APPKIT) $(call late_swift_lib,UniformTypeIdentifiers) $(call swift_fw_lib,AppIntents) $(LIBCONCURRENCY)
 SWLIB_MACOS_appintents := 14.0
+SWLIB_LIBS_smallswift := $(FOUNDATION) $(call swift_fw_lib,CryptoKit) $(call swift_fw_lib,Accessibility)
 SWLIB_LIBS_swiftui := $(FOUNDATION) $(APPKIT) $(call swift_fw_lib,Combine) $(call swift_fw_lib,SwiftUI)
 SWLIB_MACOS_swiftui := 14.0
 $(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTCORE) $(OVERLAY_LIBS) tests/include/darwin.h $$(SWLIB_LIBS_$$*)
@@ -512,9 +541,9 @@ $(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTC
 	$(MACHO_LD) -arch x86_64 -platform_version macos $(call swlib_macos,$*) $(call swlib_macos,$*) -e _main \
 	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(OVERLAY_LIBS) $(SWLIB_LIBS_$*) -o $@ $@.o $@.swift.o
 
-test-bins: $(TEST_APPKITBINS) $(TEST_UNBINS) $(TEST_QCBINS) $(TEST_METALBINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
+test-bins: $(TEST_APPKITBINS) $(TEST_UNBINS) $(TEST_QCBINS) $(TEST_METALBINS) $(TEST_MEDIABINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
 
-check: $(BUILD)/mrun $(FRAMEWORKS) $(TEST_APPKITBINS) $(TEST_UNBINS) $(TEST_QCBINS) $(TEST_METALBINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
+check: $(BUILD)/mrun $(FRAMEWORKS) $(TEST_APPKITBINS) $(TEST_UNBINS) $(TEST_QCBINS) $(TEST_METALBINS) $(TEST_MEDIABINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
 	BUILD=$(BUILD) tests/run.sh
 
 check-dmgx:

@@ -2217,3 +2217,26 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - The target app now starts, builds its scenes and gets into its views
   (`FocusState`).
 - Target app window (total `^MISSING`): 1,384 -> 1,068.
+
+## 2026-11-26: CoreImage, AVFAudio, ScreenCaptureKit, CoreAudio, Accessibility, SecureEnclave (PR: media-fw)
+
+- `CoreImage.framework`: CIImage (CGImage pixels at an extent, or an
+  infinite solid colour; crop, transform, filters, compositing), CIColor,
+  CIContext (`createCGImage:fromRect:`, drawing into a CGContext), and
+  CIFilter with CIColorMonochrome, CIColorInvert, CISepiaTone,
+  CIColorControls, CISourceOverCompositing, CIConstantColorGenerator (other
+  names give nil). CPU only.
+- `AVFAudio.framework`: formats (standard deinterleaved float32 and the
+  common ones), PCM buffers with their buffer lists, nodes, and an engine
+  that, without an audio device, pulls its source nodes every 10 ms in
+  real time and drops the samples.
+- `ScreenCaptureKit.framework`: no shareable windows, displays or
+  applications; screenshots fail with SCStreamErrorUserDeclined.
+- `libswiftCoreAudio` with the CoreAudio types: `UnsafeMutableAudioBufferListPointer`.
+- `Accessibility.framework`: notifications whose `post()` reaches no
+  assistive technology.
+- CryptoKit: SecureEnclave's initialisers, which throw (no enclave); the
+  stub moves to its own file. SDK: `SecAccessControlRef`, `LAContext`.
+- Build: `OBJC_FWS`, one rule for small Objective-C frameworks.
+- Tests: `tests/media/media`, `tests/swiftlib/smallswift`.
+- Target app window (total `^MISSING`): 1,068 -> 1,040.
