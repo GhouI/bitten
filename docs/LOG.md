@@ -2103,3 +2103,20 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - The target app now starts through Sparkle's updater setup and reaches
   SwiftUI's scenes (`Scene.commands`).
 - Target app window (total `^MISSING`): 1,873 -> 1,650.
+
+## 2026-11-26: IOKit; Security's code signing, authorization, transforms (PR: iokit-security)
+
+- IOKit (`src/frameworks/iokit`): a registry of one service,
+  `IOPlatformExpertDevice`, whose `IOPlatformUUID` comes from
+  /etc/machine-id; matching by class or name, iterators, `FromPath`,
+  properties. Power sources from /sys/class/power_supply (each battery
+  with capacity and charging state; AC or battery power), power
+  assertions that are counted and prevent nothing.
+- Security (`security/codesign.c`): static code objects (unsigned: empty
+  signing information, no designated requirement), authorizations whose
+  rights are all denied, transform groups that build but fail closed on
+  execute (`errSecUnimplemented`, as `SecItemImport` does), access control
+  objects, the transform, digest, code-info and accessibility constants.
+- CoreFoundation: room for 40 CF types (three new Security ones).
+- Test: `tests/c/iokit_security`.
+- Target app window (total `^MISSING`): 1,629 -> 1,595.

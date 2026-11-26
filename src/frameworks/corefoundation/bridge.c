@@ -258,4 +258,7 @@ __attribute__((constructor(102))) static void bridge_init(void) {
     cf_class(CF_CT_LINE, generic, "__NSCFCTLine");
     cf_class(CF_CT_RUN, generic, "__NSCFCTRun");
     cf_class(CF_CT_COLLECTION, generic, "__NSCFCTFontCollection");
+    cf_class(CF_SEC_CODE, generic, "__NSCFSecCode");
+    cf_class(CF_SEC_TRANSFORM, generic, "__NSCFSecTransform");
+    cf_class(CF_SEC_ACCESS_CONTROL, generic, "__NSCFSecAccessControl");
 }

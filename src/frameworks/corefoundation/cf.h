@@ -30,8 +30,11 @@ enum cf_type {
     CF_ATTRIBUTED_STRING,
     /* CoreText (src/frameworks/coretext) */
     CF_CT_FONT, CF_CT_DESCRIPTOR, CF_CT_LINE, CF_CT_RUN, CF_CT_COLLECTION,
+    /* Security's code signing, transforms and access control (security/) */
+    CF_SEC_CODE, CF_SEC_TRANSFORM, CF_SEC_ACCESS_CONTROL,
+    CF_TYPE_COUNT
 };
-_Static_assert(CF_CT_COLLECTION < 32, "CF_TYPE_MAX");
+_Static_assert(CF_TYPE_COUNT <= 40, "CF_TYPE_MAX");
 
 struct cf_ops {
     void (*destroy)(void *);
@@ -45,7 +48,7 @@ struct cf_ops {
 struct cf_class_slot {
     void *words[5];
 };
-#define CF_TYPE_MAX 32
+#define CF_TYPE_MAX 40
 extern struct cf_class_slot cf_classes[CF_TYPE_MAX];
 
 struct cf_object {
