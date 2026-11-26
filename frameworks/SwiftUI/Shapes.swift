@@ -547,6 +547,7 @@ internal struct _StrokedShapeView<Content: Shape, Style: ShapeStyle>: View {
 }
 
 internal final class _ShapeNode<S: Shape>: _ViewNode {
+  override func hitsContent(_ point: CGPoint) -> Bool { return frame._contains(point) && (paint.a > 0 || stroke != nil) }
   let shape: S
   let paint: _Paint
   let eoFill: Bool

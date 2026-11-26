@@ -1039,6 +1039,7 @@ public struct LocalizedStringKey: Equatable, ExpressibleByStringInterpolation, S
 /// of the point size wide. Drawing goes through CoreText when the target
 /// has it (see _TextRenderer).
 internal final class _TextNode: _ViewNode {
+  override func hitsContent(_ point: CGPoint) -> Bool { return frame._contains(point) }
   let string: String
   let font: Font
   let paint: _Paint
@@ -1291,6 +1292,7 @@ extension Image: View {
 }
 
 internal final class _ImageNode: _ViewNode {
+  override func hitsContent(_ point: CGPoint) -> Bool { return frame._contains(point) }
   let provider: AnyImageProviderBox
   let paint: _Paint
   init(provider: AnyImageProviderBox, paint: _Paint, environment: EnvironmentValues) {
@@ -1691,6 +1693,7 @@ public struct Divider: View {
 
 /// A one-point line across the stack it is in (either direction).
 internal final class _DividerNode: _ViewNode {
+  override func hitsContent(_ point: CGPoint) -> Bool { return frame._contains(point) }
   override func sizeThatFits(_ proposal: ProposedViewSize) -> CGSize {
     // In a vertical stack a divider is offered a width; in a horizontal
     // one, a height.

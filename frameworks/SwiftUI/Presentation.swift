@@ -60,6 +60,7 @@ internal struct _PresentationModifier<Presented: View>: ViewModifier {
 
 /// Takes all of the space it is placed in.
 internal final class _FillNode: _ViewNode {
+  override func hitsContent(_ point: CGPoint) -> Bool { return frame._contains(point) }
   init(content: _ViewNode, environment: EnvironmentValues) { super.init(environment: environment, children: [content]) }
   override func sizeThatFits(_ proposal: ProposedViewSize) -> CGSize { return proposal.replacingUnspecifiedDimensions() }
   override func place(in rect: CGRect) {

@@ -390,6 +390,11 @@ public struct _AllowsHitTestingModifier: _NodeModifier {
 }
 internal final class _NoHitNode: _ViewNode {
   override func hit(_ point: CGPoint) -> _ViewNode? { return nil }
+  override func hitsContent(_ point: CGPoint) -> Bool { return false }
+}
+/// contentShape: the whole frame counts as content for gestures.
+internal final class _ContentShapeNode: _ViewNode {
+  override func hitsContent(_ point: CGPoint) -> Bool { return frame._contains(point) }
 }
 
 @frozen
@@ -400,7 +405,9 @@ public struct _ContentShapeModifier<ContentShape: Shape>: _NodeModifier {
     self.shape = shape
     self.eoFill = eoFill
   }
-  func makeNode(content: _ViewNode, environment: EnvironmentValues) -> _ViewNode { return content }
+  func makeNode(content: _ViewNode, environment: EnvironmentValues) -> _ViewNode {
+    return _ContentShapeNode(environment: environment, children: [content])
+  }
 }
 
 /// onAppear/onDisappear: appear runs once when the view joins its host;
