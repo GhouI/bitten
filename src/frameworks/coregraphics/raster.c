@@ -63,10 +63,44 @@ void cg_blend_pixel(const struct cg_target *t, size_t x, size_t row, const CGFlo
     case CG_BLEND_COPY:
         for (int i = 0; i < 4; i++) d[i] = src[i] * t->alpha * coverage + d[i] * (1 - coverage);
         break;
-    default:
+    case CG_BLEND_NORMAL:
         for (int i = 0; i < 4; i++) s[i] = src[i] * k;
         for (int i = 0; i < 4; i++) d[i] = s[i] + d[i] * (1 - s[3]);
         break;
+    default: {
+        /* Porter-Duff and separable modes on premultiplied colour: the
+         * result r replaces the destination where the shape covers it. */
+        CGFloat r[4], sa, da = d[3];
+        for (int i = 0; i < 4; i++) s[i] = src[i] * t->alpha;
+        sa = s[3];
+        for (int i = 0; i < 4; i++) {
+            CGFloat sc = s[i], dc = d[i];
+            switch (t->blend) {
+            case 18: r[i] = sc * da; break;                              /* source in */
+            case 19: r[i] = sc * (1 - da); break;                        /* source out */
+            case 20: r[i] = sc * da + dc * (1 - sa); break;              /* source atop */
+            case 21: r[i] = sc * (1 - da) + dc; break;                   /* destination over */
+            case 22: r[i] = dc * sa; break;                              /* destination in */
+            case 23: r[i] = dc * (1 - sa); break;                        /* destination out */
+            case 24: r[i] = sc * (1 - da) + dc * sa; break;              /* destination atop */
+            case 25: r[i] = sc * (1 - da) + dc * (1 - sa); break;        /* xor */
+            case 27: r[i] = sc + dc > 1 ? 1 : sc + dc; break;            /* plus lighter */
+            case 1:                                                      /* multiply */
+                r[i] = i == 3 ? sa + da - sa * da : sc * dc + sc * (1 - da) + dc * (1 - sa);
+                break;
+            case 2: r[i] = sc + dc - sc * dc; break;                     /* screen */
+            case 4: case 5: {                                            /* darken, lighten */
+                if (i == 3) { r[i] = sa + da - sa * da; break; }
+                CGFloat a = sc * da, b = dc * sa;
+                r[i] = (t->blend == 4 ? (a < b ? a : b) : (a > b ? a : b)) + sc * (1 - da) + dc * (1 - sa);
+                break;
+            }
+            default: r[i] = sc + dc * (1 - sa); break;                   /* others: normal */
+            }
+        }
+        for (int i = 0; i < 4; i++) d[i] += (r[i] - d[i]) * coverage;
+        break;
+    }
     }
     cg_write_pixel(t->surface, x, row, d);
 }

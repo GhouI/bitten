@@ -11,6 +11,7 @@ typedef struct CGImageSource *CGImageSourceRef;
 CGImageSourceRef CGImageSourceCreateWithData(CFDataRef data, CFDictionaryRef options);
 CGImageRef CGImageSourceCreateImageAtIndex(CGImageSourceRef src, size_t index, CFDictionaryRef options);
 
+int bn_blend_mode_for_operation(NSCompositingOperation op);
 void bn_draw_symbol(CGContextRef c, const char *name, double x, double y, double w, double h, double r,
                     double g, double b, double a, int flipped);
 
@@ -346,6 +347,7 @@ static BOOL asset_catalog_has(NSBundle *bundle, NSString *name) {
     if (c) {
         CGContextSaveGState(c);
         CGContextSetAlpha(c, alpha);
+        CGContextSetBlendMode(c, (CGBlendMode)bn_blend_mode_for_operation(op));
     }
     [self drawInRect:dst];
     if (c) CGContextRestoreGState(c);

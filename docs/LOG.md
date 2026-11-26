@@ -3247,3 +3247,17 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   the onboarding page ("Get Started", Continue / Skip) with its tab bar
   and toolbar.
 - Target app window (total `^MISSING`): 11 -> 11.
+
+## Flipped layer geometry, compositing operations
+
+- AppKit: a flipped view's backing layer has flipped geometry (as in
+  AppKit), so text layers and contents in its sublayers draw upright; the
+  target app's pane title was upside down.
+- CoreGraphics: blend modes beyond normal, clear and copy: the
+  Porter-Duff ones (source in/out/atop, destination over/in/out/atop,
+  xor, plus lighter) and multiply, screen, darken, lighten. AppKit maps
+  every NSCompositingOperation onto them for `NSRectFillUsingOperation`
+  and NSImage drawing, so template tinting (draw the image, fill
+  source-atop) colours the glyph instead of its whole square.
+- Test: tests/appkit/compositing.m.
+- Target app window (total `^MISSING`): 11 -> 11.
