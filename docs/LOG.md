@@ -2370,3 +2370,15 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   once and kept; `swift_readAtKeyPath` is called without the value type,
   which now comes from the key path.
 - Target app window (total `^MISSING`): 700 -> 454.
+
+## 2026-11-26: JPEG (PR: jpeg)
+
+- Baseline and extended sequential JPEG (`coregraphics/jpeg.c`): Huffman
+  DCT, 8-bit grey or YCbCr with any chroma subsampling, restart
+  intervals, Adobe RGB; to opaque RGBA. Image sources decode it after
+  PNG; `CGImageCreateWithJPEGDataProvider`. Progressive, arithmetic and
+  lossless files are recognised as JPEG but not decoded.
+- Test: `tests/c/jpeg` (samples made with PIL: 4:4:4, 4:2:0, grey at
+  odd sizes, a progressive file).
+- Target app window (total `^MISSING`): 454 -> 454 (images the program
+  loads at run time; no import changes).
