@@ -2523,3 +2523,22 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   NSProgress.
 - Test: `tests/swiftlib/uttype` (a file loaded by type).
 - Target app window (total `^MISSING`): 230 -> 229.
+
+## Scroll views, text fields, string drawing, attributed strings, accessibility
+
+- Foundation: NSAttributedString and NSMutableAttributedString,
+  toll-free bridged to CFAttributedString (the CF type's class now
+  subclasses NSMutableAttributedString): attributes and effective/longest
+  ranges, substrings, enumeration, editing, equality.
+  `-rangeOfString:options:range:`.
+- AppKit: NSScrollView, NSClipView and NSScroller (the clip view's bounds
+  origin is the scroll position; wheel scrolling, constraining, scroller
+  knob values, live-scroll and bounds notifications, `scrollRectToVisible:`);
+  string drawing through CoreText (`drawAtPoint:withAttributes:`,
+  `sizeWithAttributes:`, attributed `size`/`drawInRect:`, wrapping);
+  NSTextField labels and fields (fonts, colours, alignment, wrapping,
+  line limits, placeholders, intrinsic size); NSControl text state; content
+  hugging and compression priorities; the NSAccessibility properties on
+  responders, menus and menu items.
+- Test: tests/foundation/attributed.m (attributed strings, NSProgress).
+- Target app window (total `^MISSING`): 229 -> 225.
