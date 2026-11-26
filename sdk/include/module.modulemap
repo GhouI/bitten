@@ -140,6 +140,11 @@ module QuickLookUI [system] {
   export *
 }
 
+module PhotosUI [system] {
+  header "PhotosUI/PhotosUI.h"
+  export *
+}
+
 module Metal [system] {
   header "Metal/Metal.h"
   export *

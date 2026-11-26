@@ -461,6 +461,30 @@ $(call late_swift_lib,$(1)): $(wildcard frameworks/$(1)/swift/*.swift) $(LATE_SW
 endef
 $(foreach l,$(LATE_SWIFT),$(eval $(call late_swift,$(l))))
 
+# ---- PhotosUI ------------------------------------------------------------------
+# Objective-C (the picker view controller, over AppKit) and Swift (its
+# configuration, results and delegate) in one framework, like Foundation.
+PHOTOSUI := $(FW_ROOT)/System/Library/Frameworks/PhotosUI.framework/Versions/A/PhotosUI
+PHOTOSUI_ON := $(if $(and $(SWIFTC),$(HAVE_MACHO)),$(PHOTOSUI))
+FRAMEWORKS += $(PHOTOSUI_ON)
+all: $(PHOTOSUI_ON)
+$(BUILD)/fw/PhotosUI/PhotosUI.o: frameworks/PhotosUI/PhotosUI.m $(wildcard sdk/include/PhotosUI/*.h sdk/include/AppKit/*.h)
+	@mkdir -p $(dir $@)
+	$(MACHO_CC) $(FW_CFLAGS) -c -o $@ $<
+$(BUILD)/fw/PhotosUI/PhotosUISwift.o: $(wildcard frameworks/PhotosUI/swift/*.swift) $(FOUNDATION) $(APPKIT) $(OVERLAY_LIBS) $(SDKROOT)/.stamp $(SWIFTRES)/.stamp
+	@mkdir -p $(dir $@)
+	$(SWIFTC) -module-name PhotosUI -target x86_64-apple-macos$(FOUNDATION_MACOS) -runtime-compatibility-version none \
+	    $(SWIFT_SDKFLAGS) -enable-library-evolution -wmo -parse-as-library -O \
+	    -emit-module -emit-module-path $(SWIFT_MODDIR)/PhotosUI.swiftmodule \
+	    -c -o $@ $(wildcard frameworks/PhotosUI/swift/*.swift)
+	@touch $@
+$(PHOTOSUI): $(BUILD)/fw/PhotosUI/PhotosUI.o $(BUILD)/fw/PhotosUI/PhotosUISwift.o $(FOUNDATION) $(APPKIT) $(BUILD)/sdk/libSystem.tbd
+	@mkdir -p $(dir $@)
+	$(MACHO_LD) -arch x86_64 -platform_version macos $(FOUNDATION_MACOS) $(FOUNDATION_MACOS) -dylib \
+	    -install_name /System/Library/Frameworks/PhotosUI.framework/Versions/A/PhotosUI \
+	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(OVERLAY_LIBS) $(FOUNDATION) $(APPKIT) \
+	    -o $@ $(BUILD)/fw/PhotosUI/PhotosUI.o $(BUILD)/fw/PhotosUI/PhotosUISwift.o
+
 # ---- frameworks written in Swift ------------------------------------------
 # frameworks/NAME/*.swift (SwiftUI...) is built as module NAME into
 # NAME.framework/Versions/A/NAME, against the SDK, the overlays (all of
@@ -539,6 +563,8 @@ SWLIB_LIBS_localized := $(FOUNDATION) $(FOUNDATION_COMBINE)
 SWLIB_MACOS_localized := 14.0
 SWLIB_LIBS_formatstyle := $(FOUNDATION) $(FOUNDATION_COMBINE)
 SWLIB_MACOS_formatstyle := 14.0
+SWLIB_LIBS_photosui := $(FOUNDATION) $(FOUNDATION_COMBINE) $(APPKIT) $(PHOTOSUI)
+SWLIB_MACOS_photosui := 14.0
 SWLIB_LIBS_appintents := $(FOUNDATION) $(FOUNDATION_COMBINE) $(APPKIT) $(call late_swift_lib,UniformTypeIdentifiers) $(call swift_fw_lib,AppIntents) $(LIBCONCURRENCY)
 SWLIB_MACOS_appintents := 14.0
 SWLIB_LIBS_smallswift := $(FOUNDATION) $(call swift_fw_lib,CryptoKit) $(call swift_fw_lib,Accessibility) $(call swift_fw_lib,Symbols)
