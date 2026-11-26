@@ -2087,3 +2087,26 @@ typedef NS_OPTIONS(NSUInteger, NSWritingToolsResultOptions) {
 - (void)setCell:(nullable id)cell;
 @property (getter=isContinuous) BOOL continuous;
 @end
+
+@interface NSEvent (BittenMonitors)
++ (nullable id)addLocalMonitorForEventsMatchingMask:(NSEventMask)mask
+                                            handler:(NSEvent *_Nullable (^)(NSEvent *event))block;
++ (nullable id)addGlobalMonitorForEventsMatchingMask:(NSEventMask)mask handler:(void (^)(NSEvent *event))block;
++ (void)removeMonitor:(id)eventMonitor;
+@end
+
+@interface NSDockTile : NSObject
+@property (readonly) NSSize size;
+@property (nullable, copy) NSString *badgeLabel;
+@property (nullable, strong) NSView *contentView;
+@property BOOL showsApplicationBadge;
+@property (nullable, readonly, weak) id owner;
+- (void)display;
+@end
+@interface NSApplication (BittenServices)
+@property (nullable, strong) id servicesProvider;
+- (void)registerServicesMenuSendTypes:(NSArray<NSPasteboardType> *)sendTypes returnTypes:(NSArray<NSPasteboardType> *)returnTypes;
+@property (readonly, strong) NSDockTile *dockTile;
+@property (readonly, copy) NSArray<NSWindow *> *orderedWindows;
+@property (readonly, getter=isFullKeyboardAccessEnabled) BOOL fullKeyboardAccessEnabled;
+@end

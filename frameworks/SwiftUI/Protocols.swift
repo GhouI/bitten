@@ -373,7 +373,8 @@ extension NSViewRepresentable {
 
   nonisolated public static func _makeView(view: _GraphValue<Self>, inputs: _ViewInputs) -> _ViewOutputs {
     return MainActor.assumeIsolated {
-      let rep = view.value
+      var rep = view.value
+      _installDynamicProperties(&rep, inputs: inputs)
       let host = inputs.base.context.store(inputs.base.path + "#nsview") { _PlatformViewBox() }
       let coordinator: Coordinator
       if let c = host.coordinator as? Coordinator {
@@ -431,7 +432,8 @@ extension NSViewControllerRepresentable {
   }
   nonisolated public static func _makeView(view: _GraphValue<Self>, inputs: _ViewInputs) -> _ViewOutputs {
     return MainActor.assumeIsolated {
-      let rep = view.value
+      var rep = view.value
+      _installDynamicProperties(&rep, inputs: inputs)
       let host = inputs.base.context.store(inputs.base.path + "#nsvc") { _PlatformViewBox() }
       let coordinator: Coordinator
       if let c = host.coordinator as? Coordinator {

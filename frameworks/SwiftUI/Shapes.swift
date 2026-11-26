@@ -414,8 +414,18 @@ public struct HierarchicalShapeStyle: ShapeStyle {
   public static let tertiary = HierarchicalShapeStyle(id: 2)
   public static let quaternary = HierarchicalShapeStyle(id: 3)
   public static let quinary = HierarchicalShapeStyle(id: 4)
+  /// Set while the foreground is being resolved: a foreground that is
+  /// itself hierarchical (`.foregroundStyle(.secondary)`) leveled against
+  /// itself would recurse, so it levels the primary colour instead.
+  nonisolated(unsafe) private static var resolving = false
   public func _apply(to shape: inout _ShapeStyle_Shape) {
-    ForegroundStyle()._apply(to: &shape)
+    if HierarchicalShapeStyle.resolving {
+      Color.primary._apply(to: &shape)
+    } else {
+      HierarchicalShapeStyle.resolving = true
+      ForegroundStyle()._apply(to: &shape)
+      HierarchicalShapeStyle.resolving = false
+    }
     let levels: [CGFloat] = [1, 0.5, 0.25, 0.18, 0.1]
     shape.paint = shape.paint?.with(opacity: levels[Int(min(id, 4))])
   }

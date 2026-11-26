@@ -44,3 +44,39 @@ extension Notification: _ObjectiveCBridgeable {
     return Notification(name: n.name, object: n.object, userInfo: n.userInfo)
   }
 }
+
+// MARK: - notifications as an asynchronous sequence
+
+import _Concurrency
+
+extension NotificationCenter {
+  /// The notifications named `name` (from `object`, if given), from now on.
+  public func notifications(named name: Notification.Name, object: AnyObject? = nil) -> Notifications {
+    return Notifications(center: self, name: name, object: object)
+  }
+
+  public final class Notifications: AsyncSequence, @unchecked Sendable {
+    public typealias Element = Notification
+    private let stream: AsyncStream<Notification>
+    private let center: NotificationCenter
+    private var token: NSObjectProtocol?
+
+    internal init(center: NotificationCenter, name: Notification.Name, object: AnyObject?) {
+      self.center = center
+      var cont: AsyncStream<Notification>.Continuation!
+      stream = AsyncStream(bufferingPolicy: .unbounded) { cont = $0 }
+      let continuation = cont!
+      token = center.addObserver(forName: name, object: object, queue: nil) { note in continuation.yield(note) }
+    }
+    deinit {
+      if let t = token { center.removeObserver(t) }
+    }
+
+    public struct Iterator: AsyncIteratorProtocol {
+      internal var base: AsyncStream<Notification>.Iterator
+      internal let owner: Notifications
+      public mutating func next() async -> Notification? { return await base.next() }
+    }
+    public func makeAsyncIterator() -> Iterator { return Iterator(base: stream.makeAsyncIterator(), owner: self) }
+  }
+}

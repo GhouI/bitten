@@ -2759,3 +2759,20 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   next call.
 - Target app window (total `^MISSING`): 113 -> 113 (NSPanel, NSSavePanel
   and NSOpenPanel were stubs).
+
+## The first window: environment in representables, event monitors, notification sequences
+
+- SwiftUI: NSViewRepresentable and NSViewControllerRepresentable values get
+  their dynamic properties (`@Environment`, `@State`...) installed before
+  makeNSView/updateNSView, so `@Environment(Model.self)` in one works; a
+  hierarchical style (`.secondary`) whose foreground is itself
+  hierarchical levels the primary colour instead of recursing.
+- AppKit: NSEvent local and global monitors (local ones see events before
+  NSApplication sends them and may replace or swallow them) and the full
+  NSEventMask set; NSDockTile; services provider; the application icon from
+  the bundle; `orderedWindows`; `isFullKeyboardAccessEnabled`.
+- Foundation: `NotificationCenter.notifications(named:object:)`, an
+  AsyncSequence of notifications.
+- The target application now opens its first window on the display
+  server, then stops at NSAppleEventManager.
+- Target app window (total `^MISSING`): 113 -> 108.
