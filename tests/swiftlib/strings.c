@@ -4,6 +4,7 @@
 long swl_strings_layout(unsigned long *literal_address);
 long swl_strings_basics(void);
 long swl_strings_unicode(void);
+long swl_strings_properties(void);
 long swl_strings_cstrings(const char *s, const unsigned char *bad);
 
 static int check(const char *what, long bad) {
@@ -18,6 +19,7 @@ int main(void) {
     ok &= check("literal bytes", lit == 0 || memcmp((const char *)lit, "this literal is longer", 22) != 0);
     ok &= check("basics", swl_strings_basics());
     ok &= check("unicode", swl_strings_unicode());
+    ok &= check("properties", swl_strings_properties());
     static const unsigned char bad8[] = { 'a', 0xC3, 'b', 0xE2, 0x82, 0 };
     ok &= check("cstrings", swl_strings_cstrings("from C, a long enough string", bad8));
     CHECK(ok);

@@ -118,6 +118,34 @@
 - (void)application:(NSApplication *)application openURLs:(NSArray<NSURL *> *)urls;
 @end
 
+APPKIT_EXTERN NSAppearanceName const NSAppearanceNameVibrantDark, NSAppearanceNameVibrantLight,
+    NSAppearanceNameAccessibilityHighContrastAqua, NSAppearanceNameAccessibilityHighContrastDarkAqua,
+    NSAppearanceNameAccessibilityHighContrastVibrantLight, NSAppearanceNameAccessibilityHighContrastVibrantDark,
+    NSAppearanceNameLightContent;
+@interface NSAppearance : NSObject
++ (nullable NSAppearance *)appearanceNamed:(NSAppearanceName)name;
+- (nullable instancetype)initWithAppearanceNamed:(NSAppearanceName)name bundle:(nullable NSBundle *)bundle;
+@property (readonly, copy) NSAppearanceName name;
+@property (readonly) BOOL allowsVibrancy;
+- (nullable NSAppearanceName)bestMatchFromAppearancesWithNames:(NSArray<NSAppearanceName> *)appearances;
+@property (class, readonly, strong) NSAppearance *currentDrawingAppearance;
+@property (class, null_resettable, strong) NSAppearance *currentAppearance;
+- (void)performAsCurrentDrawingAppearance:(NS_NOESCAPE void (^)(void))block;
+@end
+@protocol NSAppearanceCustomization <NSObject>
+@property (nullable, strong) NSAppearance *appearance;
+@property (readonly, strong) NSAppearance *effectiveAppearance;
+@end
+@interface NSView (NSAppearanceCustomization) <NSAppearanceCustomization>
+@property (nullable, strong) NSAppearance *appearance;
+@property (readonly, strong) NSAppearance *effectiveAppearance;
+- (void)viewDidChangeEffectiveAppearance;
+@end
+@interface NSWindow (NSAppearanceCustomization) <NSAppearanceCustomization>
+@property (nullable, strong) NSAppearance *appearance;
+@property (readonly, strong) NSAppearance *effectiveAppearance;
+@end
+
 @interface NSApplication : NSResponder
 @property (class, readonly, strong) NSApplication *sharedApplication;
 @property (nullable, weak) id<NSApplicationDelegate> delegate;
@@ -128,6 +156,7 @@
 @property (readonly, getter=isRunning) BOOL running;
 @property (readonly, getter=isActive) BOOL active;
 @property (nullable, strong) NSAppearance *appearance;
+@property (readonly, strong) NSAppearance *effectiveAppearance;
 - (void)run;
 - (void)finishLaunching;
 - (void)stop:(nullable id)sender;

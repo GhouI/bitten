@@ -819,6 +819,62 @@ typedef NS_ENUM(NSInteger, NSOperationQueuePriority) {
 @property (readonly) NSUInteger operationCount;
 @end
 
+typedef NS_OPTIONS(NSUInteger, NSPointerFunctionsOptions) {
+    NSPointerFunctionsStrongMemory = 0, NSPointerFunctionsOpaqueMemory = 2, NSPointerFunctionsMallocMemory = 3,
+    NSPointerFunctionsMachVirtualMemory = 4, NSPointerFunctionsWeakMemory = 5,
+    NSPointerFunctionsObjectPersonality = 0, NSPointerFunctionsOpaquePersonality = 1 << 8,
+    NSPointerFunctionsObjectPointerPersonality = 2 << 8, NSPointerFunctionsCStringPersonality = 3 << 8,
+    NSPointerFunctionsStructPersonality = 4 << 8, NSPointerFunctionsIntegerPersonality = 5 << 8,
+    NSPointerFunctionsCopyIn = 1 << 16
+};
+typedef NSPointerFunctionsOptions NSHashTableOptions;
+typedef NSPointerFunctionsOptions NSMapTableOptions;
+@interface NSPointerFunctions : NSObject
++ (NSPointerFunctions *)pointerFunctionsWithOptions:(NSPointerFunctionsOptions)options;
+- (instancetype)initWithOptions:(NSPointerFunctionsOptions)options;
+@property (readonly) BOOL usesWeakReadAndWriteBarriers;
+@end
+@interface NSHashTable<ObjectType> : NSObject <NSCopying, NSFastEnumeration>
+- (instancetype)initWithOptions:(NSPointerFunctionsOptions)options capacity:(NSUInteger)initialCapacity;
++ (NSHashTable<ObjectType> *)hashTableWithOptions:(NSPointerFunctionsOptions)options;
++ (NSHashTable<ObjectType> *)weakObjectsHashTable;
+@property (readonly, copy) NSPointerFunctions *pointerFunctions;
+@property (readonly) NSUInteger count;
+- (nullable ObjectType)member:(nullable ObjectType)object;
+- (NSEnumerator<ObjectType> *)objectEnumerator;
+- (void)addObject:(nullable ObjectType)object;
+- (void)removeObject:(nullable ObjectType)object;
+- (void)removeAllObjects;
+@property (readonly, copy) NSArray<ObjectType> *allObjects;
+@property (nullable, nonatomic, readonly) ObjectType anyObject;
+- (BOOL)containsObject:(nullable ObjectType)anObject;
+- (BOOL)intersectsHashTable:(NSHashTable<ObjectType> *)other;
+- (BOOL)isEqualToHashTable:(NSHashTable<ObjectType> *)other;
+- (BOOL)isSubsetOfHashTable:(NSHashTable<ObjectType> *)other;
+- (void)intersectHashTable:(NSHashTable<ObjectType> *)other;
+- (void)unionHashTable:(NSHashTable<ObjectType> *)other;
+- (void)minusHashTable:(NSHashTable<ObjectType> *)other;
+@property (readonly, copy) NSSet<ObjectType> *setRepresentation;
+@end
+@interface NSMapTable<KeyType, ObjectType> : NSObject <NSCopying, NSFastEnumeration>
+- (instancetype)initWithKeyOptions:(NSPointerFunctionsOptions)keyOptions
+                      valueOptions:(NSPointerFunctionsOptions)valueOptions capacity:(NSUInteger)initialCapacity;
++ (NSMapTable<KeyType, ObjectType> *)mapTableWithKeyOptions:(NSPointerFunctionsOptions)keyOptions
+                                               valueOptions:(NSPointerFunctionsOptions)valueOptions;
++ (NSMapTable<KeyType, ObjectType> *)strongToStrongObjectsMapTable;
++ (NSMapTable<KeyType, ObjectType> *)weakToStrongObjectsMapTable;
++ (NSMapTable<KeyType, ObjectType> *)strongToWeakObjectsMapTable;
++ (NSMapTable<KeyType, ObjectType> *)weakToWeakObjectsMapTable;
+- (nullable ObjectType)objectForKey:(nullable KeyType)aKey;
+- (void)removeObjectForKey:(nullable KeyType)aKey;
+- (void)setObject:(nullable ObjectType)anObject forKey:(nullable KeyType)aKey;
+@property (readonly) NSUInteger count;
+- (NSEnumerator<KeyType> *)keyEnumerator;
+- (nullable NSEnumerator<ObjectType> *)objectEnumerator;
+- (void)removeAllObjects;
+- (NSDictionary<KeyType, ObjectType> *)dictionaryRepresentation;
+@end
+
 @protocol NSLocking
 - (void)lock;
 - (void)unlock;

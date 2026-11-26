@@ -150,3 +150,21 @@
   if opaque("Straße ΑΒΓ").lowercased() != "straße αβγ" || opaque("ﬁx").uppercased() != "FIX" { bad |= 524288 }
   return bad
 }
+
+@_silgen_name("swl_strings_properties") public func properties() -> Int {
+  var bad = 0
+  let a: Unicode.Scalar = "A", e: Unicode.Scalar = "é", five: Unicode.Scalar = "5", sp: Unicode.Scalar = " "
+  if a.properties.generalCategory != .uppercaseLetter || e.properties.generalCategory != .lowercaseLetter { bad |= 1 }
+  if !a.properties.isUppercase || !e.properties.isLowercase || !e.properties.isAlphabetic || !a.properties.isCased { bad |= 2 }
+  if five.properties.numericType != .decimal || a.properties.numericType != nil { bad |= 4 }
+  if !sp.properties.isWhitespace || a.properties.isWhitespace { bad |= 8 }
+  let smile: Unicode.Scalar = "\u{1F600}", hash: Unicode.Scalar = "#"
+  if !smile.properties.isEmoji || !smile.properties.isEmojiPresentation || !hash.properties.isEmoji || hash.properties.isEmojiPresentation { bad |= 16 }
+  if Unicode.Scalar(0xE000)!.properties.generalCategory != .privateUse || Unicode.Scalar(0x378)!.properties.generalCategory != .unassigned { bad |= 32 }
+  let c: Character = "x"
+  if !c.isLetter || c.isNumber || !c.isLowercase || c.isUppercase || !Character("Q").isUppercase { bad |= 64 }
+  if Character("7").wholeNumberValue != 7 || Character("٣").wholeNumberValue != 3 || Character("Ⅻ").wholeNumberValue != 12 { bad |= 128 }
+  if Character("f").hexDigitValue != 15 || Character("g").hexDigitValue != nil || !Character("\t").isWhitespace { bad |= 256 }
+  if !Character(",").isPunctuation || !Character("+").isMathSymbol || !Character("$").isCurrencySymbol || !Character("\n").isNewline { bad |= 512 }
+  return bad
+}

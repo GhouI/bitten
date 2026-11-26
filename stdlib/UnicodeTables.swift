@@ -139,6 +139,9 @@ internal final class _UnicodeTables {
   internal let lowercase = _MapTable(_ucdLowercase)
   internal let uppercase = _MapTable(_ucdUppercase)
   internal let titlecase = _MapTable(_ucdTitlecase)
+  internal let generalCategory = _RunTable(_ucdGeneralCategory)
+  internal let binaryProperties = _RunTable(_ucdBinaryProperties)
+  internal let numeric = _RunTable(_ucdNumeric)
   internal init() {}
 }
 

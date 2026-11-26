@@ -31,6 +31,10 @@ extension Unicode.Scalar: _ExpressibleByBuiltinUnicodeScalarLiteral, Expressible
   @inlinable public init(_ v: UInt8) {
     self._value = UInt32(Builtin.zext_Int8_Int32(v._value))
   }
+  @inlinable public init?(_ v: Int) {
+    if v < 0 || v > 0x10FFFF { return nil }
+    self.init(UInt32(truncatingIfNeeded: v))
+  }
   @inlinable public init(_ v: Unicode.Scalar) { self = v }
   @inlinable public var isASCII: Bool { get { return _value < 0x80 } }
   public typealias UnicodeScalarLiteralType = Unicode.Scalar

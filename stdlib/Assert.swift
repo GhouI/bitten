@@ -146,8 +146,8 @@ internal func _fatalErrorMessage(_ prefix: StaticString, _ message: StaticString
   Builtin.int_trap()
 }
 
-@usableFromInline @_transparent
-internal func _precondition(_ condition: @autoclosure () -> Bool,
+@_transparent
+public func _precondition(_ condition: @autoclosure () -> Bool,
                             _ message: StaticString = StaticString(),
                             file: StaticString = #file, line: UInt = #line) {
   if _isDebugAssertConfiguration() {
@@ -159,15 +159,15 @@ internal func _precondition(_ condition: @autoclosure () -> Bool,
   }
 }
 
-@usableFromInline @_transparent
-internal func _preconditionFailure(_ message: StaticString = StaticString(),
+@_transparent
+public func _preconditionFailure(_ message: StaticString = StaticString(),
                                    file: StaticString = #file, line: UInt = #line) -> Never {
   _precondition(false, message, file: file, line: line)
   Builtin.unreachable()
 }
 
-@usableFromInline @_transparent
-internal func _debugPrecondition(_ condition: @autoclosure () -> Bool,
+@_transparent
+public func _debugPrecondition(_ condition: @autoclosure () -> Bool,
                                  _ message: StaticString = StaticString(),
                                  file: StaticString = #file, line: UInt = #line) {
   if _slowPath(_isDebugAssertConfiguration()) {

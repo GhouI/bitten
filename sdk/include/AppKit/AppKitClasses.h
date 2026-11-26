@@ -75,8 +75,6 @@
 @end
 @interface NSBezierPath : NSObject
 @end
-@interface NSAppearance : NSObject
-@end
 @interface NSAnimationContext : NSObject
 @end
 @interface NSCursor : NSObject

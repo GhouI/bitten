@@ -1669,3 +1669,23 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Target app window (total `^MISSING`): 2,999 -> 2,976 (all 18 Carbon and
   5 CoreServices imports). On main the run stops before it gets here, at
   `Unicode.Scalar.Properties` (standard library, in progress elsewhere).
+
+## 2026-11-26: Unicode properties, ManagedBuffer, hash/map tables, appearance
+
+- stdlib: `Unicode.Scalar.Properties` (general category, alphabetic, case,
+  white space, emoji, math, numeric type and value), `Unicode.GeneralCategory`,
+  `Unicode.NumericType`, and Character's `isLetter`, `isNumber`,
+  `isWhitespace`, `isUppercase`, `wholeNumberValue`, `hexDigitValue` and
+  friends, from three new tables `tools/gen-unicode.py` derives from the UCD
+  (General_Category; a byte of binary properties; numeric type and value).
+  `ManagedBuffer` (Apple's fixed layout), `Unicode.Scalar(Int)`, public
+  `_precondition`/`_preconditionFailure`/`_debugPrecondition`,
+  `withoutActuallyEscaping`.
+- Foundation: `NSHashTable`, `NSMapTable`, `NSPointerFunctions` (strong or
+  weak members, equality or identity).
+- AppKit: `NSAppearance` (light; `BITTEN_APPEARANCE=dark` for dark), and
+  `appearance`/`effectiveAppearance` on NSApplication, NSWindow and NSView.
+- Runtime: a symbolic type reference to a stubbed descriptor now names the
+  missing descriptor instead of returning nil to the program.
+- Target app window (total `^MISSING`): 2,976 -> 2,935. It runs past Carbon
+  and Unicode to Foundation's `NSObject.KeyValueObservingPublisher`.

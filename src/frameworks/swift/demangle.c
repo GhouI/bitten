@@ -362,6 +362,8 @@ static int symbolic(struct parser *P, int kind) {
         if (kind == 0x02) target = *(const void *const *)target;
         const sw_context_descriptor *c = target;
         if (!c) return fail(P, "unbound symbolic reference");
+        const char *missing = dx_stub_name(c);
+        if (missing) dx_fatal("swift: type descriptor %s is not implemented in bitten yet", missing);
         unsigned k = sw_ctx_kind(c->flags);
         /* An import nobody implements is bound to a code stub, which does
          * not look like a descriptor. */
