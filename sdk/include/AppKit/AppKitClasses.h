@@ -79,10 +79,6 @@
 @end
 @interface NSTrackingArea : NSObject
 @end
-@interface NSWorkspace : NSObject
-@end
-@interface NSRunningApplication : NSObject
-@end
 @interface NSAlert : NSObject
 @end
 @interface NSSound : NSObject
