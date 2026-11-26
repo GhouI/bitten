@@ -1446,6 +1446,19 @@ public struct Button<Label: View>: View {
   nonisolated public static func _makeView(view: _GraphValue<Button>, inputs: _ViewInputs) -> _ViewOutputs {
     return MainActor.assumeIsolated {
       let b = view.value
+      if let custom = inputs.environment._customButtonStyle {
+        // The style's body, built where the style no longer applies (a
+        // primitive style's own Button(configuration) gets the default).
+        var inner = inputs.named("style")
+        inner.environment._customButtonStyle = nil
+        inner.environment._buttonStyle = .bordered
+        let action = b.action
+        let label = b.label
+        let body = custom.make({ _makeNode(label, inputs: $0.named("label")) }, b.role,
+                               { MainActor.assumeIsolated { action() } }, inner)
+        if custom.primitive { return _ViewOutputs(body) }
+        return _ViewOutputs(_ButtonNode(label: body, action: b.action, style: .plain, environment: inputs.environment))
+      }
       let labelNode = _makeNode(b.label, inputs: inputs.named("label"))
       let style = inputs.environment._buttonStyle
       return _ViewOutputs(_ButtonNode(label: labelNode, action: b.action, style: style, environment: inputs.environment))
@@ -1472,7 +1485,18 @@ extension Button where Label == Text {
 
 internal enum _ButtonAppearance { case bordered, borderless, plain, link }
 struct _ButtonStyleKey: EnvironmentKey { static let defaultValue = _ButtonAppearance.bordered }
+/// A program's own ButtonStyle or PrimitiveButtonStyle: makes the
+/// button's node from its label, role and action.
+internal struct _CustomButtonStyle {
+  let primitive: Bool
+  let make: (@escaping (_ViewInputs) -> _ViewNode, ButtonRole?, @escaping () -> Void, _ViewInputs) -> _ViewNode
+}
+struct _CustomButtonStyleKey: EnvironmentKey { static let defaultValue: _CustomButtonStyle? = nil }
 extension EnvironmentValues {
+  internal var _customButtonStyle: _CustomButtonStyle? {
+    get { return self[_CustomButtonStyleKey.self] }
+    set { self[_CustomButtonStyleKey.self] = newValue }
+  }
   internal var _buttonStyle: _ButtonAppearance {
     get { return self[_ButtonStyleKey.self] }
     set { self[_ButtonStyleKey.self] = newValue }
@@ -1541,17 +1565,26 @@ public protocol PrimitiveButtonStyle {
 }
 public struct PrimitiveButtonStyleConfiguration {
   public struct Label: View {
-    let node: _ViewNode
+    /// Built where the style places it, so the style's environment
+    /// (foreground, font) reaches the label.
+    let make: (_ViewInputs) -> _ViewNode
     public typealias Body = Never
     public var body: Never { fatalError("no body") }
     public static func _makeView(view: _GraphValue<Label>, inputs: _ViewInputs) -> _ViewOutputs {
-      return _ViewOutputs(view.value.node)
+      return _ViewOutputs(view.value.make(inputs))
     }
   }
   public let role: ButtonRole?
   public let label: Label
   let action: () -> Void
   public func trigger() { action() }
+}
+extension Button where Label == PrimitiveButtonStyleConfiguration.Label {
+  /// The button a primitive style's body wraps its configuration in.
+  public init(_ configuration: PrimitiveButtonStyleConfiguration) {
+    let trigger = configuration.action
+    self.init(role: configuration.role, action: { trigger() }) { configuration.label }
+  }
 }
 
 public protocol ButtonStyle {
@@ -1561,11 +1594,13 @@ public protocol ButtonStyle {
 }
 public struct ButtonStyleConfiguration {
   public struct Label: View {
-    let node: _ViewNode
+    /// Built where the style places it, so the style's environment
+    /// (foreground, font) reaches the label.
+    let make: (_ViewInputs) -> _ViewNode
     public typealias Body = Never
     public var body: Never { fatalError("no body") }
     public static func _makeView(view: _GraphValue<Label>, inputs: _ViewInputs) -> _ViewOutputs {
-      return _ViewOutputs(view.value.node)
+      return _ViewOutputs(view.value.make(inputs))
     }
   }
   public let role: ButtonRole?
@@ -1614,12 +1649,29 @@ extension View {
     case is BorderlessButtonStyle: a = .borderless
     case is PlainButtonStyle: a = .plain
     case is LinkButtonStyle: a = .link
-    default: a = .bordered
+    case is BorderedButtonStyle, is BorderedProminentButtonStyle, is DefaultButtonStyle: a = .bordered
+    default:
+      // A program's own primitive style: its body is the button.
+      let custom = _CustomButtonStyle(primitive: true) { label, role, action, inputs in
+        let configuration = PrimitiveButtonStyleConfiguration(role: role, label: .init(make: label), action: action)
+        let body = MainActor.assumeIsolated { style.makeBody(configuration: configuration) }
+        return _makeNode(body, inputs: inputs)
+      }
+      return transformEnvironment(\.self) { $0._customButtonStyle = custom }
     }
-    return environment(\._buttonStyle, a)
+    return transformEnvironment(\.self) {
+      $0._buttonStyle = a
+      $0._customButtonStyle = nil
+    }
   }
   public func buttonStyle<S: ButtonStyle>(_ style: S) -> some View {
-    return environment(\._buttonStyle, .plain)
+    // The style draws the button around its label; taps stay the button's.
+    let custom = _CustomButtonStyle(primitive: false) { label, role, _, inputs in
+      let configuration = ButtonStyleConfiguration(role: role, label: .init(make: label), isPressed: false)
+      let body = MainActor.assumeIsolated { style.makeBody(configuration: configuration) }
+      return _makeNode(body, inputs: inputs)
+    }
+    return transformEnvironment(\.self) { $0._customButtonStyle = custom }
   }
 }
 

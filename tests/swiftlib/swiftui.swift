@@ -185,3 +185,44 @@ struct RedRep: NSViewRepresentable {
     return bad
   }
 }
+
+struct RedBackdrop: ButtonStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label.frame(width: 20, height: 20).background(Color(.sRGB, red: 1, green: 0, blue: 0))
+  }
+}
+final class Taps { var n = 0 }
+struct Forwarding: PrimitiveButtonStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    Button(configuration).padding(2)
+  }
+}
+
+@_silgen_name("swl_swiftui_styles") public func styles() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    let taps = Taps()
+    let styled = Button(action: { taps.n += 1 }) { Color.clear.frame(width: 4, height: 4) }.buttonStyle(RedBackdrop())
+    let host = NSHostingView(rootView: styled)
+    let p = render(styled, 30, 30, host: host)
+    if p(15, 15) != red || p(2, 2) != white { bad |= 1 }
+    let at = NSMakePoint(15, 15)
+    host.mouseDown(with: NSEvent.mouseEvent(with: .leftMouseDown, location: at, modifierFlags: [], timestamp: 0,
+                                            windowNumber: 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!)
+    host.mouseUp(with: NSEvent.mouseEvent(with: .leftMouseUp, location: at, modifierFlags: [], timestamp: 0,
+                                          windowNumber: 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 0)!)
+    if taps.n != 1 { bad |= 2 }
+    let forwarded = Button(action: { taps.n += 10 }) { Color(.sRGB, red: 0, green: 0, blue: 1).frame(width: 10, height: 10) }
+      .buttonStyle(Forwarding())
+    let host2 = NSHostingView(rootView: forwarded)
+    let q = render(forwarded, 40, 40, host: host2)
+    if q(20, 20) != blue { bad |= 4 }
+    let mid = NSMakePoint(20, 20)
+    host2.mouseDown(with: NSEvent.mouseEvent(with: .leftMouseDown, location: mid, modifierFlags: [], timestamp: 0,
+                                             windowNumber: 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!)
+    host2.mouseUp(with: NSEvent.mouseEvent(with: .leftMouseUp, location: mid, modifierFlags: [], timestamp: 0,
+                                           windowNumber: 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 0)!)
+    if taps.n != 11 { bad |= 8 }
+    return bad
+  }
+}
