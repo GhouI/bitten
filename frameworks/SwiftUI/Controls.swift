@@ -1554,7 +1554,7 @@ final class _TimelineTimer {
 
 // MARK: - observation helpers
 
-@frozen @propertyWrapper @dynamicMemberLookup
+@propertyWrapper @dynamicMemberLookup
 public struct Bindable<Value> {
   public var wrappedValue: Value
   public var projectedValue: Bindable<Value> { return self }

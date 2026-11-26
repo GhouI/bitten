@@ -103,7 +103,8 @@ CLASSES = [
 HANDWRITTEN = {"NSResponder", "NSView", "NSWindow", "NSApplication", "NSEvent",
                "NSColor", "NSFont", "NSScreen", "NSGraphicsContext", "NSMenu",
                "NSMenuItem", "NSControl", "NSAppearance", "NSBezierPath", "NSWorkspace", "NSRunningApplication", "NSWorkspaceOpenConfiguration",
-               "NSViewController", "NSWindowController"}
+               "NSViewController", "NSWindowController", "NSImage", "NSImageRep", "NSBitmapImageRep",
+               "NSImageSymbolConfiguration"}
 
 NOTIFICATIONS = """
 NSApplicationDidBecomeActiveNotification NSApplicationDidChangeScreenParametersNotification

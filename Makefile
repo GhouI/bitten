@@ -473,6 +473,8 @@ all: $(SWIFT_FW_LIBS)
 # pattern rule cannot express.
 SWIFT_FW_DEPS_SwiftUI := Combine
 SWIFT_FW_DEPS_Charts := Combine SwiftUI
+# fileImporter takes UTTypes.
+SWIFT_FW_EXTRA_SwiftUI = $(call late_swift_lib,UniformTypeIdentifiers)
 # A framework can name a later deployment target, like the tests below:
 # Network's NWError carries POSIXErrorCode, which moved into the _errno
 # overlay in macOS 14 and is hidden from older targets.

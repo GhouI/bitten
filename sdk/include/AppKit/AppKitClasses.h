@@ -53,14 +53,6 @@
 @end
 @interface NSFontManager : NSObject
 @end
-@interface NSImage : NSObject
-@end
-@interface NSImageRep : NSObject
-@end
-@interface NSBitmapImageRep : NSImageRep
-@end
-@interface NSImageSymbolConfiguration : NSObject
-@end
 @interface NSParagraphStyle : NSObject
 @end
 @interface NSMutableParagraphStyle : NSParagraphStyle

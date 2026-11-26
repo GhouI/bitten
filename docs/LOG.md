@@ -2351,3 +2351,22 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Tests: `tests/c/odds` (operator new/delete), `tests/swiftlib/localized`
   (`String(format:)` with a CGFloat).
 - Target app window (total `^MISSING`): 703 -> 700.
+
+## 2026-11-26: SwiftUI presentations, gestures, toolbars; NSImage; ABI fixes from the target app
+
+- `Presentation.swift`: alerts and confirmation dialogs (any button closes
+  them), sheets and popovers (`dismiss` closes them), inspectors, file
+  importers (`$BITTEN_PICK` stands in for the panel), tap/drag gestures
+  (`onTapGesture`, `gesture`, `DragGesture.onChanged/onEnded`), key
+  handlers (`onKeyPress`, `onExitCommand`, `onMoveCommand`), toolbars
+  drawn above the content, `safeAreaInset`, accessibility modifiers
+  (accepted, unused), and the hint modifiers (scrolling, list style,
+  symbols, pointer, help) that keep the content as it is.
+- AppKit: `NSImage` (from data, files and bundles through ImageIO; drawing
+  handlers; lockFocus; SF Symbol placeholders), `NSImageRep`,
+  `NSBitmapImageRep`, `NSImageSymbolConfiguration`.
+- ABI, from the app's code: `Binding` is frozen (passed in registers),
+  `Bindable` resilient; the App value's dynamic properties are installed
+  once and kept; `swift_readAtKeyPath` is called without the value type,
+  which now comes from the key path.
+- Target app window (total `^MISSING`): 700 -> 454.
