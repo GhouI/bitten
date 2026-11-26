@@ -1890,3 +1890,13 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Test: `tests/appkit/drawing` (pixels of a drawn window; event routing).
 - Target app window (total `^MISSING`): 2,526 (unchanged; this is behaviour,
   not imports). It stops at `+[NSWorkspace sharedWorkspace]`.
+
+## 2026-11-26: NSWorkspace
+
+- AppKit: `NSWorkspace` (its own notification centre; opening URLs and
+  files is reported on stderr and handed to `$BITTEN_OPEN` when set; the
+  app itself as the frontmost and only running application; packages;
+  recycling into ~/.Trash; accessibility display settings) and
+  `NSRunningApplication` (`currentApplication` from the main bundle).
+- Target app window (total `^MISSING`): 2,526 (unchanged). It now gets to
+  SwiftUI (`KeyEquivalent`): 1,668 of its remaining imports are SwiftUI.

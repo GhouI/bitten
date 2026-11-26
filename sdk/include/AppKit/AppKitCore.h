@@ -254,6 +254,70 @@ APPKIT_EXTERN int NSApplicationMain(int argc, const char *argv[]);
 - (void)displayIfNeeded;
 - (nullable CGContextRef)_bn_backingContext;
 @end
+@interface NSRunningApplication : NSObject
+@property (class, readonly, strong) NSRunningApplication *currentApplication;
++ (nullable instancetype)runningApplicationWithProcessIdentifier:(pid_t)pid;
++ (NSArray<NSRunningApplication *> *)runningApplicationsWithBundleIdentifier:(NSString *)bundleIdentifier;
+@property (readonly) pid_t processIdentifier;
+@property (nullable, readonly, copy) NSString *bundleIdentifier;
+@property (nullable, readonly, copy) NSURL *bundleURL;
+@property (nullable, readonly, copy) NSURL *executableURL;
+@property (nullable, readonly, copy) NSString *localizedName;
+@property (nullable, readonly, strong) NSImage *icon;
+@property (readonly, getter=isActive) BOOL active;
+@property (readonly, getter=isHidden) BOOL hidden;
+@property (readonly, getter=isTerminated) BOOL terminated;
+@property (readonly, getter=isFinishedLaunching) BOOL finishedLaunching;
+@property (readonly) NSApplicationActivationPolicy activationPolicy;
+@property (nullable, readonly, copy) NSDate *launchDate;
+- (BOOL)activateWithOptions:(NSUInteger)options;
+- (BOOL)activateFromApplication:(NSRunningApplication *)application options:(NSUInteger)options;
+- (BOOL)hide;
+- (BOOL)unhide;
+- (BOOL)terminate;
+- (BOOL)forceTerminate;
+@end
+@interface NSWorkspaceOpenConfiguration : NSObject <NSCopying>
++ (instancetype)configuration;
+@end
+@interface NSWorkspace : NSObject
+@property (class, readonly, strong) NSWorkspace *sharedWorkspace;
+@property (readonly, strong) NSNotificationCenter *notificationCenter;
+- (BOOL)openURL:(NSURL *)url;
+- (void)openURL:(NSURL *)url configuration:(NSWorkspaceOpenConfiguration *)configuration
+    completionHandler:(void (^_Nullable)(NSRunningApplication *_Nullable app, NSError *_Nullable error))completionHandler;
+- (void)openURLs:(NSArray<NSURL *> *)urls withApplicationAtURL:(NSURL *)applicationURL
+    configuration:(NSWorkspaceOpenConfiguration *)configuration
+    completionHandler:(void (^_Nullable)(NSRunningApplication *_Nullable app, NSError *_Nullable error))completionHandler;
+- (void)openApplicationAtURL:(NSURL *)applicationURL configuration:(NSWorkspaceOpenConfiguration *)configuration
+           completionHandler:(void (^_Nullable)(NSRunningApplication *_Nullable app, NSError *_Nullable error))completionHandler;
+- (BOOL)openFile:(NSString *)fullPath;
+- (BOOL)selectFile:(nullable NSString *)fullPath inFileViewerRootedAtPath:(NSString *)rootFullPath;
+- (void)activateFileViewerSelectingURLs:(NSArray<NSURL *> *)fileURLs;
+- (nullable NSURL *)URLForApplicationWithBundleIdentifier:(NSString *)bundleIdentifier;
+- (nullable NSURL *)URLForApplicationToOpenURL:(NSURL *)url;
+- (NSArray<NSURL *> *)URLsForApplicationsToOpenURL:(NSURL *)url;
+- (nullable NSString *)fullPathForApplication:(NSString *)appName;
+@property (nullable, readonly, strong) NSRunningApplication *frontmostApplication;
+@property (nullable, readonly, strong) NSRunningApplication *menuBarOwningApplication;
+@property (readonly, copy) NSArray<NSRunningApplication *> *runningApplications;
+- (NSImage *)iconForFile:(NSString *)fullPath;
+- (nullable NSImage *)iconForFiles:(NSArray<NSString *> *)fullPaths;
+- (NSImage *)iconForContentType:(id)contentType;
+- (BOOL)setIcon:(nullable NSImage *)image forFile:(NSString *)fullPath options:(NSUInteger)options;
+- (BOOL)isFilePackageAtPath:(NSString *)fullPath;
+- (void)recycleURLs:(NSArray<NSURL *> *)URLs
+  completionHandler:(void (^_Nullable)(NSDictionary<NSURL *, NSURL *> *newURLs, NSError *_Nullable error))handler;
+@property (readonly) BOOL accessibilityDisplayShouldReduceMotion;
+@property (readonly) BOOL accessibilityDisplayShouldIncreaseContrast;
+@property (readonly) BOOL accessibilityDisplayShouldReduceTransparency;
+@property (readonly) BOOL accessibilityDisplayShouldDifferentiateWithoutColor;
+@property (readonly) BOOL accessibilityDisplayShouldInvertColors;
+@property (readonly, getter=isVoiceOverEnabled) BOOL voiceOverEnabled;
+@property (readonly, getter=isSwitchControlEnabled) BOOL switchControlEnabled;
+- (void)noteFileSystemChanged:(NSString *)path;
+@end
+
 @interface NSGraphicsContext : NSObject
 + (NSGraphicsContext *)graphicsContextWithCGContext:(CGContextRef)graphicsPort flipped:(BOOL)initialFlippedState;
 @property (class, nullable, strong) NSGraphicsContext *currentContext;

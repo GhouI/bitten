@@ -3,6 +3,7 @@
 #define BITTEN_APPKITBASE_H
 #import <Foundation/Foundation.h>
 #include <CoreGraphics/CoreGraphics.h>
+#include <sys/types.h>
 
 #define APPKIT_EXTERN extern
 typedef NSString *NSNotificationName;
