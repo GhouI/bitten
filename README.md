@@ -27,23 +27,27 @@ the [`progress`](https://github.com/GhouI/bitten/tree/progress) branch).
 
 | Kind of program | Status |
 | --- | --- |
-| Command-line tools written in C against libSystem | Runs, within the implemented calls (about 1,000 symbols) |
+| Command-line tools written in C against libSystem | Runs, within the implemented calls |
 | Go programs for macOS, with or without cgo | Runs: scheduler, GC, signals, network poller, `os/exec`, ptys |
 | Programs that execute raw `syscall` instructions | Runs for the BSD calls listed in `src/loader/rawsys.c` |
-| Programs needing CoreFoundation basics, libproc, the resolver | Runs for the implemented subset |
 | Grand Central Dispatch (queues, groups, semaphores, sources) | Runs, including dispatch objects under ARC |
-| Programs using CommonCrypto, zlib, libcompression, iconv | Runs: SHA/MD5/HMAC, AES (ECB/CBC/CTR/GCM), PBKDF2, inflate/deflate, LZ4 |
-| TLS certificate checks through Security.framework | Not implemented: verification reports "not trusted" rather than pretend |
-| Objective-C code without Foundation (runtime, ARC, blocks) | Runs: messaging, categories, protocols, weak references, dynamic classes |
-| Objective-C programs using Foundation | Partial: strings, numbers, collections, data, dates, errors, files, URLs, JSON, notifications, locks, threads. No run loops, timers, key-value coding, property lists, tasks or networking yet |
+| CommonCrypto, zlib, libcompression, iconv | Runs: SHA/MD5/HMAC, AES, PBKDF2, inflate/deflate, LZ4, LZFSE, LZVN |
+| Objective-C (runtime, ARC, blocks, NSInvocation) | Runs: messaging, categories, protocols, weak references, forwarding |
+| Foundation | Mostly runs: collections, strings, data, dates, formatters, files, URLs, JSON and property lists, run loops, timers, KVC/KVO, archiving, tasks and pipes, XPC (within the process), Apple events and Cocoa scripting, URLSession over libcurl (HTTP/1.1, HTTP/2, TLS, WebSockets) |
+| Swift programs | Runs: bitten has its own Swift runtime (metadata, generics, existentials, parameter packs, concurrency, key paths, reflection) and its own Swift standard library build, plus Foundation, Combine, Observation, RegexBuilder, CryptoKit, Network and other overlays |
+| AppKit | Partial but large: windows, views, controls, text, menus, toolbars, popovers, alerts, open/save panels, split views, drag and drop, Auto Layout (a Cassowary solver), stack views, layers |
+| SwiftUI | Partial: views, modifiers, state, environment, navigation, tables, charts; drawn through AppKit |
+| CoreGraphics, CoreText, ImageIO | Runs for drawing, paths, gradients, text layout with real font files, PNG and JPEG |
+| Windows on screen | Shown in a web page served by `mrun` (default http://localhost:7681), with mouse and keyboard |
+| Metal | Not yet: no device. The next large piece (see below) |
+| launchd | Emulated: `launchctl` bootstrap/bootout/kickstart/print/list work against a job table |
 | Objective-C or C++ exceptions | Not yet: no unwinder for Mach-O unwind tables |
-| Swift programs | Not yet: there is no Swift runtime |
-| AppKit / SwiftUI / Metal apps (windows) | Not yet |
 | arm64-only binaries | No: x86-64 slices only (universal binaries are fine) |
 | APFS-formatted disk images | Not yet: HFS+ images only |
 
-The honest summary: bitten runs real macOS command-line and server programs
-today, and does not run graphical macOS apps yet.
+The honest summary: bitten runs real macOS command-line and server
+programs, and real AppKit and SwiftUI apps get far: windows, layout, text
+and controls work, but anything drawn with Metal does not appear yet.
 
 ### The target app
 
@@ -53,22 +57,31 @@ The project's yardstick is a real terminal app shipped as a `.dmg` (called
 | Program in the bundle | What it is | Status |
 | --- | --- | --- |
 | `Contents/Helpers/Server.app/Contents/MacOS/app-server` | The app's server and CLI (Go, cgo, SQLite) | **Runs unmodified.** Server, sessions, terminals, shells, `send`, `capture`, the control API |
-| `Contents/MacOS/App` | The window: SwiftUI + AppKit + Metal | **Does not run.** It loads and binds, with 5,377 of its 5,688 imports unimplemented |
+| `Contents/MacOS/App` | The window: SwiftUI + AppKit + Metal | **Runs and stays up.** Of its 5,688 imports, 11 are unimplemented (5,377 were, at the start). It installs and starts its server as a LaunchAgent through bitten's `launchctl`, opens its windows (onboarding, tab bar, sidebar, toolbar) in the browser page, and talks to its server. The terminal surface itself is drawn with Metal and stays empty until bitten has a Metal device |
 
-So the app's terminal *engine* from the disk image runs in the container, and
-you can use its terminals through it:
+The app's terminal *engine* can also be used on its own, without the
+window:
 
 ```
 APP_DMG=/path/to/App.dmg APPCLI=<the app's CLI> docker compose -f examples/mac-terminal/compose.yaml up
 # open http://localhost:7680
 ```
 
-The page is a small viewer that belongs to bitten, not the app's own window: it
-shows the screen with `appcli capture` and types with `appcli send` (`appcli`
-stands for the app's command-line program), both served by the unmodified
-macOS binary. The app's real window needs a Swift runtime,
-Foundation, AppKit, SwiftUI and a Metal renderer, none of which exist here
-yet. [docs/TARGET-APP.md](docs/TARGET-APP.md) has the numbers and what it would take.
+That page is a small viewer belonging to bitten: it shows the screen with
+`appcli capture` and types with `appcli send` (`appcli` stands for the app's
+command-line program), both served by the unmodified macOS binary.
+
+### What is next
+
+- **Metal.** The app's renderer ships its shaders as a `default.metallib`.
+  Its functions are AIR, which is LLVM bitcode, and clang compiles them to
+  x86-64 as they are. The plan is a software Metal device: buffers,
+  textures, samplers, render pipelines built from the compiled shaders,
+  a rasteriser for their draws, and AIR's intrinsics (math, texture
+  sampling) written in C, presenting into the app's `CAMetalLayer`.
+- **Asset catalogs.** `Assets.car` readers on top of LZFSE, so named
+  images show their real pixels instead of placeholders.
+- The remaining unimplemented imports and drawing fidelity.
 
 ## Using it
 
@@ -96,9 +109,10 @@ default seccomp profile.
 Without Docker:
 
 ```
-make                      # builds build/mrun and the frameworks (gcc, make, clang, lld)
+make                      # builds build/mrun and the frameworks (gcc, make, clang, lld, swiftc)
 build/mrun path/to/macho-program args...
-build/mrun --check path/to/macho-program     # what is missing
+build/mrun --check path/to/macho-program     # what is missing (and unbound weak imports)
+BITTEN_DISPLAY_PORT=7681 build/mrun App.app/Contents/MacOS/App   # windows at http://localhost:7681
 tools/dmgx extract App.dmg outdir            # unpack a disk image
 ```
 
@@ -119,32 +133,33 @@ which symbol.
 ## Repository layout
 
 ```
-src/loader/      Mach-O loader, export registry, raw-syscall dispatch, entry point
+src/loader/      Mach-O loader, export registry, raw-syscall dispatch, launchctl, entry point
 src/libsystem/   libSystem: files, processes, threads, signals, sockets, kqueue, ttys, sysctl
-src/frameworks/  Objective-C and Blocks runtimes, CoreFoundation, Security (C, inside mrun)
-frameworks/      frameworks written in Objective-C and built as Mach-O (Foundation)
-sdk/include/     bitten's own headers: C library subset, objc, CoreFoundation, Foundation
+src/frameworks/  C inside mrun: Objective-C and Blocks runtimes, the Swift runtime and
+                 concurrency, CoreFoundation, CoreGraphics, CoreText, dispatch, Security,
+                 compression, the display server, URL loading over libcurl
+frameworks/      frameworks built as Mach-O: Foundation, AppKit, SwiftUI, Combine,
+                 QuartzCore, Metal, Network, CryptoKit and others (Objective-C and Swift)
+overlays/        Swift overlays (Darwin, Dispatch, CoreGraphics, ObjectiveC, os, ...)
+stdlib/          building the Swift standard library for bitten
+sdk/include/     bitten's own headers and module maps
 src/include/     shared headers (Mach-O format, Darwin ABI layouts)
-tools/dmgx       .dmg extractor (UDIF, GPT/APM, HFS+), standard-library Python
+tools/           dmgx (.dmg extractor), code generators, the progress chart
 docker/          container entrypoint and macOS-style login
-ci/              GitHub Actions workflow, not yet enabled
 examples/mac-terminal/    Compose file and terminal viewer for the target app
-tests/c/         C tests, compiled to real Mach-O with clang + ld64.lld
-tests/objc/      Objective-C tests (ARC, blocks), same toolchain
-tests/foundation/ tests written against the SDK headers and Foundation
-tests/go/        Go tests, cross-compiled for darwin/amd64
+tests/           Mach-O tests: c, objc, foundation, appkit, swift, swiftlib, go, media, ...
 docs/            architecture, target app analysis, decisions, work log
 ```
 
 ## Tests
 
 ```
-make check        # needs clang and lld; Go tests run when a Go toolchain is installed
+make check        # about 110 Mach-O tests; needs clang, lld and swiftc; Go tests need Go
 make check-dmgx   # disk-image reader
 docker build --target test .   # everything, in a clean container
 ```
 
-With a App.dmg of your own, `APP_DMG=/path/App.dmg tests/e2e/target-app.sh` checks
+With an App.dmg of your own, `APP_DMG=/path/App.dmg tests/e2e/target-app.sh` checks
 the whole path in a container, down to a command typed into the app's terminal.
 
 A GitHub Actions workflow that runs the last command is in
