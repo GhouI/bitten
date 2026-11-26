@@ -1,7 +1,7 @@
-/* Metal: there is no GPU, so MTLCreateSystemDefaultDevice returns nil and
- * programs take their software path. The descriptor classes exist and
- * hold their properties, so code that builds descriptors before asking a
- * device for objects still runs. */
+/* Metal: a software device (frameworks/Metal/MetalDevice.m). Buffers and
+ * textures live in memory; shaders are the program's own, compiled from
+ * its metallib to x86-64 (tools/metal-compile.py) and run by a software
+ * rasteriser. */
 #ifndef BITTEN_METAL_H
 #define BITTEN_METAL_H
 #import <Foundation/Foundation.h>
@@ -52,19 +52,222 @@ static inline MTLClearColor MTLClearColorMake(double r, double g, double b, doub
     return c;
 }
 
-@protocol MTLDevice <NSObject>
-@property (readonly) NSString *name;
-@end
+typedef NS_ENUM(NSUInteger, MTLPrimitiveType) {
+    MTLPrimitiveTypePoint = 0, MTLPrimitiveTypeLine = 1, MTLPrimitiveTypeLineStrip = 2, MTLPrimitiveTypeTriangle = 3,
+    MTLPrimitiveTypeTriangleStrip = 4,
+};
+typedef NS_ENUM(NSUInteger, MTLIndexType) { MTLIndexTypeUInt16 = 0, MTLIndexTypeUInt32 = 1 };
+typedef NS_ENUM(NSUInteger, MTLCullMode) { MTLCullModeNone = 0, MTLCullModeFront = 1, MTLCullModeBack = 2 };
+typedef NS_ENUM(NSUInteger, MTLWinding) { MTLWindingClockwise = 0, MTLWindingCounterClockwise = 1 };
+typedef NS_ENUM(NSUInteger, MTLTriangleFillMode) { MTLTriangleFillModeFill = 0, MTLTriangleFillModeLines = 1 };
+typedef NS_ENUM(NSUInteger, MTLSamplerMinMagFilter) { MTLSamplerMinMagFilterNearest = 0, MTLSamplerMinMagFilterLinear = 1 };
+typedef NS_ENUM(NSUInteger, MTLSamplerMipFilter) {
+    MTLSamplerMipFilterNotMipmapped = 0, MTLSamplerMipFilterNearest = 1, MTLSamplerMipFilterLinear = 2,
+};
+typedef NS_ENUM(NSUInteger, MTLSamplerAddressMode) {
+    MTLSamplerAddressModeClampToEdge = 0, MTLSamplerAddressModeMirrorClampToEdge = 1, MTLSamplerAddressModeRepeat = 2,
+    MTLSamplerAddressModeMirrorRepeat = 3, MTLSamplerAddressModeClampToZero = 4, MTLSamplerAddressModeClampToBorderColor = 5,
+};
+typedef NS_ENUM(NSUInteger, MTLCommandBufferStatus) {
+    MTLCommandBufferStatusNotEnqueued = 0, MTLCommandBufferStatusEnqueued = 1, MTLCommandBufferStatusCommitted = 2,
+    MTLCommandBufferStatusScheduled = 3, MTLCommandBufferStatusCompleted = 4, MTLCommandBufferStatusError = 5,
+};
+typedef NS_ENUM(NSUInteger, MTLFunctionType) { MTLFunctionTypeVertex = 1, MTLFunctionTypeFragment = 2, MTLFunctionTypeKernel = 3 };
+typedef NS_ENUM(NSUInteger, MTLPurgeableState) {
+    MTLPurgeableStateKeepCurrent = 1, MTLPurgeableStateNonVolatile = 2, MTLPurgeableStateVolatile = 3, MTLPurgeableStateEmpty = 4,
+};
+typedef NS_ENUM(NSInteger, MTLGPUFamily) {
+    MTLGPUFamilyApple1 = 1001, MTLGPUFamilyApple7 = 1007, MTLGPUFamilyMac1 = 2001, MTLGPUFamilyMac2 = 2002,
+    MTLGPUFamilyCommon1 = 3001, MTLGPUFamilyCommon2 = 3002, MTLGPUFamilyCommon3 = 3003, MTLGPUFamilyMetal3 = 5001,
+};
+
+typedef struct { NSUInteger x, y, z; } MTLOrigin;
+typedef struct { NSUInteger width, height, depth; } MTLSize;
+typedef struct { MTLOrigin origin; MTLSize size; } MTLRegion;
+typedef struct { double originX, originY, width, height, znear, zfar; } MTLViewport;
+typedef struct { NSUInteger x, y, width, height; } MTLScissorRect;
+static inline MTLOrigin MTLOriginMake(NSUInteger x, NSUInteger y, NSUInteger z) { MTLOrigin o = {x, y, z}; return o; }
+static inline MTLSize MTLSizeMake(NSUInteger w, NSUInteger h, NSUInteger d) { MTLSize s = {w, h, d}; return s; }
+static inline MTLRegion MTLRegionMake2D(NSUInteger x, NSUInteger y, NSUInteger w, NSUInteger h) {
+    MTLRegion r = {{x, y, 0}, {w, h, 1}};
+    return r;
+}
+
+@protocol MTLDevice, MTLCommandQueue, MTLCommandBuffer, MTLTexture, MTLBuffer, MTLFunction, MTLLibrary,
+    MTLRenderPipelineState, MTLSamplerState, MTLRenderCommandEncoder, MTLBlitCommandEncoder, MTLDrawable;
+@class MTLTextureDescriptor, MTLRenderPassDescriptor, MTLRenderPipelineDescriptor, MTLSamplerDescriptor,
+    MTLFunctionConstantValues;
+
 @protocol MTLResource <NSObject>
-@end
-@protocol MTLTexture <MTLResource>
-@end
-@protocol MTLFunction <NSObject>
+@property (nullable, copy) NSString *label;
+@property (readonly) id<MTLDevice> device;
+@property (readonly) MTLStorageMode storageMode;
+- (MTLPurgeableState)setPurgeableState:(MTLPurgeableState)state;
 @end
 
-/* nil: no GPU. */
+@protocol MTLBuffer <MTLResource>
+@property (readonly) NSUInteger length;
+- (void *)contents __attribute__((objc_returns_inner_pointer));
+- (void)didModifyRange:(NSRange)range;
+@end
+
+@protocol MTLTexture <MTLResource>
+@property (readonly) MTLTextureType textureType;
+@property (readonly) MTLPixelFormat pixelFormat;
+@property (readonly) NSUInteger width, height, depth, mipmapLevelCount, sampleCount, arrayLength;
+@property (readonly) MTLTextureUsage usage;
+@property (readonly, getter=isFramebufferOnly) BOOL framebufferOnly;
+- (void)replaceRegion:(MTLRegion)region mipmapLevel:(NSUInteger)level withBytes:(const void *)bytes bytesPerRow:(NSUInteger)bpr;
+- (void)replaceRegion:(MTLRegion)region mipmapLevel:(NSUInteger)level slice:(NSUInteger)slice withBytes:(const void *)bytes
+          bytesPerRow:(NSUInteger)bpr bytesPerImage:(NSUInteger)bpi;
+- (void)getBytes:(void *)bytes bytesPerRow:(NSUInteger)bpr fromRegion:(MTLRegion)region mipmapLevel:(NSUInteger)level;
+- (nullable id<MTLTexture>)newTextureViewWithPixelFormat:(MTLPixelFormat)pixelFormat;
+@end
+
+@protocol MTLSamplerState <NSObject>
+@property (nullable, readonly) NSString *label;
+@property (readonly) id<MTLDevice> device;
+@end
+
+@protocol MTLFunction <NSObject>
+@property (nullable, copy) NSString *label;
+@property (readonly) id<MTLDevice> device;
+@property (readonly) MTLFunctionType functionType;
+@property (readonly) NSString *name;
+@end
+
+@protocol MTLLibrary <NSObject>
+@property (nullable, copy) NSString *label;
+@property (readonly) id<MTLDevice> device;
+@property (readonly) NSArray<NSString *> *functionNames;
+- (nullable id<MTLFunction>)newFunctionWithName:(NSString *)functionName;
+- (nullable id<MTLFunction>)newFunctionWithName:(NSString *)name constantValues:(MTLFunctionConstantValues *)values
+                                          error:(NSError **)error;
+@end
+
+@protocol MTLRenderPipelineState <NSObject>
+@property (nullable, readonly) NSString *label;
+@property (readonly) id<MTLDevice> device;
+@end
+
+@protocol MTLCommandEncoder <NSObject>
+@property (nullable, copy) NSString *label;
+@property (readonly) id<MTLDevice> device;
+- (void)endEncoding;
+- (void)pushDebugGroup:(NSString *)string;
+- (void)popDebugGroup;
+- (void)insertDebugSignpost:(NSString *)string;
+@end
+
+@protocol MTLRenderCommandEncoder <MTLCommandEncoder>
+- (void)setRenderPipelineState:(id<MTLRenderPipelineState>)state;
+- (void)setVertexBuffer:(nullable id<MTLBuffer>)buffer offset:(NSUInteger)offset atIndex:(NSUInteger)index;
+- (void)setVertexBytes:(const void *)bytes length:(NSUInteger)length atIndex:(NSUInteger)index;
+- (void)setVertexTexture:(nullable id<MTLTexture>)texture atIndex:(NSUInteger)index;
+- (void)setVertexSamplerState:(nullable id<MTLSamplerState>)sampler atIndex:(NSUInteger)index;
+- (void)setFragmentBuffer:(nullable id<MTLBuffer>)buffer offset:(NSUInteger)offset atIndex:(NSUInteger)index;
+- (void)setFragmentBytes:(const void *)bytes length:(NSUInteger)length atIndex:(NSUInteger)index;
+- (void)setFragmentTexture:(nullable id<MTLTexture>)texture atIndex:(NSUInteger)index;
+- (void)setFragmentSamplerState:(nullable id<MTLSamplerState>)sampler atIndex:(NSUInteger)index;
+- (void)setViewport:(MTLViewport)viewport;
+- (void)setScissorRect:(MTLScissorRect)rect;
+- (void)setCullMode:(MTLCullMode)cullMode;
+- (void)setFrontFacingWinding:(MTLWinding)winding;
+- (void)setTriangleFillMode:(MTLTriangleFillMode)mode;
+- (void)setBlendColorRed:(float)red green:(float)green blue:(float)blue alpha:(float)alpha;
+- (void)setDepthStencilState:(nullable id)state;
+- (void)drawPrimitives:(MTLPrimitiveType)type vertexStart:(NSUInteger)start vertexCount:(NSUInteger)count;
+- (void)drawPrimitives:(MTLPrimitiveType)type vertexStart:(NSUInteger)start vertexCount:(NSUInteger)count
+         instanceCount:(NSUInteger)instances;
+- (void)drawPrimitives:(MTLPrimitiveType)type vertexStart:(NSUInteger)start vertexCount:(NSUInteger)count
+         instanceCount:(NSUInteger)instances baseInstance:(NSUInteger)base;
+- (void)drawIndexedPrimitives:(MTLPrimitiveType)type indexCount:(NSUInteger)count indexType:(MTLIndexType)indexType
+                  indexBuffer:(id<MTLBuffer>)indexBuffer indexBufferOffset:(NSUInteger)offset;
+- (void)drawIndexedPrimitives:(MTLPrimitiveType)type indexCount:(NSUInteger)count indexType:(MTLIndexType)indexType
+                  indexBuffer:(id<MTLBuffer>)indexBuffer indexBufferOffset:(NSUInteger)offset
+                instanceCount:(NSUInteger)instances;
+@end
+
+@protocol MTLBlitCommandEncoder <MTLCommandEncoder>
+- (void)copyFromBuffer:(id<MTLBuffer>)src sourceOffset:(NSUInteger)so toBuffer:(id<MTLBuffer>)dst
+     destinationOffset:(NSUInteger)dof size:(NSUInteger)size;
+- (void)copyFromTexture:(id<MTLTexture>)src toTexture:(id<MTLTexture>)dst;
+- (void)fillBuffer:(id<MTLBuffer>)buffer range:(NSRange)range value:(uint8_t)value;
+- (void)synchronizeResource:(id<MTLResource>)resource;
+- (void)generateMipmapsForTexture:(id<MTLTexture>)texture;
+@end
+
+@protocol MTLDrawable <NSObject>
+- (void)present;
+- (void)presentAtTime:(CFTimeInterval)time;
+@property (readonly) NSUInteger drawableID;
+@property (readonly) CFTimeInterval presentedTime;
+- (void)addPresentedHandler:(void (^)(id<MTLDrawable> drawable))block;
+@end
+
+typedef void (^MTLCommandBufferHandler)(id<MTLCommandBuffer> buffer);
+
+@protocol MTLCommandBuffer <NSObject>
+@property (nullable, copy) NSString *label;
+@property (readonly) id<MTLDevice> device;
+@property (readonly) id<MTLCommandQueue> commandQueue;
+@property (readonly) MTLCommandBufferStatus status;
+@property (nullable, readonly) NSError *error;
+- (nullable id<MTLRenderCommandEncoder>)renderCommandEncoderWithDescriptor:(MTLRenderPassDescriptor *)descriptor;
+- (nullable id<MTLBlitCommandEncoder>)blitCommandEncoder;
+- (void)presentDrawable:(id<MTLDrawable>)drawable;
+- (void)presentDrawable:(id<MTLDrawable>)drawable atTime:(CFTimeInterval)time;
+- (void)addScheduledHandler:(MTLCommandBufferHandler)block;
+- (void)addCompletedHandler:(MTLCommandBufferHandler)block;
+- (void)enqueue;
+- (void)commit;
+- (void)waitUntilScheduled;
+- (void)waitUntilCompleted;
+- (void)pushDebugGroup:(NSString *)string;
+- (void)popDebugGroup;
+@end
+
+@protocol MTLCommandQueue <NSObject>
+@property (nullable, copy) NSString *label;
+@property (readonly) id<MTLDevice> device;
+- (nullable id<MTLCommandBuffer>)commandBuffer;
+- (nullable id<MTLCommandBuffer>)commandBufferWithUnretainedReferences;
+@end
+
+@protocol MTLDevice <NSObject>
+@property (readonly) NSString *name;
+@property (readonly) uint64_t registryID;
+@property (readonly) BOOL hasUnifiedMemory, lowPower, headless, removable;
+@property (readonly) uint64_t recommendedMaxWorkingSetSize;
+@property (readonly) NSUInteger maxBufferLength;
+- (nullable id<MTLCommandQueue>)newCommandQueue;
+- (nullable id<MTLCommandQueue>)newCommandQueueWithMaxCommandBufferCount:(NSUInteger)count;
+- (nullable id<MTLBuffer>)newBufferWithLength:(NSUInteger)length options:(MTLResourceOptions)options;
+- (nullable id<MTLBuffer>)newBufferWithBytes:(const void *)pointer length:(NSUInteger)length options:(MTLResourceOptions)options;
+- (nullable id<MTLTexture>)newTextureWithDescriptor:(MTLTextureDescriptor *)descriptor;
+- (nullable id<MTLSamplerState>)newSamplerStateWithDescriptor:(MTLSamplerDescriptor *)descriptor;
+- (nullable id<MTLLibrary>)newDefaultLibrary;
+- (nullable id<MTLLibrary>)newDefaultLibraryWithBundle:(NSBundle *)bundle error:(NSError **)error;
+- (nullable id<MTLLibrary>)newLibraryWithURL:(NSURL *)url error:(NSError **)error;
+- (nullable id<MTLLibrary>)newLibraryWithFile:(NSString *)path error:(NSError **)error;
+- (nullable id<MTLLibrary>)newLibraryWithData:(id)data error:(NSError **)error;
+- (nullable id<MTLRenderPipelineState>)newRenderPipelineStateWithDescriptor:(MTLRenderPipelineDescriptor *)descriptor
+                                                                     error:(NSError **)error;
+- (BOOL)supportsFamily:(MTLGPUFamily)family;
+- (BOOL)supportsTextureSampleCount:(NSUInteger)count;
+@end
+
+/* The software device. */
 id<MTLDevice> _Nullable MTLCreateSystemDefaultDevice(void);
 NSArray<id<MTLDevice>> *MTLCopyAllDevices(void);
+
+@interface MTLSamplerDescriptor : NSObject <NSCopying>
+@property MTLSamplerMinMagFilter minFilter, magFilter;
+@property MTLSamplerMipFilter mipFilter;
+@property MTLSamplerAddressMode sAddressMode, tAddressMode, rAddressMode;
+@property BOOL normalizedCoordinates;
+@property (nullable, copy) NSString *label;
+@end
 
 @interface MTLTextureDescriptor : NSObject <NSCopying>
 + (MTLTextureDescriptor *)texture2DDescriptorWithPixelFormat:(MTLPixelFormat)pixelFormat width:(NSUInteger)width

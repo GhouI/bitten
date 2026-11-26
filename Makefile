@@ -142,6 +142,11 @@ $(METAL): $(METAL_OBJS) $(FOUNDATION) $(BUILD)/sdk/libSystem.tbd
 # Metal tests, like the AppKit ones.
 TEST_METAL     := $(wildcard tests/metal/*.m)
 TEST_METALBINS := $(if $(HAVE_MACHO),$(patsubst tests/metal/%.m,$(BUILD)/tests/metal/%,$(TEST_METAL)))
+# The render test's shaders: AIR written by hand, packed into a metallib.
+$(BUILD)/tests/metal/render.metallib: $(wildcard tests/metal/shaders/*.ll) tools/metal-pack.py
+	@mkdir -p $(dir $@)
+	python3 tools/metal-pack.py $@ $(MACHO_CC) $(wildcard tests/metal/shaders/*.ll)
+$(BUILD)/tests/metal/render: $(BUILD)/tests/metal/render.metallib
 $(BUILD)/tests/metal/%: tests/metal/%.m $(METAL) $(wildcard sdk/include/*/*.h)
 	@mkdir -p $(dir $@)
 	$(MACHO_CC) $(FW_CFLAGS) -O1 -c -o $@.o $<
