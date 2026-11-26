@@ -1529,3 +1529,27 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - stdlib: `Unsafe(Mutable)(Raw)BufferPointer(rebasing:)`.
 - Target app window (total `^MISSING`): 3,613 -> 3,522. It still stops at
   `JSONEncoder` (next).
+
+## 2026-11-26: CryptoKit (PR: cryptokit)
+
+- `frameworks/CryptoKit`: CryptoKit as a Swift framework. Hashing (`Digest`,
+  `HashFunction`, SHA256/384/512, `Insecure.SHA1`/`MD5`) over CommonCrypto's
+  digests, `SymmetricKey`, `SharedSecret`, AES-GCM (`seal`/`open`, `Nonce`,
+  `SealedBox` with its combined form) over CommonCrypto's GCM, and the
+  public-key types: P256, P384 and P521 (`Signing` with ECDSA,
+  `KeyAgreement` with ECDH; raw, x9.63 and PEM representations, compact key
+  generation) and Curve25519 (Ed25519 `Signing`, X25519 `KeyAgreement`).
+  `SecureEnclave` exists with `isAvailable == false`; its initialisers take
+  Security and LocalAuthentication types and are not provided.
+  `tools/gen-cryptokit.py` writes the three NIST curves from one template.
+- `src/frameworks/cryptokit/ec.c`: the arithmetic, written from the
+  standards: Montgomery multiplication over 32-bit limbs, Jacobian
+  coordinates for the NIST curves (parameters self-checked at first use:
+  G on the curve, n*G = infinity), the X25519 ladder, Ed25519 in extended
+  coordinates with its constants derived at first use. Not constant-time.
+  Checked against RFC 7748 and RFC 8032 vectors, and ECDSA against an
+  independent implementation both ways on all three curves.
+- `tests/swiftlib/cryptokit`: SHA-2 and AES-GCM vectors, RFC 8032 and RFC
+  7748 through the Swift API, round trips on every curve, PEM, tampering.
+- Target app window (total `^MISSING`): 3,522 -> 3,378 (144 of its 146
+  CryptoKit imports; the other two are the Secure Enclave initialisers).
