@@ -647,6 +647,9 @@ public struct RectangleCornerRadii: Equatable, Sendable {
   public var bottomLeading: CGFloat
   public var bottomTrailing: CGFloat
   public var topTrailing: CGFloat
+  public init(topLeft: CGFloat, topRight: CGFloat, bottomRight: CGFloat, bottomLeft: CGFloat) {
+    self.init(topLeading: topLeft, bottomLeading: bottomLeft, bottomTrailing: bottomRight, topTrailing: topRight)
+  }
   public init(topLeading: CGFloat = 0, bottomLeading: CGFloat = 0, bottomTrailing: CGFloat = 0, topTrailing: CGFloat = 0) {
     self.topLeading = topLeading
     self.bottomLeading = bottomLeading

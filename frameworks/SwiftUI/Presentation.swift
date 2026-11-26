@@ -233,8 +233,15 @@ public enum PopoverAttachmentAnchor: Sendable {
 public struct Anchor<Value> {
   public struct Source: Sendable {
     let id: Int
-    public static var bounds: Source { return Source(id: 0) }
   }
+}
+extension Anchor.Source where Value == CGRect {
+  public static var bounds: Anchor<CGRect>.Source { return Anchor<CGRect>.Source(id: 0) }
+  public static func rect(_ r: CGRect) -> Anchor<CGRect>.Source { return Anchor<CGRect>.Source(id: 1) }
+}
+extension Anchor.Source where Value == CGPoint {
+  public static var center: Anchor<CGPoint>.Source { return Anchor<CGPoint>.Source(id: 2) }
+  public static func point(_ p: CGPoint) -> Anchor<CGPoint>.Source { return Anchor<CGPoint>.Source(id: 3) }
 }
 public protocol PresentationSizing {}
 public struct FittedPresentationSizing: PresentationSizing { public init() {} }
@@ -524,6 +531,8 @@ public struct PointerStyle: Sendable {
   public static let horizontalText = PointerStyle(id: 2)
   public static let grabIdle = PointerStyle(id: 3)
   public static let grabActive = PointerStyle(id: 4)
+  public static var columnResize: PointerStyle { return PointerStyle(id: 6) }
+  public static var rowResize: PointerStyle { return PointerStyle(id: 7) }
   public static func frameResize(position: FrameResizePosition, directions: FrameResizeDirection.Set = .all) -> PointerStyle {
     return PointerStyle(id: 5)
   }
@@ -588,6 +597,10 @@ public struct ScrollPosition: Equatable, Sendable {
   public var isPositionedByUser: Bool { return false }
   public init(edge: Edge? = nil) { self.edge = edge }
   public init(idType: Any.Type = Never.self) {}
+  public init<ID: Hashable & Sendable>(idType: ID.Type, y: CGFloat) { point = CGPoint(x: 0, y: y) }
+  public init<ID: Hashable & Sendable>(idType: ID.Type, x: CGFloat) { point = CGPoint(x: x, y: 0) }
+  public init<ID: Hashable & Sendable>(idType: ID.Type, point: CGPoint) { self.point = point }
+  public init<ID: Hashable & Sendable>(idType: ID.Type, edge: Edge) { self.edge = edge }
   public mutating func scrollTo(edge: Edge) { self.edge = edge }
   public mutating func scrollTo(point: CGPoint) { self.point = point }
   public static func == (a: ScrollPosition, b: ScrollPosition) -> Bool { return a.edge == b.edge }
@@ -707,13 +720,14 @@ extension View {
   public func toolbar(_ visibility: Visibility, for bars: ToolbarPlacement...) -> some View { return self }
   public func contextMenu<M: View>(@ViewBuilder menuItems: () -> M) -> some View { return self }
   public func colorEffect(_ shader: Shader, isEnabled: Bool = true) -> some View { return self }
-  public func visualEffect(_ effect: @escaping @Sendable (EmptyVisualEffect, GeometryProxy) -> some VisualEffect) -> some View {
+  nonisolated public func visualEffect<E: VisualEffect>(
+    _ effect: @escaping @Sendable (EmptyVisualEffect, GeometryProxy) -> E) -> some View {
     return self
   }
-  public func keyframeAnimator<Value, K: Keyframes, C: View>(initialValue: Value, repeating: Bool = true,
-                                                           @ViewBuilder content: @escaping @Sendable (PlaceholderContentView<Self>, Value) -> C,
-                                                           @KeyframesBuilder<Value> keyframes: @escaping (Value) -> K) -> some View
-    where Value == K.Value {
+  nonisolated public func keyframeAnimator<Value, C: View, K: Keyframes>(
+    initialValue: Value, repeating: Bool = true,
+    @ViewBuilder content: @escaping @Sendable (PlaceholderContentView<Self>, Value) -> C,
+    @KeyframesBuilder<Value> keyframes: @escaping (Value) -> K) -> some View where Value == K.Value {
     return content(PlaceholderContentView(content: self), initialValue)
   }
 }
@@ -733,13 +747,19 @@ public struct Shader: Equatable, Sendable {
   public struct Argument: Equatable, Sendable {
     public static func float(_ x: Double) -> Argument { return Argument() }
     public static func color(_ c: Color) -> Argument { return Argument() }
+    public static func _float(_ x: Float) -> Argument { return Argument() }
+    public static func _float2(_ x: Float, _ y: Float) -> Argument { return Argument() }
+    public static func _float3(_ x: Float, _ y: Float, _ z: Float) -> Argument { return Argument() }
+    public static func _float4(_ x: Float, _ y: Float, _ z: Float, _ w: Float) -> Argument { return Argument() }
+    public static var boundingRect: Argument { return Argument() }
   }
   let name: String
   public static func == (a: Shader, b: Shader) -> Bool { return a.name == b.name }
 }
-@dynamicMemberLookup
+@dynamicCallable @dynamicMemberLookup
 public struct ShaderFunction: Equatable, Sendable {
   public let name: String
+  public func dynamicallyCall(withArguments args: [Shader.Argument]) -> Shader { return Shader(name: name) }
   public subscript(dynamicMember name: String) -> (Shader.Argument...) -> Shader { return { _ in Shader(name: name) } }
   public func callAsFunction(_ arguments: Shader.Argument...) -> Shader { return Shader(name: name) }
 }
@@ -747,30 +767,87 @@ public struct ShaderFunction: Equatable, Sendable {
 public struct ShaderLibrary: Equatable, Sendable {
   let id: Int
   public static let `default` = ShaderLibrary(id: 0)
+  public static func bundle(_ bundle: Bundle) -> ShaderLibrary { return ShaderLibrary(id: 1) }
+  public init(url: URL) { id = 2 }
+  public init(data: Data) { id = 3 }
+  init(id: Int) { self.id = id }
   public static subscript(dynamicMember name: String) -> ShaderFunction { return ShaderFunction(name: name) }
   public subscript(dynamicMember name: String) -> ShaderFunction { return ShaderFunction(name: name) }
 }
 
-public protocol Keyframes {
-  associatedtype Value
+public protocol Keyframes<Value> {
+  associatedtype Value = Self.Body.Value
+  associatedtype Body: Keyframes
+  var body: Body { get }
+}
+extension Never: Keyframes {}
+/// Keyframes are not played here: the animator shows its initial value.
+public struct _KeyframesSequence<Value, A, B>: Keyframes {
+  public typealias Body = Never
+  public var body: Never { fatalError("no body") }
+  var first: A, second: B
 }
 @resultBuilder
 public struct KeyframesBuilder<Value> {
+  public static func buildExpression<K: Keyframes>(_ k: K) -> K where Value == K.Value { return k }
+  public static func buildPartialBlock<K: Keyframes>(first k: K) -> K where Value == K.Value { return k }
+  public static func buildPartialBlock<A: Keyframes, B: Keyframes>(accumulated: A, next: B) -> some Keyframes<Value>
+    where Value == A.Value, A.Value == B.Value {
+    return _KeyframesSequence<Value, A, B>(first: accumulated, second: next)
+  }
+  public static func buildFinalResult<K: Keyframes>(_ k: K) -> K where Value == K.Value { return k }
   public static func buildBlock<K: Keyframes>(_ k: K) -> K { return k }
-  public static func buildExpression<K: Keyframes>(_ k: K) -> K { return k }
 }
-public struct KeyframeTrack<Root, Value: Animatable, Content>: Keyframes {
-  public init(_ keyPath: WritableKeyPath<Root, Value>, @KeyframeTrackContentBuilder<Value> content: () -> Content) {}
+public protocol KeyframeTrackContent<Value> {
+  associatedtype Value: Animatable = Self.Body.Value
+  associatedtype Body: KeyframeTrackContent
+  var body: Body { get }
+}
+public struct _KeyframeTrackSequence<Value: Animatable, A, B>: KeyframeTrackContent {
+  public typealias Body = _KeyframeTrackSequence
+  public var body: _KeyframeTrackSequence { return self }
+  var first: A, second: B
 }
 @resultBuilder
-public struct KeyframeTrackContentBuilder<Value> {
-  public static func buildBlock(_ c: Any...) -> Int { return 0 }
+public struct KeyframeTrackContentBuilder<Value: Animatable> {
+  public static func buildExpression<K: KeyframeTrackContent>(_ k: K) -> K where Value == K.Value { return k }
+  public static func buildPartialBlock<K: KeyframeTrackContent>(first k: K) -> K where Value == K.Value { return k }
+  public static func buildPartialBlock<A: KeyframeTrackContent, B: KeyframeTrackContent>(accumulated: A, next: B)
+    -> some KeyframeTrackContent<Value> where Value == A.Value, A.Value == B.Value {
+    return _KeyframeTrackSequence<Value, A, B>(first: accumulated, second: next)
+  }
+  public static func buildFinalResult<K: KeyframeTrackContent>(_ k: K) -> K where Value == K.Value { return k }
 }
-public struct LinearKeyframe<Value: Animatable> {
+public struct KeyframeTrack<Root, Value: Animatable, Content: KeyframeTrackContent>: Keyframes where Value == Content.Value {
+  public typealias Body = KeyframeTrack
+  public var body: KeyframeTrack { return self }
+  let content: Content
+  public init(_ keyPath: WritableKeyPath<Root, Value>, @KeyframeTrackContentBuilder<Value> content: () -> Content) {
+    self.content = content()
+  }
+}
+extension KeyframeTrack where Root == Value {
+  public init(@KeyframeTrackContentBuilder<Root> content: () -> Content) { self.content = content() }
+}
+public struct LinearKeyframe<Value: Animatable>: KeyframeTrackContent {
+  public typealias Body = LinearKeyframe
+  public var body: LinearKeyframe { return self }
   public init(_ to: Value, duration: TimeInterval, timingCurve: UnitCurve = .linear) {}
 }
-public struct SpringKeyframe<Value: Animatable> {
+public struct SpringKeyframe<Value: Animatable>: KeyframeTrackContent {
+  public typealias Body = SpringKeyframe
+  public var body: SpringKeyframe { return self }
   public init(_ to: Value, duration: TimeInterval? = nil, spring: Spring = Spring(), startVelocity: Value? = nil) {}
+}
+public struct CubicKeyframe<Value: Animatable>: KeyframeTrackContent {
+  public typealias Body = CubicKeyframe
+  public var body: CubicKeyframe { return self }
+  public init(_ to: Value, duration: TimeInterval, startVelocity: Value? = nil, endVelocity: Value? = nil) {}
+}
+public struct MoveKeyframe<Value: Animatable>: KeyframeTrackContent {
+  public typealias Body = MoveKeyframe
+  public var body: MoveKeyframe { return self }
+  public init(_ to: Value) {}
 }
 public struct UnitCurve: Hashable, Sendable {
   let id: Int

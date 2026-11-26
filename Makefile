@@ -513,7 +513,7 @@ all: $(SWIFT_FW_LIBS)
 # Swift frameworks that import other Swift frameworks (built first, linked).
 # One rule per framework: the path names the framework twice, which a
 # pattern rule cannot express.
-SWIFT_FW_DEPS_SwiftUI := Combine
+SWIFT_FW_DEPS_SwiftUI := Combine Symbols
 SWIFT_FW_DEPS_Charts := Combine SwiftUI
 # fileImporter takes UTTypes.
 SWIFT_FW_EXTRA_SwiftUI = $(call late_swift_lib,UniformTypeIdentifiers)

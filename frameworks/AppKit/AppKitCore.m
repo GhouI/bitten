@@ -185,18 +185,34 @@ NSApplication *NSApp;
 - (void)viewWillMoveToWindow:(NSWindow *)window {}
 
 /* Converts between this view's coordinates and another's (or the window's
- * when `view` is nil), walking up through frames. Flipped views are
- * treated like unflipped ones for now. */
+ * when `view` is nil), walking up through frames. A frame is in its
+ * superview's coordinates; when a view's flippedness differs from its
+ * superview's (the window counts as unflipped), its y runs from the other
+ * edge of its frame, as in drawing (AppKitDrawing.m). */
+static BOOL super_flipped(NSView *v) { return v->_superview ? v->_superview.isFlipped : NO; }
+- (NSPoint)_toSuperview:(NSPoint)p {
+    NSPoint q;
+    q.x = _frame.origin.x + (p.x - _bounds.origin.x);
+    q.y = self.isFlipped == super_flipped(self) ? _frame.origin.y + (p.y - _bounds.origin.y)
+                                                : _frame.origin.y + _frame.size.height - (p.y - _bounds.origin.y);
+    return q;
+}
+- (NSPoint)_fromSuperview:(NSPoint)q {
+    NSPoint p;
+    p.x = q.x - _frame.origin.x + _bounds.origin.x;
+    p.y = self.isFlipped == super_flipped(self) ? q.y - _frame.origin.y + _bounds.origin.y
+                                                : _frame.origin.y + _frame.size.height - q.y + _bounds.origin.y;
+    return p;
+}
 - (NSPoint)_toWindow:(NSPoint)p {
-    for (NSView *v = self; v; v = v->_superview) {
-        p.x += v->_frame.origin.x - v->_bounds.origin.x;
-        p.y += v->_frame.origin.y - v->_bounds.origin.y;
-    }
+    for (NSView *v = self; v; v = v->_superview) p = [v _toSuperview:p];
     return p;
 }
 - (NSPoint)_fromWindow:(NSPoint)p {
-    NSPoint origin = [self _toWindow:NSZeroPoint];
-    return NSMakePoint(p.x - origin.x, p.y - origin.y);
+    NSMutableArray<NSView *> *chain = [NSMutableArray array];
+    for (NSView *v = self; v; v = v->_superview) [chain insertObject:v atIndex:0];
+    for (NSView *v in chain) p = [v _fromSuperview:p];
+    return p;
 }
 - (NSPoint)convertPoint:(NSPoint)point fromView:(NSView *)view {
     NSPoint w = view ? [view _toWindow:point] : point;
@@ -209,8 +225,7 @@ NSApplication *NSApp;
 /* point is in the superview's coordinates, as in AppKit. */
 - (NSView *)hitTest:(NSPoint)point {
     if (_hidden || !NSPointInRect(point, _frame)) return nil;
-    NSPoint local = NSMakePoint(point.x - _frame.origin.x + _bounds.origin.x,
-                                point.y - _frame.origin.y + _bounds.origin.y);
+    NSPoint local = [self _fromSuperview:point];
     for (NSView *v in [_subviews reverseObjectEnumerator]) {
         NSView *hit = [v hitTest:local];
         if (hit) return hit;
