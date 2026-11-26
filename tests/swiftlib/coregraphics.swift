@@ -67,3 +67,18 @@ func rect(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> CGRect {
   if alpha(1, 1) != 255 || alpha(8, 8) != 0 { bad |= 8 }
   return bad
 }
+
+@_silgen_name("swl_cg_members") public func members() -> Int {
+  var bad = 0
+  let r = CGRect(origin: CGPoint(x: 10, y: 20), size: CGSize(width: 30, height: 40))
+  if r.minX != 10 || r.midX != 25 || r.maxX != 40 || r.minY != 20 || r.midY != 40 || r.maxY != 60 { bad |= 1 }
+  if r.width != 30 || r.height != 40 || r.isEmpty || r.isNull || r.isInfinite { bad |= 2 }
+  if r.insetBy(dx: 5, dy: 5) != CGRect(origin: CGPoint(x: 15, y: 25), size: CGSize(width: 20, height: 30)) { bad |= 4 }
+  if r.offsetBy(dx: 1, dy: 2).origin != CGPoint(x: 11, y: 22) { bad |= 8 }
+  if !r.contains(CGPoint(x: 11, y: 21)) || r.contains(CGPoint(x: 0, y: 0)) { bad |= 0x10 }
+  let s = CGRect(origin: CGPoint(x: 30, y: 50), size: CGSize(width: 30, height: 30))
+  if !r.intersects(s) || r.intersection(s).width != 10 || r.union(s).maxX != 60 { bad |= 0x20 }
+  if !r.equalTo(r) || CGRect(origin: CGPoint(x: 1, y: 1), size: CGSize(width: -2, height: 2)).standardized.minX != -1 { bad |= 0x40 }
+  if r.applying(CGAffineTransformMakeTranslation(1, 1)).minX != 11 || CGPoint(x: 1, y: 2).applying(CGAffineTransformIdentity) != CGPoint(x: 1, y: 2) { bad |= 0x80 }
+  return bad
+}

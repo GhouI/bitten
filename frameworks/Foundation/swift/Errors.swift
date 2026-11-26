@@ -72,7 +72,7 @@ extension _BridgedStoredNSError {
   }
   public init(_ code: Code, userInfo: [String: Any] = [:]) {
     self.init(_nsError: NSError._bn_error(withDomain: Self.errorDomain, code: numericCast(code.rawValue),
-                                           filePath: userInfo[NSFilePathErrorKey] as? String, underlyingPOSIX: 0))
+                                           filePath: userInfo[NSFilePathErrorKey] as? String, underlyingPOSIX: 0) as NSError)
   }
   public var code: Code { return Code(rawValue: numericCast(_nsError.code))! }
   public var errorCode: Int { return _nsError.code }

@@ -3565,3 +3565,29 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Test: tests/c/login.c.
 - Target app (total `^MISSING`): 2 -> 2. The workspace's shell pane now
   runs bash.
+## XML: NSXMLParser, NSXMLDocument and XPath; NSError bridges to Error
+
+- Foundation (NSXML.m): one XML 1.0 reader (the declaration and its
+  encoding, UTF-8/UTF-16 BOMs and Latin-1, comments, processing
+  instructions, CDATA, DOCTYPE with internal entity declarations, character
+  and entity references, namespaces, line-end and attribute-value
+  normalization) feeding NSXMLParser and the node tree. NSXMLParser calls
+  its delegate as documented (namespace processing on or off, prefix
+  mappings, CDATA, comments, abort) and reports well-formedness errors in
+  NSXMLParserErrorDomain with libxml2's codes and the line and column.
+  NSXMLNode, NSXMLElement, NSXMLDocument and NSXMLDTD: building, walking,
+  attributes and namespaces, prefix resolution, string values, XMLString
+  and XMLData (escaping, compact or expanded empty elements, pretty
+  printing), XPath paths for nodes, whitespace-only text dropped unless
+  NSXMLNodePreserveWhitespace. nodesForXPath: evaluates XPath 1.0 location
+  paths with the main axes, node tests, predicates, comparisons, and/or/not
+  and the common functions; prefixes resolve as declared in the document.
+- SDK: XMLParser, XMLParserDelegate, XMLNode (Kind, Options), XMLElement,
+  XMLDocument under Apple's Swift names. NSError now bridges to Error in
+  Swift (as Apple's API notes make it), so delegate methods written with
+  `Error` parameters match their protocols. CGRect's geometry functions
+  are CGRect members in Swift (minX, maxY, width, insetBy, intersects,
+  applying, ...), as in Apple's SDK.
+- Tests: tests/foundation/xml.m, tests/swiftlib/xml, more of
+  tests/swiftlib/coregraphics.
+- Target app (total `^MISSING`): 2 -> 0. Every import resolves.
