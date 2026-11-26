@@ -2020,3 +2020,16 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   after Foundation's Swift module, so not in `overlays/`.
 - Test: `tests/quartzcore/layers`.
 - Target app window (total `^MISSING`): 1,950 -> 1,899.
+
+## 2026-11-26: Metal (PR: metal)
+
+- `Metal.framework` (Objective-C over Foundation). There is no GPU:
+  `MTLCreateSystemDefaultDevice` returns nil and `MTLCopyAllDevices` an
+  empty array, so programs take their software path.
+- The descriptors hold their values and copy deeply:
+  `MTLTextureDescriptor` (with `texture2DDescriptorWithPixelFormat:...`,
+  which counts mipmap levels), `MTLRenderPassDescriptor` (colour, depth
+  and stencil attachments), `MTLRenderPipelineDescriptor` (colour
+  attachments with blending, `-reset`), `MTLFunctionConstantValues`.
+- Test: `tests/metal/descriptors`.
+- Target app window (total `^MISSING`): 1,899 -> 1,894.

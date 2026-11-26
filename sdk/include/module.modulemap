@@ -115,6 +115,11 @@ module Foundation [system] {
   export *
 }
 
+module Metal [system] {
+  header "Metal/Metal.h"
+  export *
+}
+
 module QuartzCore [system] {
   header "QuartzCore/QuartzCore.h"
   export *
