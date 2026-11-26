@@ -63,7 +63,22 @@ typedef NS_OPTIONS(NSUInteger, NSEventModifierFlags) {
     NSEventModifierFlagCommand = 1 << 20, NSEventModifierFlagNumericPad = 1 << 21,
     NSEventModifierFlagHelp = 1 << 22, NSEventModifierFlagFunction = 1 << 23,
 } NS_SWIFT_NAME(NSEvent.ModifierFlags);
-typedef NS_OPTIONS(unsigned long long, NSEventMask) { NSEventMaskAny = ~0ULL } NS_SWIFT_NAME(NSEvent.EventTypeMask);
+typedef NS_OPTIONS(unsigned long long, NSEventMask) {
+    NSEventMaskLeftMouseDown = 1ULL << 1, NSEventMaskLeftMouseUp = 1ULL << 2, NSEventMaskRightMouseDown = 1ULL << 3,
+    NSEventMaskRightMouseUp = 1ULL << 4, NSEventMaskMouseMoved = 1ULL << 5, NSEventMaskLeftMouseDragged = 1ULL << 6,
+    NSEventMaskRightMouseDragged = 1ULL << 7, NSEventMaskMouseEntered = 1ULL << 8, NSEventMaskMouseExited = 1ULL << 9,
+    NSEventMaskKeyDown = 1ULL << 10, NSEventMaskKeyUp = 1ULL << 11, NSEventMaskFlagsChanged = 1ULL << 12,
+    NSEventMaskAppKitDefined = 1ULL << 13, NSEventMaskSystemDefined = 1ULL << 14,
+    NSEventMaskApplicationDefined = 1ULL << 15, NSEventMaskPeriodic = 1ULL << 16, NSEventMaskCursorUpdate = 1ULL << 17,
+    NSEventMaskScrollWheel = 1ULL << 22, NSEventMaskTabletPoint = 1ULL << 23, NSEventMaskTabletProximity = 1ULL << 24,
+    NSEventMaskOtherMouseDown = 1ULL << 25, NSEventMaskOtherMouseUp = 1ULL << 26,
+    NSEventMaskOtherMouseDragged = 1ULL << 27, NSEventMaskGesture = 1ULL << 29, NSEventMaskMagnify = 1ULL << 30,
+    NSEventMaskSwipe = 1ULL << 31, NSEventMaskRotate = 1ULL << 18, NSEventMaskBeginGesture = 1ULL << 19,
+    NSEventMaskEndGesture = 1ULL << 20, NSEventMaskSmartMagnify = 1ULL << 32, NSEventMaskPressure = 1ULL << 34,
+    NSEventMaskDirectTouch = 1ULL << 37, NSEventMaskChangeMode = 1ULL << 38,
+    NSEventMaskAny = ~0ULL
+} NS_SWIFT_NAME(NSEvent.EventTypeMask);
+static inline NSEventMask NSEventMaskFromType(NSUInteger type) { return 1ULL << type; }
 typedef NS_ENUM(NSUInteger, NSCompositingOperation) {
     NSCompositingOperationClear = 0, NSCompositingOperationCopy = 1,
     NSCompositingOperationSourceOver = 2,

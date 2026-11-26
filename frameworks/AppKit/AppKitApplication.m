@@ -141,3 +141,74 @@ OBJ_PROP(NSMenu *, helpMenu, setHelpMenu, "helpMenu")
     }
 }
 @end
+
+/* ---- the Dock tile, services, icon ---- */
+
+@implementation NSDockTile {
+    NSString *_badgeLabel;
+    NSView *_contentView;
+    BOOL _showsBadge;
+    __weak id _owner;
+}
+- (instancetype)initWithBNOwner:(id)owner {
+    self = [super init];
+    _owner = owner;
+    _showsBadge = YES;
+    return self;
+}
+- (NSSize)size { return NSMakeSize(128, 128); }
+- (NSString *)badgeLabel { return _badgeLabel; }
+- (void)setBadgeLabel:(NSString *)l { _badgeLabel = [l copy]; }
+- (NSView *)contentView { return _contentView; }
+- (void)setContentView:(NSView *)v { _contentView = v; }
+- (BOOL)showsApplicationBadge { return _showsBadge; }
+- (void)setShowsApplicationBadge:(BOOL)b { _showsBadge = b; }
+- (id)owner { return _owner; }
+- (void)display {}
+@end
+
+@implementation NSApplication (BittenServices)
+- (id)servicesProvider { return objc_getAssociatedObject(self, @selector(servicesProvider)); }
+- (void)setServicesProvider:(id)p {
+    objc_setAssociatedObject(self, @selector(servicesProvider), p, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+- (void)registerServicesMenuSendTypes:(NSArray<NSPasteboardType> *)send returnTypes:(NSArray<NSPasteboardType> *)ret {}
+- (NSDockTile *)dockTile {
+    NSDockTile *t = objc_getAssociatedObject(self, @selector(dockTile));
+    if (!t) {
+        t = [[NSDockTile alloc] initWithBNOwner:self];
+        objc_setAssociatedObject(self, @selector(dockTile), t, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    return t;
+}
+/* The bundle's icon (CFBundleIconFile), or the generic application icon. */
+- (NSImage *)applicationIconImage {
+    NSImage *i = objc_getAssociatedObject(self, @selector(applicationIconImage));
+    if (i) return i;
+    NSString *name = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleIconFile"];
+    if (name.length) {
+        NSString *path = [[NSBundle mainBundle] pathForResource:name.stringByDeletingPathExtension
+                                                         ofType:name.pathExtension.length ? name.pathExtension : @"icns"];
+        if (path) i = [[NSImage alloc] initWithContentsOfFile:path];
+    }
+    if (!i) i = [NSImage imageNamed:NSImageNameApplicationIcon];
+    if (i) objc_setAssociatedObject(self, @selector(applicationIconImage), i, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    return i;
+}
+- (void)setApplicationIconImage:(NSImage *)i {
+    objc_setAssociatedObject(self, @selector(applicationIconImage), i, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+/* Front to back: the key window, then visible windows, then the rest. */
+- (NSArray<NSWindow *> *)orderedWindows {
+    NSMutableArray *front = [NSMutableArray array], *rest = [NSMutableArray array];
+    NSWindow *key = self.keyWindow;
+    if (key) [front addObject:key];
+    for (NSWindow *w in [self.windows reverseObjectEnumerator]) {
+        if (w == key) continue;
+        [(w.isVisible ? front : rest) addObject:w];
+    }
+    [front addObjectsFromArray:rest];
+    return front;
+}
+- (BOOL)isFullKeyboardAccessEnabled { return NO; }
+@end

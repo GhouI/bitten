@@ -5,6 +5,7 @@
  * responder; close and resize requests act like the title bar's controls. */
 #import <AppKit/AppKit.h>
 #import <objc/message.h>
+static NSEvent *bn_run_local_monitors(NSEvent *event);
 #include <dispatch/dispatch.h>
 #include <math.h>
 #include <sys/time.h>
@@ -140,6 +141,8 @@ extern BOOL bn_dragging_route(NSWindow *w, NSEvent *e);
     return YES;
 }
 - (void)sendEvent:(NSEvent *)event {
+    event = bn_run_local_monitors(event);
+    if (!event) return;
     /* Command-key shortcuts go to the main menu first. */
     if (event.type == NSEventTypeKeyDown && (event.modifierFlags & NSEventModifierFlagCommand) &&
         [self.mainMenu performKeyEquivalent:event])
@@ -226,5 +229,53 @@ static NSInteger click_count(NSPoint p, NSTimeInterval t) {
     source = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, (uintptr_t)fd, 0, dispatch_get_main_queue());
     dispatch_source_set_event_handler(source, ^{ [NSApplication _bn_pumpDisplayEvents]; });
     dispatch_resume(source);
+}
+@end
+
+/* ---- event monitors ----
+ * Local monitors see this application's events before they are sent and
+ * may replace or swallow them; global monitors would see other
+ * applications' events, which never reach us. */
+@interface BNEventMonitor : NSObject
+@property NSEventMask mask;
+@property (copy) NSEvent * (^local)(NSEvent *);
+@property (copy) void (^global)(NSEvent *);
+@end
+@implementation BNEventMonitor
+@end
+static NSMutableArray<BNEventMonitor *> *event_monitors(void) {
+    static NSMutableArray *m;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ m = [NSMutableArray array]; });
+    return m;
+}
+static NSEvent *bn_run_local_monitors(NSEvent *event) {
+    NSArray *monitors;
+    @synchronized(event_monitors()) { monitors = [event_monitors() copy]; }
+    for (BNEventMonitor *m in monitors) {
+        if (!m.local || !(m.mask & NSEventMaskFromType(event.type))) continue;
+        event = m.local(event);
+        if (!event) return nil;
+    }
+    return event;
+}
+
+@implementation NSEvent (BittenMonitors)
++ (id)addLocalMonitorForEventsMatchingMask:(NSEventMask)mask handler:(NSEvent * (^)(NSEvent *))block {
+    BNEventMonitor *m = [BNEventMonitor new];
+    m.mask = mask;
+    m.local = block;
+    @synchronized(event_monitors()) { [event_monitors() addObject:m]; }
+    return m;
+}
++ (id)addGlobalMonitorForEventsMatchingMask:(NSEventMask)mask handler:(void (^)(NSEvent *))block {
+    BNEventMonitor *m = [BNEventMonitor new];
+    m.mask = mask;
+    m.global = block;
+    @synchronized(event_monitors()) { [event_monitors() addObject:m]; }
+    return m;
+}
++ (void)removeMonitor:(id)monitor {
+    @synchronized(event_monitors()) { [event_monitors() removeObjectIdenticalTo:monitor]; }
 }
 @end
