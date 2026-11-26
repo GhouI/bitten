@@ -2656,3 +2656,34 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   constraints inside panes follow. Test: tests/appkit/split.
 - Target app window (total `^MISSING`): 219 -> 219 (NSSplitViewController
   and NSSplitViewItem were stubs).
+## The text system, fonts as CTFonts, AppKit's Swift part, two lifetime fixes
+
+- AppKit: key interpretation (`interpretKeyEvents:` into insertText: and
+  the standard command selectors, with shift/option/command/control
+  bindings); NSTextInputContext (handleEvent: drives an NSTextInputClient
+  view's insertText:replacementRange: and doCommandBySelector:; views
+  conforming to the protocol get one from `inputContext`); NSText and
+  NSTextView (editing, caret and selection, line movement, deletion,
+  copy/cut/paste, marked text, resizing to its text, delegate hooks);
+  NSTextContainer, NSLayoutManager, NSTextAttachment, NSTextRange; Writing
+  Tools settings; NSControl cell classes.
+- Fonts: NSFont and NSFontDescriptor are toll-free bridged to CTFont and
+  CTFontDescriptor as on macOS (CoreText's classes are re-parented under
+  them at load through a new `class_setSuperclass`); the UI font family,
+  metrics, traits, descriptors; NSFontManager.
+- AppKit's Swift part (frameworks/AppKit/swift, built into the framework
+  like Foundation's): CGRect fill/clip, NSGradient(colorsAndLocations:),
+  NSSound.beep, NSMenuItem.sectionHeader, the resize-direction cursors;
+  NSRectClip, NSBeep. NSCursorFrameResizePosition is an option set.
+- Runtime: weak references to objects with their own reference counts
+  (toll-free CF objects) retained through ARC's side table on load, so
+  the balancing release freed them, and were never cleared; they now
+  retain through objc_retain and CFRelease clears them before the object
+  dies. `swift_deallocPartialClassInstance` releases Objective-C-rooted
+  objects (the placeholder Swift allocates before calling a factory method
+  imported as an initializer) the Objective-C way instead of tearing them
+  down as native Swift objects.
+- Foundation: composed character sequences, line and paragraph ranges;
+  CFGetRetainCount declared.
+- Tests: tests/appkit/text.m, tests/foundation/weakcf.m.
+- Target app window (total `^MISSING`): 219 -> 202.

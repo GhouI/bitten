@@ -330,3 +330,15 @@ static const char kScheduledKey;
 }
 - (void)_bn_closeDisplay { bitten_display_close((uint32_t)self.windowNumber); }
 @end
+
+/* Intersects the current clip with r. */
+void NSRectClip(NSRect r) {
+    CGContextRef c = current_cg();
+    if (c) CGContextClipToRect(c, r);
+}
+void NSRectClipList(const NSRect *rects, NSInteger count) {
+    CGContextRef c = current_cg();
+    if (c && count > 0) CGContextClipToRects(c, rects, (size_t)count);
+}
+/* The alert sound: there is no audio output. */
+void NSBeep(void) {}

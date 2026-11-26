@@ -75,9 +75,16 @@ typedef NS_OPTIONS(NSUInteger, NSAutoresizingMaskOptions) {
     NSViewNotSizable = 0, NSViewMinXMargin = 1, NSViewWidthSizable = 2, NSViewMaxXMargin = 4,
     NSViewMinYMargin = 8, NSViewHeightSizable = 16, NSViewMaxYMargin = 32,
 };
-typedef NS_ENUM(NSInteger, NSCursorFrameResizePosition) {
+typedef NS_ENUM(NSUInteger, NSControlSize) {
+    NSControlSizeRegular = 0, NSControlSizeSmall = 1, NSControlSizeMini = 2, NSControlSizeLarge = 3
+};
+typedef NS_OPTIONS(NSUInteger, NSCursorFrameResizePosition) {
     NSCursorFrameResizePositionTop = 1 << 0, NSCursorFrameResizePositionLeft = 1 << 1,
     NSCursorFrameResizePositionBottom = 1 << 2, NSCursorFrameResizePositionRight = 1 << 3,
+    NSCursorFrameResizePositionTopLeft = NSCursorFrameResizePositionTop | NSCursorFrameResizePositionLeft,
+    NSCursorFrameResizePositionTopRight = NSCursorFrameResizePositionTop | NSCursorFrameResizePositionRight,
+    NSCursorFrameResizePositionBottomLeft = NSCursorFrameResizePositionBottom | NSCursorFrameResizePositionLeft,
+    NSCursorFrameResizePositionBottomRight = NSCursorFrameResizePositionBottom | NSCursorFrameResizePositionRight,
 };
 
 @class NSApplication, NSWindow, NSView, NSEvent, NSColor, NSFont, NSScreen, NSMenu, NSMenuItem,

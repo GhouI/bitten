@@ -347,17 +347,100 @@ typedef NS_ENUM(NSInteger, NSColorSpaceModel) {
 - (BOOL)isP3;
 @end
 
+typedef CGFloat NSFontWidth NS_TYPED_EXTENSIBLE_ENUM;
+typedef NSString *NSFontDescriptorAttributeName NS_TYPED_ENUM;
+typedef NSString *NSFontDescriptorSystemDesign NS_TYPED_ENUM;
+typedef uint32_t NSFontDescriptorSymbolicTraits;
+typedef NSUInteger NSGlyph;
+typedef NS_OPTIONS(NSUInteger, NSFontTraitMask) {
+    NSItalicFontMask = 0x00000001, NSBoldFontMask = 0x00000002, NSUnboldFontMask = 0x00000004,
+    NSNonStandardCharacterSetFontMask = 0x00000008, NSNarrowFontMask = 0x00000010, NSExpandedFontMask = 0x00000020,
+    NSCondensedFontMask = 0x00000040, NSSmallCapsFontMask = 0x00000080, NSPosterFontMask = 0x00000100,
+    NSCompressedFontMask = 0x00000200, NSFixedPitchFontMask = 0x00000400, NSUnitalicFontMask = 0x01000000
+};
+@class NSFontDescriptor, NSAffineTransform;
+/* Toll-free bridged to CTFont. */
 @interface NSFont : NSObject <NSCopying>
-+ (NSFont *)fontWithName:(NSString *)name size:(CGFloat)size;
++ (nullable NSFont *)fontWithName:(NSString *)name size:(CGFloat)size;
++ (nullable NSFont *)fontWithName:(NSString *)name matrix:(const CGFloat *)fontMatrix;
++ (nullable NSFont *)fontWithDescriptor:(NSFontDescriptor *)descriptor size:(CGFloat)size;
++ (nullable NSFont *)fontWithDescriptor:(NSFontDescriptor *)descriptor textTransform:(nullable NSAffineTransform *)t;
 + (NSFont *)systemFontOfSize:(CGFloat)size;
 + (NSFont *)systemFontOfSize:(CGFloat)size weight:(NSFontWeight)weight;
++ (NSFont *)systemFontOfSize:(CGFloat)size weight:(NSFontWeight)weight width:(NSFontWidth)width;
 + (NSFont *)boldSystemFontOfSize:(CGFloat)size;
 + (NSFont *)monospacedSystemFontOfSize:(CGFloat)size weight:(NSFontWeight)weight;
-+ (NSFont *)userFixedPitchFontOfSize:(CGFloat)size;
-+ (CGFloat)systemFontSize;
++ (NSFont *)monospacedDigitSystemFontOfSize:(CGFloat)size weight:(NSFontWeight)weight;
++ (nullable NSFont *)userFontOfSize:(CGFloat)size;
++ (nullable NSFont *)userFixedPitchFontOfSize:(CGFloat)size;
++ (NSFont *)menuFontOfSize:(CGFloat)size;
++ (NSFont *)menuBarFontOfSize:(CGFloat)size;
++ (NSFont *)labelFontOfSize:(CGFloat)size;
++ (NSFont *)messageFontOfSize:(CGFloat)size;
++ (NSFont *)titleBarFontOfSize:(CGFloat)size;
++ (NSFont *)toolTipsFontOfSize:(CGFloat)size;
++ (NSFont *)paletteFontOfSize:(CGFloat)size;
++ (NSFont *)controlContentFontOfSize:(CGFloat)size;
++ (NSFont *)preferredFontForTextStyle:(NSFontTextStyle)style options:(NSDictionary *)options;
+@property (class, readonly) CGFloat systemFontSize;
+@property (class, readonly) CGFloat smallSystemFontSize;
+@property (class, readonly) CGFloat labelFontSize;
++ (CGFloat)systemFontSizeForControlSize:(NSControlSize)controlSize;
 @property (readonly, copy) NSString *fontName;
+@property (nullable, readonly, copy) NSString *familyName;
+@property (nullable, readonly, copy) NSString *displayName;
 @property (readonly) CGFloat pointSize;
-@property (readonly) CGFloat ascender, descender, leading;
+@property (readonly) CGFloat ascender, descender, leading, capHeight, xHeight, underlinePosition,
+    underlineThickness, italicAngle;
+@property (readonly) NSRect boundingRectForFont;
+@property (readonly) NSSize maximumAdvancement;
+@property (readonly) NSUInteger numberOfGlyphs;
+@property (readonly, getter=isFixedPitch) BOOL fixedPitch;
+@property (readonly, getter=isVertical) BOOL vertical;
+@property (readonly, copy) NSFont *verticalFont;
+@property (readonly, copy) NSFont *screenFont;
+@property (readonly, copy) NSFont *printerFont;
+@property (readonly) const CGFloat *matrix;
+@property (readonly, strong) NSFontDescriptor *fontDescriptor;
+- (NSSize)advancementForGlyph:(NSGlyph)glyph;
+- (NSRect)boundingRectForCGGlyph:(CGGlyph)glyph;
+- (void)set;
+@end
+/* Toll-free bridged to CTFontDescriptor. */
+@interface NSFontDescriptor : NSObject <NSCopying>
++ (NSFontDescriptor *)fontDescriptorWithFontAttributes:(nullable NSDictionary<NSFontDescriptorAttributeName, id> *)attributes;
++ (NSFontDescriptor *)fontDescriptorWithName:(NSString *)fontName size:(CGFloat)size;
++ (NSFontDescriptor *)preferredFontDescriptorForTextStyle:(NSFontTextStyle)style options:(NSDictionary *)options;
+@property (readonly, copy) NSDictionary<NSFontDescriptorAttributeName, id> *fontAttributes;
+- (nullable id)objectForKey:(NSFontDescriptorAttributeName)attribute;
+@property (nullable, readonly, copy) NSString *postscriptName;
+@property (readonly) CGFloat pointSize;
+@property (readonly) NSFontDescriptorSymbolicTraits symbolicTraits;
+- (NSFontDescriptor *)fontDescriptorByAddingAttributes:(NSDictionary<NSFontDescriptorAttributeName, id> *)attributes;
+- (NSFontDescriptor *)fontDescriptorWithSize:(CGFloat)newPointSize;
+- (NSFontDescriptor *)fontDescriptorWithFamily:(NSString *)newFamily;
+- (NSFontDescriptor *)fontDescriptorWithSymbolicTraits:(NSFontDescriptorSymbolicTraits)symbolicTraits;
+- (nullable NSFontDescriptor *)fontDescriptorWithDesign:(NSFontDescriptorSystemDesign)design;
+@end
+@interface NSFontManager : NSObject
+@property (class, readonly, strong) NSFontManager *sharedFontManager;
+@property (readonly, copy) NSArray<NSString *> *availableFontFamilies;
+@property (readonly, copy) NSArray<NSString *> *availableFonts;
+- (nullable NSArray<NSArray *> *)availableMembersOfFontFamily:(NSString *)fam;
+- (NSFontTraitMask)traitsOfFont:(NSFont *)fontObj;
+- (NSInteger)weightOfFont:(NSFont *)fontObj;
+- (nullable NSFont *)fontWithFamily:(NSString *)family traits:(NSFontTraitMask)traits weight:(NSInteger)weight size:(CGFloat)size;
+- (NSFont *)convertFont:(NSFont *)fontObj toSize:(CGFloat)size;
+- (NSFont *)convertFont:(NSFont *)fontObj toHaveTrait:(NSFontTraitMask)trait;
+- (NSFont *)convertFont:(NSFont *)fontObj toNotHaveTrait:(NSFontTraitMask)trait;
+- (NSFont *)convertFont:(NSFont *)fontObj toFamily:(NSString *)family;
+- (NSFont *)convertFont:(NSFont *)fontObj;
+@property (nullable, readonly, strong) NSFont *selectedFont;
+- (void)setSelectedFont:(NSFont *)fontObj isMultiple:(BOOL)flag;
+@property (nullable, weak) id target;
+@property (nullable) SEL action;
+- (void)orderFrontFontPanel:(nullable id)sender;
+@property (getter=isEnabled) BOOL enabled;
 @end
 
 @interface NSScreen : NSObject
@@ -618,6 +701,9 @@ APPKIT_EXTERN void NSRectFill(NSRect rect);
 APPKIT_EXTERN void NSRectFillUsingOperation(NSRect rect, NSCompositingOperation op);
 APPKIT_EXTERN void NSFrameRect(NSRect rect);
 APPKIT_EXTERN void NSFrameRectWithWidth(NSRect rect, CGFloat frameWidth);
+APPKIT_EXTERN void NSRectClip(NSRect rect);
+APPKIT_EXTERN void NSRectClipList(const NSRect *rects, NSInteger count);
+APPKIT_EXTERN void NSBeep(void);
 APPKIT_EXTERN void NSEraseRect(NSRect rect);
 
 typedef NS_ENUM(NSUInteger, NSLineCapStyle) { NSLineCapStyleButt = 0, NSLineCapStyleRound = 1, NSLineCapStyleSquare = 2 };
@@ -1033,9 +1119,6 @@ typedef NS_OPTIONS(unsigned long long, NSAlignmentOptions) {
 - (NSRect)backingAlignedRect:(NSRect)rect options:(NSAlignmentOptions)options;
 @end
 
-typedef NS_ENUM(NSUInteger, NSControlSize) {
-    NSControlSizeRegular = 0, NSControlSizeSmall = 1, NSControlSizeMini = 2, NSControlSizeLarge = 3
-};
 typedef NS_ENUM(NSInteger, NSScrollerStyle) { NSScrollerStyleLegacy = 0, NSScrollerStyleOverlay = 1 };
 typedef NS_ENUM(NSInteger, NSScrollerKnobStyle) {
     NSScrollerKnobStyleDefault = 0, NSScrollerKnobStyleDark = 1, NSScrollerKnobStyleLight = 2
@@ -1806,4 +1889,201 @@ static const CGFloat NSSquareStatusItemLength = -2;
 - (void)removeStatusItem:(NSStatusItem *)item;
 @property (readonly, getter=isVertical) BOOL vertical;
 @property (readonly) CGFloat thickness;
+@end
+
+@protocol NSTextInputClient
+@required
+- (void)insertText:(id)string replacementRange:(NSRange)replacementRange;
+- (void)doCommandBySelector:(SEL)selector;
+- (void)setMarkedText:(id)string selectedRange:(NSRange)selectedRange replacementRange:(NSRange)replacementRange;
+- (void)unmarkText;
+- (NSRange)selectedRange;
+- (NSRange)markedRange;
+- (BOOL)hasMarkedText;
+- (nullable NSAttributedString *)attributedSubstringForProposedRange:(NSRange)range actualRange:(nullable NSRangePointer)actualRange;
+- (NSArray<NSAttributedStringKey> *)validAttributesForMarkedText;
+- (NSRect)firstRectForCharacterRange:(NSRange)range actualRange:(nullable NSRangePointer)actualRange;
+- (NSUInteger)characterIndexForPoint:(NSPoint)point;
+@end
+typedef NSString *NSTextInputSourceIdentifier NS_SWIFT_NAME(NSTextInputSourceIdentifier);
+@interface NSTextInputContext : NSObject
+@property (class, readonly, nullable, strong) NSTextInputContext *currentInputContext;
+- (instancetype)initWithClient:(id<NSTextInputClient>)client;
+@property (readonly, weak) id<NSTextInputClient> client;
+@property BOOL acceptsGlyphInfo;
+@property (nullable, copy) NSArray<NSString *> *allowedInputSourceLocales;
+@property (nullable, readonly) NSArray<NSTextInputSourceIdentifier> *keyboardInputSources;
+@property (nullable, copy) NSTextInputSourceIdentifier selectedKeyboardInputSource;
++ (nullable NSString *)localizedNameForInputSource:(NSTextInputSourceIdentifier)inputSourceIdentifier;
+- (void)activate;
+- (void)deactivate;
+- (BOOL)handleEvent:(NSEvent *)event;
+- (void)discardMarkedText;
+- (void)invalidateCharacterCoordinates;
+@end
+@interface NSResponder (BittenTextInput)
+- (void)interpretKeyEvents:(NSArray<NSEvent *> *)eventArray;
+- (void)doCommandBySelector:(SEL)selector;
+- (void)insertText:(id)insertString;
+- (void)flushBufferedKeyEvents;
+@end
+@interface NSView (BittenInputContext)
+@property (nullable, readonly, strong) NSTextInputContext *inputContext;
+@end
+
+@class NSTextView, NSLayoutManager;
+@interface NSTextContainer : NSObject
+- (instancetype)initWithSize:(NSSize)size;
+- (instancetype)initWithContainerSize:(NSSize)size;
+@property NSSize size;
+@property NSSize containerSize;
+@property CGFloat lineFragmentPadding;
+@property BOOL widthTracksTextView;
+@property BOOL heightTracksTextView;
+@property (nullable, weak) NSTextView *textView;
+@property (nullable, weak) NSLayoutManager *layoutManager;
+@property NSLineBreakMode lineBreakMode;
+@property NSUInteger maximumNumberOfLines;
+@end
+@interface NSLayoutManager : NSObject
+@property (nullable, assign) NSMutableAttributedString *textStorage;
+@property (readonly, copy) NSArray<NSTextContainer *> *textContainers;
+- (void)addTextContainer:(NSTextContainer *)container;
+- (void)removeTextContainerAtIndex:(NSUInteger)index;
+@property BOOL allowsNonContiguousLayout;
+- (void)ensureLayoutForTextContainer:(NSTextContainer *)container;
+- (void)ensureLayoutForCharacterRange:(NSRange)charRange;
+@property (readonly) NSUInteger numberOfGlyphs;
+- (NSRange)glyphRangeForTextContainer:(NSTextContainer *)container;
+- (NSRange)glyphRangeForCharacterRange:(NSRange)charRange actualCharacterRange:(nullable NSRangePointer)actualCharRange;
+- (NSRange)characterRangeForGlyphRange:(NSRange)glyphRange actualGlyphRange:(nullable NSRangePointer)actualGlyphRange;
+- (NSRect)usedRectForTextContainer:(NSTextContainer *)container;
+- (NSRect)boundingRectForGlyphRange:(NSRange)glyphRange inTextContainer:(NSTextContainer *)container;
+- (CGFloat)defaultLineHeightForFont:(NSFont *)theFont;
+- (void)invalidateLayoutForCharacterRange:(NSRange)charRange actualCharacterRange:(nullable NSRangePointer)actualCharRange;
+- (void)invalidateDisplayForCharacterRange:(NSRange)charRange;
+@end
+@interface NSTextAttachment : NSObject
+- (instancetype)initWithData:(nullable NSData *)contentData ofType:(nullable NSString *)uti;
+- (instancetype)initWithFileWrapper:(nullable id)fileWrapper;
+@property (nullable, copy) NSData *contents;
+@property (nullable, copy) NSString *fileType;
+@property (nullable, strong) NSImage *image;
+@property NSRect bounds;
+@property (nullable, strong) id fileWrapper;
+@property (nullable, strong) id attachmentCell;
+@end
+@protocol NSTextLocation <NSObject>
+- (NSComparisonResult)compare:(id<NSTextLocation>)location;
+@end
+@interface NSTextRange : NSObject
+- (nullable instancetype)initWithLocation:(id<NSTextLocation>)location endLocation:(nullable id<NSTextLocation>)endLocation;
+- (instancetype)initWithLocation:(id<NSTextLocation>)location;
+@property (readonly, strong) id<NSTextLocation> location;
+@property (readonly, strong) id<NSTextLocation> endLocation;
+@property (readonly, getter=isEmpty) BOOL empty;
+- (BOOL)isEqualToTextRange:(NSTextRange *)textRange;
+- (BOOL)containsLocation:(id<NSTextLocation>)location;
+- (BOOL)containsRange:(NSTextRange *)textRange;
+- (BOOL)intersectsWithTextRange:(NSTextRange *)textRange;
+@end
+
+@interface NSText : NSView
+@end
+@protocol NSTextViewDelegate <NSObject>
+@optional
+- (void)textDidChange:(NSNotification *)notification;
+- (BOOL)textView:(NSTextView *)textView shouldChangeTextInRange:(NSRange)affectedCharRange
+    replacementString:(nullable NSString *)replacementString;
+- (BOOL)textView:(NSTextView *)textView doCommandBySelector:(SEL)commandSelector;
+@end
+@interface NSTextView : NSText <NSTextInputClient>
+- (instancetype)initWithFrame:(NSRect)frameRect textContainer:(nullable NSTextContainer *)container;
++ (NSScrollView *)scrollableTextView;
+@property (nullable, readonly, strong) NSMutableAttributedString *textStorage;
+@property (nullable, strong) NSTextContainer *textContainer;
+@property (nullable, readonly, strong) NSLayoutManager *layoutManager;
+@property (copy) NSString *string;
+@property (nullable, strong) NSFont *font;
+@property (nullable, copy) NSColor *textColor;
+@property (copy) NSDictionary<NSAttributedStringKey, id> *typingAttributes;
+@property (getter=isEditable) BOOL editable;
+@property (getter=isSelectable) BOOL selectable;
+@property (getter=isRichText) BOOL richText;
+@property BOOL importsGraphics;
+@property (getter=isFieldEditor) BOOL fieldEditor;
+@property BOOL drawsBackground;
+@property (copy) NSColor *backgroundColor;
+@property (copy) NSColor *insertionPointColor;
+@property BOOL allowsUndo;
+@property BOOL usesFindBar;
+@property (getter=isContinuousSpellCheckingEnabled) BOOL continuousSpellCheckingEnabled;
+- (void)setAutomaticQuoteSubstitutionEnabled:(BOOL)flag;
+- (void)setAutomaticDashSubstitutionEnabled:(BOOL)flag;
+- (void)setAutomaticTextReplacementEnabled:(BOOL)flag;
+- (void)setAutomaticSpellingCorrectionEnabled:(BOOL)flag;
+- (void)setAutomaticLinkDetectionEnabled:(BOOL)flag;
+- (void)setAutomaticDataDetectionEnabled:(BOOL)flag;
+- (void)setAutomaticTextCompletionEnabled:(BOOL)flag;
+- (void)setGrammarCheckingEnabled:(BOOL)flag;
+- (void)setSmartInsertDeleteEnabled:(BOOL)flag;
+- (void)setDisplaysLinkToolTips:(BOOL)flag;
+- (void)setUsesFontPanel:(BOOL)flag;
+- (void)setUsesRuler:(BOOL)flag;
+- (void)setAllowsImageEditing:(BOOL)flag;
+@property (getter=isHorizontallyResizable) BOOL horizontallyResizable;
+@property (getter=isVerticallyResizable) BOOL verticallyResizable;
+@property NSSize minSize;
+@property NSSize maxSize;
+@property NSSize textContainerInset;
+@property (readonly) NSPoint textContainerOrigin;
+@property (nullable, weak) id<NSTextViewDelegate> delegate;
+@property (copy) NSArray<NSValue *> *selectedRanges;
+- (void)setSelectedRange:(NSRange)charRange;
+- (void)selectAll:(nullable id)sender;
+- (void)scrollRangeToVisible:(NSRange)range;
+- (void)sizeToFit;
+- (BOOL)shouldChangeTextInRange:(NSRange)affectedCharRange replacementString:(nullable NSString *)replacementString;
+- (void)didChangeText;
+- (void)insertText:(id)insertString;
+- (void)copy:(nullable id)sender;
+- (void)cut:(nullable id)sender;
+- (void)paste:(nullable id)sender;
+- (void)insertNewline:(nullable id)sender;
+- (void)insertTab:(nullable id)sender;
+- (void)deleteBackward:(nullable id)sender;
+- (void)deleteForward:(nullable id)sender;
+- (void)moveLeft:(nullable id)sender;
+- (void)moveRight:(nullable id)sender;
+- (void)moveUp:(nullable id)sender;
+- (void)moveDown:(nullable id)sender;
+- (void)moveToBeginningOfLine:(nullable id)sender;
+- (void)moveToEndOfLine:(nullable id)sender;
+- (void)moveToBeginningOfDocument:(nullable id)sender;
+- (void)moveToEndOfDocument:(nullable id)sender;
+@end
+
+typedef NS_ENUM(NSInteger, NSWritingToolsBehavior) {
+    NSWritingToolsBehaviorNone = -1, NSWritingToolsBehaviorDefault = 0, NSWritingToolsBehaviorComplete,
+    NSWritingToolsBehaviorLimited
+};
+typedef NS_OPTIONS(NSUInteger, NSWritingToolsResultOptions) {
+    NSWritingToolsResultDefault = 0, NSWritingToolsResultPlainText = 1 << 0, NSWritingToolsResultRichText = 1 << 1,
+    NSWritingToolsResultList = 1 << 2, NSWritingToolsResultTable = 1 << 3
+};
+@interface NSTextField (BittenWritingTools)
+@property BOOL allowsWritingTools;
+@property NSWritingToolsBehavior writingToolsBehavior;
+@property NSWritingToolsResultOptions allowedWritingToolsResultOptions;
+@property (getter=isAutomaticTextCompletionEnabled) BOOL automaticTextCompletionEnabled;
+@end
+@interface NSTextView (BittenWritingTools)
+@property BOOL allowsWritingTools;
+@property NSWritingToolsBehavior writingToolsBehavior;
+@property NSWritingToolsResultOptions allowedWritingToolsResultOptions;
+@end
+@interface NSControl (BittenCellClass)
+@property (class, nullable) Class cellClass;
+- (void)setCell:(nullable id)cell;
+@property (getter=isContinuous) BOOL continuous;
 @end

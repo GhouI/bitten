@@ -372,9 +372,24 @@ DX_FN(swift_deallocClassInstance);
 static void d_swift_deallocPartialClassInstance(sw_heap_object *o, const sw_class_metadata *m, size_t size,
                                                 size_t align_mask) {
     if (!valid(o)) return;
-    for (const sw_class_metadata *c = (const sw_class_metadata *)o->metadata; c && c != m; c = c->superclass) {
+    /* Destroy the ivars of the classes below `m` whose initializers ran. */
+    const sw_class_metadata *c = (const sw_class_metadata *)o->metadata;
+    for (; c && c != m; c = c->superclass) {
         if (!sw_class_is_swift(c)) break;
         if (c->ivar_destroyer) sw_call_with_self(c->ivar_destroyer, o);
+    }
+    if (!sw_is_native(o)) {
+        /* Objective-C ancestry (e.g. the placeholder Swift allocates before
+         * calling a factory method imported as an initializer): give the
+         * object the nearest pure Objective-C class, whose -dealloc runs,
+         * and release it the Objective-C way. */
+        const sw_class_metadata *objc = (const sw_class_metadata *)o->metadata;
+        while (objc && sw_class_is_swift(objc)) objc = objc->superclass;
+        static void *(*set_class)(void *, const void *);
+        if (!set_class) set_class = (void *(*)(void *, const void *))dx_registry_lookup("_object_setClass");
+        if (objc && set_class) set_class(o, objc);
+        dx_objc_release(o);
+        return;
     }
     sw_set_deallocating(o);
     d_swift_deallocClassInstance(o, size, align_mask);

@@ -197,6 +197,14 @@ __attribute__((swift_bridge("Swift.String")))
 - (NSRange)rangeOfString:(NSString *)string;
 - (NSRange)rangeOfString:(NSString *)string options:(NSStringCompareOptions)mask;
 - (NSRange)rangeOfString:(NSString *)string options:(NSStringCompareOptions)mask range:(NSRange)range;
+- (NSRange)rangeOfComposedCharacterSequenceAtIndex:(NSUInteger)index;
+- (NSRange)rangeOfComposedCharacterSequencesForRange:(NSRange)range;
+- (void)getLineStart:(nullable NSUInteger *)startPtr end:(nullable NSUInteger *)lineEndPtr
+         contentsEnd:(nullable NSUInteger *)contentsEndPtr forRange:(NSRange)range;
+- (void)getParagraphStart:(nullable NSUInteger *)startPtr end:(nullable NSUInteger *)parEndPtr
+              contentsEnd:(nullable NSUInteger *)contentsEndPtr forRange:(NSRange)range;
+- (NSRange)lineRangeForRange:(NSRange)range;
+- (NSRange)paragraphRangeForRange:(NSRange)range;
 - (NSString *)substringFromIndex:(NSUInteger)from;
 - (NSString *)substringToIndex:(NSUInteger)to;
 - (NSString *)substringWithRange:(NSRange)range;

@@ -21,6 +21,8 @@ const void *d_CFRetain(const void *object) {
 }
 DX_FN(CFRetain);
 
+extern int dx_objc_weak_custom_rr;
+void dx_objc_weak_referent_dying(void *obj);
 void d_CFRelease(const void *object) {
     struct cf_object *o = (struct cf_object *)object;
     if (!o || cf_is_constant(o)) return;
@@ -29,6 +31,10 @@ void d_CFRelease(const void *object) {
         return;
     }
     if (atomic_load_explicit(&o->refs, memory_order_relaxed) == LONG_MAX) return;
+    /* About to die with weak references to it: clear them first, so that
+     * a weak load cannot revive it. */
+    if (dx_objc_weak_custom_rr && atomic_load_explicit(&o->refs, memory_order_acquire) == 1)
+        dx_objc_weak_referent_dying(o);
     if (atomic_fetch_sub_explicit(&o->refs, 1, memory_order_acq_rel) == 1) {
         if (o->ops && o->ops->destroy) o->ops->destroy(o);
         free(o);

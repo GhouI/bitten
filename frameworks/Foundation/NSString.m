@@ -334,6 +334,62 @@ static void check_index(NSString *s, NSUInteger index, const char *what) {
     return found;
 }
 - (NSRange)rangeOfString:(NSString *)needle { return [self rangeOfString:needle options:0]; }
+/* The composed character (surrogate pair, base plus combining marks) at i. */
+- (NSRange)rangeOfComposedCharacterSequenceAtIndex:(NSUInteger)i {
+    NSUInteger n = self.length;
+    check_index(self, i + 1, "rangeOfComposedCharacterSequenceAtIndex:");
+    NSUInteger start = i, end = i + 1;
+    unichar c = [self characterAtIndex:i];
+    if (c >= 0xDC00 && c <= 0xDFFF && i > 0) start--;
+    else if (c >= 0xD800 && c <= 0xDBFF && end < n) end++;
+    while (end < n) {
+        unichar d = [self characterAtIndex:end];
+        if (!((d >= 0x300 && d <= 0x36F) || (d >= 0xFE00 && d <= 0xFE0F) || d == 0x200D || (d >= 0x20D0 && d <= 0x20FF)))
+            break;
+        end++;
+        if (d == 0x200D && end < n) end++;
+    }
+    return NSMakeRange(start, end - start);
+}
+- (NSRange)rangeOfComposedCharacterSequencesForRange:(NSRange)r {
+    if (!r.length) return [self rangeOfComposedCharacterSequenceAtIndex:r.location];
+    NSRange a = [self rangeOfComposedCharacterSequenceAtIndex:r.location];
+    NSRange b = [self rangeOfComposedCharacterSequenceAtIndex:NSMaxRange(r) - 1];
+    return NSUnionRange(a, b);
+}
+/* The line (or paragraph: the same for \n, \r, \r\n, U+2028/9) containing range. */
+- (void)getLineStart:(NSUInteger *)startp end:(NSUInteger *)endp contentsEnd:(NSUInteger *)contentsEndp
+            forRange:(NSRange)range {
+    NSUInteger n = self.length, start = MIN(range.location, n), end = MIN(NSMaxRange(range), n);
+    while (start > 0) {
+        unichar c = [self characterAtIndex:start - 1];
+        if (c == '\n' || c == '\r' || c == 0x2028 || c == 0x2029) break;
+        start--;
+    }
+    if (range.length && end > 0) end--;
+    while (end < n) {
+        unichar c = [self characterAtIndex:end];
+        if (c == '\n' || c == '\r' || c == 0x2028 || c == 0x2029) break;
+        end++;
+    }
+    NSUInteger contents = end;
+    if (end < n) {
+        end++;
+        if ([self characterAtIndex:end - 1] == '\r' && end < n && [self characterAtIndex:end] == '\n') end++;
+    }
+    if (startp) *startp = start;
+    if (endp) *endp = end;
+    if (contentsEndp) *contentsEndp = contents;
+}
+- (void)getParagraphStart:(NSUInteger *)s end:(NSUInteger *)e contentsEnd:(NSUInteger *)c forRange:(NSRange)r {
+    [self getLineStart:s end:e contentsEnd:c forRange:r];
+}
+- (NSRange)lineRangeForRange:(NSRange)r {
+    NSUInteger s, e;
+    [self getLineStart:&s end:&e contentsEnd:NULL forRange:r];
+    return NSMakeRange(s, e - s);
+}
+- (NSRange)paragraphRangeForRange:(NSRange)r { return [self lineRangeForRange:r]; }
 - (NSRange)rangeOfString:(NSString *)needle options:(NSStringCompareOptions)mask range:(NSRange)range {
     check_index(self, NSMaxRange(range), "rangeOfString:options:range:");
     NSRange r = [[self substringWithRange:range] rangeOfString:needle options:mask];
