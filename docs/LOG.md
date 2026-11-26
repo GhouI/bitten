@@ -1797,3 +1797,26 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   `URLResourceValues` (Foundation).
 - `tests/c/sysconfig`.
 - Target app window (total `^MISSING`): 2,692 -> 2,690.
+
+## 2026-11-26: the display: windows in a browser (PR: display)
+
+- `src/frameworks/display`: a window server in mrun with no window system
+  underneath. AppKit presents each window's bitmap
+  (`bitten_display_present(id, pixels, width, height, row_bytes,
+  bitmap_info, x, y, title)`, any 8-bit RGB layout a bitmap context uses)
+  and closes it (`bitten_display_close`); a small HTTP server serves a
+  page that draws the windows on canvases over a WebSocket (handshake
+  with CommonCrypto's SHA-1) and sends input back, which AppKit takes with
+  `bitten_display_next_event` (mouse down/up/moved/dragged, scroll, key
+  down/up with Mac virtual key codes, characters and
+  NSEventModifierFlags, close and resize requests) or waits for on
+  `bitten_display_event_fd`. Port `BITTEN_DISPLAY_PORT` (7681; 0 picks
+  one), loopback only unless `BITTEN_DISPLAY_PUBLIC`.
+  `bitten_display_listen(port)` starts it explicitly.
+- `page.html` is the page; `tools/gen-display-page.py` turns it into
+  `page.h`.
+- DECISIONS: windows are shown in a browser.
+- `tests/c/display`: a window drawn with CoreGraphics and presented, the
+  page fetched, the WebSocket handshake (RFC 6455's sample key), the
+  frame's header and pixels, an input event with non-ASCII characters
+  coming back, and the close message.
