@@ -413,9 +413,13 @@ public protocol RegexComponent<RegexOutput> {
 internal final class _RProgram: @unchecked Sendable {
   let root: _RNode
   let captures: Int
-  init(_ root: _RNode, captures: Int) {
+  /// For regexes whose Output is a value made from the match (a parsed
+  /// number...): nil rejects the match.
+  let transform: ((Substring) -> Any?)?
+  init(_ root: _RNode, captures: Int, transform: ((Substring) -> Any?)? = nil) {
     self.root = root
     self.captures = captures
+    self.transform = transform
   }
 }
 
@@ -437,6 +441,15 @@ public struct Regex<Output>: RegexComponent, @unchecked Sendable {
     }
   }
   public init(_regexString pattern: String) { self.init(_regexString: pattern, version: 1) }
+
+  /// A regex whose match becomes a value (Foundation's format styles as
+  /// regex components): the pattern finds the text, `transform` makes the
+  /// Output or rejects the match.
+  public init(_bittenPattern pattern: String, transform: @escaping (Substring) -> Output?) {
+    var p = _RParser(pattern)
+    let root = (try? p.parse()) ?? .empty
+    _program = _RProgram(root, captures: p.captureCount, transform: { transform($0) })
+  }
 
   internal static func _stripDelimiters(_ literal: String) -> String {
     var s = Substring(literal)
@@ -498,7 +511,13 @@ public struct Regex<Output>: RegexComponent, @unchecked Sendable {
       if let end = matcher.match(_program.root, at: start, whole: whole) {
         let caps = matcher.caps.dropFirst().map { r in r.map { indices[$0.lowerBound]..<indices[$0.upperBound] } }
         let range = indices[start]..<indices[end]
-        return Match(range: range, output: Self._output(s, range, caps), _input: s, _captures: caps)
+        if let transform = _program.transform {
+          if let value = transform(s[range]) as? Output {
+            return Match(range: range, output: value, _input: s, _captures: caps)
+          }
+        } else {
+          return Match(range: range, output: Self._output(s, range, caps), _input: s, _captures: caps)
+        }
       }
       if !anywhere { break }
       start += 1
