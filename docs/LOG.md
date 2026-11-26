@@ -2403,3 +2403,27 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   one builder).
 - Target app window (total `^MISSING`): 454 -> 454 (run-time support; the
   app now gets past the renderer error to NSPasteboard).
+
+## 2026-11-26: FormatStyle and TimeZone (PR: formatstyle)
+
+- Foundation (`swift/FormatStyle.swift`, taken over from the Foundation
+  side): `FormatStyle`, `ParseStrategy`, `ParseableFormatStyle`; number
+  styles (`IntegerFormatStyle`, `FloatingPointFormatStyle` and their
+  `Percent`) with `NumberFormatStyleConfiguration`'s precision
+  (fraction length, significant digits, integer length) and grouping, the
+  locale's decimal and grouping separators (a table of common locales),
+  parsing (`Double(_:format:lenient:)`), and as a regex component giving
+  the value (`.localizedDouble(locale:)`); `ListFormatStyle` ("a, b, and
+  c", or, narrow); `Date.FormatStyle`'s date and time styles in the local
+  zone (en_US patterns); `Date.ISO8601FormatStyle` with every separator
+  choice, fractional seconds and zones, formatting and parsing;
+  `formatted()` on integers, floating point, dates and sequences.
+- `swift/TimeZone.swift` (minimal, agreed): fixed-offset and named zones,
+  the latter's transitions read from /usr/share/zoneinfo (TZif); current
+  from TZ or /etc/localtime; offsets, DST, abbreviations.
+- `_StringProcessing`: `Regex(_bittenPattern:transform:)`, a regex whose
+  Output is made from the match.
+- Not yet: NSListFormatter, NSISO8601DateFormatter, TimeZone bridging
+  (Foundation's Objective-C side).
+- Test: `tests/swiftlib/formatstyle`.
+- Target app window (total `^MISSING`): 454 -> 394.
