@@ -1991,3 +1991,32 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Test: `tests/swiftlib/swiftui` (stacks, spacers, padding, frames, shapes,
   backgrounds and text drawn into a bitmap; @State through a click).
 - Target app window (total `^MISSING`): 2,318 -> 1,950.
+
+## 2026-11-26: QuartzCore (PR: quartzcore)
+
+- `QuartzCore.framework` (Objective-C over Foundation, CoreGraphics and
+  CoreText): `CALayer` with geometry (frame, bounds, position, anchor point,
+  transforms), the sublayer tree, coordinate conversion and hit testing,
+  layout and display passes that ask the delegate. `-renderInContext:`
+  draws a tree: background with corner radius, image contents with
+  gravity, the layer's own drawing, sublayers by `zPosition` under
+  `masksToBounds`, border, opacity as a transparency layer.
+- `CAShapeLayer` (fill rule, stroke, caps, joins, dashes), `CAGradientLayer`
+  (axial and radial), `CATextLayer` (one line through CoreText),
+  `CAMetalLayer` (no device, no drawables: there is no GPU).
+- Animations: `CABasicAnimation`, `CAKeyframeAnimation`,
+  `CASpringAnimation` (perceptual duration, bounce, settling time),
+  `CATransition`, `CAAnimationGroup`, `CAMediaTimingFunction`. Nothing is
+  interpolated: an added animation reports its start and, after its
+  duration, a finished stop to its delegate.
+- `CATransaction` nests per thread; the outermost commit runs the
+  completion block on the main queue. `CADisplayLink` ticks at 60 Hz (or
+  its preferred rate) on the run loop it is added to; AppKit can hand one
+  out with `+_bn_displayLinkWithTarget:selector:`.
+- `CATransform3D` functions, `CAFrameRateRange`, `CACurrentMediaTime`, the
+  `kCA*` constants with Apple's values; `NSValue` holds a transform.
+- `libswiftQuartzCore`: `CAFrameRateRange(minimum:maximum:preferred:)` and
+  its optional `preferred`, `CATransform3D` bridging to `NSValue`. Built
+  after Foundation's Swift module, so not in `overlays/`.
+- Test: `tests/quartzcore/layers`.
+- Target app window (total `^MISSING`): 1,950 -> 1,899.

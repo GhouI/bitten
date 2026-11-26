@@ -325,6 +325,45 @@ $(BUILD)/fw/Foundation/FoundationSwift.o: $(FOUNDATION_SWIFT_SRCS) $(OVERLAY_LIB
 	    -c -o $@ $(FOUNDATION_SWIFT_SRCS)
 	@touch $@
 
+# ---- QuartzCore ----------------------------------------------------------------
+# Objective-C over Foundation, CoreGraphics and CoreText (frameworks/
+# QuartzCore): layers drawn with -renderInContext:, animations that report
+# but do not interpolate, transactions and display links. Its Swift overlay
+# (frameworks/QuartzCore/swift, libswiftQuartzCore) bridges CATransform3D to
+# NSValue, so it is built after Foundation's Swift module, not in overlays/.
+QUARTZCORE := $(FW_ROOT)/System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore
+QUARTZCORE_SWIFT := $(if $(and $(SWIFTC),$(HAVE_MACHO)),$(FW_ROOT)/usr/lib/swift/libswiftQuartzCore.dylib)
+FRAMEWORKS += $(if $(HAVE_MACHO),$(QUARTZCORE)) $(QUARTZCORE_SWIFT)
+all: $(if $(HAVE_MACHO),$(QUARTZCORE)) $(QUARTZCORE_SWIFT)
+QC_OBJS := $(patsubst frameworks/QuartzCore/%.m,$(BUILD)/fw/QuartzCore/%.o,$(wildcard frameworks/QuartzCore/*.m))
+$(BUILD)/fw/QuartzCore/%.o: frameworks/QuartzCore/%.m $(wildcard sdk/include/QuartzCore/*.h sdk/include/Foundation/*.h sdk/include/CoreGraphics/*.h sdk/include/CoreText/*.h)
+	@mkdir -p $(dir $@)
+	$(MACHO_CC) $(FW_CFLAGS) -c -o $@ $<
+$(QUARTZCORE): $(QC_OBJS) $(FOUNDATION) $(BUILD)/sdk/libSystem.tbd
+	@mkdir -p $(dir $@)
+	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
+	    -install_name /System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore \
+	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) -o $@ $(QC_OBJS)
+$(FW_ROOT)/usr/lib/swift/libswiftQuartzCore.dylib: $(wildcard frameworks/QuartzCore/swift/*.swift) $(QUARTZCORE) $(FOUNDATION) $(OVERLAY_LIBS) $(SDKROOT)/.stamp $(SWIFTRES)/.stamp
+	@mkdir -p $(dir $@) $(BUILD)/overlays
+	$(SWIFTC) -module-name QuartzCore -module-link-name swiftQuartzCore -target x86_64-apple-macos$(FOUNDATION_MACOS) \
+	    -runtime-compatibility-version none $(SWIFT_SDKFLAGS) -enable-library-evolution -wmo -parse-as-library -O \
+	    -emit-module -emit-module-path $(SWIFT_MODDIR)/QuartzCore.swiftmodule \
+	    -c -o $(BUILD)/overlays/QuartzCore.o $(wildcard frameworks/QuartzCore/swift/*.swift)
+	@touch $(BUILD)/overlays/QuartzCore.o
+	$(MACHO_LD) -arch x86_64 -platform_version macos $(FOUNDATION_MACOS) $(FOUNDATION_MACOS) -dylib \
+	    -install_name /usr/lib/swift/libswiftQuartzCore.dylib \
+	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(OVERLAY_LIBS) $(FOUNDATION) $(QUARTZCORE) -o $@ $(BUILD)/overlays/QuartzCore.o
+
+# QuartzCore tests, like the AppKit ones.
+TEST_QC     := $(wildcard tests/quartzcore/*.m)
+TEST_QCBINS := $(if $(HAVE_MACHO),$(patsubst tests/quartzcore/%.m,$(BUILD)/tests/quartzcore/%,$(TEST_QC)))
+$(BUILD)/tests/quartzcore/%: tests/quartzcore/%.m $(QUARTZCORE) $(wildcard sdk/include/*/*.h)
+	@mkdir -p $(dir $@)
+	$(MACHO_CC) $(FW_CFLAGS) -O1 -c -o $@.o $<
+	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -e _main \
+	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) $(QUARTZCORE) -o $@ $@.o
+
 # ---- frameworks written in Swift ------------------------------------------
 # frameworks/NAME/*.swift (SwiftUI...) is built as module NAME into
 # NAME.framework/Versions/A/NAME, against the SDK, the overlays (all of
@@ -400,9 +439,9 @@ $(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTC
 	$(MACHO_LD) -arch x86_64 -platform_version macos $(call swlib_macos,$*) $(call swlib_macos,$*) -e _main \
 	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(OVERLAY_LIBS) $(SWLIB_LIBS_$*) -o $@ $@.o $@.swift.o
 
-test-bins: $(TEST_APPKITBINS) $(TEST_UNBINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
+test-bins: $(TEST_APPKITBINS) $(TEST_UNBINS) $(TEST_QCBINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
 
-check: $(BUILD)/mrun $(FRAMEWORKS) $(TEST_APPKITBINS) $(TEST_UNBINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
+check: $(BUILD)/mrun $(FRAMEWORKS) $(TEST_APPKITBINS) $(TEST_UNBINS) $(TEST_QCBINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
 	BUILD=$(BUILD) tests/run.sh
 
 check-dmgx:
