@@ -3769,3 +3769,29 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   macOS settings rows do. They used to sit centred.
 - Test: tests/swiftlib/swiftui.swift `labels`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: VerticalEdge.Set is frozen (the settings use-after-free)
+
+- Fixed the crash when the target app's settings pages are torn down.
+  `VerticalEdge.Set` is `@frozen` in Apple's SDK, and ours was not, so our
+  `VerticalEdge.Set.all` getter returned through an indirect buffer at
+  whatever rax held. The app reads the result from eax. Its call comes
+  right after `AnyView.init`, so rax was the new AnyView's storage object,
+  and the getter wrote 3 into the low byte of that object's metadata
+  pointer (from `listRowSeparator(_:edges: .all)`). The object crashed
+  later when freed. This is the same class of bug as #157.
+- Found with a hardware watchpoint. `BITTEN_WATCH_OBJ=Name` arms a
+  `perf_event_open` write breakpoint (sigtrap) on the metadata word of each
+  new object whose class name contains Name (the four newest). A write
+  stops the writer with SIGTRAP and a crash report naming it.
+- `BITTEN_HEAP_QUARANTINE=1|2|3` keeps freed memory poisoned (0xdd) instead
+  of reusing it: 1 for Swift objects, 2 also raw `swift_slowDealloc`
+  buffers, 3 also ObjC objects. Retains and releases of quarantined Swift
+  objects are reported with backtraces.
+- Dynamic-property installation refuses fields that would lie outside the
+  value.
+- Nested types are now in the frozen check: a nested type the app uses
+  without importing its metadata accessor is frozen in Apple's SDK.
+  `VerticalEdge.Set` was the only one left.
+- Target app (total `^MISSING`): 0 -> 0. Settings pages (Interface, Themes,
+  Terminal) open and switch without crashing.

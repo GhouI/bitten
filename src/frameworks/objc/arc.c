@@ -3,6 +3,7 @@
  * objects, property accessors' helpers, @synchronized, and NSObject. */
 #define _GNU_SOURCE
 #include <stdlib.h>
+#include <malloc.h>
 #include <string.h>
 
 #include "objc_internal.h"
@@ -407,6 +408,12 @@ void dx_objc_object_destroyed(void *object) {
 void object_dispose_impl(id obj) {
     if (!obj) return;
     d_objc_destructInstance(obj);
+    /* BITTEN_HEAP_QUARANTINE=3: keep freed objects' memory, poisoned (debugging) */
+    const char *q = getenv("BITTEN_HEAP_QUARANTINE");
+    if (q && q[0] == '3') {
+        memset(obj, 0xdd, malloc_usable_size(obj));
+        return;
+    }
     free(obj);
 }
 static id d_object_dispose(id obj) {

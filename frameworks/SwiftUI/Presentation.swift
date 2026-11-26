@@ -734,6 +734,8 @@ extension View {
   }
 }
 extension VerticalEdge {
+  /// Frozen in Apple's SDK: programs take its static values from rax/eax.
+  @frozen
   public struct Set: OptionSet, Sendable {
     public let rawValue: Int8
     public init(rawValue: Int8) { self.rawValue = rawValue }
