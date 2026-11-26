@@ -3003,3 +3003,28 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Target app window (total `^MISSING`): 30 -> 11. The app now gets past
   `+[NSMutableURLRequest requestWithURL:]` and stays up (no crash in 40
   seconds).
+
+## Drawing order: layers, representables, hierarchical styles
+
+- AppKit: layer-backed views draw their backing layer: its background
+  (rounded by `cornerRadius`, which also clips the content when
+  `masksToBounds`), its border, its opacity (as a group) and sublayers the
+  program added. The window background is filled through its `CGColor`
+  (dynamic and catalog colours have no RGB components). `BITTEN_VIEW_TREE=1`
+  prints each window's view hierarchy as it draws.
+- SwiftUI: representables' AppKit views draw inline with the SwiftUI
+  content, in SwiftUI's order: a background's view below the content, an
+  overlay's above, content above the views before it. They were all drawn
+  after the hosting view's own content, so the target app's window
+  backdrop and surface cards covered its text. Their subview order follows
+  the same order.
+- SwiftUI: `.secondary` and the other levels apply once to the primary
+  colour under a hierarchical foreground instead of compounding (0.5 x 0.5
+  drew secondary text at a quarter); wrapped text lines up by
+  `multilineTextAlignment`; `.opacity` multiplies into the enclosing alpha
+  (`CGContextGetAlpha`, CoreGraphics SPI); `overlay(_:alignment:)` with a
+  view.
+- Tests: tests/appkit/layers.m; tests/swiftlib/swiftui.swift (`order`:
+  representable z-order, centred text through a cross-module key path).
+- Target app window (total `^MISSING`): 11 -> 11. Its window now shows its
+  surface card with crisp text above it.

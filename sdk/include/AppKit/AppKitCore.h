@@ -47,7 +47,7 @@ typedef NS_ENUM(NSInteger, NSViewLayerContentsPlacement) {
 - (instancetype)initWithFrame:(NSRect)frame;
 @property NSRect frame;
 @property NSRect bounds;
-@property (readonly, copy) NSArray<NSView *> *subviews;
+@property (copy) NSArray<__kindof NSView *> *subviews;
 @property (nullable, readonly, assign) NSView *superview;
 @property (nullable, readonly, assign) NSWindow *window;
 @property BOOL needsDisplay;
@@ -1185,7 +1185,6 @@ typedef NS_ENUM(NSInteger, NSScrollElasticity) {
 @interface NSView (BittenSubviews)
 - (void)addSubview:(NSView *)view positioned:(NSWindowOrderingMode)place relativeTo:(nullable NSView *)otherView;
 - (void)replaceSubview:(NSView *)oldView with:(NSView *)newView;
-- (void)setSubviews:(NSArray<NSView *> *)subviews;
 - (void)sortSubviewsUsingFunction:(NSComparisonResult (*)(__kindof NSView *, __kindof NSView *, void *_Nullable))compare
                           context:(nullable void *)context;
 - (nullable NSView *)ancestorSharedWithView:(NSView *)view;

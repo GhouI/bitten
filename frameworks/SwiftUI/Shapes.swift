@@ -420,7 +420,10 @@ public struct HierarchicalShapeStyle: ShapeStyle {
   nonisolated(unsafe) private static var resolving = false
   public func _apply(to shape: inout _ShapeStyle_Shape) {
     if HierarchicalShapeStyle.resolving {
+      // A hierarchical foreground: the level asked for applies to the
+      // primary colour once, not on top of the foreground's own level.
       Color.primary._apply(to: &shape)
+      return
     } else {
       HierarchicalShapeStyle.resolving = true
       ForegroundStyle()._apply(to: &shape)

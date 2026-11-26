@@ -4,6 +4,9 @@
  * (src/frameworks/display: a browser page shows each window). */
 #import <AppKit/AppKit.h>
 #include <math.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <objc/runtime.h>
 #include <pthread.h>
 
 /* ---- the display's handoff API (exported by bitten's runtime) ---- */
@@ -237,7 +240,74 @@ void NSEraseRect(NSRect r) {
 
 /* ---- views draw into the current context ---- */
 
+/* What a view's backing layer adds to the view's drawing: its background,
+ * rounded corners (which also clip the content when masksToBounds), its
+ * border and any sublayers the program added itself. The view's own
+ * drawing still comes from drawRect:. */
+@interface BNBackingLayer : NSObject
+@property (getter=isHidden) BOOL hidden;
+@property float opacity;
+@property CGColorRef backgroundColor, borderColor;
+@property CGFloat cornerRadius, borderWidth;
+@property BOOL masksToBounds;
+@property (copy) NSArray *sublayers;
+@property (weak) id delegate;
+- (CGAffineTransform)_bn_toSuper;
+- (void)_bn_render:(CGContextRef)ctx;
+@end
+
+static CGPathRef bn_rounded(CGRect r, CGFloat radius) CF_RETURNS_RETAINED {
+    radius = fmax(0, fmin(radius, fmin(r.size.width, r.size.height) / 2));
+    return radius > 0 ? CGPathCreateWithRoundedRect(r, radius, radius, NULL) : CGPathCreateWithRect(r, NULL);
+}
+/* Fills the background and saves the state, clipped to the corners when the
+ * layer masks; bn_layer_border's caller restores it. */
+static void bn_layer_background(BNBackingLayer *layer, CGContextRef c, CGRect b) {
+    CGColorRef bg = layer.backgroundColor;
+    if (bg && CGColorGetAlpha(bg) > 0) {
+        CGPathRef p = bn_rounded(b, layer.cornerRadius);
+        CGContextSaveGState(c);
+        CGContextSetFillColorWithColor(c, bg);
+        CGContextAddPath(c, p);
+        CGContextFillPath(c);
+        CGContextRestoreGState(c);
+        CGPathRelease(p);
+    }
+    CGContextSaveGState(c);
+    if (layer.masksToBounds && layer.cornerRadius > 0) {
+        CGPathRef p = bn_rounded(b, layer.cornerRadius);
+        CGContextAddPath(c, p);
+        CGContextClip(c);
+        CGPathRelease(p);
+    }
+}
+static void bn_layer_sublayers(BNBackingLayer *layer, CGContextRef c) {
+    for (BNBackingLayer *sub in layer.sublayers) {
+        if ([sub.delegate isKindOfClass:[NSView class]]) continue;
+        CGContextSaveGState(c);
+        CGContextConcatCTM(c, [sub _bn_toSuper]);
+        [sub _bn_render:c];
+        CGContextRestoreGState(c);
+    }
+}
+static void bn_layer_border(BNBackingLayer *layer, CGContextRef c, CGRect b) {
+    CGFloat w = layer.borderWidth;
+    CGColorRef color = layer.borderColor;
+    if (w <= 0 || !color) return;
+    CGPathRef p = bn_rounded(CGRectInset(b, w / 2, w / 2), layer.cornerRadius - w / 2);
+    CGContextSaveGState(c);
+    CGContextSetStrokeColorWithColor(c, color);
+    CGContextSetLineWidth(c, w);
+    CGContextAddPath(c, p);
+    CGContextStrokePath(c);
+    CGContextRestoreGState(c);
+    CGPathRelease(p);
+}
+
 @implementation NSView (BittenDrawing)
+/* SwiftUI's hosting views draw their AppKit subviews themselves, between
+ * the SwiftUI content below and above them. */
+- (BOOL)_bn_drawsOwnSubviews { return NO; }
 /* Draws this view and its subviews. On entry the context's coordinates
  * are the superview's bounds space; `parentFlipped` says whether that
  * space runs downward. */
@@ -253,11 +323,32 @@ void NSEraseRect(NSRect r) {
         CGContextScaleCTM(c, 1, -1);
     }
     CGContextTranslateCTM(c, -b.origin.x, -b.origin.y);
+    BNBackingLayer *layer = (BNBackingLayer *)self.layer;
+    BOOL group = NO;
+    if (layer) {
+        if (layer.isHidden || layer.opacity <= 0) {
+            CGContextRestoreGState(c);
+            return;
+        }
+        group = layer.opacity < 1;
+        if (group) {
+            CGContextSetAlpha(c, layer.opacity);
+            CGContextBeginTransparencyLayer(c, NULL);
+        }
+        bn_layer_background(layer, c, b);
+    }
     NSGraphicsContext *previous = [NSGraphicsContext currentContext];
     [NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithCGContext:c flipped:flipped]];
     [self drawRect:b];
     [NSGraphicsContext setCurrentContext:previous];
-    for (NSView *v in self.subviews) [v _bn_drawIn:c parentFlipped:flipped];
+    if (layer) bn_layer_sublayers(layer, c);
+    if (![self _bn_drawsOwnSubviews])
+        for (NSView *v in self.subviews) [v _bn_drawIn:c parentFlipped:flipped];
+    if (layer) {
+        CGContextRestoreGState(c); /* the corner clip */
+        bn_layer_border(layer, c, b);
+        if (group) CGContextEndTransparencyLayer(c);
+    }
     CGContextRestoreGState(c);
     self.needsDisplay = NO;
 }
@@ -268,6 +359,13 @@ void NSEraseRect(NSRect r) {
 @interface NSApplication (BittenEventsPrivate)
 + (void)_bn_listenToDisplay;
 @end
+
+/* BITTEN_VIEW_TREE=1 prints each window's view hierarchy as it is drawn. */
+static void bn_dump_tree(NSView *v, int depth) {
+    fprintf(stderr, "%*s%s %s%s layer=%s\n", depth * 2, "", object_getClassName(v), NSStringFromRect(v.frame).UTF8String,
+            v.isHidden ? " hidden" : "", v.layer ? object_getClassName(v.layer) : "-");
+    for (NSView *s in v.subviews) bn_dump_tree(s, depth + 1);
+}
 
 @implementation NSWindow (BittenDisplay)
 static const char kBackingKey;
@@ -299,8 +397,9 @@ static const char kScheduledKey;
     if (!c) return;
     CGContextSaveGState(c);
     NSColor *bg = self.backgroundColor;
-    CGContextSetRGBFillColor(c, bg.redComponent, bg.greenComponent, bg.blueComponent, bg.alphaComponent);
+    CGContextSetFillColorWithColor(c, bg.CGColor);
     CGContextFillRect(c, CGRectMake(0, 0, content.size.width, content.size.height));
+    if (getenv("BITTEN_VIEW_TREE")) bn_dump_tree(self.contentView, 0);
     [self.contentView _bn_drawIn:c parentFlipped:NO];
     CGContextRestoreGState(c);
     /* The page's coordinates run down from the top of the main screen. */

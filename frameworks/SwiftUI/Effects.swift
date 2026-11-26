@@ -148,6 +148,9 @@ extension _DrawingModifier {
   public func body(content: Content) -> Never { fatalError("no body") }
 }
 
+@_silgen_name("CGContextGetAlpha")
+internal func _CGContextGetAlpha(_ c: CGContext) -> CGFloat
+
 @frozen
 public struct _OpacityEffect: _DrawingModifier, Animatable, Equatable {
   public var opacity: Double
@@ -157,7 +160,7 @@ public struct _OpacityEffect: _DrawingModifier, Animatable, Equatable {
     set { opacity = newValue }
   }
   func apply(_ context: CGContext, _ frame: CGRect, _ environment: EnvironmentValues) -> Bool {
-    CGContextSetAlpha(context, CGFloat(max(0, min(1, opacity))))
+    CGContextSetAlpha(context, _CGContextGetAlpha(context) * CGFloat(max(0, min(1, opacity))))
     return opacity > 0
   }
 }

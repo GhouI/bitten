@@ -472,6 +472,15 @@ final class _PlatformViewBox {
   var coordinator: Any?
 }
 
+private typealias _DrawInFn = @convention(c) (AnyObject, Selector, CGContext, ObjCBool) -> Void
+/// Draws an AppKit view (and its subviews) into `context`, whose space is
+/// its (flipped) superview's.
+@MainActor internal func _drawAppKitView(_ v: NSView, _ context: CGContext) {
+  let sel = NSSelectorFromString("_bn_drawIn:parentFlipped:")
+  guard let m = class_getMethodImplementation(object_getClass(v), sel) else { return }
+  unsafeBitCast(m, to: _DrawInFn.self)(v, sel, context, ObjCBool(true))
+}
+
 /// An AppKit view placed as a subview of the hosting view.
 internal final class _PlatformViewNode: _ViewNode {
   let view: NSView
@@ -495,6 +504,13 @@ internal final class _PlatformViewNode: _ViewNode {
       v.frame = NSMakeRect(rect._minX, rect._minY, rect._width, rect._height)
     }
     context?.livePlatformViews.insert(ObjectIdentifier(v))
+  }
+  override func collectPlatformViews(_ into: inout [NSView]) { into.append(view) }
+  /// Drawn here, in SwiftUI's order, rather than after all of the host's
+  /// own drawing (see NSHostingView._bn_drawsOwnSubviews).
+  override func draw(_ context: CGContext) {
+    let v = view
+    MainActor.assumeIsolated { _drawAppKitView(v, context) }
   }
 }
 

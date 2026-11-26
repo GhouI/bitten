@@ -141,3 +141,47 @@ struct Big { var a = 1, b = 2, c = 3, d = 4, e = 5, f = 6, g = 7 }
   if (anyBig[1] as! LazyState<Big>).wrappedValue.g != 7 { bad |= 2 }
   return bad
 }
+
+/// An AppKit view that fills itself red.
+final class RedFill: NSView {
+  override func draw(_ dirtyRect: NSRect) {
+    NSColor(srgbRed: 1, green: 0, blue: 0, alpha: 1).setFill()
+    NSBezierPath.fill(bounds)
+  }
+}
+struct RedRep: NSViewRepresentable {
+  func makeNSView(context: Context) -> RedFill { return RedFill() }
+  func updateNSView(_ nsView: RedFill, context: Context) {}
+}
+
+@_silgen_name("swl_swiftui_order") public func order() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    // A representable as a background sits below the content, as an
+    // overlay above it, whichever order layout reaches them in.
+    let below = Color(.sRGB, red: 0, green: 0, blue: 1).frame(width: 10, height: 10)
+      .background(RedRep().frame(width: 20, height: 20))
+    let pb = render(below, 30, 30)
+    if pb(15, 15) != blue || pb(7, 7) != red { bad |= 1 }
+    let above = Color(.sRGB, red: 0, green: 0, blue: 1).frame(width: 20, height: 20)
+      .overlay(RedRep().frame(width: 10, height: 10))
+    let pa = render(above, 30, 30)
+    if pa(15, 15) != red || pa(7, 7) != blue { bad |= 2 }
+
+    // Wrapped text centred through the environment (the key path the
+    // program builds from the property descriptor).
+    let words = Text("Wide wide wide wide\nx").font(.system(size: 12)).foregroundStyle(Color.black)
+      .environment(\.multilineTextAlignment, .center)
+    let left = Text("Wide wide wide wide\nx").font(.system(size: 12)).foregroundStyle(Color.black)
+    @MainActor func lastLineInk(_ v: some View) -> Int {
+      let p = render(v.frame(width: 120, height: 60), 120, 60)
+      var rows: [Int] = []
+      for y in 0..<60 where (0..<120).contains(where: { p($0, y) & 0xff < 0x80 }) { rows.append(y) }
+      guard let last = rows.last else { return -1 }
+      return (0..<120).first { p($0, last) & 0xff < 0x80 } ?? -1
+    }
+    let centred = lastLineInk(words), leading = lastLineInk(left)
+    if centred < 0 || leading < 0 || centred <= leading + 10 { bad |= 4 }
+    return bad
+  }
+}
