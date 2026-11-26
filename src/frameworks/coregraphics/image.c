@@ -157,6 +157,16 @@ static void set_rgba_provider(struct cg_image *img) {
     img->provider = provider_copy(img->rgba, img->width * img->height * 4);
 }
 
+/* An image of premultiplied RGBA pixels, rows top to bottom (decoders). */
+struct cg_image *cg_image_from_rgba(const uint8_t *rgba, size_t w, size_t h) {
+    struct cg_image *img = image_alloc(w, h);
+    if (!img) return NULL;
+    memcpy(img->rgba, rgba, w * h * 4);
+    img->space = cg_retain(cg_space_rgb());
+    set_rgba_provider(img);
+    return img;
+}
+
 struct cg_image *cg_image_from_surface(const struct cg_surface *s, struct cg_colorspace *space, uint32_t info) {
     struct cg_image *img = image_alloc(s->width, s->height);
     if (!img) return NULL;
