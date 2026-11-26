@@ -3549,3 +3549,19 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Tests: tests/foundation/threads.m, tests/swiftlib/executors.swift.
 - Target app (total `^MISSING`): 2 -> 2. "Start Using" now opens the main
   workspace window with a shell pane, whose process exits at once (next).
+
+## libsystem: macOS login(1) for starting shells
+
+- Exec'ing `/usr/bin/login` with macOS's non-interactive form,
+  `login [-pq] [-h host] [-l] [-f] user [prog [args]]`, now does what
+  macOS's login does: become the user (if needed and allowed), set HOME,
+  USER, LOGNAME and SHELL (keeping the rest of the environment with -p),
+  and exec the program or the user's shell. Unless -l is given it is a
+  login session: argv[0] is "-name" and it starts in the home directory.
+  Linux's login cannot run a program, so it exited with status 1.
+  Interactive use still goes to the real login.
+- Found with strace on the target app's server, which starts each terminal
+  pane's shell through `login -flp`. The panes showed "Exited".
+- Test: tests/c/login.c.
+- Target app (total `^MISSING`): 2 -> 2. The workspace's shell pane now
+  runs bash.
