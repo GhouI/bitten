@@ -59,3 +59,27 @@ SEL NSSelectorFromString(NSString *name) { return name ? sel_registerName(name.U
 }
 - (void)dealloc { [self drain]; }
 @end
+
+/* NSComparisonMethods: comparisons by -isEqual: and -compare:. */
+@implementation NSObject (NSComparisonMethods)
+- (BOOL)isEqualTo:(id)object { return [self isEqual:object]; }
+- (BOOL)isNotEqualTo:(id)object { return ![self isEqual:object]; }
+- (NSComparisonResult)_bn_compare:(id)object {
+    if (![self respondsToSelector:@selector(compare:)]) return NSOrderedSame;
+    return ((NSComparisonResult(*)(id, SEL, id))objc_msgSend)(self, @selector(compare:), object);
+}
+- (BOOL)isLessThanOrEqualTo:(id)object { return [self _bn_compare:object] != NSOrderedDescending; }
+- (BOOL)isLessThan:(id)object { return [self _bn_compare:object] == NSOrderedAscending; }
+- (BOOL)isGreaterThanOrEqualTo:(id)object { return [self _bn_compare:object] != NSOrderedAscending; }
+- (BOOL)isGreaterThan:(id)object { return [self _bn_compare:object] == NSOrderedDescending; }
+- (BOOL)doesContain:(id)object {
+    if ([self respondsToSelector:@selector(containsObject:)])
+        return ((BOOL(*)(id, SEL, id))objc_msgSend)(self, @selector(containsObject:), object);
+    return NO;
+}
+- (BOOL)isLike:(NSString *)object { return [self isEqual:object]; }
+- (BOOL)isCaseInsensitiveLike:(NSString *)object {
+    if (![self isKindOfClass:[NSString class]] || ![object isKindOfClass:[NSString class]]) return NO;
+    return [(NSString *)self caseInsensitiveCompare:object] == NSOrderedSame;
+}
+@end

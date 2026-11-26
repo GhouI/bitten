@@ -141,6 +141,8 @@ __attribute__((swift_bridge("Swift.String")))
 - (nullable const char *)cStringUsingEncoding:(NSStringEncoding)encoding;
 - (NSUInteger)lengthOfBytesUsingEncoding:(NSStringEncoding)encoding;
 - (nullable NSData *)dataUsingEncoding:(NSStringEncoding)encoding;
+- (nullable NSData *)dataUsingEncoding:(NSStringEncoding)encoding allowLossyConversion:(BOOL)lossy;
+- (BOOL)canBeConvertedToEncoding:(NSStringEncoding)encoding;
 - (BOOL)isEqualToString:(NSString *)string;
 - (NSComparisonResult)compare:(NSString *)string;
 - (NSComparisonResult)compare:(NSString *)string options:(NSStringCompareOptions)mask;
@@ -946,6 +948,52 @@ typedef NS_OPTIONS(NSUInteger, NSKeyValueObservingOptions) {
     NSKeyValueObservingOptionInitial NS_SWIFT_NAME(initial) = 0x04,
     NSKeyValueObservingOptionPrior NS_SWIFT_NAME(prior) = 0x08
 };
+
+@interface NSObject (NSComparisonMethods)
+- (BOOL)isEqualTo:(nullable id)object;
+- (BOOL)isLessThanOrEqualTo:(nullable id)object;
+- (BOOL)isLessThan:(nullable id)object;
+- (BOOL)isGreaterThanOrEqualTo:(nullable id)object;
+- (BOOL)isGreaterThan:(nullable id)object;
+- (BOOL)isNotEqualTo:(nullable id)object;
+- (BOOL)doesContain:(id)object;
+- (BOOL)isLike:(NSString *)object;
+- (BOOL)isCaseInsensitiveLike:(NSString *)object;
+@end
+
+typedef NSString *NSKeyValueChangeKey NS_TYPED_ENUM;
+extern NSKeyValueChangeKey const NSKeyValueChangeKindKey NS_SWIFT_NAME(NSKeyValueChangeKey.kindKey);
+extern NSKeyValueChangeKey const NSKeyValueChangeNewKey NS_SWIFT_NAME(NSKeyValueChangeKey.newKey);
+extern NSKeyValueChangeKey const NSKeyValueChangeOldKey NS_SWIFT_NAME(NSKeyValueChangeKey.oldKey);
+extern NSKeyValueChangeKey const NSKeyValueChangeIndexesKey NS_SWIFT_NAME(NSKeyValueChangeKey.indexesKey);
+extern NSKeyValueChangeKey const NSKeyValueChangeNotificationIsPriorKey NS_SWIFT_NAME(NSKeyValueChangeKey.notificationIsPriorKey);
+typedef NS_ENUM(NSUInteger, NSKeyValueChange) {
+    NSKeyValueChangeSetting = 1, NSKeyValueChangeInsertion = 2, NSKeyValueChangeRemoval = 3,
+    NSKeyValueChangeReplacement = 4
+};
+@interface NSObject (NSKeyValueCoding)
+- (nullable id)valueForKey:(NSString *)key;
+- (void)setValue:(nullable id)value forKey:(NSString *)key;
+- (nullable id)valueForKeyPath:(NSString *)keyPath;
+- (void)setValue:(nullable id)value forKeyPath:(NSString *)keyPath;
+- (nullable id)valueForUndefinedKey:(NSString *)key;
+- (void)setValue:(nullable id)value forUndefinedKey:(NSString *)key;
+@end
+@interface NSObject (NSKeyValueObserving)
+- (void)observeValueForKeyPath:(nullable NSString *)keyPath ofObject:(nullable id)object
+                        change:(nullable NSDictionary<NSKeyValueChangeKey, id> *)change context:(nullable void *)context;
+@end
+@interface NSObject (NSKeyValueObserverRegistration)
+- (void)addObserver:(NSObject *)observer forKeyPath:(NSString *)keyPath options:(NSKeyValueObservingOptions)options
+            context:(nullable void *)context;
+- (void)removeObserver:(NSObject *)observer forKeyPath:(NSString *)keyPath context:(nullable void *)context;
+- (void)removeObserver:(NSObject *)observer forKeyPath:(NSString *)keyPath;
+@end
+@interface NSObject (NSKeyValueObserverNotification)
+- (void)willChangeValueForKey:(NSString *)key;
+- (void)didChangeValueForKey:(NSString *)key;
++ (BOOL)automaticallyNotifiesObserversForKey:(NSString *)key;
+@end
 
 @protocol NSLocking
 - (void)lock;

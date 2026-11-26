@@ -108,22 +108,29 @@ static NSUserDefaults *standard;
         return;
     }
     @synchronized(self) {
+        [self willChangeValueForKey:key];
         if (![NSPropertyListSerialization propertyList:value isValidForFormat:NSPropertyListXMLFormat_v1_0])
             BNRaise("NSInvalidArgumentException", "Attempt to insert non-property list object %s for key %s",
                     BNDescribe(value).UTF8String, key.UTF8String);
         _domain[key] = [value copy];
     }
+    [self didChangeValueForKey:key];
     [self _changed];
 }
 - (void)removeObjectForKey:(NSString *)key {
     if (!key) return;
     @synchronized(self) {
         if (!_domain[key]) return;
-        [_domain removeObjectForKey:key];
     }
+    [self willChangeValueForKey:key];
+    @synchronized(self) { [_domain removeObjectForKey:key]; }
+    [self didChangeValueForKey:key];
     [self _changed];
 }
 
+/* Key-value coding reads defaults (observers of a key get its value). */
+- (id)valueForKey:(NSString *)key { return [self objectForKey:key]; }
+- (void)setValue:(id)value forKey:(NSString *)key { [self setObject:value forKey:key]; }
 - (NSString *)stringForKey:(NSString *)key {
     id v = [self objectForKey:key];
     if ([v isKindOfClass:[NSString class]]) return v;

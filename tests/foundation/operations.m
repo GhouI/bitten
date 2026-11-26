@@ -8,6 +8,21 @@
 
 #define CHECK(...) do { if (!(__VA_ARGS__)) { printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #__VA_ARGS__); exit(1); } } while (0)
 
+@interface Watcher : NSObject
+@property (nonatomic, strong) NSMutableArray *seen;
+@end
+@implementation Watcher
+- (instancetype)init { if ((self = [super init])) _seen = [NSMutableArray array]; return self; }
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
+    [_seen addObject:@{@"key" : keyPath, @"change" : change}];
+}
+@end
+@interface Model : NSObject
+@property (nonatomic) int level;
+@end
+@implementation Model
+@end
+
 @interface Counter : NSObject
 @property (atomic) int hits;
 - (void)hit:(NSNotification *)n;
@@ -105,6 +120,33 @@ int main(void) {
         NSString *k1 = [@"key" mutableCopy], *k2 = [@"key" mutableCopy];
         [ident setObject:@1 forKey:k1];
         CHECK([ident objectForKey:k2] == nil && [[ident objectForKey:k1] intValue] == 1);
+        // Key-value coding and observing.
+        Model *model = [Model new];
+        [model setValue:@5 forKey:@"level"];
+        CHECK(model.level == 5 && [[model valueForKey:@"level"] intValue] == 5);
+        Watcher *watcher = [Watcher new];
+        [model addObserver:watcher forKeyPath:@"level"
+                   options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld | NSKeyValueObservingOptionInitial
+                   context:NULL];
+        CHECK(watcher.seen.count == 1 && [watcher.seen[0][@"change"][NSKeyValueChangeNewKey] intValue] == 5);
+        [model willChangeValueForKey:@"level"];
+        model.level = 9;
+        [model didChangeValueForKey:@"level"];
+        CHECK(watcher.seen.count == 2);
+        NSDictionary *change = watcher.seen[1][@"change"];
+        CHECK([change[NSKeyValueChangeOldKey] intValue] == 5 && [change[NSKeyValueChangeNewKey] intValue] == 9);
+        [model setValue:@11 forKey:@"level"]; // KVC setters announce the change
+        CHECK(watcher.seen.count == 3 && [watcher.seen[2][@"change"][NSKeyValueChangeNewKey] intValue] == 11);
+        [model removeObserver:watcher forKeyPath:@"level"];
+        [model setValue:@12 forKey:@"level"];
+        CHECK(watcher.seen.count == 3);
+        NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"org.example.kvo"];
+        Watcher *dw = [Watcher new];
+        [defaults addObserver:dw forKeyPath:@"theme" options:NSKeyValueObservingOptionNew context:NULL];
+        [defaults setObject:@"dark" forKey:@"theme"];
+        CHECK(dw.seen.count == 1 && [dw.seen[0][@"change"][NSKeyValueChangeNewKey] isEqual:@"dark"]);
+        [defaults removeObjectForKey:@"theme"];
+        [defaults removeObserver:dw forKeyPath:@"theme"];
         printf("ok\n");
     }
     return 0;

@@ -1756,3 +1756,34 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   their round trip, transparency layers, BGRA and gray contexts, paths.
 - Target app window (total `^MISSING`): 2,906 -> 2,814 (92 of 113
   CoreGraphics imports; the rest are Swift overlay methods).
+
+## 2026-11-26: Mirror, lazy sequences, random numbers, errors, KVO
+
+- stdlib: `Mirror` (stored properties of structs, classes and tuples
+  through new runtime reflection entry points in reflection.c;
+  CustomReflectable; collections describe themselves), `AnyCollection`,
+  `AnyIndex`, `AnyIterator`, `KeyValuePairs`; lazy sequences
+  (`LazySequence`, `LazyMapSequence`, `LazyFilterSequence`),
+  `FlattenSequence` (`joined()`), `ReversedCollection` (`reversed()`), all
+  with Apple's frozen layouts; `RandomNumberGenerator`,
+  `SystemRandomNumberGenerator`, `random(in:)`, `shuffle`,
+  `randomElement`; the collection cast intrinsics (`_arrayForceCast`,
+  `_dictionaryUpCast`, ...; the compiler crashed without them);
+  `ManagedBufferPointer`; `_HasContiguousBytes`; `Error` with Apple's four
+  requirements (`_domain`, `_getEmbeddedNSError`); `utf8CString`,
+  `String.Index(utf16Offset:in:)`, `Hasher.combine(bytes:)`; sort's
+  `_minimumMergeRunLength`; printing shows structs as `Point(x: 1, y: 2)`
+  and metatypes as the type they name.
+- Runtime: casts to and from `AnyHashable` and from Objective-C objects to
+  bridged Swift values; `any Error` conforms to Error (self-conformance);
+  NSError's Error conformance for Objective-C errors;
+  `_swiftImmortalRefCount`, `_swift_stdlib_bridgeErrorToNSError`,
+  `_swift_stdlib_operatingSystemVersion`.
+- Foundation: `LocalizedError`, `CustomNSError`, `RecoverableError`,
+  `CocoaError`, `POSIXError`, `URLError` and `Error.localizedDescription`
+  (Foundation is now built for macOS 14, as POSIXErrorCode needs); key-value
+  coding and observing (manual will/didChange, KVC setters, NSUserDefaults
+  announces its keys); NSComparisonMethods; lossy `dataUsingEncoding:`.
+- Tests: `tests/swiftlib/reflection`, KVO in `tests/foundation/operations`.
+- Target app window (total `^MISSING`): 2,814 -> 2692. It now stops at
+  SystemConfiguration's `SCDynamicStoreCopyComputerName`.
