@@ -9,15 +9,15 @@
 - (BOOL)acceptsFirstResponder;
 - (BOOL)becomeFirstResponder;
 - (BOOL)resignFirstResponder;
-- (void)mouseDown:(NSEvent *)event;
-- (void)mouseUp:(NSEvent *)event;
-- (void)mouseDragged:(NSEvent *)event;
-- (void)mouseMoved:(NSEvent *)event;
-- (void)rightMouseDown:(NSEvent *)event;
-- (void)scrollWheel:(NSEvent *)event;
-- (void)keyDown:(NSEvent *)event;
-- (void)keyUp:(NSEvent *)event;
-- (void)flagsChanged:(NSEvent *)event;
+- (void)mouseDown:(NSEvent *)event NS_SWIFT_NAME(mouseDown(with:));
+- (void)mouseUp:(NSEvent *)event NS_SWIFT_NAME(mouseUp(with:));
+- (void)mouseDragged:(NSEvent *)event NS_SWIFT_NAME(mouseDragged(with:));
+- (void)mouseMoved:(NSEvent *)event NS_SWIFT_NAME(mouseMoved(with:));
+- (void)rightMouseDown:(NSEvent *)event NS_SWIFT_NAME(rightMouseDown(with:));
+- (void)scrollWheel:(NSEvent *)event NS_SWIFT_NAME(scrollWheel(with:));
+- (void)keyDown:(NSEvent *)event NS_SWIFT_NAME(keyDown(with:));
+- (void)keyUp:(NSEvent *)event NS_SWIFT_NAME(keyUp(with:));
+- (void)flagsChanged:(NSEvent *)event NS_SWIFT_NAME(flagsChanged(with:));
 @end
 
 @interface NSView : NSResponder {
@@ -80,10 +80,12 @@
     NSWindowStyleMask _styleMask;
     BOOL _visible, _key;
     NSUInteger _windowNumber;
+    id _contentViewController;
 }
 - (instancetype)initWithContentRect:(NSRect)contentRect styleMask:(NSWindowStyleMask)style
                             backing:(NSBackingStoreType)backing defer:(BOOL)flag;
 @property (nullable, strong) NSView *contentView;
+@property (nullable, strong) NSViewController *contentViewController;
 @property (copy) NSString *title;
 @property NSWindowStyleMask styleMask;
 @property (readonly) NSRect frame;
@@ -392,6 +394,47 @@ typedef NS_ENUM(NSUInteger, NSLineJoinStyle) { NSLineJoinStyleMiter = 0, NSLineJ
 @property (getter=isEnabled) BOOL enabled;
 @property NSInteger tag;
 @property (nullable, strong) id representedObject;
+@end
+
+@interface NSViewController : NSResponder
+- (instancetype)initWithNibName:(nullable NSString *)nibNameOrNil bundle:(nullable NSBundle *)nibBundleOrNil;
+- (instancetype)init;
+@property (strong) NSView *view;
+@property (nullable, readonly, strong) NSView *viewIfLoaded;
+@property (readonly, getter=isViewLoaded) BOOL viewLoaded;
+@property (nullable, copy) NSString *title;
+@property (nullable, strong) id representedObject;
+@property (nullable, readonly, copy) NSString *nibName;
+@property (nullable, readonly, strong) NSBundle *nibBundle;
+@property NSSize preferredContentSize;
+@property (readonly, copy) NSArray<NSViewController *> *childViewControllers;
+@property (nullable, readonly, assign) NSViewController *parentViewController;
+- (void)loadView;
+- (void)loadViewIfNeeded;
+- (void)viewDidLoad;
+- (void)viewWillAppear;
+- (void)viewDidAppear;
+- (void)viewWillDisappear;
+- (void)viewDidDisappear;
+- (void)viewWillLayout;
+- (void)viewDidLayout;
+- (void)updateViewConstraints;
+- (void)addChildViewController:(NSViewController *)childViewController;
+- (void)removeFromParentViewController;
+@end
+
+@interface NSWindowController : NSResponder
+- (instancetype)initWithWindow:(nullable NSWindow *)window;
+- (instancetype)initWithWindowNibName:(NSString *)windowNibName;
+@property (nullable, strong) NSWindow *window;
+@property (nullable, strong) NSViewController *contentViewController;
+@property (readonly, getter=isWindowLoaded) BOOL windowLoaded;
+@property (nullable, assign) id owner;
+- (void)loadWindow;
+- (void)windowWillLoad;
+- (void)windowDidLoad;
+- (void)showWindow:(nullable id)sender;
+- (void)close;
 @end
 
 #pragma clang assume_nonnull end

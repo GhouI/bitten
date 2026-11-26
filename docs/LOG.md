@@ -1900,3 +1900,31 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   `NSRunningApplication` (`currentApplication` from the main bundle).
 - Target app window (total `^MISSING`): 2,526 (unchanged). It now gets to
   SwiftUI (`KeyEquivalent`): 1,668 of its remaining imports are SwiftUI.
+
+## 2026-11-26: SwiftUI view graph and layout
+
+- SwiftUI now has Apple's protocol shapes for `View` (`_makeView`,
+  `_makeViewList`, `_viewListCount` before `body`) and `ViewModifier`, with
+  the default implementations programs reference by symbol. `_GraphValue`,
+  `_ViewInputs`, `_ViewOutputs` and the rest carry our engine: each view
+  becomes a render node (size for a proposal, place, draw into a CGContext,
+  hit testing), and state lives in storage keyed by structural position.
+- Layout (`Layout.swift`): alignments (`AlignmentID`, `Alignment`,
+  Horizontal/VerticalAlignment), edges and insets, `ModifiedContent`,
+  `_VariadicView.Tree` with Apple's frozen `_VStackLayout`, `_HStackLayout`
+  and `_ZStackLayout`, `VStack`/`HStack`/`ZStack`, `Spacer`, padding
+  (`_PaddingLayout`) and frames (`_FrameLayout`, `_FlexFrameLayout`).
+- `Environment` (frozen, as Apple's), `EnvironmentValues`,
+  `ProposedViewSize`, `Animatable` and its data.
+- `@State`, `@StateObject`, `@ObservedObject` and lazy state find their
+  storage when the view joins the graph; observed objects and
+  `@Observable` reads rebuild the host.
+- `NSHostingView` builds, lays out and draws the tree, and routes clicks to
+  tappable nodes; `NSHostingController` loads one.
+- AppKit: `NSViewController` (view loading, appearance callbacks, child
+  controllers), `NSWindowController`, `NSWindow.contentViewController`;
+  responder event methods get their Swift names (`mouseDown(with:)`).
+- Foundation: `-indexOfObjectIdenticalTo:`, `-removeObjectIdenticalTo:`.
+- SwiftUI builds for macOS 14 (CGFloat lives in the CoreFoundation overlay
+  there).
+- Target app window (total `^MISSING`): 2,526 -> 2,395.

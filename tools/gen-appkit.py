@@ -102,7 +102,8 @@ CLASSES = [
 # (sdk/include/AppKit/*.h, frameworks/AppKit/*.m) because they carry state.
 HANDWRITTEN = {"NSResponder", "NSView", "NSWindow", "NSApplication", "NSEvent",
                "NSColor", "NSFont", "NSScreen", "NSGraphicsContext", "NSMenu",
-               "NSMenuItem", "NSControl", "NSAppearance", "NSBezierPath", "NSWorkspace", "NSRunningApplication", "NSWorkspaceOpenConfiguration"}
+               "NSMenuItem", "NSControl", "NSAppearance", "NSBezierPath", "NSWorkspace", "NSRunningApplication", "NSWorkspaceOpenConfiguration",
+               "NSViewController", "NSWindowController"}
 
 NOTIFICATIONS = """
 NSApplicationDidBecomeActiveNotification NSApplicationDidChangeScreenParametersNotification

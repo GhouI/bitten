@@ -35,10 +35,6 @@
 @end
 @interface NSOpenPanel : NSSavePanel
 @end
-@interface NSWindowController : NSResponder
-@end
-@interface NSViewController : NSResponder
-@end
 @interface NSSplitViewController : NSViewController
 @end
 @interface NSTitlebarAccessoryViewController : NSViewController

@@ -340,6 +340,9 @@ SWIFT_FW_DEPS_SwiftUI := Combine
 # Network's NWError carries POSIXErrorCode, which moved into the _errno
 # overlay in macOS 14 and is hidden from older targets.
 SWIFT_FW_MACOS_Network := 14.0
+# SwiftUI uses CGFloat, which moved into the CoreFoundation overlay in
+# macOS 14 (the target application's own deployment target).
+SWIFT_FW_MACOS_SwiftUI := 14.0
 swift_fw_macos  = $(or $(SWIFT_FW_MACOS_$(1)),11.0)
 swift_fw_target = $(if $(SWIFT_FW_MACOS_$(1)),-target x86_64-apple-macos$(SWIFT_FW_MACOS_$(1)) -runtime-compatibility-version none,$(SWIFT_TARGET))
 # Combine sits below Foundation (whose Swift overlay adds its publishers and

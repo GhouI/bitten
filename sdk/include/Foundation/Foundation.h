@@ -252,6 +252,7 @@ __attribute__((swift_bridge("Swift.Array")))
 @property (readonly) ObjectType lastObject;
 - (BOOL)containsObject:(ObjectType)object;
 - (NSUInteger)indexOfObject:(ObjectType)object;
+- (NSUInteger)indexOfObjectIdenticalTo:(ObjectType)anObject;
 - (NSArray<ObjectType> *)arrayByAddingObject:(ObjectType)object;
 - (NSArray<ObjectType> *)subarrayWithRange:(NSRange)range;
 - (NSString *)componentsJoinedByString:(NSString *)separator;
@@ -273,6 +274,7 @@ __attribute__((swift_bridge("Swift.Array")))
 - (void)removeObjectAtIndex:(NSUInteger)index;
 - (void)removeLastObject;
 - (void)removeObject:(ObjectType)object;
+- (void)removeObjectIdenticalTo:(ObjectType)anObject;
 - (void)removeAllObjects;
 - (void)replaceObjectAtIndex:(NSUInteger)index withObject:(ObjectType)object;
 - (void)setObject:(ObjectType)object atIndexedSubscript:(NSUInteger)index;

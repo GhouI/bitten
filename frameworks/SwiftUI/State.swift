@@ -69,6 +69,50 @@ public struct State<Value>: DynamicProperty {
     if _location == nil { _location = StoredLocation(_value) }
   }
 }
+extension State: _GraphInstallable {
+  mutating func _install(key: String, inputs: _ViewInputs) {
+    let initial = _value
+    let box = inputs.base.context.store(key) { StoredLocation(initial) }
+    _location = box
+  }
+}
+extension ObservedObject: _GraphInstallable {
+  mutating func _install(key: String, inputs: _ViewInputs) {
+    _ObservedObjectWatch.watch(wrappedValue, key: key, inputs: inputs)
+  }
+}
+/// Rebuilds the host when an observed object announces a change. One
+/// subscription per property and object.
+final class _ObservedObjectWatch {
+  var object: ObjectIdentifier?
+  var cancellable: AnyCancellable?
+  static func watch<O: ObservableObject>(_ o: O, key: String, inputs: _ViewInputs) {
+    let context = inputs.base.context
+    let w = context.store(key + "#watch") { _ObservedObjectWatch() }
+    if w.object == ObjectIdentifier(o) { return }
+    w.object = ObjectIdentifier(o)
+    w.cancellable = o.objectWillChange.sink { _ in context.invalidate() }
+  }
+}
+extension StateObject: _GraphInstallable {
+  mutating func _install(key: String, inputs: _ViewInputs) {
+    guard case .initially(let make) = storage else { return }
+    let box = inputs.base.context.store(key) { _ObjectBox(make()) }
+    storage = .object(ObservedObject(wrappedValue: box.object))
+    _ObservedObjectWatch.watch(box.object, key: key, inputs: inputs)
+  }
+}
+extension LazyState: _GraphInstallable {
+  mutating func _install(key: String, inputs: _ViewInputs) {
+    let mine = box
+    box = inputs.base.context.store(key) { mine }
+  }
+}
+final class _ObjectBox<T: AnyObject> {
+  let object: T
+  init(_ o: T) { object = o }
+}
+
 extension State where Value: ExpressibleByNilLiteral {
   @inlinable public init() { self.init(wrappedValue: nil) }
 }
@@ -212,7 +256,7 @@ public struct LazyState<Value>: DynamicProperty {
       }
     }
   }
-  let box: Box
+  var box: Box
 
   public init(wrappedValue thunk: @autoclosure @escaping () -> Value) { box = Box(.pending(thunk)) }
   public var wrappedValue: Value {
