@@ -570,6 +570,7 @@ typedef NSString *NSUserInterfaceItemIdentifier NS_TYPED_EXTENSIBLE_ENUM;
 - (void)toggleFullScreen:(nullable id)sender;
 - (void)toggleToolbarShown:(nullable id)sender;
 - (nullable NSButton *)standardWindowButton:(NSWindowButton)b;
++ (nullable NSButton *)standardWindowButton:(NSWindowButton)b forStyleMask:(NSWindowStyleMask)styleMask;
 - (void)setFrameOrigin:(NSPoint)point;
 - (void)setFrameTopLeftPoint:(NSPoint)point;
 - (NSPoint)cascadeTopLeftFromPoint:(NSPoint)topLeftPoint;

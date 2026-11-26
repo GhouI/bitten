@@ -177,10 +177,19 @@ open class _HostingViewBase: NSView {
   }
 
   /// The tree, built (and laid out in the bounds) on demand.
+  /// Set while the tree is being placed: AppKit views placed in it can
+  /// lay themselves out and ask for this host's tree again, which must not
+  /// rebuild or re-place the tree being placed.
+  var _placing = false
+
   func _layout() -> _ViewNode {
-    if let r = _root, _placedIn.width == bounds.size.width, _placedIn.height == bounds.size.height { return r }
+    if let r = _root, _placing || (_placedIn.width == bounds.size.width && _placedIn.height == bounds.size.height) {
+      return r
+    }
     let r = _root ?? _makeRoot()
     _root = r
+    _placing = true
+    defer { _placing = false }
     // The root takes the size it wants of the bounds, centred in them.
     let want = r.sizeThatFits(ProposedViewSize(bounds.size))
     let size = CGSize(width: min(want.width, bounds.size.width), height: min(want.height, bounds.size.height))

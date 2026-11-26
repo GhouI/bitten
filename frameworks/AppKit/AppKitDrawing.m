@@ -131,6 +131,7 @@ void NSEraseRect(NSRect r) {
     CGFloat _lineWidth;
     NSLineCapStyle _cap;
     NSLineJoinStyle _join;
+    NSUInteger _winding; /* NSWindingRule: 0 non-zero, 1 even-odd */
 }
 + (NSBezierPath *)bezierPath { return [self new]; }
 - (instancetype)init {
@@ -199,6 +200,13 @@ void NSEraseRect(NSRect r) {
                                  endAngle:(CGFloat)a1 clockwise:(BOOL)cw {
     CGPathAddArc(_path, NULL, c.x, c.y, radius, a0 * M_PI / 180, a1 * M_PI / 180, cw);
 }
+/* A circular arc tangent to the lines from the current point to p1 and from
+ * p1 to p2 (CGPathAddArcToPoint). */
+- (void)appendBezierPathWithArcFromPoint:(NSPoint)p1 toPoint:(NSPoint)p2 radius:(CGFloat)radius {
+    CGPathAddArcToPoint(_path, NULL, p1.x, p1.y, p2.x, p2.y, radius);
+}
+- (NSUInteger)windingRule { return _winding; }
+- (void)setWindingRule:(NSUInteger)rule { _winding = rule; }
 - (void)_bn_apply:(CGContextRef)c {
     CGContextBeginPath(c);
     CGContextAddPath(c, _path);
@@ -207,7 +215,8 @@ void NSEraseRect(NSRect r) {
     CGContextRef c = current_cg();
     if (!c) return;
     [self _bn_apply:c];
-    CGContextFillPath(c);
+    if (_winding == 1) CGContextEOFillPath(c);
+    else CGContextFillPath(c);
 }
 - (void)stroke {
     CGContextRef c = current_cg();
@@ -224,7 +233,8 @@ void NSEraseRect(NSRect r) {
     CGContextRef c = current_cg();
     if (!c) return;
     [self _bn_apply:c];
-    CGContextClip(c);
+    if (_winding == 1) CGContextEOClip(c);
+    else CGContextClip(c);
 }
 - (void)setClip { [self addClip]; }
 - (CGFloat)lineWidth { return _lineWidth; }

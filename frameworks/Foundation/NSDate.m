@@ -78,6 +78,10 @@ NSString *const NSLocalizedFailureErrorKey = @"NSLocalizedFailure";
     return [NSString stringWithFormat:@"The operation couldn’t be completed. (%@ error %ld.)", self.domain, (long)self.code];
 }
 - (NSString *)localizedFailureReason { return self.userInfo[NSLocalizedFailureReasonErrorKey]; }
+- (NSString *)localizedRecoverySuggestion { return self.userInfo[NSLocalizedRecoverySuggestionErrorKey]; }
+- (NSArray<NSString *> *)localizedRecoveryOptions { return self.userInfo[@"NSLocalizedRecoveryOptions"]; }
+- (id)recoveryAttempter { return self.userInfo[@"NSRecoveryAttempter"]; }
+- (NSString *)helpAnchor { return self.userInfo[@"NSHelpAnchor"]; }
 - (id)copyWithZone:(NSZone *)zone { return self; }
 - (NSString *)description {
     return [NSString stringWithFormat:@"Error Domain=%@ Code=%ld \"%@\"", self.domain, (long)self.code, self.localizedDescription];

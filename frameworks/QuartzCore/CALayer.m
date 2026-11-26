@@ -564,6 +564,24 @@ static CGRect gravity_rect(NSString *g, CGRect b, CGSize content) {
 - (void)renderInContext:(CGContextRef)ctx {
     if (ctx) [self _bn_render:ctx];
 }
+
+/* Layer time: each layer maps its superlayer's time t to
+ * (t - beginTime) * speed + timeOffset. Converting goes up from one layer
+ * to the root and back down to the other. */
+static CFTimeInterval to_root(CALayer *l, CFTimeInterval t) {
+    for (; l; l = l.superlayer) {
+        float sp = l.speed;
+        t = (sp != 0 ? (t - l.timeOffset) / sp : 0) + l.beginTime;
+    }
+    return t;
+}
+static CFTimeInterval from_root(CALayer *l, CFTimeInterval t) {
+    if (!l) return t;
+    t = from_root(l.superlayer, t);
+    return (t - l.beginTime) * l.speed + l.timeOffset;
+}
+- (CFTimeInterval)convertTime:(CFTimeInterval)t fromLayer:(CALayer *)l { return from_root(self, to_root(l, t)); }
+- (CFTimeInterval)convertTime:(CFTimeInterval)t toLayer:(CALayer *)l { return from_root(l, to_root(self, t)); }
 @end
 
 /* ---- shape, gradient, text and Metal layers ------------------------------------------------- */

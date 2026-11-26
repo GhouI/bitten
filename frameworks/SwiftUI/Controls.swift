@@ -1445,8 +1445,12 @@ internal final class _GeometryNode: _ViewNode {
   override func sizeThatFits(_ proposal: ProposedViewSize) -> CGSize { return proposal.replacingUnspecifiedDimensions() }
   override func place(in rect: CGRect) {
     frame = rect
+    // The old content stays alive until the new one is placed: placing can
+    // run program code that still holds parts of it.
+    let previous = children
     let child = make(GeometryProxy(frameInHost: rect), inputs)
     children = [child]
+    defer { withExtendedLifetime(previous) {} }
     let s = child.sizeThatFits(ProposedViewSize(rect.size))
     child.place(in: CGRect(origin: rect.origin, size: s))
   }

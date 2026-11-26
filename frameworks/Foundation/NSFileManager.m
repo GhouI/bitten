@@ -2,6 +2,8 @@
 #include <dirent.h>
 #include <pwd.h>
 #include <sys/stat.h>
+#include <sys/time.h>
+#include <unistd.h>
 
 NSFileAttributeKey const NSFileSize = @"NSFileSize";
 NSFileAttributeKey const NSFileType = @"NSFileType";
@@ -238,6 +240,42 @@ static const char *FS(NSString *path) { return path.fileSystemRepresentation; }
              NSFilePosixPermissions: @((unsigned)(st.st_mode & 07777)),
              NSFileOwnerAccountID: @(st.st_uid), NSFileGroupOwnerAccountID: @(st.st_gid)};
 }
+/* Permissions, owner and dates; other attributes have no equivalent here. */
+- (BOOL)setAttributes:(NSDictionary<NSFileAttributeKey, id> *)attributes ofItemAtPath:(NSString *)path
+                error:(NSError **)error {
+    const char *p = FS(path);
+    if (attributes[NSFilePosixPermissions] && chmod(p, (mode_t)[attributes[NSFilePosixPermissions] unsignedIntValue])) {
+        BNSetPOSIXError(error, path, YES);
+        return NO;
+    }
+    if (attributes[NSFileOwnerAccountID] || attributes[NSFileGroupOwnerAccountID]) {
+        uid_t u = attributes[NSFileOwnerAccountID] ? [attributes[NSFileOwnerAccountID] unsignedIntValue] : (uid_t)-1;
+        gid_t g = attributes[NSFileGroupOwnerAccountID] ? [attributes[NSFileGroupOwnerAccountID] unsignedIntValue] : (gid_t)-1;
+        if (lchown(p, u, g)) {
+            BNSetPOSIXError(error, path, YES);
+            return NO;
+        }
+    }
+    NSDate *m = attributes[NSFileModificationDate];
+    if (m) {
+        struct timeval tv[2];
+        double t = m.timeIntervalSince1970;
+        tv[0].tv_sec = tv[1].tv_sec = (time_t)t;
+        tv[0].tv_usec = tv[1].tv_usec = (suseconds_t)((t - (double)(time_t)t) * 1e6);
+        if (utimes(p, tv)) {
+            BNSetPOSIXError(error, path, YES);
+            return NO;
+        }
+    }
+    return YES;
+}
+/* The name to show for a file: its last component, without the extension
+ * for applications. */
+- (NSString *)displayNameAtPath:(NSString *)path {
+    NSString *name = path.lastPathComponent;
+    if ([name.pathExtension isEqualToString:@"app"]) return name.stringByDeletingPathExtension;
+    return name;
+}
 - (NSURL *)temporaryDirectory { return [NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES]; }
 - (NSURL *)homeDirectoryForCurrentUser { return [NSURL fileURLWithPath:NSHomeDirectory() isDirectory:YES]; }
 - (NSArray<NSURL *> *)URLsForDirectory:(NSSearchPathDirectory)directory inDomains:(NSSearchPathDomainMask)domainMask {
@@ -328,6 +366,20 @@ NSArray<NSString *> *NSSearchPathForDirectoriesInDomains(NSSearchPathDirectory d
 }
 
 @implementation NSString (Files)
+/* The inverse of pathComponents: a leading "/" makes the path absolute. */
++ (NSString *)pathWithComponents:(NSArray<NSString *> *)components {
+    NSMutableString *out = [NSMutableString string];
+    for (NSString *c in components) {
+        if ([c isEqualToString:@"/"]) {
+            if (!out.length) [out appendString:@"/"];
+            continue;
+        }
+        if (!c.length) continue;
+        if (out.length && ![out hasSuffix:@"/"]) [out appendString:@"/"];
+        [out appendString:c];
+    }
+    return out;
+}
 - (const char *)fileSystemRepresentation { return self.UTF8String; }
 - (BOOL)isAbsolutePath { return [self hasPrefix:@"/"] || [self hasPrefix:@"~"]; }
 - (NSArray<NSString *> *)pathComponents {
