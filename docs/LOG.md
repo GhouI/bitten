@@ -3235,3 +3235,15 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Target app window (total `^MISSING`): 11 -> 11. It now runs past the
   GeometryReader crash; the next one is a TupleView inside a mask
   modifier whose value the app lays out differently from our metadata.
+
+## _MaskAlignmentEffect field order: the app runs
+
+- SwiftUI: `_MaskAlignmentEffect` stores its alignment first and its mask
+  second, as Apple's does. Programs build it inline (`mask(alignment:_:)`
+  is inlinable): the target app wrote the alignment at offset 0 and built
+  the mask at the second field's offset, which in our order overlapped
+  both. Found by reading the app's body code for the modifier.
+- The target application now stays up: its server runs, its window shows
+  the onboarding page ("Get Started", Continue / Skip) with its tab bar
+  and toolbar.
+- Target app window (total `^MISSING`): 11 -> 11.

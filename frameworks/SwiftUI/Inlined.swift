@@ -52,10 +52,11 @@ public struct _InsetViewModifier<Content: View>: ViewModifier {
 
 /// `mask(alignment:_:)`: draws the view where the mask is opaque. Here
 /// the mask's frame clips.
+/// Alignment first, then the mask: programs build it inline in that order.
 @frozen
 public struct _MaskAlignmentEffect<Mask: View>: ViewModifier {
-  public var mask: Mask
   public var alignment: Alignment
+  public var mask: Mask
   @inlinable public init(mask: Mask, alignment: Alignment = .center) {
     self.mask = mask
     self.alignment = alignment
