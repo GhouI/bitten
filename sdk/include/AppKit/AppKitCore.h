@@ -774,6 +774,9 @@ typedef NS_ENUM(NSInteger, NSImageSymbolScale) {
 + (instancetype)configurationWithHierarchicalColor:(NSColor *)hierarchicalColor;
 + (instancetype)configurationWithPaletteColors:(NSArray<NSColor *> *)paletteColors;
 + (instancetype)configurationPreferringMulticolor;
++ (instancetype)configurationPreferringMonochrome;
++ (instancetype)configurationPreferringHierarchical;
++ (instancetype)configurationWithTextStyle:(NSString *)style scale:(NSImageSymbolScale)scale;
 - (instancetype)configurationByApplyingConfiguration:(NSImageSymbolConfiguration *)configuration;
 @end
 
@@ -1094,6 +1097,14 @@ typedef NS_ENUM(NSInteger, NSScrollElasticity) {
 - (void)reflectScrolledClipView:(NSClipView *)clipView;
 @end
 
+@interface NSView (BittenSubviews)
+- (void)addSubview:(NSView *)view positioned:(NSWindowOrderingMode)place relativeTo:(nullable NSView *)otherView;
+- (void)replaceSubview:(NSView *)oldView with:(NSView *)newView;
+- (void)setSubviews:(NSArray<NSView *> *)subviews;
+- (void)sortSubviewsUsingFunction:(NSComparisonResult (*)(__kindof NSView *, __kindof NSView *, void *_Nullable))compare
+                          context:(nullable void *)context;
+- (nullable NSView *)ancestorSharedWithView:(NSView *)view;
+@end
 @interface NSView (BittenScrolling)
 - (void)scrollPoint:(NSPoint)point;
 - (BOOL)scrollRectToVisible:(NSRect)rect;
@@ -1297,4 +1308,295 @@ typedef NS_ENUM(NSUInteger, NSTextFieldBezelStyle) { NSTextFieldSquareBezel = 0,
 @property (nullable, copy) NSAttributedString *placeholderAttributedString;
 @property CGFloat preferredMaxLayoutWidth;
 @property (nullable, weak) id<NSTextFieldDelegate> delegate;
+@end
+
+typedef NS_OPTIONS(NSUInteger, NSCursorFrameResizeDirections) {
+    NSCursorFrameResizeDirectionsInward = 1 << 0, NSCursorFrameResizeDirectionsOutward = 1 << 1,
+    NSCursorFrameResizeDirectionsAll = NSCursorFrameResizeDirectionsInward | NSCursorFrameResizeDirectionsOutward
+};
+typedef NS_ENUM(NSUInteger, NSImageAlignment) {
+    NSImageAlignCenter = 0, NSImageAlignTop, NSImageAlignTopLeft, NSImageAlignTopRight, NSImageAlignLeft,
+    NSImageAlignBottom, NSImageAlignBottomLeft, NSImageAlignBottomRight, NSImageAlignRight
+};
+typedef NS_ENUM(NSUInteger, NSImageFrameStyle) {
+    NSImageFrameNone = 0, NSImageFramePhoto, NSImageFrameGrayBezel, NSImageFrameGroove, NSImageFrameButton
+};
+typedef NS_ENUM(NSUInteger, NSCellImagePosition) {
+    NSNoImage = 0, NSImageOnly = 1, NSImageLeft = 2, NSImageRight = 3, NSImageBelow = 4, NSImageAbove = 5,
+    NSImageOverlaps = 6, NSImageLeading = 7, NSImageTrailing = 8
+};
+typedef NS_ENUM(NSUInteger, NSBezelStyle) {
+    NSBezelStyleAutomatic = 0, NSBezelStylePush = 1, NSBezelStyleFlexiblePush = 2, NSBezelStyleDisclosure = 5,
+    NSBezelStyleCircular = 7, NSBezelStyleHelpButton = 9, NSBezelStyleSmallSquare = 10, NSBezelStyleToolbar = 11,
+    NSBezelStyleAccessoryBarAction = 12, NSBezelStyleAccessoryBar = 13, NSBezelStylePushDisclosure = 14,
+    NSBezelStyleBadge = 15, NSBezelStyleRounded = 1, NSBezelStyleRegularSquare = 2, NSBezelStyleTexturedSquare = 8,
+    NSBezelStyleTexturedRounded = 11, NSBezelStyleRoundRect = 12, NSBezelStyleRecessed = 13,
+    NSBezelStyleRoundedDisclosure = 14, NSBezelStyleInline = 15, NSBezelStyleShadowlessSquare = 6
+};
+typedef NS_ENUM(NSUInteger, NSButtonType) {
+    NSButtonTypeMomentaryLight = 0, NSButtonTypePushOnPushOff = 1, NSButtonTypeToggle = 2, NSButtonTypeSwitch = 3,
+    NSButtonTypeRadio = 4, NSButtonTypeMomentaryChange = 5, NSButtonTypeOnOff = 6, NSButtonTypeMomentaryPushIn = 7,
+    NSButtonTypeAccelerator = 8, NSButtonTypeMultiLevelAccelerator = 9
+};
+typedef NSInteger NSControlStateValue NS_TYPED_EXTENSIBLE_ENUM;
+static const NSControlStateValue NSControlStateValueMixed = -1;
+static const NSControlStateValue NSControlStateValueOff = 0;
+static const NSControlStateValue NSControlStateValueOn = 1;
+typedef NS_ENUM(NSUInteger, NSProgressIndicatorStyle) {
+    NSProgressIndicatorStyleBar = 0, NSProgressIndicatorStyleSpinning = 1
+};
+typedef NS_ENUM(NSUInteger, NSSegmentSwitchTracking) {
+    NSSegmentSwitchTrackingSelectOne = 0, NSSegmentSwitchTrackingSelectAny = 1, NSSegmentSwitchTrackingMomentary = 2,
+    NSSegmentSwitchTrackingMomentaryAccelerator = 3
+};
+typedef NS_ENUM(NSInteger, NSSegmentStyle) {
+    NSSegmentStyleAutomatic = 0, NSSegmentStyleRounded = 1, NSSegmentStyleRoundRect = 3,
+    NSSegmentStyleTexturedSquare = 4, NSSegmentStyleSmallSquare = 6, NSSegmentStyleSeparated = 8,
+    NSSegmentStyleTexturedRounded = 2, NSSegmentStyleCapsule = 5
+};
+typedef NS_ENUM(NSInteger, NSWritingDirection) {
+    NSWritingDirectionNatural = -1, NSWritingDirectionLeftToRight = 0, NSWritingDirectionRightToLeft = 1
+};
+typedef NS_OPTIONS(NSUInteger, NSGradientDrawingOptions) {
+    NSGradientDrawsBeforeStartingLocation = 1 << 0, NSGradientDrawsAfterEndingLocation = 1 << 1
+};
+typedef NSString *NSSoundName NS_SWIFT_NAME(NSSound.Name);
+typedef NS_ENUM(NSInteger, NSHapticFeedbackPattern) {
+    NSHapticFeedbackPatternGeneric = 0, NSHapticFeedbackPatternAlignment, NSHapticFeedbackPatternLevelChange
+};
+typedef NS_ENUM(NSUInteger, NSHapticFeedbackPerformanceTime) {
+    NSHapticFeedbackPerformanceTimeDefault = 0, NSHapticFeedbackPerformanceTimeNow, NSHapticFeedbackPerformanceTimeDrawCompleted
+};
+typedef NS_ENUM(NSInteger, NSGestureRecognizerState) {
+    NSGestureRecognizerStatePossible, NSGestureRecognizerStateBegan, NSGestureRecognizerStateChanged,
+    NSGestureRecognizerStateEnded, NSGestureRecognizerStateCancelled, NSGestureRecognizerStateFailed,
+    NSGestureRecognizerStateRecognized = NSGestureRecognizerStateEnded
+};
+
+@interface NSImageView : NSControl
++ (instancetype)imageViewWithImage:(NSImage *)image;
+@property (nullable, strong) NSImage *image;
+@property NSImageScaling imageScaling;
+@property NSImageAlignment imageAlignment;
+@property NSImageFrameStyle imageFrameStyle;
+@property (nullable, copy) NSColor *contentTintColor;
+@property (nullable, copy) NSImageSymbolConfiguration *symbolConfiguration;
+@property (getter=isEditable) BOOL editable;
+@property BOOL animates;
+@end
+
+@interface NSButton : NSControl
++ (instancetype)buttonWithTitle:(NSString *)title target:(nullable id)target action:(nullable SEL)action;
++ (instancetype)buttonWithImage:(NSImage *)image target:(nullable id)target action:(nullable SEL)action;
++ (instancetype)buttonWithTitle:(NSString *)title image:(NSImage *)image target:(nullable id)target
+                         action:(nullable SEL)action;
++ (instancetype)checkboxWithTitle:(NSString *)title target:(nullable id)target action:(nullable SEL)action;
++ (instancetype)radioButtonWithTitle:(NSString *)title target:(nullable id)target action:(nullable SEL)action;
+@property (copy) NSString *title;
+@property (copy) NSAttributedString *attributedTitle;
+@property (copy) NSString *alternateTitle;
+@property (nullable, strong) NSImage *image;
+@property (nullable, strong) NSImage *alternateImage;
+@property NSCellImagePosition imagePosition;
+@property NSImageScaling imageScaling;
+@property BOOL imageHugsTitle;
+@property NSBezelStyle bezelStyle;
+- (void)setButtonType:(NSButtonType)type;
+@property NSControlStateValue state;
+@property BOOL allowsMixedState;
+@property (getter=isBordered) BOOL bordered;
+@property (getter=isTransparent) BOOL transparent;
+@property BOOL showsBorderOnlyWhileMouseInside;
+@property (getter=isSpringLoaded) BOOL springLoaded;
+@property (nullable, copy) NSColor *contentTintColor;
+@property (nullable, copy) NSColor *bezelColor;
+@property (copy) NSString *keyEquivalent;
+@property NSEventModifierFlags keyEquivalentModifierMask;
+@property (nullable, copy) NSImageSymbolConfiguration *symbolConfiguration;
+@property BOOL hasDestructiveAction;
+- (void)setPeriodicDelay:(float)delay interval:(float)interval;
+- (void)performClick:(nullable id)sender;
+- (BOOL)performKeyEquivalent:(NSEvent *)key;
+@end
+
+@interface NSProgressIndicator : NSView
+@property double doubleValue;
+- (void)incrementBy:(double)delta;
+@property double minValue;
+@property double maxValue;
+@property (getter=isIndeterminate) BOOL indeterminate;
+@property NSProgressIndicatorStyle style;
+@property NSControlSize controlSize;
+@property (getter=isDisplayedWhenStopped) BOOL displayedWhenStopped;
+@property BOOL usesThreadedAnimation;
+@property (getter=isBezeled) BOOL bezeled;
+@property (nullable, strong) NSProgress *observedProgress;
+- (void)startAnimation:(nullable id)sender;
+- (void)stopAnimation:(nullable id)sender;
+- (void)sizeToFit;
+@end
+
+@interface NSSegmentedControl : NSControl
++ (instancetype)segmentedControlWithLabels:(NSArray<NSString *> *)labels trackingMode:(NSSegmentSwitchTracking)trackingMode
+                                    target:(nullable id)target action:(nullable SEL)action;
++ (instancetype)segmentedControlWithImages:(NSArray<NSImage *> *)images trackingMode:(NSSegmentSwitchTracking)trackingMode
+                                    target:(nullable id)target action:(nullable SEL)action;
+@property NSInteger segmentCount;
+@property NSInteger selectedSegment;
+@property (readonly) NSInteger indexOfSelectedItem;
+@property NSSegmentSwitchTracking trackingMode;
+@property NSSegmentStyle segmentStyle;
+@property (nullable, copy) NSColor *selectedSegmentBezelColor;
+- (BOOL)selectSegmentWithTag:(NSInteger)tag;
+- (void)setLabel:(NSString *)label forSegment:(NSInteger)segment;
+- (nullable NSString *)labelForSegment:(NSInteger)segment;
+- (void)setImage:(nullable NSImage *)image forSegment:(NSInteger)segment;
+- (nullable NSImage *)imageForSegment:(NSInteger)segment;
+- (void)setImageScaling:(NSImageScaling)scaling forSegment:(NSInteger)segment;
+- (void)setWidth:(CGFloat)width forSegment:(NSInteger)segment;
+- (CGFloat)widthForSegment:(NSInteger)segment;
+- (void)setToolTip:(nullable NSString *)toolTip forSegment:(NSInteger)segment;
+- (nullable NSString *)toolTipForSegment:(NSInteger)segment;
+- (void)setTag:(NSInteger)tag forSegment:(NSInteger)segment;
+- (NSInteger)tagForSegment:(NSInteger)segment;
+- (void)setMenu:(nullable NSMenu *)menu forSegment:(NSInteger)segment;
+- (nullable NSMenu *)menuForSegment:(NSInteger)segment;
+- (void)setEnabled:(BOOL)enabled forSegment:(NSInteger)segment;
+- (BOOL)isEnabledForSegment:(NSInteger)segment;
+- (void)setSelected:(BOOL)selected forSegment:(NSInteger)segment;
+- (BOOL)isSelectedForSegment:(NSInteger)segment;
+@end
+
+@interface NSCursor : NSObject
+@property (class, readonly, strong) NSCursor *arrowCursor, *IBeamCursor, *IBeamCursorForVerticalLayout,
+    *pointingHandCursor, *closedHandCursor, *openHandCursor, *resizeLeftCursor, *resizeRightCursor,
+    *resizeLeftRightCursor, *resizeUpCursor, *resizeDownCursor, *resizeUpDownCursor, *crosshairCursor,
+    *disappearingItemCursor, *operationNotAllowedCursor, *dragLinkCursor, *dragCopyCursor, *contextualMenuCursor,
+    *columnResizeCursor, *rowResizeCursor, *zoomInCursor, *zoomOutCursor, *currentCursor, *currentSystemCursor;
++ (NSCursor *)columnResizeCursorInDirections:(NSCursorFrameResizeDirections)directions;
++ (NSCursor *)rowResizeCursorInDirections:(NSCursorFrameResizeDirections)directions;
++ (NSCursor *)frameResizeCursorFromPosition:(NSCursorFrameResizePosition)position
+                               inDirections:(NSCursorFrameResizeDirections)directions;
++ (void)hide;
++ (void)unhide;
++ (void)setHiddenUntilMouseMoves:(BOOL)flag;
++ (void)pop;
+- (instancetype)initWithImage:(nullable NSImage *)newImage hotSpot:(NSPoint)point;
+@property (nullable, readonly, strong) NSImage *image;
+@property (readonly) NSPoint hotSpot;
+- (void)set;
+- (void)push;
+- (void)pop;
+@end
+
+@interface NSParagraphStyle : NSObject <NSCopying, NSMutableCopying>
+@property (class, readonly, copy) NSParagraphStyle *defaultParagraphStyle;
++ (NSWritingDirection)defaultWritingDirectionForLanguage:(nullable NSString *)languageName;
+@property (readonly) NSTextAlignment alignment;
+@property (readonly) NSLineBreakMode lineBreakMode;
+@property (readonly) CGFloat lineSpacing, paragraphSpacing, paragraphSpacingBefore, headIndent, tailIndent,
+    firstLineHeadIndent, minimumLineHeight, maximumLineHeight, lineHeightMultiple, defaultTabInterval;
+@property (readonly) float hyphenationFactor;
+@property (readonly) NSWritingDirection baseWritingDirection;
+@property (readonly, copy) NSArray *tabStops;
+@property (readonly) BOOL allowsDefaultTighteningForTruncation;
+@end
+@interface NSMutableParagraphStyle : NSParagraphStyle
+@property NSTextAlignment alignment;
+@property NSLineBreakMode lineBreakMode;
+@property CGFloat lineSpacing, paragraphSpacing, paragraphSpacingBefore, headIndent, tailIndent, firstLineHeadIndent,
+    minimumLineHeight, maximumLineHeight, lineHeightMultiple, defaultTabInterval;
+@property float hyphenationFactor;
+@property NSWritingDirection baseWritingDirection;
+@property (copy) NSArray *tabStops;
+@property BOOL allowsDefaultTighteningForTruncation;
+- (void)setParagraphStyle:(NSParagraphStyle *)obj;
+@end
+
+@class NSBezierPath;
+@interface NSGradient : NSObject <NSCopying>
+- (nullable instancetype)initWithStartingColor:(NSColor *)startingColor endingColor:(NSColor *)endingColor;
+- (nullable instancetype)initWithColors:(NSArray<NSColor *> *)colorArray;
+- (nullable instancetype)initWithColors:(NSArray<NSColor *> *)colorArray
+                              locations:(nullable NSArray<NSNumber *> *)locations;
+- (nullable instancetype)initWithColorsAndLocations:(NSColor *)firstColor, ... NS_REQUIRES_NIL_TERMINATION;
+@property (readonly) NSInteger numberOfColorStops;
+- (void)getColor:(NSColor *_Nullable *_Nullable)color location:(nullable CGFloat *)location atIndex:(NSInteger)index;
+- (NSColor *)interpolatedColorAtLocation:(CGFloat)location;
+- (void)drawFromPoint:(NSPoint)startingPoint toPoint:(NSPoint)endingPoint options:(NSGradientDrawingOptions)options;
+- (void)drawInRect:(NSRect)rect angle:(CGFloat)angle;
+- (void)drawInBezierPath:(NSBezierPath *)path angle:(CGFloat)angle;
+- (void)drawInRect:(NSRect)rect relativeCenterPosition:(NSPoint)relativeCenterPosition;
+@end
+
+@class NSSound;
+@protocol NSSoundDelegate <NSObject>
+@optional
+- (void)sound:(NSSound *)sound didFinishPlaying:(BOOL)flag;
+@end
+@interface NSSound : NSObject <NSCopying>
++ (nullable instancetype)soundNamed:(NSSoundName)name;
+- (nullable instancetype)initWithContentsOfURL:(NSURL *)url byReference:(BOOL)byRef;
+- (nullable instancetype)initWithContentsOfFile:(NSString *)path byReference:(BOOL)byRef;
+@property (nullable, readonly, copy) NSSoundName name;
+- (BOOL)setName:(nullable NSSoundName)string;
+- (BOOL)play;
+- (BOOL)stop;
+- (BOOL)pause;
+- (BOOL)resume;
+@property (readonly, getter=isPlaying) BOOL playing;
+@property float volume;
+@property BOOL loops;
+@property (readonly) NSTimeInterval duration;
+@property NSTimeInterval currentTime;
+@property (nullable, weak) id<NSSoundDelegate> delegate;
+@end
+
+@protocol NSHapticFeedbackPerformer <NSObject>
+- (void)performFeedbackPattern:(NSHapticFeedbackPattern)pattern performanceTime:(NSHapticFeedbackPerformanceTime)performanceTime;
+@end
+@interface NSHapticFeedbackManager : NSObject
+@property (class, readonly, strong) id<NSHapticFeedbackPerformer> defaultPerformer;
+@end
+
+@interface NSAccessibilityCustomAction : NSObject
+- (instancetype)initWithName:(NSString *)name handler:(BOOL (^_Nullable)(void))handler;
+- (instancetype)initWithName:(NSString *)name target:(id)target selector:(SEL)selector;
+@property (copy) NSString *name;
+@property (nullable, copy) BOOL (^handler)(void);
+@property (nullable, weak) id target;
+@property (nullable) SEL selector;
+@end
+
+@class NSGestureRecognizer;
+@protocol NSGestureRecognizerDelegate <NSObject>
+@optional
+- (BOOL)gestureRecognizerShouldBegin:(NSGestureRecognizer *)gestureRecognizer;
+@end
+@interface NSGestureRecognizer : NSObject
+- (instancetype)initWithTarget:(nullable id)target action:(nullable SEL)action;
+@property (nullable, weak) id target;
+@property (nullable) SEL action;
+@property (nullable, readonly) NSView *view;
+- (void)_bn_setView:(nullable NSView *)view;
+@property NSGestureRecognizerState state;
+@property (getter=isEnabled) BOOL enabled;
+@property (nullable, weak) id<NSGestureRecognizerDelegate> delegate;
+@property BOOL delaysPrimaryMouseButtonEvents;
+- (NSPoint)locationInView:(nullable NSView *)view;
+@end
+@interface NSClickGestureRecognizer : NSGestureRecognizer
+@property NSInteger numberOfClicksRequired;
+@property NSInteger numberOfTouchesRequired;
+@property NSUInteger buttonMask;
+@end
+@interface NSPressGestureRecognizer : NSGestureRecognizer
+@property NSTimeInterval minimumPressDuration;
+@property CGFloat allowableMovement;
+@property NSUInteger buttonMask;
+@end
+@interface NSView (BittenGestures)
+@property (copy) NSArray<NSGestureRecognizer *> *gestureRecognizers;
+- (void)addGestureRecognizer:(NSGestureRecognizer *)gestureRecognizer;
+- (void)removeGestureRecognizer:(NSGestureRecognizer *)gestureRecognizer;
 @end

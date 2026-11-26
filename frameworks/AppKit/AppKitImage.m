@@ -86,6 +86,13 @@ CGImageRef CGImageSourceCreateImageAtIndex(CGImageSourceRef src, size_t index, C
 + (instancetype)configurationWithTextStyle:(NSString *)style { return [self new]; }
 + (instancetype)configurationWithHierarchicalColor:(NSColor *)color { return [self new]; }
 + (instancetype)configurationWithPaletteColors:(NSArray<NSColor *> *)colors { return [self new]; }
++ (instancetype)configurationPreferringMonochrome { return [self new]; }
++ (instancetype)configurationPreferringHierarchical { return [self new]; }
++ (instancetype)configurationWithTextStyle:(NSString *)style scale:(NSImageSymbolScale)scale {
+    NSImageSymbolConfiguration *c = [self new];
+    c->_scale = scale;
+    return c;
+}
 + (instancetype)configurationPreferringMulticolor { return [self new]; }
 - (instancetype)configurationByApplyingConfiguration:(NSImageSymbolConfiguration *)other {
     NSImageSymbolConfiguration *c = [NSImageSymbolConfiguration new];

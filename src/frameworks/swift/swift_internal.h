@@ -89,6 +89,11 @@ extern const sw_metadata *const sw_empty_tuple_metadata; /* $sytN */
 const sw_metadata *sw_get_tuple_metadata(size_t n, const sw_metadata *const *elements,
                                      const char *labels);
 const sw_metadata *sw_get_metatype_metadata(const sw_metadata *instance);
+/* Extended existentials (any P<T>): the unique shape for a non-unique
+ * one, and the metadata for a shape applied to its generalization
+ * arguments (nargs 0: as many as the shape takes). */
+const void *sw_unique_extended_existential_shape(const void *nonunique);
+const sw_metadata *sw_get_extended_existential(const void *shape, const void *const *args, unsigned nargs);
 const sw_metadata *sw_get_generic_metadata(const sw_type_context_descriptor *desc,
                                            const void *const *arguments);
 /* Number of key arguments of a generic type descriptor (0 if not generic). */
