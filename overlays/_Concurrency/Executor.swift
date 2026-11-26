@@ -416,6 +416,22 @@ extension MainActor {
 
 }
 
+extension MainActor {
+  /// Runs `operation` as if on the main actor; the caller asserts it is on
+  /// the main thread.
+  @_unavailableFromAsync
+  @_alwaysEmitIntoClient
+  public static func assumeIsolated<T: Sendable>(_ operation: @MainActor () throws -> T,
+                                                 file: StaticString = #fileID, line: UInt = #line) rethrows -> T {
+    typealias YesActor = @MainActor () throws -> T
+    typealias NoActor = () throws -> T
+    return try withoutActuallyEscaping(operation) { (_ fn: @escaping YesActor) throws -> T in
+      let raw = unsafeBitCast(fn, to: NoActor.self)
+      return try raw()
+    }
+  }
+}
+
 extension Actor {
   @_alwaysEmitIntoClient
   public nonisolated func preconditionIsolated(file: StaticString = #fileID, line: UInt = #line) {

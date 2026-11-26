@@ -1959,3 +1959,35 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   pixel by pixel, attributed-string ranges and editing.
 - Target app window (total `^MISSING`): 2,395 -> 2,318 (all 74 CoreText
   imports and 3 CFAttributedString ones).
+
+## 2026-11-26: SwiftUI shapes, colours, text, images, buttons
+
+- Shapes (`Shapes.swift`): `Path` (Apple's frozen storage; over CGPath),
+  `Shape` and `ShapeStyle` with Apple's requirement lists, `_ShapeView`,
+  `Rectangle`, `RoundedRectangle`, `UnevenRoundedRectangle`, `Circle`,
+  `Ellipse`, `Capsule`, `AnyShape`, fills and strokes; the foreground,
+  background, tint, hierarchical, opacity and type-erased styles; `Angle`,
+  `UnitPoint`, `FillStyle`, `StrokeStyle`.
+- Views (`Views.swift`): `Color` (frozen; RGB, HSB, NSColor, named and
+  dynamic colours, `Resolved`, mixing), `Gradient`, `Font` (text styles at
+  macOS sizes, weights, designs), `Text` (Apple's frozen storage and
+  modifiers, localized keys with interpolation, concatenation), measured
+  and drawn with CoreText, word-wrapped; `Image` (CGImage drawing; symbol
+  placeholders), `KeyEquivalent`, `EventModifiers`, `KeyboardShortcut`,
+  `Button` with the button styles.
+- Environment modifiers with Apple's frozen types
+  (`_EnvironmentKeyWritingModifier`, `_ForegroundStyleModifier`,
+  `_BackgroundModifier`, `_OverlayModifier`, ...): `environment`, `font`,
+  `foregroundStyle`, `tint`, `background`, `overlay`, `disabled`, ...
+- `NSHostingView` centres the root view at the size it asks for.
+- Runtime: opaque result types (`some View`) resolve from names that give
+  only the outer generic arguments (the descriptor's signature has a level
+  of its own for the opaque types).
+- stdlib: `stride(from:to:by:)`, `stride(from:through:by:)`.
+- `_Concurrency`: `MainActor.assumeIsolated`. AppKit: `NSColor.cgColor`
+  and `colorWithCGColor:` in the header.
+- Build: Swift objects are touched after compiling (swiftc leaves an
+  unchanged object as it was, which made make rebuild everything each run).
+- Test: `tests/swiftlib/swiftui` (stacks, spacers, padding, frames, shapes,
+  backgrounds and text drawn into a bitmap; @State through a click).
+- Target app window (total `^MISSING`): 2,318 -> 1,950.

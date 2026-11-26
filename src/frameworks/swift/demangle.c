@@ -1793,13 +1793,20 @@ static const sw_metadata *resolve_opaque(struct resolver *R, const struct node *
     const char *name = opaque_underlying(d, n->a);
     if (!name) return rfail(R, n, "opaque type has no such underlying type");
     unsigned na = n->nkids - 1;
-    const sw_metadata **args = alloca((na + 1) * sizeof *args);
-    for (unsigned i = 0; i < na; i++)
-        if (!(args[i] = resolve(R, n->kids[i + 1]))) return NULL;
     struct sw_env e;
     sw_env_init(&e, d, NULL);
+    /* The descriptor's signature ends with a level of its own for the
+     * opaque result types; names give arguments for the outer levels only. */
+    unsigned outer = e.nlevels >= 2 ? e.levels[e.nlevels - 2] : 0;
+    if (na != e.nparams && na != outer) {
+        dx_log(1, "swift: opaque type has %u params (%u outer), given %u", e.nparams, outer, na);
+        return rfail(R, n, "wrong number of arguments for an opaque type");
+    }
+    const sw_metadata **args = alloca((e.nparams + 1) * sizeof *args);
+    for (unsigned i = 0; i <= e.nparams; i++) args[i] = NULL;
+    for (unsigned i = 0; i < na; i++)
+        if (!(args[i] = resolve(R, n->kids[i + 1]))) return NULL;
     e.flat = args;
-    if (na != e.nparams) return rfail(R, n, "wrong number of arguments for an opaque type");
     const sw_metadata *m = sw_type_in_env(name, sw_mangled_name_length(name), &e);
     return m ? m : rfail(R, n, "underlying type of an opaque type could not be resolved");
 }

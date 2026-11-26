@@ -240,6 +240,8 @@ $(BUILD)/stdlib/Swift.o: $(STDLIB_SRCS)
 	    -Xfrontend -disable-implicit-concurrency-module-import \
 	    -Xfrontend -disable-implicit-string-processing-module-import -O \
 	    -o $(BUILD)/stdlib/SwiftOnoneSupport.o -c $(BUILD)/stdlib/SwiftOnoneSupport.swift
+	@# swiftc leaves an unchanged object untouched; mark it up to date.
+	@touch $@
 # The few parts of Apple's runtime that live in libswiftCore as C data
 # (the empty collection singletons) are C here too: stdlib/*.c.
 STDLIB_COBJS := $(patsubst stdlib/%.c,$(BUILD)/stdlib/%.o,$(wildcard stdlib/*.c))
@@ -321,6 +323,7 @@ $(BUILD)/fw/Foundation/FoundationSwift.o: $(FOUNDATION_SWIFT_SRCS) $(OVERLAY_LIB
 	    -enable-library-evolution -wmo -parse-as-library -O \
 	    -emit-module -emit-module-path $(SWIFT_MODDIR)/Foundation.swiftmodule \
 	    -c -o $@ $(FOUNDATION_SWIFT_SRCS)
+	@touch $@
 
 # ---- frameworks written in Swift ------------------------------------------
 # frameworks/NAME/*.swift (SwiftUI...) is built as module NAME into
@@ -358,6 +361,7 @@ $(call swift_fw_lib,$(1)): $(wildcard frameworks/$(1)/*.swift) $(OVERLAY_LIBS) $
 	    -enable-library-evolution -wmo -parse-as-library -O \
 	    -emit-module -emit-module-path $(SWIFT_MODDIR)/$(1).swiftmodule \
 	    -c -o $(BUILD)/swiftfw/$(1).o $(wildcard frameworks/$(1)/*.swift)
+	@touch $(BUILD)/swiftfw/$(1).o
 	$(MACHO_LD) -arch x86_64 -platform_version macos $(call swift_fw_macos,$(1)) $(call swift_fw_macos,$(1)) -dylib \
 	    -install_name /System/Library/Frameworks/$(1).framework/Versions/A/$(1) \
 	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(OVERLAY_LIBS) $(call swift_fw_base,$(1)) \
@@ -383,6 +387,8 @@ SWLIB_LIBS_foundation := $(FOUNDATION) $(FOUNDATION_COMBINE)
 SWLIB_LIBS_cryptokit := $(FOUNDATION) $(call swift_fw_lib,CryptoKit)
 SWLIB_LIBS_network := $(FOUNDATION) $(call swift_fw_lib,Network)
 SWLIB_MACOS_network := 14.0
+SWLIB_LIBS_swiftui := $(FOUNDATION) $(APPKIT) $(call swift_fw_lib,Combine) $(call swift_fw_lib,SwiftUI)
+SWLIB_MACOS_swiftui := 14.0
 $(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTCORE) $(OVERLAY_LIBS) tests/include/darwin.h $$(SWLIB_LIBS_$$*)
 	@mkdir -p $(dir $@)
 	$(SWIFTC) -target x86_64-apple-macos$(call swlib_macos,$*) -runtime-compatibility-version none -sdk $(SDKROOT) -resource-dir $(SWIFTRES) -I $(SWIFT_MODDIR) \

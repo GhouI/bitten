@@ -214,6 +214,8 @@ APPKIT_EXTERN int NSApplicationMain(int argc, const char *argv[]);
     *textBackgroundColor, *windowBackgroundColor, *controlBackgroundColor, *controlAccentColor,
     *separatorColor, *selectedContentBackgroundColor;
 @property (readonly) CGFloat redComponent, greenComponent, blueComponent, alphaComponent;
+@property (readonly) CGColorRef CGColor NS_SWIFT_NAME(cgColor);
++ (NSColor *)colorWithCGColor:(CGColorRef)cgColor;
 - (NSColor *)colorWithAlphaComponent:(CGFloat)alpha;
 - (void)set;
 - (void)setFill;

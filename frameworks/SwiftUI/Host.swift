@@ -84,6 +84,7 @@ open class _HostingViewBase: NSView {
   var _root: _ViewNode?
   var _environment = EnvironmentValues()
   var _pressed: _ViewNode?
+  var _placedIn = CGSize(width: -1, height: -1)
 
   override public init(frame: NSRect) {
     super.init(frame: frame)
@@ -100,10 +101,16 @@ open class _HostingViewBase: NSView {
 
   /// The tree, built (and laid out in the bounds) on demand.
   func _layout() -> _ViewNode {
-    if let r = _root, r.frame.size.width == bounds.size.width, r.frame.size.height == bounds.size.height { return r }
+    if let r = _root, _placedIn.width == bounds.size.width, _placedIn.height == bounds.size.height { return r }
     let r = _root ?? _makeRoot()
     _root = r
-    r.place(in: CGRect(origin: CGPoint(x: 0, y: 0), size: bounds.size))
+    // The root takes the size it wants of the bounds, centred in them.
+    let want = r.sizeThatFits(ProposedViewSize(bounds.size))
+    let size = CGSize(width: min(want.width, bounds.size.width), height: min(want.height, bounds.size.height))
+    let origin = CGPoint(x: ((bounds.size.width - size.width) / 2).rounded(.down),
+                         y: ((bounds.size.height - size.height) / 2).rounded(.down))
+    r.place(in: CGRect(origin: origin, size: size))
+    _placedIn = bounds.size
     return r
   }
 
