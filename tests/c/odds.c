@@ -34,6 +34,12 @@ long CFArrayGetCount(Ref);
 Ref CFArrayGetValueAtIndex(Ref, long);
 unsigned char CFNumberGetValue(Ref, long, void *);
 char ***_NSGetArgv2(void) __asm__("__NSGetArgv");
+void *cxx_new(unsigned long) __asm__("__Znwm");
+void *cxx_new_array(unsigned long) __asm__("__Znam");
+void *cxx_new_aligned(unsigned long, unsigned long) __asm__("__ZnwmSt11align_val_t");
+void cxx_delete(void *) __asm__("__ZdlPv");
+void cxx_delete_array(void *) __asm__("__ZdaPv");
+void cxx_delete_aligned(void *, unsigned long) __asm__("__ZdlPvSt11align_val_t");
 
 int main(void) {
     /* interfaces: the loopback has an IPv4 address and a link entry */
@@ -98,6 +104,16 @@ int main(void) {
     CHECK(archs && CFArrayGetCount(archs) == 1);
     int cpu = 0;
     CHECK(CFNumberGetValue(CFArrayGetValueAtIndex(archs, 0), 3, &cpu) && cpu == 0x01000007);
+
+    /* C++ allocation */
+    char *p = cxx_new(64), *q = cxx_new_array(0);
+    CHECK(p && q && p != q);
+    memset(p, 1, 64);
+    cxx_delete(p);
+    cxx_delete_array(q);
+    void *al = cxx_new_aligned(100, 64);
+    CHECK(al && ((unsigned long)al & 63) == 0);
+    cxx_delete_aligned(al, 64);
 
     puts("odds ok");
     return 0;

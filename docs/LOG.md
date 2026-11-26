@@ -2339,3 +2339,15 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Test: `tests/swiftlib/charts` (a line chart and a styled series drawn
   into a bitmap, an axis label).
 - Target app window (total `^MISSING`): 727 -> 703.
+
+## 2026-11-26: C++ operator new and delete; CGFloat as a C vararg (PR: cxx-new)
+
+- C++ runtime (`src/frameworks/cxx/new.c`): libc++abi's operator new and
+  delete in their Darwin names, plain, array, sized, nothrow and aligned,
+  over malloc; a failed allocation aborts (no C++ exceptions here).
+- CoreFoundation overlay: `CGFloat: CVarArg` (passed as a Double), in a
+  file of its own, under CoreGraphics' mangling like CGFloat's other
+  conformances.
+- Tests: `tests/c/odds` (operator new/delete), `tests/swiftlib/localized`
+  (`String(format:)` with a CGFloat).
+- Target app window (total `^MISSING`): 703 -> 700.
