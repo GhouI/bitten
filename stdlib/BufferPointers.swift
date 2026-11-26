@@ -304,3 +304,37 @@ public func withUnsafeMutableBytes<T, Result>(of value: inout T,
     try body(UnsafeMutableRawBufferPointer(start: UnsafeMutableRawPointer($0._rawValue), count: MemoryLayout<T>.size))
   }
 }
+
+// Buffers over a slice of another buffer.
+extension UnsafeRawBufferPointer {
+  @inlinable public init(rebasing slice: Slice<UnsafeRawBufferPointer>) {
+    let base = slice.base.baseAddress.map { $0 + slice.startIndex }
+    self.init(start: base, count: slice.endIndex - slice.startIndex)
+  }
+  @inlinable public init(rebasing slice: Slice<UnsafeMutableRawBufferPointer>) {
+    let base = slice.base.baseAddress.map { UnsafeRawPointer($0 + slice.startIndex) }
+    self.init(start: base, count: slice.endIndex - slice.startIndex)
+  }
+}
+extension UnsafeMutableRawBufferPointer {
+  @inlinable public init(rebasing slice: Slice<UnsafeMutableRawBufferPointer>) {
+    let base = slice.base.baseAddress.map { $0 + slice.startIndex }
+    self.init(start: base, count: slice.endIndex - slice.startIndex)
+  }
+}
+extension UnsafeBufferPointer {
+  @inlinable public init(rebasing slice: Slice<UnsafeBufferPointer<Element>>) {
+    let base = slice.base.baseAddress.map { $0 + slice.startIndex }
+    self.init(start: base, count: slice.endIndex - slice.startIndex)
+  }
+  @inlinable public init(rebasing slice: Slice<UnsafeMutableBufferPointer<Element>>) {
+    let base = slice.base.baseAddress.map { UnsafePointer($0 + slice.startIndex) }
+    self.init(start: base, count: slice.endIndex - slice.startIndex)
+  }
+}
+extension UnsafeMutableBufferPointer {
+  @inlinable public init(rebasing slice: Slice<UnsafeMutableBufferPointer<Element>>) {
+    let base = slice.base.baseAddress.map { $0 + slice.startIndex }
+    self.init(start: base, count: slice.endIndex - slice.startIndex)
+  }
+}

@@ -311,9 +311,31 @@ __attribute__((swift_bridge("Swift.Dictionary")))
 - (BOOL)isEqualToValue:(NSValue *)value;
 @end
 
-typedef NSUInteger NSDataBase64EncodingOptions;
-typedef NSUInteger NSDataBase64DecodingOptions;
-enum { NSDataBase64DecodingIgnoreUnknownCharacters = 1 };
+typedef NS_OPTIONS(NSUInteger, NSDataBase64EncodingOptions) {
+    NSDataBase64Encoding64CharacterLineLength NS_SWIFT_NAME(lineLength64Characters) = 1,
+    NSDataBase64Encoding76CharacterLineLength NS_SWIFT_NAME(lineLength76Characters) = 2,
+    NSDataBase64EncodingEndLineWithCarriageReturn NS_SWIFT_NAME(endLineWithCarriageReturn) = 16,
+    NSDataBase64EncodingEndLineWithLineFeed NS_SWIFT_NAME(endLineWithLineFeed) = 32
+} NS_SWIFT_NAME(NSData.Base64EncodingOptions);
+typedef NS_OPTIONS(NSUInteger, NSDataBase64DecodingOptions) {
+    NSDataBase64DecodingIgnoreUnknownCharacters NS_SWIFT_NAME(ignoreUnknownCharacters) = 1
+} NS_SWIFT_NAME(NSData.Base64DecodingOptions);
+typedef NS_OPTIONS(NSUInteger, NSDataReadingOptions) {
+    NSDataReadingMappedIfSafe NS_SWIFT_NAME(mappedIfSafe) = 1,
+    NSDataReadingUncached NS_SWIFT_NAME(uncached) = 2,
+    NSDataReadingMappedAlways NS_SWIFT_NAME(alwaysMapped) = 8
+} NS_SWIFT_NAME(NSData.ReadingOptions);
+typedef NS_OPTIONS(NSUInteger, NSDataWritingOptions) {
+    NSDataWritingAtomic NS_SWIFT_NAME(atomic) = 1,
+    NSDataWritingWithoutOverwriting NS_SWIFT_NAME(withoutOverwriting) = 2,
+    NSDataWritingFileProtectionNone NS_SWIFT_NAME(noFileProtection) = 0x10000000,
+    NSDataWritingFileProtectionComplete NS_SWIFT_NAME(completeFileProtection) = 0x20000000,
+    NSDataWritingFileProtectionMask NS_SWIFT_NAME(fileProtectionMask) = 0xf0000000
+} NS_SWIFT_NAME(NSData.WritingOptions);
+typedef NS_OPTIONS(NSUInteger, NSDataSearchOptions) {
+    NSDataSearchBackwards NS_SWIFT_NAME(backwards) = 1,
+    NSDataSearchAnchored NS_SWIFT_NAME(anchored) = 2
+} NS_SWIFT_NAME(NSData.SearchOptions);
 @interface NSData : NSObject <NSCopying, NSMutableCopying>
 + (instancetype)data;
 + (instancetype)dataWithBytes:(const void *)bytes length:(NSUInteger)length;
@@ -388,6 +410,10 @@ enum {
 @property (nullable, readonly, copy) NSDictionary *userInfo;
 @property (readonly, copy) NSString *localizedDescription;
 @property (readonly, copy) NSString *localizedFailureReason;
+@end
+@interface NSError (BittenSwift)
++ (NSError *)_bn_errorWithDomain:(NSString *)domain code:(NSInteger)code
+                        filePath:(nullable NSString *)path underlyingPOSIX:(int)posix;
 @end
 
 __attribute__((swift_bridge("Swift.Set")))
