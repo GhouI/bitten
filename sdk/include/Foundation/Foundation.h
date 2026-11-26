@@ -28,7 +28,7 @@ static inline BOOL NSEqualRects(NSRect a, NSRect b) {
 }
 #define NSZeroPoint CGPointZero
 #define NSZeroSize CGSizeZero
-typedef double NSTimeInterval;
+typedef double NSTimeInterval NS_SWIFT_NAME(TimeInterval);
 typedef unsigned short unichar;
 typedef struct _NSZone NSZone;
 enum { NSNotFound = NSIntegerMax };
@@ -40,6 +40,28 @@ static inline NSRange NSMakeRange(NSUInteger loc, NSUInteger len) {
     return r;
 }
 static inline NSUInteger NSMaxRange(NSRange r) { return r.location + r.length; }
+/* NSDecimal: (-1)^isNegative * mantissa * 10^exponent, the mantissa a
+ * 128-bit integer in 16-bit words, least significant first. Swift calls it
+ * Decimal. */
+#define NSDecimalMaxSize 8
+#define NSDecimalNoScale 32767
+typedef struct {
+    signed int _exponent : 8;
+    unsigned int _length : 4;
+    unsigned int _isNegative : 1;
+    unsigned int _isCompact : 1;
+    unsigned int _reserved : 18;
+    unsigned short _mantissa[NSDecimalMaxSize];
+} NSDecimal;
+typedef NS_CLOSED_ENUM(NSUInteger, NSRoundingMode) {
+    NSRoundPlain NS_SWIFT_NAME(plain), NSRoundDown NS_SWIFT_NAME(down), NSRoundUp NS_SWIFT_NAME(up),
+    NSRoundBankers NS_SWIFT_NAME(bankers)
+};
+typedef NS_CLOSED_ENUM(NSUInteger, NSCalculationError) {
+    NSCalculationNoError = 0, NSCalculationLossOfPrecision, NSCalculationUnderflow, NSCalculationOverflow,
+    NSCalculationDivideByZero
+};
+void NSDecimalRound(NSDecimal *result, const NSDecimal *number, NSInteger scale, NSRoundingMode roundingMode);
 typedef NS_CLOSED_ENUM(NSInteger, NSComparisonResult) {
     NSOrderedAscending = -1, NSOrderedSame = 0, NSOrderedDescending = 1
 } NS_SWIFT_NAME(ComparisonResult);
@@ -720,6 +742,25 @@ typedef NSString *NSNotificationName;
 - (void)postNotification:(NSNotification *)notification;
 - (void)postNotificationName:(NSNotificationName)name object:(id)object;
 - (void)postNotificationName:(NSNotificationName)name object:(id)object userInfo:(NSDictionary *)userInfo;
+@end
+typedef NSString *NSDistributedNotificationCenterType;
+typedef NS_ENUM(NSUInteger, NSNotificationSuspensionBehavior) {
+    NSNotificationSuspensionBehaviorDrop = 1, NSNotificationSuspensionBehaviorCoalesce = 2,
+    NSNotificationSuspensionBehaviorHold = 3, NSNotificationSuspensionBehaviorDeliverImmediately = 4
+};
+typedef NS_OPTIONS(NSUInteger, NSDistributedNotificationOptions) {
+    NSDistributedNotificationDeliverImmediately = 1, NSDistributedNotificationPostToAllSessions = 2
+};
+@interface NSDistributedNotificationCenter : NSNotificationCenter
++ (NSDistributedNotificationCenter *)notificationCenterForType:(NSDistributedNotificationCenterType)type;
++ (NSDistributedNotificationCenter *)defaultCenter;
+- (void)addObserver:(id)observer selector:(SEL)selector name:(nullable NSNotificationName)name
+             object:(nullable NSString *)object suspensionBehavior:(NSNotificationSuspensionBehavior)behavior;
+- (void)postNotificationName:(NSNotificationName)name object:(nullable NSString *)object
+                    userInfo:(nullable NSDictionary *)userInfo deliverImmediately:(BOOL)deliverImmediately;
+- (void)postNotificationName:(NSNotificationName)name object:(nullable NSString *)object
+                    userInfo:(nullable NSDictionary *)userInfo options:(NSDistributedNotificationOptions)options;
+@property BOOL suspended;
 @end
 
 @protocol NSLocking

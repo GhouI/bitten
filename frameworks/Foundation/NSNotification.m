@@ -236,3 +236,30 @@ static void *thread_entry(void *arg) {
 }
 - (BOOL)isMainThread { return _main; }
 @end
+
+/* Distributed notifications reach other processes on macOS. Inside the
+ * container nothing else listens, so this center delivers within the
+ * process, which keeps an app's own observers working. */
+@implementation NSDistributedNotificationCenter
++ (NSDistributedNotificationCenter *)defaultCenter {
+    static NSDistributedNotificationCenter *shared;
+    @synchronized(self) {
+        if (!shared) shared = [NSDistributedNotificationCenter new];
+    }
+    return shared;
+}
++ (NSDistributedNotificationCenter *)notificationCenterForType:(NSString *)type { return [self defaultCenter]; }
+- (void)addObserver:(id)observer selector:(SEL)selector name:(NSNotificationName)name object:(NSString *)object
+    suspensionBehavior:(NSUInteger)behavior {
+    [self addObserver:observer selector:selector name:name object:object];
+}
+- (void)postNotificationName:(NSNotificationName)name object:(NSString *)object userInfo:(NSDictionary *)userInfo
+          deliverImmediately:(BOOL)immediately {
+    [self postNotificationName:name object:object userInfo:userInfo];
+}
+- (void)postNotificationName:(NSNotificationName)name object:(NSString *)object userInfo:(NSDictionary *)userInfo
+                     options:(NSUInteger)options {
+    [self postNotificationName:name object:object userInfo:userInfo];
+}
+@synthesize suspended = _suspended;
+@end

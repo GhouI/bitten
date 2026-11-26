@@ -112,6 +112,26 @@ static uint64_t unimplemented_called(const char *name) {
              name);
 }
 
+#define MAX_STUB_ARENAS 64
+static uint8_t *arenas[MAX_STUB_ARENAS];
+static int n_arenas;
+
+/* The symbol name when `p` is an unimplemented-import stub, else NULL.
+ * Data imports (descriptors, metadata) that nobody provides are bound to
+ * stubs too, so runtime code handed one can say what is missing. */
+const char *dx_stub_name(const void *p) {
+    const uint8_t *b = p;
+    for (int i = 0; i < n_arenas; i++) {
+        if (b >= arenas[i] && b < arenas[i] + (1 << 20)) {
+            if ((uintptr_t)(b - arenas[i]) % 32 != 0) return "(inside a stub)";
+            const char *name;
+            memcpy(&name, b + 10, sizeof name);
+            return name;
+        }
+    }
+    return NULL;
+}
+
 static void *make_stub(const char *name) {
     for (struct stub *s = stubs; s; s = s->next)
         if (!strcmp(s->name, name)) return s->code;
@@ -121,6 +141,7 @@ static void *make_stub(const char *name) {
                           MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
         if (stub_arena == MAP_FAILED) dx_fatal("cannot allocate stub arena");
         stub_used = 0;
+        if (n_arenas < MAX_STUB_ARENAS) arenas[n_arenas++] = stub_arena;
     }
     struct stub *s = malloc(sizeof *s);
     s->name = strdup(name);

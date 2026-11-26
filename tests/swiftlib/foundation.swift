@@ -115,3 +115,78 @@ import Synchronization
   if big[19] != 5 || big.count != 20 { bad |= 131072 }
   return bad
 }
+
+struct Person: Codable, Equatable {
+  var firstName: String
+  var age: Int
+  var score: Double
+  var tags: [String]
+  var nickname: String?
+  var born: Date
+  var blob: Data
+}
+
+@_silgen_name("swl_foundation_json") public func json() -> Int {
+  var bad = 0
+  let p = Person(firstName: "Ada", age: 36, score: 1.5, tags: ["a", "b/c"], nickname: nil,
+                 born: Date(timeIntervalSince1970: 0), blob: Data([1, 2, 3]))
+  let enc = JSONEncoder()
+  enc.outputFormatting = [.sortedKeys]
+  enc.dateEncodingStrategy = .iso8601
+  guard let data = try? enc.encode(p), let text = String(data: data, encoding: .utf8) else { return 1 }
+  let expected = #"{"age":36,"blob":"AQID","born":"1970-01-01T00:00:00Z","firstName":"Ada","score":1.5,"tags":["a","b\/c"]}"#
+  if text != expected { print(text); bad |= 2 }
+  let dec = JSONDecoder()
+  dec.dateDecodingStrategy = .iso8601
+  if (try? dec.decode(Person.self, from: data)) != p { bad |= 4 }
+  // snake case both ways
+  enc.keyEncodingStrategy = .convertToSnakeCase
+  enc.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+  if let d = try? enc.encode(["x": p]), let s = String(data: d, encoding: .utf8) {
+    if !s.contains("\"first_name\":\"Ada\"") || !s.contains("b/c") { print(s); bad |= 8 }
+    dec.keyDecodingStrategy = .convertFromSnakeCase
+    if (try? dec.decode([String: Person].self, from: d))?["x"] != p { bad |= 16 }
+  } else { bad |= 32 }
+  // pretty printing
+  enc.outputFormatting = [.prettyPrinted, .sortedKeys]
+  enc.keyEncodingStrategy = .useDefaultKeys
+  if let d = try? enc.encode([1, 2]), String(data: d, encoding: .utf8) != "[\n  1,\n  2\n]" { bad |= 64 }
+  // errors
+  do { _ = try JSONDecoder().decode([Int].self, from: Data("[1,".utf8)); bad |= 128 } catch {}
+  do { _ = try JSONDecoder().decode(Int.self, from: Data("\"x\"".utf8)); bad |= 256 } catch DecodingError.typeMismatch {} catch { bad |= 512 }
+  if (try? JSONDecoder().decode(String.self, from: Data(#""é😀\n""#.utf8))) != "é😀\n" { bad |= 1024 }
+  if (try? JSONDecoder().decode(Int64.self, from: Data("9007199254740993".utf8))) != 9007199254740993 { bad |= 2048 }
+  // dates
+  let d1 = Date(timeIntervalSince1970: 1700000000)
+  if d1.timeIntervalSinceReferenceDate != 1700000000 - 978307200 || d1.addingTimeInterval(5) <= d1 { bad |= 4096 }
+  if Date() < Date(timeIntervalSince1970: 1700000000) { bad |= 8192 }
+  if d1.description != "2023-11-14 22:13:20 +0000" { print(d1.description); bad |= 16384 }
+  return bad
+}
+
+enum Suit: CaseIterable { case hearts, spades, clubs }
+struct Item: Identifiable { let id: Int }
+
+@_silgen_name("swl_foundation_decimal") public func decimal() -> Int {
+  var bad = 0
+  if MemoryLayout<Decimal>.size != 20 { bad |= 1 }
+  let a = Decimal(string: "12.345")!, b = Decimal(string: "0.655")!
+  if (a + b).description != "13" { print((a + b).description); bad |= 2 }
+  if (a - b).description != "11.69" { bad |= 4 }
+  if (a * b).description != "8.085975" { bad |= 8 }
+  if (Decimal(1) / Decimal(4)).description != "0.25" { bad |= 16 }
+  if !((Decimal(1) / Decimal(3)).description.hasPrefix("0.3333333333")) { bad |= 32 }
+  if !(b < a) || a == b || Decimal(string: "1.50")! != Decimal(string: "1.5")! { bad |= 64 }
+  if (-a).description != "-12.345" || Decimal(string: "abc") != nil { bad |= 128 }
+  var x = Decimal(string: "2.675")!, r = Decimal()
+  NSDecimalRound(&r, &x, 2, .plain)
+  if r.description != "2.68" { print(r.description); bad |= 256 }
+  let lit: Decimal = 42
+  if lit.description != "42" || Decimal(string: "1e3")!.description != "1000" { bad |= 512 }
+  if let d = try? JSONEncoder().encode(a), let back = try? JSONDecoder().decode(Decimal.self, from: d), back != a { bad |= 1024 }
+  // stdlib protocols the target app needs
+  if Suit.allCases.count != 3 || Item(id: 4).id != 4 { bad |= 2048 }
+  if #available(macOS 15, *) {} else { bad |= 4096 }
+  if #available(macOS 99, *) { bad |= 8192 }
+  return bad
+}

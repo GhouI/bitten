@@ -149,6 +149,8 @@ typedef const sw_witness_table *(*assoc_conf_accessor)(const sw_metadata *assoc,
 
 static const sw_witness_table *d_swift_getWitnessTable(const sw_conformance_descriptor *c,
                                                        const sw_metadata *type, const void *const *args) {
+    const char *missing = dx_stub_name(c);
+    if (missing) dx_fatal("swift: protocol conformance %s is not implemented in bitten yet", missing);
     const void *const *pattern = sw_rel(&c->witness_table_pattern);
     if (!(c->flags & (SW_CONF_HAS_GENERIC_WITNESS_TABLE | SW_CONF_HAS_RESILIENT_WITNESSES)))
         return (const sw_witness_table *)pattern;
@@ -160,6 +162,8 @@ static const sw_witness_table *d_swift_getWitnessTable(const sw_conformance_desc
     struct conf_tail t;
     conf_tail(c, &t);
     const sw_protocol_descriptor *proto = sw_rel_indirect(&c->protocol);
+    const char *missing_proto = proto ? dx_stub_name(proto) : NULL;
+    if (missing_proto) dx_fatal("swift: protocol %s (needed by a conformance) is not implemented in bitten yet", missing_proto);
     unsigned pattern_words = t.gwt ? t.gwt->size_in_words : 1;
     unsigned size = pattern_words;
     if (t.resilient && size < 1 + proto->num_requirements) size = 1 + proto->num_requirements;
