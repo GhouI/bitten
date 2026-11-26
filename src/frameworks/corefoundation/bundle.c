@@ -51,6 +51,18 @@ static uint8_t *read_file(const char *path, size_t *len) {
     return b;
 }
 
+/* The first bytes of a file (a Mach-O header and its fat table). */
+static uint8_t *read_head(const char *path, size_t *len) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+    uint8_t *b = malloc(4096);
+    size_t n = fread(b, 1, 4096, f);
+    fclose(f);
+    if (!n) { free(b); return NULL; }
+    *len = n;
+    return b;
+}
+
 /* ---- bundles ---- */
 
 static const void *plist_at(const char *path) {
@@ -100,7 +112,7 @@ static const void *d_CFBundleCopyExecutableArchitecturesForURL(const void *url) 
     if (!url_path(url, path, sizeof path)) return NULL;
     snprintf(exe, sizeof exe, "%s", path);
     size_t n = 0;
-    uint8_t *b = read_file(exe, &n);
+    uint8_t *b = read_head(exe, &n);
     if (!b) {
         const char *name = strrchr(path, '/');
         name = name ? name + 1 : path;
@@ -109,7 +121,7 @@ static const void *d_CFBundleCopyExecutableArchitecturesForURL(const void *url) 
         char *dot = strrchr(base, '.');
         if (dot) *dot = 0;
         snprintf(exe, sizeof exe, "%s/Contents/MacOS/%s", path, base);
-        b = read_file(exe, &n);
+        b = read_head(exe, &n);
     }
     if (!b || n < 8) { free(b); return NULL; }
     int32_t types[16];

@@ -1697,4 +1697,6 @@ extern NSAttributedStringKey const NSLanguageIdentifierAttributeName;
 #pragma clang assume_nonnull end
 
 #import <Foundation/NSAppleEvent.h>
+#import <Foundation/NSTask.h>
+#import <Foundation/NSXPCConnection.h>
 #endif
