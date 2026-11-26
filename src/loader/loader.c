@@ -187,25 +187,38 @@ struct missing {
     struct missing *next;
     char *sym, *lib, *image;
 };
-static struct missing *missing_head;
+static struct missing *missing_head, *weak_head;
 static int missing_count;
 
-static void note_missing(struct dx_image *img, const char *lib, const char *sym) {
-    for (struct missing *m = missing_head; m; m = m->next)
-        if (!strcmp(m->sym, sym) && !strcmp(m->image, img->path)) return;
+static int note_in(struct missing **head, struct dx_image *img, const char *lib, const char *sym) {
+    for (struct missing *m = *head; m; m = m->next)
+        if (!strcmp(m->sym, sym) && !strcmp(m->image, img->path)) return 0;
     struct missing *m = malloc(sizeof *m);
     m->sym = strdup(sym);
     m->lib = strdup(lib ? lib : "?");
     m->image = img->path;
-    m->next = missing_head;
-    missing_head = m;
-    missing_count++;
+    m->next = *head;
+    *head = m;
+    return 1;
+}
+static void note_missing(struct dx_image *img, const char *lib, const char *sym) {
+    missing_count += note_in(&missing_head, img, lib, sym);
+}
+/* Weak imports of system libraries left unbound: programs test them for
+ * NULL only when the OS version check says they may be absent, and we
+ * answer as a recent macOS, so they are called. --check lists them. */
+static void note_weak_missing(struct dx_image *img, const char *lib, const char *sym) {
+    if (lib && (!strncmp(lib, "/System/", 8) || !strncmp(lib, "/usr/lib/", 9))) note_in(&weak_head, img, lib, sym);
 }
 
 int dx_missing_count(void) { return missing_count; }
 void dx_missing_each(void (*cb)(const char *image, const char *lib, const char *sym, void *ctx),
                      void *ctx) {
     for (struct missing *m = missing_head; m; m = m->next) cb(m->image, m->lib, m->sym, ctx);
+}
+void dx_weak_missing_each(void (*cb)(const char *image, const char *lib, const char *sym, void *ctx),
+                          void *ctx) {
+    for (struct missing *m = weak_head; m; m = m->next) cb(m->image, m->lib, m->sym, ctx);
 }
 
 /* ---- helpers ---------------------------------------------------------- */
@@ -461,7 +474,10 @@ static void *resolve(struct dx_image *img, int64_t ordinal, const char *name, in
      * loaded system image. */
     if (!r && lib && (!strncmp(lib, "/System/", 8) || !strncmp(lib, "/usr/lib/", 9))) r = dx_global_lookup(name);
     if (r) return r;
-    if (weak) return NULL;
+    if (weak) {
+        note_weak_missing(img, lib, name);
+        return NULL;
+    }
     note_missing(img, lib, name);
     /* Object constants (extern NSString *const NSFooKey and the like) are
      * read, not called: binding them to code hands programs the stub's

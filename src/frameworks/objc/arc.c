@@ -1030,3 +1030,20 @@ static void d__Unwind_Resume(void *exception) {
     dx_fatal("_Unwind_Resume called: exception unwinding is not implemented");
 }
 DX_FN(_Unwind_Resume);
+
+/* os_retain/os_release: libSystem's retain and release for OS objects
+ * (dispatch and XPC objects, os_log handles), which are Objective-C
+ * objects here. */
+static void *d_os_retain(void *o) { return o ? d_objc_retain(o) : o; }
+DX_FN(os_retain);
+static void d_os_release(void *o) {
+    if (o) d_objc_release(o);
+}
+DX_FN(os_release);
+/* Vouchers (activity and importance tokens passed with IPC) are never made
+ * here, so there is never a previous one to hand back. */
+static void *d_voucher_adopt(void *voucher) {
+    (void)voucher;
+    return NULL;
+}
+DX_FN(voucher_adopt);

@@ -132,6 +132,7 @@ struct dx_image *dx_main_image(void);
 int dx_run_main(struct dx_image *img, int argc, char **argv, char **envp);
 int dx_missing_count(void);
 void dx_missing_each(void (*cb)(const char *, const char *, const char *, void *), void *ctx);
+void dx_weak_missing_each(void (*cb)(const char *, const char *, const char *, void *), void *ctx);
 void dx_report_deps(void (*cb)(const char *, const char *, int, void *), void *ctx);
 void dx_libsystem_init(int argc, char **argv, char **envp);
 void dx_signal_init(void);
@@ -147,6 +148,11 @@ static void missing_cb(const char *image, const char *lib, const char *sym, void
     (void)ctx;
     const char *base = strrchr(image, '/');
     printf("MISSING\t%s\t%s\t%s\n", base ? base + 1 : image, lib, sym);
+}
+static void weak_cb(const char *image, const char *lib, const char *sym, void *ctx) {
+    (void)ctx;
+    const char *base = strrchr(image, '/');
+    printf("WEAK\t%s\t%s\t%s\n", base ? base + 1 : image, lib, sym);
 }
 
 static void dep_cb(const char *image, const char *dep, int macho, void *ctx) {
@@ -214,6 +220,7 @@ int main(int argc, char **argv, char **envp) {
     if (check) {
         dx_report_deps(dep_cb, NULL);
         dx_missing_each(missing_cb, NULL);
+        dx_weak_missing_each(weak_cb, NULL);
         printf("SUMMARY\tmissing=%d\n", dx_missing_count());
         return dx_missing_count() ? 1 : 0;
     }

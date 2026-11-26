@@ -112,6 +112,37 @@ static const char *FS(NSString *path) { return path.fileSystemRepresentation; }
     return YES;
 }
 - (NSData *)contentsAtPath:(NSString *)path { return [NSData dataWithContentsOfFile:path]; }
+/* Files compare by their bytes, symbolic links by where they point and
+ * directories by their entries, recursively. */
+- (BOOL)contentsEqualAtPath:(NSString *)path1 andPath:(NSString *)path2 {
+    struct stat a, b;
+    if (lstat(path1.fileSystemRepresentation, &a) || lstat(path2.fileSystemRepresentation, &b)) return NO;
+    if ((a.st_mode & S_IFMT) != (b.st_mode & S_IFMT)) return NO;
+    if (a.st_dev == b.st_dev && a.st_ino == b.st_ino) return YES;
+    switch (a.st_mode & S_IFMT) {
+    case S_IFREG: {
+        if (a.st_size != b.st_size) return NO;
+        NSData *x = [NSData dataWithContentsOfFile:path1], *y = [NSData dataWithContentsOfFile:path2];
+        return x && y && [x isEqualToData:y];
+    }
+    case S_IFLNK: {
+        NSString *x = [self destinationOfSymbolicLinkAtPath:path1 error:NULL];
+        NSString *y = [self destinationOfSymbolicLinkAtPath:path2 error:NULL];
+        return x && y && [x isEqualToString:y];
+    }
+    case S_IFDIR: {
+        NSArray *x = [[self contentsOfDirectoryAtPath:path1 error:NULL] sortedArrayUsingSelector:@selector(compare:)];
+        NSArray *y = [[self contentsOfDirectoryAtPath:path2 error:NULL] sortedArrayUsingSelector:@selector(compare:)];
+        if (!x || !y || ![x isEqualToArray:y]) return NO;
+        for (NSString *name in x)
+            if (![self contentsEqualAtPath:[path1 stringByAppendingPathComponent:name]
+                                   andPath:[path2 stringByAppendingPathComponent:name]])
+                return NO;
+        return YES;
+    }
+    default: return a.st_rdev == b.st_rdev;
+    }
+}
 - (BOOL)removeItemAtPath:(NSString *)path error:(NSError **)error {
     struct stat st;
     if (!path || lstat(FS(path), &st) != 0) {
