@@ -11,6 +11,9 @@ typedef struct CGImageSource *CGImageSourceRef;
 CGImageSourceRef CGImageSourceCreateWithData(CFDataRef data, CFDictionaryRef options);
 CGImageRef CGImageSourceCreateImageAtIndex(CGImageSourceRef src, size_t index, CFDictionaryRef options);
 
+void bn_draw_symbol(CGContextRef c, const char *name, double x, double y, double w, double h, double r,
+                    double g, double b, double a, int flipped);
+
 @implementation NSImageRep {
     NSSize _size;
     NSInteger _wide, _high;
@@ -332,15 +335,10 @@ static BOOL asset_catalog_has(NSBundle *bundle, NSString *name) {
         return;
     }
     if (_symbol) {
-        CGFloat inset = MIN(rect.size.width, rect.size.height) * 0.15;
-        NSRect r = NSInsetRect(rect, inset, inset);
-        CGContextSaveGState(c);
-        CGContextSetRGBFillColor(c, 0, 0, 0, 0.55);
-        CGPathRef p = CGPathCreateWithRoundedRect(r, r.size.width * 0.25, r.size.height * 0.25, NULL);
-        CGContextAddPath(c, p);
-        CGContextFillPath(c);
-        CGPathRelease(p);
-        CGContextRestoreGState(c);
+        /* Templates draw black (views tint them); see AppKitSymbols.m. */
+        BOOL flipped = [NSGraphicsContext currentContext].isFlipped;
+        bn_draw_symbol(c, _symbol.UTF8String, rect.origin.x, rect.origin.y, rect.size.width, rect.size.height, 0, 0, 0,
+                       0.85, flipped);
     }
 }
 - (void)drawInRect:(NSRect)dst fromRect:(NSRect)src operation:(NSCompositingOperation)op fraction:(CGFloat)alpha {
