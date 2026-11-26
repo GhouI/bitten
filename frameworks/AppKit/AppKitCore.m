@@ -320,12 +320,13 @@ static NSUInteger next_window_number = 1;
     [self _post:NSApplicationDidFinishLaunchingNotification];
     [self activate];
 }
-/* The main thread belongs to the main dispatch queue from here on: window
- * server events, timers and Swift's MainActor all arrive there as blocks. */
+/* The main thread runs the main run loop from here on, which drains the
+ * main dispatch queue: window server events, timers and Swift's MainActor
+ * all arrive there as blocks, and run loop observers see each turn. */
 - (void)run {
     _running = YES;
     [self finishLaunching];
-    dispatch_main();
+    [[NSRunLoop mainRunLoop] run];
 }
 - (void)stop:(id)sender { _running = NO; }
 - (void)terminate:(id)sender {
@@ -407,6 +408,33 @@ static NSEventModifierFlags current_flags;
 - (NSInteger)clickCount { return _clickCount; }
 - (NSString *)characters { return _chars; }
 - (NSString *)charactersIgnoringModifiers { return _charsIgnoring ?: _chars; }
+/* The characters this key makes with other modifiers, on the US layout
+ * (ANSI virtual key codes): unshifted and shifted characters per key. */
+static const struct { unsigned short code; char plain, shifted; } bn_us_keys[] = {
+    {0, 'a', 'A'}, {1, 's', 'S'}, {2, 'd', 'D'}, {3, 'f', 'F'}, {4, 'h', 'H'}, {5, 'g', 'G'},
+    {6, 'z', 'Z'}, {7, 'x', 'X'}, {8, 'c', 'C'}, {9, 'v', 'V'}, {11, 'b', 'B'}, {12, 'q', 'Q'},
+    {13, 'w', 'W'}, {14, 'e', 'E'}, {15, 'r', 'R'}, {16, 'y', 'Y'}, {17, 't', 'T'}, {18, '1', '!'},
+    {19, '2', '@'}, {20, '3', '#'}, {21, '4', '$'}, {22, '6', '^'}, {23, '5', '%'}, {24, '=', '+'},
+    {25, '9', '('}, {26, '7', '&'}, {27, '-', '_'}, {28, '8', '*'}, {29, '0', ')'}, {30, ']', '}'},
+    {31, 'o', 'O'}, {32, 'u', 'U'}, {33, '[', '{'}, {34, 'i', 'I'}, {35, 'p', 'P'}, {37, 'l', 'L'},
+    {38, 'j', 'J'}, {39, '\'', '"'}, {40, 'k', 'K'}, {41, ';', ':'}, {42, '\\', '|'}, {43, ',', '<'},
+    {44, '/', '?'}, {45, 'n', 'N'}, {46, 'm', 'M'}, {47, '.', '>'}, {50, '`', '~'}, {49, ' ', ' '},
+    {36, '\r', '\r'}, {48, '\t', '\t'}, {51, 0x7f, 0x7f}, {53, 0x1b, 0x1b},
+};
+- (NSString *)charactersByApplyingModifiers:(NSEventModifierFlags)modifiers {
+    for (size_t i = 0; i < sizeof bn_us_keys / sizeof *bn_us_keys; i++) {
+        if (bn_us_keys[i].code != _keyCode) continue;
+        char c = (modifiers & (NSEventModifierFlagShift | NSEventModifierFlagCapsLock)) ? bn_us_keys[i].shifted
+                                                                                        : bn_us_keys[i].plain;
+        if ((modifiers & NSEventModifierFlagCapsLock) && !(modifiers & NSEventModifierFlagShift) &&
+            !(c >= 'A' && c <= 'Z'))
+            c = bn_us_keys[i].plain;
+        if ((modifiers & NSEventModifierFlagControl) && ((c | 0x20) >= 'a' && (c | 0x20) <= 'z')) c = (char)(c & 0x1f);
+        return [NSString stringWithFormat:@"%c", c];
+    }
+    /* Keys outside the table (arrows, function keys): what the event carries. */
+    return self.charactersIgnoringModifiers ?: @"";
+}
 - (BOOL)isARepeat { return _repeat; }
 - (unsigned short)keyCode { return _keyCode; }
 - (CGFloat)scrollingDeltaX { return _dx; }

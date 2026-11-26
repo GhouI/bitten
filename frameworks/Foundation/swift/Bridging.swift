@@ -197,7 +197,7 @@ extension Set: _ObjectiveCBridgeable {
 
 extension Int: _ObjectiveCBridgeable {
   public typealias _ObjectiveCType = NSNumber
-  public func _bridgeToObjectiveC() -> NSNumber { return NSNumber(integer: self) }
+  public func _bridgeToObjectiveC() -> NSNumber { return NSNumber(value: self) }
   public static func _forceBridgeFromObjectiveC(_ source: NSNumber, result: inout Int?) { result = source.integerValue }
   @discardableResult
   public static func _conditionallyBridgeFromObjectiveC(_ source: NSNumber, result: inout Int?) -> Bool {
@@ -209,7 +209,7 @@ extension Int: _ObjectiveCBridgeable {
 
 extension Double: _ObjectiveCBridgeable {
   public typealias _ObjectiveCType = NSNumber
-  public func _bridgeToObjectiveC() -> NSNumber { return NSNumber(double: self) }
+  public func _bridgeToObjectiveC() -> NSNumber { return NSNumber(value: self) }
   public static func _forceBridgeFromObjectiveC(_ source: NSNumber, result: inout Double?) { result = source.doubleValue }
   @discardableResult
   public static func _conditionallyBridgeFromObjectiveC(_ source: NSNumber, result: inout Double?) -> Bool {
@@ -221,7 +221,7 @@ extension Double: _ObjectiveCBridgeable {
 
 extension Bool: _ObjectiveCBridgeable {
   public typealias _ObjectiveCType = NSNumber
-  public func _bridgeToObjectiveC() -> NSNumber { return NSNumber(bool: self) }
+  public func _bridgeToObjectiveC() -> NSNumber { return NSNumber(value: self) }
   public static func _forceBridgeFromObjectiveC(_ source: NSNumber, result: inout Bool?) { result = source.boolValue }
   @discardableResult
   public static func _conditionallyBridgeFromObjectiveC(_ source: NSNumber, result: inout Bool?) -> Bool {

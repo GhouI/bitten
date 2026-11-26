@@ -104,6 +104,7 @@ static struct cf_array *d_CFArrayCreateMutable(const void *allocator, CFIndex ca
 DX_FN(CFArrayCreateMutable);
 
 struct cf_array *d_CFArrayCreateCopy(const void *allocator, const struct cf_array *a) {
+    a = CF_STR(a);
     return a ? d_CFArrayCreate(allocator, a->values, a->count, &a->callbacks) : NULL;
 }
 DX_FN(CFArrayCreateCopy);
@@ -118,21 +119,27 @@ static struct cf_array *d_CFArrayCreateMutableCopy(const void *allocator, CFInde
 }
 DX_FN(CFArrayCreateMutableCopy);
 
-CFIndex d_CFArrayGetCount(const struct cf_array *a) { return a ? a->count : 0; }
+CFIndex d_CFArrayGetCount(const struct cf_array *a) {
+    a = CF_STR(a);
+    return a ? a->count : 0;
+}
 DX_FN(CFArrayGetCount);
 
 const void *d_CFArrayGetValueAtIndex(const struct cf_array *a, CFIndex index) {
+    a = CF_STR(a);
     return a && index >= 0 && index < a->count ? a->values[index] : NULL;
 }
 DX_FN(CFArrayGetValueAtIndex);
 
 static void d_CFArrayGetValues(const struct cf_array *a, CFRange range, const void **values) {
+    a = CF_STR(a);
     if (a && values && range.length && cf_range_valid(range, a->count))
         memcpy(values, a->values + range.location, range.length * sizeof *values);
 }
 DX_FN(CFArrayGetValues);
 
 static Boolean d_CFArrayContainsValue(const struct cf_array *a, CFRange range, const void *value) {
+    a = CF_STR(a);
     if (!a || !cf_range_valid(range, a->count)) return 0;
     for (CFIndex i = range.location; i < range.location + range.length; i++)
         if (matches(&a->callbacks, a->values[i], value)) return 1;
@@ -368,26 +375,31 @@ static struct cf_dict *dict_copy(const void *allocator, CFIndex capacity, const 
 }
 
 struct cf_dict *d_CFDictionaryCreateCopy(const void *allocator, const struct cf_dict *d) {
-    return dict_copy(allocator, 0, d, 0);
+    return dict_copy(allocator, 0, CF_STR(d), 0);
 }
 DX_FN(CFDictionaryCreateCopy);
 
 static struct cf_dict *d_CFDictionaryCreateMutableCopy(const void *allocator, CFIndex capacity,
                                                          const struct cf_dict *d) {
-    return dict_copy(allocator, capacity, d, 1);
+    return dict_copy(allocator, capacity, CF_STR(d), 1);
 }
 DX_FN(CFDictionaryCreateMutableCopy);
 
-static CFIndex d_CFDictionaryGetCount(const struct cf_dict *d) { return d ? d->count : 0; }
+static CFIndex d_CFDictionaryGetCount(const struct cf_dict *d) {
+    d = CF_STR(d);
+    return d ? d->count : 0;
+}
 DX_FN(CFDictionaryGetCount);
 
 const void *d_CFDictionaryGetValue(const struct cf_dict *d, const void *key) {
+    d = CF_STR(d);
     CFIndex i = d ? dict_find(d, key) : -1;
     return i >= 0 ? d->entries[i].value : NULL;
 }
 DX_FN(CFDictionaryGetValue);
 
 static Boolean d_CFDictionaryGetValueIfPresent(const struct cf_dict *d, const void *key, const void **out) {
+    d = CF_STR(d);
     CFIndex i = d ? dict_find(d, key) : -1;
     if (i >= 0 && out) *out = d->entries[i].value;
     return i >= 0;
@@ -395,11 +407,13 @@ static Boolean d_CFDictionaryGetValueIfPresent(const struct cf_dict *d, const vo
 DX_FN(CFDictionaryGetValueIfPresent);
 
 static Boolean d_CFDictionaryContainsKey(const struct cf_dict *d, const void *key) {
+    d = CF_STR(d);
     return d && dict_find(d, key) >= 0;
 }
 DX_FN(CFDictionaryContainsKey);
 
 static void d_CFDictionaryGetKeysAndValues(const struct cf_dict *d, const void **keys, const void **values) {
+    d = CF_STR(d);
     if (!d) return;
     for (CFIndex i = 0; i < d->count; i++) {
         if (keys) keys[i] = d->entries[i].key;
@@ -507,6 +521,9 @@ static struct cf_dict empty_dict = {.base = CF_STATIC(CF_DICTIONARY, &dict_ops)}
 static void *empty_array_ref = &empty_array, *empty_dict_ref = &empty_dict;
 DX_EXPORT("___NSArray0__", &empty_array_ref);
 DX_EXPORT("___NSDictionary0__", &empty_dict_ref);
+/* The objects themselves (Swift's empty-collection bridging). */
+DX_EXPORT("___NSArray0__struct", &empty_array);
+DX_EXPORT("___NSDictionary0__struct", &empty_dict);
 __attribute__((constructor)) static void empty_collections_init(void) {
     empty_array.callbacks = d_kCFTypeArrayCallBacks;
     empty_dict.keys = d_kCFTypeDictionaryKeyCallBacks;

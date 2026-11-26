@@ -34,6 +34,22 @@ MAKE(Integer, NSInteger, kCFNumberNSIntegerType)
 + (NSNumber *)numberWithUnsignedLong:(unsigned long)v { return [self numberWithLongLong:(long long)v]; }
 + (NSNumber *)numberWithUnsignedLongLong:(unsigned long long)v { return [self numberWithLongLong:(long long)v]; }
 + (NSNumber *)numberWithUnsignedInteger:(NSUInteger)v { return [self numberWithLongLong:(long long)v]; }
+/* Instances are CF numbers: the initializers hand back the shared kind. */
+- (NSNumber *)initWithChar:(char)value { return [NSNumber numberWithChar:value]; }
+- (NSNumber *)initWithUnsignedChar:(unsigned char)value { return [NSNumber numberWithUnsignedChar:value]; }
+- (NSNumber *)initWithShort:(short)value { return [NSNumber numberWithShort:value]; }
+- (NSNumber *)initWithUnsignedShort:(unsigned short)value { return [NSNumber numberWithUnsignedShort:value]; }
+- (NSNumber *)initWithInt:(int)value { return [NSNumber numberWithInt:value]; }
+- (NSNumber *)initWithUnsignedInt:(unsigned int)value { return [NSNumber numberWithUnsignedInt:value]; }
+- (NSNumber *)initWithLongLong:(long long)value { return [NSNumber numberWithLongLong:value]; }
+- (NSNumber *)initWithUnsignedLongLong:(unsigned long long)value { return [NSNumber numberWithUnsignedLongLong:value]; }
+- (NSNumber *)initWithFloat:(float)value { return [NSNumber numberWithFloat:value]; }
+- (NSNumber *)initWithDouble:(double)value { return [NSNumber numberWithDouble:value]; }
+- (NSNumber *)initWithBool:(BOOL)value { return [NSNumber numberWithBool:value]; }
+- (NSNumber *)initWithInteger:(NSInteger)value { return [NSNumber numberWithInteger:value]; }
+- (NSNumber *)initWithUnsignedInteger:(NSUInteger)value { return [NSNumber numberWithUnsignedInteger:value]; }
+- (NSNumber *)initWithLong:(long)value { return [NSNumber numberWithLong:value]; }
+- (NSNumber *)initWithUnsignedLong:(unsigned long)value { return [NSNumber numberWithUnsignedLong:value]; }
 + (NSNumber *)numberWithBool:(BOOL)v { return (__bridge NSNumber *)(v ? kCFBooleanTrue : kCFBooleanFalse); }
 
 GET(charValue, char, kCFNumberCharType)

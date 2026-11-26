@@ -89,6 +89,7 @@ open class _HostingViewBase: NSView {
   override public init(frame: NSRect) {
     super.init(frame: frame)
     _context.invalidate = { _GraphHost.invalidate() }
+    _context.hostView = self
     _GraphHost.hosts.append(_WeakHost(self))
   }
 

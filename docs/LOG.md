@@ -2071,3 +2071,35 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   no `NSItemProvider`).
 - Test: `tests/swiftlib/uttype`.
 - Target app window (total `^MISSING`): 1,873 -> 1,852.
+## 2026-11-26: SwiftUI protocols; Foundation literals, IndexSet, KVO, run loop observers; AppKit windows
+
+- SwiftUI (`Protocols.swift`), with Apple's requirement lists and default
+  implementations: `PreferenceKey` (preferences flow up the node tree;
+  `preference`, `onPreferenceChange`), `Layout` (custom layouts, `AnyLayout`,
+  the stack layouts as layouts), `NSViewRepresentable` and
+  `NSViewControllerRepresentable` (the AppKit view kept across rebuilds and
+  placed as a subview of the hosting view), `Commands` (`CommandGroup`,
+  `CommandMenu`, placements; menus built from the content's buttons),
+  `ToolbarContent` (`ToolbarItem`, `ToolbarItemGroup`, the builder), the
+  label, labeled-content and progress styles, `FocusedValueKey`; `Divider`.
+- Foundation: literals for `NSString`, `NSNumber`, `NSArray`, `NSSet`,
+  `NSDictionary`; `NSFastEnumerationIterator` (NSArray, NSSet and
+  NSDictionary as sequences); `NSNumber(value:)`; `IndexSet`; Swift KVO
+  (`observe(_:options:changeHandler:)`, `NSKeyValueObservation`); delayed
+  and main-thread performs, `cancelPreviousPerformRequests`;
+  NSGeometry (zero constants, rectangle and range arithmetic, string forms,
+  NSValue geometry); URL reachability checks; more NSError keys.
+- CoreFoundation: run loops over the main queue (`CFRunLoopGetMain`,
+  observers that see each turn; NSApplication now runs the main run loop),
+  bundle keys, and the constant literal objects newer clang emits
+  (`NSConstantArray`, `NSConstantDictionary`, `NSConstant*Number`), resolved
+  to CF objects on first use like constant strings.
+- AppKit: the rest of NSWindow's state (tabbing, titlebar, level,
+  collection behaviour, size limits, frame autosave, sheets, child windows,
+  zoom and miniaturize, screen conversions), `charactersByApplyingModifiers:`
+  on the US layout.
+- stdlib: `AnyKeyPath._kvcKeyPathString`; `AutoreleasingUnsafeMutablePointer`
+  subscript and conversions.
+- The target app now starts through Sparkle's updater setup and reaches
+  SwiftUI's scenes (`Scene.commands`).
+- Target app window (total `^MISSING`): 1,873 -> 1,650.

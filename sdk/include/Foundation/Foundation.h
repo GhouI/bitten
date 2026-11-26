@@ -18,7 +18,27 @@ typedef struct NSEdgeInsets { CGFloat top, left, bottom, right; } NSEdgeInsets;
 static inline NSRect NSMakeRect(CGFloat x, CGFloat y, CGFloat w, CGFloat h) { return CGRectMake(x, y, w, h); }
 static inline NSPoint NSMakePoint(CGFloat x, CGFloat y) { return CGPointMake(x, y); }
 static inline NSSize NSMakeSize(CGFloat w, CGFloat h) { return CGSizeMake(w, h); }
-#define NSZeroRect CGRectZero
+extern const NSPoint NSZeroPoint;
+extern const NSSize NSZeroSize;
+extern const NSRect NSZeroRect;
+extern const NSEdgeInsets NSEdgeInsetsZero;
+typedef NS_ENUM(NSUInteger, NSRectEdge) {
+    NSRectEdgeMinX = 0, NSRectEdgeMinY = 1, NSRectEdgeMaxX = 2, NSRectEdgeMaxY = 3,
+    NSMinXEdge = NSRectEdgeMinX, NSMinYEdge = NSRectEdgeMinY, NSMaxXEdge = NSRectEdgeMaxX, NSMaxYEdge = NSRectEdgeMaxY
+};
+static inline NSEdgeInsets NSEdgeInsetsMake(CGFloat top, CGFloat left, CGFloat bottom, CGFloat right) {
+    NSEdgeInsets e = {top, left, bottom, right};
+    return e;
+}
+BOOL NSEdgeInsetsEqual(NSEdgeInsets a, NSEdgeInsets b);
+static inline CGFloat NSMinX(NSRect r) { return r.origin.x; }
+static inline CGFloat NSMinY(NSRect r) { return r.origin.y; }
+static inline CGFloat NSMaxX(NSRect r) { return r.origin.x + r.size.width; }
+static inline CGFloat NSMaxY(NSRect r) { return r.origin.y + r.size.height; }
+static inline CGFloat NSMidX(NSRect r) { return r.origin.x + r.size.width / 2; }
+static inline CGFloat NSMidY(NSRect r) { return r.origin.y + r.size.height / 2; }
+static inline CGFloat NSWidth(NSRect r) { return r.size.width; }
+static inline CGFloat NSHeight(NSRect r) { return r.size.height; }
 static inline BOOL NSPointInRect(NSPoint p, NSRect r) {
     return p.x >= r.origin.x && p.y >= r.origin.y && p.x < r.origin.x + r.size.width &&
            p.y < r.origin.y + r.size.height;
@@ -27,8 +47,24 @@ static inline BOOL NSEqualRects(NSRect a, NSRect b) {
     return a.origin.x == b.origin.x && a.origin.y == b.origin.y && a.size.width == b.size.width &&
            a.size.height == b.size.height;
 }
-#define NSZeroPoint CGPointZero
-#define NSZeroSize CGSizeZero
+static inline BOOL NSEqualSizes(NSSize a, NSSize b) { return a.width == b.width && a.height == b.height; }
+static inline BOOL NSEqualPoints(NSPoint a, NSPoint b) { return a.x == b.x && a.y == b.y; }
+static inline BOOL NSIsEmptyRect(NSRect r) { return !(r.size.width > 0 && r.size.height > 0); }
+NSRect NSOffsetRect(NSRect r, CGFloat dx, CGFloat dy);
+NSRect NSInsetRect(NSRect r, CGFloat dx, CGFloat dy);
+NSRect NSIntegralRect(NSRect r);
+NSRect NSUnionRect(NSRect a, NSRect b);
+NSRect NSIntersectionRect(NSRect a, NSRect b);
+BOOL NSIntersectsRect(NSRect a, NSRect b);
+BOOL NSContainsRect(NSRect a, NSRect b);
+BOOL NSMouseInRect(NSPoint p, NSRect r, BOOL flipped);
+void NSDivideRect(NSRect r, NSRect *slice, NSRect *rem, CGFloat amount, NSRectEdge edge);
+NSString *NSStringFromRect(NSRect r);
+NSString *NSStringFromPoint(NSPoint p);
+NSString *NSStringFromSize(NSSize s);
+NSRect NSRectFromString(NSString *s);
+NSPoint NSPointFromString(NSString *s);
+NSSize NSSizeFromString(NSString *s);
 typedef double NSTimeInterval NS_SWIFT_NAME(TimeInterval);
 typedef unsigned short unichar;
 typedef struct _NSZone NSZone;
@@ -41,6 +77,13 @@ static inline NSRange NSMakeRange(NSUInteger loc, NSUInteger len) {
     return r;
 }
 static inline NSUInteger NSMaxRange(NSRange r) { return r.location + r.length; }
+static inline BOOL NSLocationInRange(NSUInteger loc, NSRange r) { return loc - r.location < r.length; }
+static inline BOOL NSEqualRanges(NSRange a, NSRange b) { return a.location == b.location && a.length == b.length; }
+NSRange NSUnionRange(NSRange a, NSRange b);
+NSRange NSIntersectionRange(NSRange a, NSRange b);
+@class NSString;
+NSString *NSStringFromRange(NSRange r);
+NSRange NSRangeFromString(NSString *s);
 /* NSDecimal: (-1)^isNegative * mantissa * 10^exponent, the mantissa a
  * 128-bit integer in 16-bit words, least significant first. Swift calls it
  * Decimal. */
@@ -107,8 +150,8 @@ typedef NS_OPTIONS(NSUInteger, NSStringCompareOptions) {
 
 typedef struct {
     unsigned long state;
-    id __unsafe_unretained *itemsPtr;
-    unsigned long *mutationsPtr;
+    id __unsafe_unretained _Nullable *_Nullable itemsPtr;
+    unsigned long *_Nullable mutationsPtr;
     unsigned long extra[5];
 } NSFastEnumerationState;
 @protocol NSFastEnumeration
@@ -218,6 +261,21 @@ __attribute__((swift_bridge("Swift.String")))
 + (NSNumber *)numberWithBool:(BOOL)value;
 + (NSNumber *)numberWithInteger:(NSInteger)value;
 + (NSNumber *)numberWithUnsignedInteger:(NSUInteger)value;
+- (NSNumber *)initWithChar:(char)value NS_SWIFT_NAME(init(value:));
+- (NSNumber *)initWithUnsignedChar:(unsigned char)value NS_SWIFT_NAME(init(value:));
+- (NSNumber *)initWithShort:(short)value NS_SWIFT_NAME(init(value:));
+- (NSNumber *)initWithUnsignedShort:(unsigned short)value NS_SWIFT_NAME(init(value:));
+- (NSNumber *)initWithInt:(int)value NS_SWIFT_NAME(init(value:));
+- (NSNumber *)initWithUnsignedInt:(unsigned int)value NS_SWIFT_NAME(init(value:));
+- (NSNumber *)initWithLongLong:(long long)value NS_SWIFT_NAME(init(value:));
+- (NSNumber *)initWithUnsignedLongLong:(unsigned long long)value NS_SWIFT_NAME(init(value:));
+- (NSNumber *)initWithFloat:(float)value NS_SWIFT_NAME(init(value:));
+- (NSNumber *)initWithDouble:(double)value NS_SWIFT_NAME(init(value:));
+- (NSNumber *)initWithBool:(BOOL)value NS_SWIFT_NAME(init(value:));
+- (NSNumber *)initWithInteger:(NSInteger)value NS_SWIFT_NAME(init(value:));
+- (NSNumber *)initWithUnsignedInteger:(NSUInteger)value NS_SWIFT_NAME(init(value:));
+- (NSNumber *)initWithLong:(long)value __attribute__((availability(swift, unavailable)));
+- (NSNumber *)initWithUnsignedLong:(unsigned long)value __attribute__((availability(swift, unavailable)));
 @property (readonly) char charValue;
 @property (readonly) int intValue;
 @property (readonly) unsigned int unsignedIntValue;
@@ -338,6 +396,17 @@ __attribute__((swift_bridge("Swift.Dictionary")))
 - (BOOL)isEqualToValue:(NSValue *)value;
 @end
 
+@interface NSValue (NSValueGeometryExtensions)
++ (NSValue *)valueWithPoint:(NSPoint)point;
++ (NSValue *)valueWithSize:(NSSize)size;
++ (NSValue *)valueWithRect:(NSRect)rect;
++ (NSValue *)valueWithEdgeInsets:(NSEdgeInsets)insets;
+@property (readonly) NSPoint pointValue;
+@property (readonly) NSSize sizeValue;
+@property (readonly) NSRect rectValue;
+@property (readonly) NSEdgeInsets edgeInsetsValue;
+@end
+
 typedef NS_OPTIONS(NSUInteger, NSDataBase64EncodingOptions) {
     NSDataBase64Encoding64CharacterLineLength NS_SWIFT_NAME(lineLength64Characters) = 1,
     NSDataBase64Encoding76CharacterLineLength NS_SWIFT_NAME(lineLength76Characters) = 2,
@@ -427,8 +496,11 @@ extern NSErrorDomain const NSURLErrorDomain;
 extern NSString *const NSURLErrorFailingURLErrorKey, *const NSURLErrorFailingURLStringErrorKey;
 extern NSString *const NSLocalizedDescriptionKey, *const NSLocalizedFailureReasonErrorKey,
     *const NSUnderlyingErrorKey, *const NSFilePathErrorKey;
+extern NSString *const NSURLErrorKey, *const NSLocalizedRecoverySuggestionErrorKey,
+    *const NSLocalizedRecoveryOptionsErrorKey, *const NSRecoveryAttempterErrorKey, *const NSHelpAnchorErrorKey,
+    *const NSMultipleUnderlyingErrorsKey, *const NSStringEncodingErrorKey, *const NSLocalizedFailureErrorKey;
 enum {
-    NSFileNoSuchFileError = 4, NSFileReadNoSuchFileError = 260, NSFileReadNoPermissionError = 257,
+    NSFileNoSuchFileError = 4, NSFileReadNoSuchFileError = 260, NSFileReadUnsupportedSchemeError = 262, NSFileReadNoPermissionError = 257,
     NSFileReadUnknownError = 256, NSFileReadInapplicableStringEncodingError = 261,
     NSFileWriteUnknownError = 512, NSFileWriteNoPermissionError = 513, NSFileWriteFileExistsError = 516,
     NSPropertyListReadCorruptError = 3840
@@ -602,6 +674,8 @@ NSString *NSUserName(void);
 
 __attribute__((swift_bridge("Foundation.URL")))
 @interface NSURL : NSObject <NSCopying>
+- (BOOL)checkResourceIsReachableAndReturnError:(NSError **)error NS_SWIFT_NOTHROW;
+- (BOOL)checkPromisedItemIsReachableAndReturnError:(NSError **)error NS_SWIFT_NOTHROW;
 + (nullable instancetype)URLWithString:(NSString *)string;
 + (instancetype)fileURLWithPath:(NSString *)path;
 + (instancetype)fileURLWithPath:(NSString *)path isDirectory:(BOOL)isDirectory;
@@ -973,6 +1047,19 @@ typedef NS_ENUM(NSUInteger, NSKeyValueChange) {
     NSKeyValueChangeSetting = 1, NSKeyValueChangeInsertion = 2, NSKeyValueChangeRemoval = 3,
     NSKeyValueChangeReplacement = 4
 };
+@interface NSObject (NSDelayedPerforming)
+- (void)performSelector:(SEL)aSelector withObject:(nullable id)anArgument afterDelay:(NSTimeInterval)delay
+                inModes:(NSArray<NSRunLoopMode> *)modes;
+- (void)performSelector:(SEL)aSelector withObject:(nullable id)anArgument afterDelay:(NSTimeInterval)delay;
++ (void)cancelPreviousPerformRequestsWithTarget:(id)aTarget selector:(SEL)aSelector object:(nullable id)anArgument;
++ (void)cancelPreviousPerformRequestsWithTarget:(id)aTarget;
+@end
+@interface NSObject (NSThreadPerformAdditions)
+- (void)performSelectorOnMainThread:(SEL)aSelector withObject:(nullable id)arg waitUntilDone:(BOOL)wait
+                              modes:(nullable NSArray<NSString *> *)array;
+- (void)performSelectorOnMainThread:(SEL)aSelector withObject:(nullable id)arg waitUntilDone:(BOOL)wait;
+- (void)performSelectorInBackground:(SEL)aSelector withObject:(nullable id)arg;
+@end
 @interface NSObject (NSKeyValueCoding)
 - (nullable id)valueForKey:(NSString *)key;
 - (void)setValue:(nullable id)value forKey:(NSString *)key;

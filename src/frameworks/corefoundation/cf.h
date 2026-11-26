@@ -112,6 +112,8 @@ static inline Boolean cf_grow(void *old, size_t *capacity, size_t needed, size_t
  * shadow object and returns anything else unchanged. */
 int cf_is_cf(const void *object);
 int cf_is_constant_string(const void *object);
+/* Constant strings, collections and numbers the compiler emitted. */
+int cf_is_constant(const void *object);
 const void *cf_resolve(const void *object);
 #define CF_STR(x) ((__typeof__(x))cf_resolve(x))
 struct cf_string *cf_string_from_constant(const void *constant);
