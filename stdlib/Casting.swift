@@ -63,3 +63,16 @@ public func == (t0: Any.Type?, t1: Any.Type?) -> Bool {
 }
 @inlinable
 public func != (t0: Any.Type?, t1: Any.Type?) -> Bool { return !(t0 == t1) }
+
+// `#available` checks: whether the running system is at least the given
+// macOS version. bitten presents itself as macOS 15.0, the same answer as
+// libSystem's __isOSVersionAtLeast gives C code.
+@_silgen_name("__isOSVersionAtLeast")
+internal func _bitten_isOSVersionAtLeast(_ major: Int32, _ minor: Int32, _ patch: Int32) -> Int32
+
+@_semantics("availability.osversion")
+public func _stdlib_isOSVersionAtLeast(_ major: Builtin.Word, _ minor: Builtin.Word, _ patch: Builtin.Word) -> Builtin.Int1 {
+  let ok = _bitten_isOSVersionAtLeast(Int32(truncatingIfNeeded: Int(major)), Int32(truncatingIfNeeded: Int(minor)),
+                                      Int32(truncatingIfNeeded: Int(patch))) != 0
+  return ok._value
+}

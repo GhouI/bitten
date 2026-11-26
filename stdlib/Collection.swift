@@ -10,6 +10,9 @@ public protocol Collection<Element>: Sequence {
   override __consuming func makeIterator() -> Iterator
   associatedtype SubSequence: Collection = Slice<Self>
   where Element == SubSequence.Element, SubSequence == SubSequence.SubSequence
+  // A read coroutine, as Apple declares it (programs' conformances
+  // supply a `_read` witness).
+  @_borrowed
   subscript(position: Index) -> Element { get }
   subscript(bounds: Range<Index>) -> SubSequence { get }
   associatedtype Indices: Collection = DefaultIndices<Self> where Indices == Indices.SubSequence
@@ -178,6 +181,10 @@ where Indices: BidirectionalCollection, SubSequence: BidirectionalCollection {
   func formIndex(before i: inout Index)
   override func index(after i: Index) -> Index
   override func formIndex(after i: inout Index)
+  // New requirements, not overrides, as in Apple's declaration.
+  @_nonoverride func index(_ i: Index, offsetBy distance: Int) -> Index
+  @_nonoverride func index(_ i: Index, offsetBy distance: Int, limitedBy limit: Index) -> Index?
+  @_nonoverride func distance(from start: Index, to end: Index) -> Int
   override var indices: Indices { get }
   override subscript(bounds: Range<Index>) -> SubSequence { get }
   override var startIndex: Index { get }
@@ -256,6 +263,9 @@ where Indices: RandomAccessCollection, SubSequence: RandomAccessCollection {
   override func formIndex(before i: inout Index)
   override func index(after i: Index) -> Index
   override func formIndex(after i: inout Index)
+  @_nonoverride func index(_ i: Index, offsetBy distance: Int) -> Index
+  @_nonoverride func index(_ i: Index, offsetBy distance: Int, limitedBy limit: Index) -> Index?
+  @_nonoverride func distance(from start: Index, to end: Index) -> Int
 }
 
 extension RandomAccessCollection {

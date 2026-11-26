@@ -1553,3 +1553,26 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   7748 through the Swift API, round trips on every curve, PEM, tampering.
 - Target app window (total `^MISSING`): 3,522 -> 3,378 (144 of its 146
   CryptoKit imports; the other two are the Secure Enclave initialisers).
+
+## 2026-11-26: Date, JSON, Decimal; collection ABI; missing-descriptor reports
+
+- Foundation's Swift overlay: `Date` (seconds since 2001; Codable as
+  Apple's, NSDate bridging), `JSONEncoder`/`JSONDecoder` (own writer and
+  parser; output formatting, date/data/key/float strategies, snake case,
+  pretty printing, exact integers), `Decimal` (the C struct NSDecimal;
+  128-bit mantissa arithmetic, parsing, description, rounding via
+  `NSDecimalRound`, Codable).
+- Foundation (ObjC): `NSDistributedNotificationCenter` (delivers within the
+  process; nothing else listens in the container).
+- stdlib ABI: `Collection.subscript(position:)` is `@_borrowed` (a `_read`
+  requirement) and Bidirectional/RandomAccessCollection declare
+  `index(_:offsetBy:)`, `index(_:offsetBy:limitedBy:)` and
+  `distance(from:to:)` as `@_nonoverride` requirements, as Apple's do;
+  programs send resilient witnesses keyed by those requirements. New:
+  `Identifiable`, `CaseIterable`, `_stdlib_isOSVersionAtLeast` (#available,
+  answered as macOS 15.0).
+- Loader/runtime: `dx_stub_name` recognises unimplemented-import stubs;
+  `swift_getWitnessTable` now reports a missing conformance or protocol
+  descriptor by name instead of crashing on the stub's code bytes.
+- Target app window (total `^MISSING`): 3,378 -> 3,304. It now stops at
+  `NSOperationQueue`.

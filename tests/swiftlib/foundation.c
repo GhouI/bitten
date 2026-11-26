@@ -7,6 +7,8 @@ long swl_foundation_strings(void);
 long swl_foundation_format(void);
 long swl_foundation_misc(void);
 long swl_foundation_data(void);
+long swl_foundation_json(void);
+long swl_foundation_decimal(void);
 
 static int check(const char *what, long bad) {
     if (bad) printf("%s: failed checks %#lx\n", what, bad);
@@ -20,6 +22,8 @@ int main(void) {
     ok &= check("format", swl_foundation_format());
     ok &= check("misc", swl_foundation_misc());
     ok &= check("data", swl_foundation_data());
+    ok &= check("json", swl_foundation_json());
+    ok &= check("decimal", swl_foundation_decimal());
     CHECK(ok);
     puts("swift foundation ok");
     return 0;
