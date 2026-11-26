@@ -115,6 +115,13 @@ module AppKit [system] {
   export *
 }
 
+// Dispatch's object types for the Swift overlay (overlays/Dispatch); the
+// C interface in dispatch/dispatch.h is not part of this module.
+module Dispatch [system] {
+  header "dispatch/swift.h"
+  export *
+}
+
 module os [system] {
   header "os/lock.h"
   header "os/object.h"
