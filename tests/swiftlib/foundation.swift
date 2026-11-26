@@ -229,3 +229,37 @@ final class Watched: NSObject { var level = 7 }
   if ns.name != name || ns.object as AnyObject? !== w || (ns as Notification).name != name { bad |= 32 }
   return bad
 }
+
+@_silgen_name("swl_foundation_url") public func urls() -> Int {
+  var bad = 0
+  // A thrown CocoaError travels as its NSError and comes back as itself.
+  func thrower() throws { throw CocoaError(.fileReadNoSuchFile) }
+  do { try thrower() } catch { if !(error is CocoaError) || (error as? CocoaError)?.code != .fileReadNoSuchFile { bad |= 1 << 13 } }
+  guard var c = URLComponents(string: "https://ada:pw@example.com:8443/a%20b/c?x=1&y=two%20words#frag") else { return 1 }
+  if c.scheme != "https" || c.user != "ada" || c.password != "pw" || c.host != "example.com" || c.port != 8443 { bad |= 2 }
+  if c.path != "/a b/c" || c.percentEncodedPath != "/a%20b/c" || c.fragment != "frag" { bad |= 4 }
+  if c.queryItems?.count != 2 || c.queryItems?[1].value != "two words" { bad |= 8 }
+  c.queryItems = [URLQueryItem(name: "q", value: "a&b c"), URLQueryItem(name: "flag", value: nil)]
+  if c.percentEncodedQuery != "q=a%26b%20c&flag" { print(c.percentEncodedQuery ?? "nil"); bad |= 16 }
+  if c.url?.absoluteString != "https://ada:pw@example.com:8443/a%20b/c?q=a%26b%20c&flag#frag" { bad |= 32 }
+  var d = URLComponents()
+  d.scheme = "http"
+  d.host = "localhost"
+  d.path = "/x y"
+  if d.string != "http://localhost/x%20y" { bad |= 64 }
+  if URLComponents(string: "not a url") != nil { bad |= 128 }
+  // resource values
+  let dir = URL(fileURLWithPath: "/tmp")
+  let file = URL(fileURLWithPath: "/tmp/bitten-swl-res")
+  try? Data("12345".utf8).write(to: file)
+  if let v = try? file.resourceValues(forKeys: [.fileSizeKey, .isDirectoryKey, .isRegularFileKey, .contentModificationDateKey]) {
+    if v.fileSize != 5 || v.isDirectory != false || v.isRegularFile != true || v.contentModificationDate == nil { bad |= 256 }
+  } else { bad |= 512 }
+  if (try? dir.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory != true { bad |= 1024 }
+  do {
+    _ = try URL(fileURLWithPath: "/nonexistent/bitten").resourceValues(forKeys: [.isDirectoryKey])
+    bad |= 2048
+  } catch CocoaError.fileReadNoSuchFile {
+  } catch { bad |= 4096 }
+  return bad
+}

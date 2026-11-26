@@ -1820,3 +1820,17 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   page fetched, the WebSocket handshake (RFC 6455's sample key), the
   frame's header and pixels, an input event with non-ASCII characters
   coming back, and the close message.
+
+## 2026-11-26: URLComponents, resource values, NSError round trips
+
+- Foundation: `URLComponents` (own RFC 3986 parser; decoded and
+  percent-encoded parts, query items, assembly), `URLQueryItem`,
+  `URLResourceValues` with `URL.resourceValues(forKeys:)` /
+  `setResourceValues` (stat(2): kinds, sizes, dates, permissions, packages,
+  volume capacity), and the `URLResourceKey` constants.
+- Runtime: an NSError cast to a Swift error type that bridges from it
+  (`error as? CocoaError`, `catch CocoaError.fileReadNoSuchFile`) goes
+  through `_ObjectiveCBridgeableError.init?(_bridgedNSError:)`; the compiler
+  stores a thrown CocoaError as its NSError, so this is how it comes back.
+- Target app window (total `^MISSING`): 2,690 -> 2,632. It now stops at
+  `AsyncStream` in `_Concurrency`.

@@ -226,3 +226,13 @@ public struct URLError: _BridgedStoredNSError {
     return (_nsError.userInfo?[NSURLErrorFailingURLErrorKey] as? NSURL).map { URL(_nsurl: $0) }
   }
 }
+
+/// Called by the runtime's dynamic casts for `nsError as? CocoaError` and
+/// the like (a thrown CocoaError travels as its NSError).
+@_silgen_name("_bitten_bridgeNSErrorToValue")
+public func _bitten_bridgeNSErrorToValue<T>(_ error: NSError, _ target: UnsafeMutablePointer<T>) -> Bool {
+  guard let bridgeable = T.self as? _ObjectiveCBridgeableError.Type,
+        let value = bridgeable.init(_bridgedNSError: error) else { return false }
+  target.initialize(to: value as! T)
+  return true
+}

@@ -400,6 +400,17 @@ static int cast_bridging_from_objc(sw_opaque *dest, void *object, const sw_metad
     return bridge(object, dest, target);
 }
 
+/* An NSError to a Swift error type that bridges from it (CocoaError, ...):
+ * Foundation's _bitten_bridgeNSErrorToValue does it. */
+static int cast_nserror_to_value(sw_opaque *dest, void *object, const sw_metadata *target) {
+    static const sw_protocol_descriptor *bridgeable_error;
+    static _Bool (*bridge)(void *, sw_opaque *, const sw_metadata *);
+    if (!bridgeable_error) bridgeable_error = dx_global_lookup("_$s10Foundation26_ObjectiveCBridgeableErrorMp");
+    if (!bridge) bridge = dx_global_lookup("__bitten_bridgeNSErrorToValue");
+    if (!bridgeable_error || !bridge || !sw_conforms_to(target, bridgeable_error)) return 0;
+    return bridge(object, dest, target);
+}
+
 /* ---- the general cast --------------------------------------------------------------------- */
 static int cast(sw_opaque *dest, sw_opaque *src, const sw_metadata *type, const sw_metadata *target) {
     if (type == target) {
@@ -448,6 +459,8 @@ static int cast(sw_opaque *dest, sw_opaque *src, const sw_metadata *type, const 
     }
     /* An Objective-C object to a Swift value that bridges from it. */
     if (is_class_like(type) && sw_kind(target) != SW_KIND_CLASS && cast_bridging_from_objc(dest, *(void **)src, target))
+        return 1;
+    if (is_class_like(type) && sw_kind(target) != SW_KIND_CLASS && cast_nserror_to_value(dest, *(void **)src, target))
         return 1;
     if (sk == SW_KIND_OPTIONAL) {
         /* Unwrap a non-nil Optional and try its payload. */

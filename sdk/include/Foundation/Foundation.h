@@ -995,6 +995,42 @@ typedef NS_ENUM(NSUInteger, NSKeyValueChange) {
 + (BOOL)automaticallyNotifiesObserversForKey:(NSString *)key;
 @end
 
+typedef NSString *NSURLResourceKey NS_TYPED_EXTENSIBLE_ENUM NS_SWIFT_NAME(URLResourceKey);
+extern NSURLResourceKey const NSURLNameKey NS_SWIFT_NAME(URLResourceKey.nameKey);
+extern NSURLResourceKey const NSURLLocalizedNameKey NS_SWIFT_NAME(URLResourceKey.localizedNameKey);
+extern NSURLResourceKey const NSURLIsRegularFileKey NS_SWIFT_NAME(URLResourceKey.isRegularFileKey);
+extern NSURLResourceKey const NSURLIsDirectoryKey NS_SWIFT_NAME(URLResourceKey.isDirectoryKey);
+extern NSURLResourceKey const NSURLIsSymbolicLinkKey NS_SWIFT_NAME(URLResourceKey.isSymbolicLinkKey);
+extern NSURLResourceKey const NSURLIsVolumeKey NS_SWIFT_NAME(URLResourceKey.isVolumeKey);
+extern NSURLResourceKey const NSURLIsPackageKey NS_SWIFT_NAME(URLResourceKey.isPackageKey);
+extern NSURLResourceKey const NSURLIsApplicationKey NS_SWIFT_NAME(URLResourceKey.isApplicationKey);
+extern NSURLResourceKey const NSURLIsHiddenKey NS_SWIFT_NAME(URLResourceKey.isHiddenKey);
+extern NSURLResourceKey const NSURLIsReadableKey NS_SWIFT_NAME(URLResourceKey.isReadableKey);
+extern NSURLResourceKey const NSURLIsWritableKey NS_SWIFT_NAME(URLResourceKey.isWritableKey);
+extern NSURLResourceKey const NSURLIsExecutableKey NS_SWIFT_NAME(URLResourceKey.isExecutableKey);
+extern NSURLResourceKey const NSURLCreationDateKey NS_SWIFT_NAME(URLResourceKey.creationDateKey);
+extern NSURLResourceKey const NSURLContentAccessDateKey NS_SWIFT_NAME(URLResourceKey.contentAccessDateKey);
+extern NSURLResourceKey const NSURLContentModificationDateKey NS_SWIFT_NAME(URLResourceKey.contentModificationDateKey);
+extern NSURLResourceKey const NSURLAttributeModificationDateKey NS_SWIFT_NAME(URLResourceKey.attributeModificationDateKey);
+extern NSURLResourceKey const NSURLFileSizeKey NS_SWIFT_NAME(URLResourceKey.fileSizeKey);
+extern NSURLResourceKey const NSURLFileAllocatedSizeKey NS_SWIFT_NAME(URLResourceKey.fileAllocatedSizeKey);
+extern NSURLResourceKey const NSURLTotalFileSizeKey NS_SWIFT_NAME(URLResourceKey.totalFileSizeKey);
+extern NSURLResourceKey const NSURLTotalFileAllocatedSizeKey NS_SWIFT_NAME(URLResourceKey.totalFileAllocatedSizeKey);
+extern NSURLResourceKey const NSURLContentTypeKey NS_SWIFT_NAME(URLResourceKey.contentTypeKey);
+extern NSURLResourceKey const NSURLIsExcludedFromBackupKey NS_SWIFT_NAME(URLResourceKey.isExcludedFromBackupKey);
+extern NSURLResourceKey const NSURLPathKey NS_SWIFT_NAME(URLResourceKey.pathKey);
+extern NSURLResourceKey const NSURLParentDirectoryURLKey NS_SWIFT_NAME(URLResourceKey.parentDirectoryURLKey);
+extern NSURLResourceKey const NSURLFileResourceTypeKey NS_SWIFT_NAME(URLResourceKey.fileResourceTypeKey);
+extern NSURLResourceKey const NSURLTypeIdentifierKey NS_SWIFT_NAME(URLResourceKey.typeIdentifierKey);
+extern NSURLResourceKey const NSURLLinkCountKey NS_SWIFT_NAME(URLResourceKey.linkCountKey);
+extern NSURLResourceKey const NSURLFileSecurityKey NS_SWIFT_NAME(URLResourceKey.fileSecurityKey);
+extern NSURLResourceKey const NSURLQuarantinePropertiesKey NS_SWIFT_NAME(URLResourceKey.quarantinePropertiesKey);
+extern NSURLResourceKey const NSURLVolumeAvailableCapacityKey NS_SWIFT_NAME(URLResourceKey.volumeAvailableCapacityKey);
+extern NSURLResourceKey const NSURLVolumeTotalCapacityKey NS_SWIFT_NAME(URLResourceKey.volumeTotalCapacityKey);
+extern NSURLResourceKey const NSURLIsUbiquitousItemKey NS_SWIFT_NAME(URLResourceKey.isUbiquitousItemKey);
+extern NSURLResourceKey const NSURLFileProtectionKey NS_SWIFT_NAME(URLResourceKey.fileProtectionKey);
+extern NSURLResourceKey const NSURLAddedToDirectoryDateKey NS_SWIFT_NAME(URLResourceKey.addedToDirectoryDateKey);
+
 @protocol NSLocking
 - (void)lock;
 - (void)unlock;
