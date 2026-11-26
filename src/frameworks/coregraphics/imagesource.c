@@ -1,4 +1,5 @@
-/* ImageIO's image sources over the decoders here: PNG (png.c). A source
+/* ImageIO's image sources over the decoders here: PNG (png.c) and
+ * baseline JPEG (jpeg.c). A source
  * holds the file's bytes; images are decoded when asked for. Other formats
  * are recognised by their signature (so the type is right) but decode to
  * nothing: their status is kCGImageStatusUnknownType. Thumbnails are the
@@ -84,6 +85,7 @@ static struct cg_image *decoded(struct cg_image_source *s) {
         s->tried = true;
         size_t w = 0, h = 0;
         uint8_t *rgba = cg_png_decode(s->bytes, s->length, &w, &h);
+        if (!rgba) rgba = cg_jpeg_decode(s->bytes, s->length, &w, &h);
         if (rgba) {
             s->image = cg_image_from_rgba(rgba, w, h);
             free(rgba);
@@ -181,6 +183,18 @@ static struct cf_dict *d_CGImageSourceCopyProperties(struct cg_image_source *s, 
     return d_CFDictionaryCreate(NULL, NULL, NULL, 0, &d_kCFTypeDictionaryKeyCallBacks, &d_kCFTypeDictionaryValueCallBacks);
 }
 DX_FN(CGImageSourceCopyProperties);
+
+static struct cg_image *d_CGImageCreateWithJPEGDataProvider(const struct cg_provider *p, const CGFloat *decode,
+                                                            bool interpolate, int intent) {
+    if (!p) return NULL;
+    size_t w = 0, h = 0;
+    uint8_t *rgba = cg_jpeg_decode(p->bytes, p->length, &w, &h);
+    if (!rgba) return NULL;
+    struct cg_image *img = cg_image_from_rgba(rgba, w, h);
+    free(rgba);
+    return img;
+}
+DX_FN(CGImageCreateWithJPEGDataProvider);
 
 /* CoreGraphics' own PNG entry point. */
 static struct cg_image *d_CGImageCreateWithPNGDataProvider(const struct cg_provider *p, const CGFloat *decode,
