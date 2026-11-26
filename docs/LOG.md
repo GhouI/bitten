@@ -2885,3 +2885,39 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   NSRect in memory, a 32-byte struct return, stack-spilled arguments,
   object and point arguments).
 - Target app window (total `^MISSING`): 38 -> 37.
+## Processes, pipes, file handles, XPC
+
+- Foundation: NSTask (Process).
+  - **Launching:** posix_spawn, which runs Mach-O programs under mrun and
+    Linux ones directly. Supports the executable URL or launch path,
+    arguments, environment and working directory.
+  - **Streams:** standard input, output and error from pipes or file
+    handles; the parent closes its copies of the child's pipe ends.
+  - **Ending:** termination status and reason (exit or uncaught signal),
+    the termination handler, NSTaskDidTerminateNotification,
+    `waitUntilExit`, and interrupt, terminate, suspend and resume.
+- NSPipe. NSFileHandle:
+  - **Opening:** descriptors, paths and URLs, plus standard input, output
+    and error and the null device.
+  - **I/O:** reads, writes, seeks, truncation, sync and close, in both
+    the old and the throwing forms, plus the Swift `read(upToCount:)`,
+    `readToEnd()`, `write(contentsOf:)`, `offset()` and `seekToEnd()`.
+  - **Background:** readability and writeability handlers on dispatch
+    sources, and the read-in-background notifications.
+  - `DISPATCH_SOURCE_TYPE_WRITE` is now declared in the SDK.
+- NSXPCConnection, NSXPCListener, NSXPCInterface and
+  NSXPCListenerEndpoint.
+  - **Named services:** a connection to a service never connects (there
+    are none here). Messages through its proxies reach their error
+    handlers (NSXPCConnectionInvalid), and the connection is invalidated.
+  - **Anonymous listeners:** a connection to one in this process asks the
+    delegate to accept, then each side's proxies send straight to the
+    other side's exported object.
+  - **Proxies** conform to the remote protocol, so Swift casts work, and
+    forward through `forwardingTargetForSelector:`.
+  Test: tests/foundation/process.
+- Fix: `CFBundleCopyExecutableArchitecturesForURL` reads only a file's
+  header, so executables over 64 MB (the target app's 92 MB server
+  helper) are no longer reported as unreadable.
+- Target app window (total `^MISSING`): 37 -> 30. The app now gets past
+  `+[NSXPCConnection alloc]` and its helper check.

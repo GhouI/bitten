@@ -75,6 +75,8 @@ extern const struct dispatch_source_type_s _dispatch_source_type_timer;
 extern const struct dispatch_source_type_s _dispatch_source_type_read;
 #define DISPATCH_SOURCE_TYPE_TIMER (&_dispatch_source_type_timer)
 #define DISPATCH_SOURCE_TYPE_READ (&_dispatch_source_type_read)
+extern const struct dispatch_source_type_s _dispatch_source_type_write;
+#define DISPATCH_SOURCE_TYPE_WRITE (&_dispatch_source_type_write)
 dispatch_source_t dispatch_source_create(dispatch_source_type_t type, uintptr_t handle, unsigned long mask,
                                          dispatch_queue_t queue);
 void dispatch_source_set_event_handler(dispatch_source_t source, dispatch_block_t handler);
