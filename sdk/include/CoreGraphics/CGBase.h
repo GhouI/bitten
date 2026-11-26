@@ -16,4 +16,12 @@
 #define CG_BRIDGED_TYPE(T) CF_BRIDGED(T)
 #define CG_ASSUME_BEGIN _Pragma("clang arc_cf_code_audited begin") _Pragma("clang assume_nonnull begin")
 #define CG_ASSUME_END _Pragma("clang assume_nonnull end") _Pragma("clang arc_cf_code_audited end")
+/* Geometry as dictionaries of CFNumbers (X, Y, Width, Height). */
+CFDictionaryRef CGRectCreateDictionaryRepresentation(CGRect r) CF_RETURNS_RETAINED;
+bool CGRectMakeWithDictionaryRepresentation(CFDictionaryRef _Nullable dict, CGRect *_Nullable rect);
+CFDictionaryRef CGPointCreateDictionaryRepresentation(CGPoint p) CF_RETURNS_RETAINED;
+bool CGPointMakeWithDictionaryRepresentation(CFDictionaryRef _Nullable dict, CGPoint *_Nullable point);
+CFDictionaryRef CGSizeCreateDictionaryRepresentation(CGSize s) CF_RETURNS_RETAINED;
+bool CGSizeMakeWithDictionaryRepresentation(CFDictionaryRef _Nullable dict, CGSize *_Nullable size);
+
 #endif

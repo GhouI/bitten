@@ -2033,3 +2033,24 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   attachments with blending, `-reset`), `MTLFunctionConstantValues`.
 - Test: `tests/metal/descriptors`.
 - Target app window (total `^MISSING`): 1,899 -> 1,894.
+
+## 2026-11-26: CoreGraphics' Swift API (PR: cg-overlay)
+
+- The CoreGraphics overlay grows Apple's Swift API: `CGPathFillRule`;
+  `Equatable` for `CGPoint`, `CGSize`, `CGRect`, `CGAffineTransform`;
+  `init?(dictionaryRepresentation:)` and `dictionaryRepresentation` for
+  points, sizes and rectangles; `CGMutablePath`'s `move(to:)`, `addLine`,
+  `addCurve`, `addQuadCurve`, `addRect`, `addRoundedRect`, `addEllipse`,
+  both `addArc`s and `addPath` (each with `transform:`); `CGPath.union`
+  (both outlines in one path: no path boolean operations yet);
+  `CGContext`'s `fillPath(using:)`, `clip(using:)`, `draw(_:in:byTiling:)`,
+  `setLineDash(phase:lengths:)` and `textPosition`.
+- The overlay builds for macOS 14 (`OVERLAY_MACOS_<name>` in the
+  Makefile): it uses `CGFloat`, which older targets see in CoreGraphics.
+- `CoreGraphics.framework` now exists as an image: empty, re-exporting
+  the overlay, because current macOS keeps the Swift API in the framework
+  and programs bind it there. The C API stays in the loader's registry.
+- C: `CGRect/CGPoint/CGSize` `CreateDictionaryRepresentation` and
+  `MakeWithDictionaryRepresentation`.
+- Test: `tests/swiftlib/coregraphics`.
+- Target app window (total `^MISSING`): 1,894 -> 1,873.
