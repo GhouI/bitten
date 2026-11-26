@@ -2542,3 +2542,13 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   responders, menus and menu items.
 - Test: tests/foundation/attributed.m (attributed strings, NSProgress).
 - Target app window (total `^MISSING`): 229 -> 225.
+
+## 2026-11-26: NSTimeZone, NSISO8601DateFormatter, NSListFormatter (PR: nsformatters)
+
+- Foundation (`NSFormatters.m`, handed over): NSTimeZone (fixed offsets,
+  TZif zones with their transitions, system/default/local zones,
+  abbreviations, DST), NSFormatter, NSISO8601DateFormatter (every format
+  option, formatting and parsing), NSListFormatter ("a, b, and c", with an
+  item formatter); `TimeZone` bridges to NSTimeZone.
+- Test: `tests/media/formatters`, `tests/swiftlib/formatstyle` (bridging).
+- Target app window (total `^MISSING`): 225 -> 222.
