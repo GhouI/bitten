@@ -472,6 +472,7 @@ all: $(SWIFT_FW_LIBS)
 # One rule per framework: the path names the framework twice, which a
 # pattern rule cannot express.
 SWIFT_FW_DEPS_SwiftUI := Combine
+SWIFT_FW_DEPS_Charts := Combine SwiftUI
 # A framework can name a later deployment target, like the tests below:
 # Network's NWError carries POSIXErrorCode, which moved into the _errno
 # overlay in macOS 14 and is hidden from older targets.
@@ -481,6 +482,7 @@ SWIFT_FW_MACOS_Network := 14.0
 SWIFT_FW_MACOS_SwiftUI := 14.0
 # AppIntents uses LocalizedStringResource and UTType (macOS 13 and up).
 SWIFT_FW_MACOS_AppIntents := 14.0
+SWIFT_FW_MACOS_Charts := 14.0
 # Libraries besides frameworks a Swift framework links (the late Swift ones).
 SWIFT_FW_EXTRA_AppIntents = $(call late_swift_lib,UniformTypeIdentifiers)
 swift_fw_macos  = $(or $(SWIFT_FW_MACOS_$(1)),11.0)
@@ -534,6 +536,8 @@ SWLIB_MACOS_appintents := 14.0
 SWLIB_LIBS_smallswift := $(FOUNDATION) $(call swift_fw_lib,CryptoKit) $(call swift_fw_lib,Accessibility) $(call swift_fw_lib,Symbols)
 SWLIB_LIBS_swiftui := $(FOUNDATION) $(APPKIT) $(call swift_fw_lib,Combine) $(call swift_fw_lib,SwiftUI)
 SWLIB_MACOS_swiftui := 14.0
+SWLIB_LIBS_charts := $(FOUNDATION) $(APPKIT) $(call swift_fw_lib,Combine) $(call swift_fw_lib,SwiftUI) $(call swift_fw_lib,Charts)
+SWLIB_MACOS_charts := 14.0
 $(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTCORE) $(OVERLAY_LIBS) tests/include/darwin.h $$(SWLIB_LIBS_$$*)
 	@mkdir -p $(dir $@)
 	$(SWIFTC) -target x86_64-apple-macos$(call swlib_macos,$*) -runtime-compatibility-version none -sdk $(SDKROOT) -resource-dir $(SWIFTRES) -I $(SWIFT_MODDIR) \

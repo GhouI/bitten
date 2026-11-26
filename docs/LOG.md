@@ -2318,3 +2318,24 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   `split(separator: String)`.
 - Test: `tests/swiftlib/regex`.
 - Target app window (total `^MISSING`): 751 -> 727.
+
+## 2026-11-26: Swift Charts (PR: charts)
+
+- `Charts.framework` over SwiftUI: chart content (LineMark, PointMark,
+  BarMark, AreaMark, RuleMark, ForEach, AnyChartContent, the builder with
+  its parameter-pack BuilderTuple, conditionals) collects marks; `Chart`
+  scales them linearly (numbers; categories in order; y from zero when
+  the data allow) and draws them with SwiftUI shapes, one line per
+  series, series coloured by `foregroundStyle(by:)` in Apple's order.
+  `Plottable` for Double, Float, Int, String, Date; `PlottableValue`;
+  `AnnotationPosition`; `chartXAxis`/`chartYAxis` (no axis lines are
+  drawn) and axis labels beside the plot.
+- SwiftUI gets `ForEach.init(_chartData:id:content:)` (in
+  `frameworks/SwiftUI/ChartsSupport.swift`, announced): Charts builds
+  ForEach with chart content, which the View inits do not allow.
+- Not yet: the runtime does not instantiate generic types with parameter
+  packs, so content with several marks in one builder (BuilderTuple) stops
+  there; single-mark and ForEach charts draw.
+- Test: `tests/swiftlib/charts` (a line chart and a styled series drawn
+  into a bitmap, an axis label).
+- Target app window (total `^MISSING`): 727 -> 703.
