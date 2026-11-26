@@ -180,6 +180,7 @@ module LocalAuthentication [system] {
 
 module Security [system] {
   header "Security/SecProtocolObject.h"
+  header "Security/SecProtocolTypes.h"
   header "Security/SecAccessControl.h"
   export *
 }

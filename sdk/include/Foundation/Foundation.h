@@ -1700,4 +1700,5 @@ extern NSAttributedStringKey const NSLanguageIdentifierAttributeName;
 #import <Foundation/NSAppleEvent.h>
 #import <Foundation/NSTask.h>
 #import <Foundation/NSXPCConnection.h>
+#import <Foundation/NSURLSession.h>
 #endif
