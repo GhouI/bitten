@@ -288,6 +288,7 @@ internal final class _ProposalNode: _ViewNode {
   }
 }
 
+@frozen
 public enum ContentMode: Hashable, CaseIterable, Sendable {
   case fit, fill
 }

@@ -233,6 +233,20 @@ open class _HostingViewBase: NSView {
   override open var isFlipped: Bool { return true }
   @objc func _bn_drawsOwnSubviews() -> Bool { return true }
 
+  /// Hit testing in SwiftUI's z-order: an AppKit view of a representable
+  /// gets the click only where nothing SwiftUI draws above it takes it
+  /// (a representable used as a background stays behind the buttons).
+  override open func hitTest(_ point: NSPoint) -> NSView? {
+    if isHidden { return nil }
+    let p = convert(point, from: superview)
+    guard NSPointInRect(p, bounds) else { return nil }
+    let node = _layout().hit(CGPoint(x: p.x, y: p.y))
+    if let platform = node as? _PlatformViewNode { return platform.view.hitTest(p) }
+    if node != nil { return self }
+    // Nothing of SwiftUI's here: AppKit views the program added itself.
+    return super.hitTest(point)
+  }
+
   override open func draw(_ dirtyRect: NSRect) {
     guard let cg = NSGraphicsContext.current?.cgContext else { return }
     _layout().draw(cg)
@@ -245,6 +259,7 @@ open class _HostingViewBase: NSView {
     _pressPoint = p
     _dragging = false
     _pressed = _layout().hit(p)
+    if getenv("BITTEN_EVENT_DEBUG") != nil { _dbg("bitten: swiftui press at \(p) on \(_pressed.map { String(describing: type(of: $0)) } ?? "nothing")") }
     _pressed?.press(at: p)
   }
   override open func mouseDragged(with event: NSEvent) {

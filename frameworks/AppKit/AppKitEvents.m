@@ -8,6 +8,9 @@
 static NSEvent *bn_run_local_monitors(NSEvent *event);
 #include <dispatch/dispatch.h>
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <objc/runtime.h>
 #include <sys/time.h>
 
 struct bitten_display_event {
@@ -69,6 +72,11 @@ extern BOOL bn_dragging_route(NSWindow *w, NSEvent *e);
     case NSEventTypeRightMouseDown: {
         NSView *hit = [self.contentView hitTest:event.locationInWindow];
         NSView *target = hit ?: self.contentView;
+        if (getenv("BITTEN_EVENT_DEBUG")) {
+            fprintf(stderr, "bitten: mouse down at %s hits", NSStringFromPoint(event.locationInWindow).UTF8String);
+            for (NSView *v = target; v; v = v.superview) fprintf(stderr, " < %s", object_getClassName(v));
+            fprintf(stderr, "\n");
+        }
         objc_setAssociatedObject(self, &kTrackingKey, target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         if (!self.isKeyWindow) [self makeKeyAndOrderFront:nil];
         for (NSView *v = target; v; v = v.superview)

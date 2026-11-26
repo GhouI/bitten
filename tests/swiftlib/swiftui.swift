@@ -226,3 +226,28 @@ struct Forwarding: PrimitiveButtonStyle {
     return bad
   }
 }
+
+@_silgen_name("swl_swiftui_hits") public func hits() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    let taps = Taps()
+    // A button in front of a background representable takes the click; a
+    // container's tap gesture does not swallow its button's.
+    let v = Button(action: { taps.n += 1 }) { Color(.sRGB, red: 0, green: 0, blue: 1).frame(width: 10, height: 10) }
+      .buttonStyle(.plain)
+      .frame(width: 30, height: 30)
+      .background(RedRep())
+      .onTapGesture { taps.n += 100 }
+    let host = NSHostingView(rootView: v)
+    _ = render(v, 30, 30, host: host)
+    if host.hitTest(NSMakePoint(15, 15)) !== host { bad |= 1 }
+    if !(host.hitTest(NSMakePoint(2, 2)) is RedFill) && host.hitTest(NSMakePoint(2, 2)) !== host { bad |= 2 }
+    let at = NSMakePoint(15, 15)
+    host.mouseDown(with: NSEvent.mouseEvent(with: .leftMouseDown, location: at, modifierFlags: [], timestamp: 0,
+                                            windowNumber: 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!)
+    host.mouseUp(with: NSEvent.mouseEvent(with: .leftMouseUp, location: at, modifierFlags: [], timestamp: 0,
+                                          windowNumber: 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 0)!)
+    if taps.n != 1 { bad |= 4 }
+    return bad
+  }
+}
