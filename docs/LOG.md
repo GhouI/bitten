@@ -1,5 +1,16 @@
 # Work log
 
+## 2026-11-26: thread-local destruction for Intel macOS ripgrep
+
+- The upstream ripgrep 16.0.0 Intel Mac executable searched successfully
+  with one worker but aborted on `_tlv_atexit` when given four workers.
+  Register Mach-O thread-local callbacks with glibc so they run in
+  reverse order while Bitten's TLV storage is still live.
+- The Mach-O lifecycle test checks both worker return and process exit.
+  The upstream ripgrep fixture checks recursion, ignore rules and no-match
+  status; both one and four workers pass. Unused unwind imports remain
+  unsupported.
+
 ## 2026-11-24: scaffold
 
 - Mach-O loader (`src/loader`): fat slices, segment mapping, classic
