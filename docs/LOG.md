@@ -3449,3 +3449,15 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Target app (total `^MISSING`): 11 -> 11. The intermittent crash is now
   readable: swift_getAtKeyPath on a corrupt key path under SwiftUI's
   Environment._install during view graph building.
+
+## SwiftUI: aspectRatio with one proposed dimension
+
+- `.aspectRatio(_:contentMode:)` offered only a width (or only a height)
+  now takes it and derives the other dimension from the ratio, as SwiftUI
+  does. It used to fill the missing dimension with the child's ideal size (a
+  shape's 10 points), so the target app's color-scheme previews were 10-point
+  dots.
+- Test: tests/swiftlib/swiftui.swift `aspect`.
+- Target app (total `^MISSING`): 11 -> 11. Color-scheme cards show their
+  previews. With #157 and the other session's crash reports: no crashes in
+  5 runs of 30 s.

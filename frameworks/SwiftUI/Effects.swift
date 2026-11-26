@@ -317,6 +317,9 @@ internal final class _AspectNode: _ViewNode {
   func target(_ proposal: ProposedViewSize) -> CGSize {
     let ideal = children[0].sizeThatFits(.unspecified)
     let r = ratio ?? (ideal.height > 0 ? ideal.width / ideal.height : 1)
+    // One dimension proposed: the other follows from the ratio.
+    if r > 0, let w = proposal.width, proposal.height == nil, w.isFinite { return CGSize(width: w, height: w / r) }
+    if r > 0, let h = proposal.height, proposal.width == nil, h.isFinite { return CGSize(width: h * r, height: h) }
     let p = proposal.replacingUnspecifiedDimensions(by: ideal)
     guard r > 0, p.width > 0, p.height > 0 else { return p }
     let byWidth = CGSize(width: p.width, height: p.width / r), byHeight = CGSize(width: p.height * r, height: p.height)
