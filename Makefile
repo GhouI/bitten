@@ -335,6 +335,7 @@ SWLIB_MACOS_darwin := 14.0
 swlib_macos = $(or $(SWLIB_MACOS_$(1)),11.0)
 # Frameworks a test links besides the overlays.
 SWLIB_LIBS_foundation := $(FOUNDATION)
+SWLIB_LIBS_cryptokit := $(FOUNDATION) $(call swift_fw_lib,CryptoKit)
 $(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTCORE) $(OVERLAY_LIBS) tests/include/darwin.h $$(SWLIB_LIBS_$$*)
 	@mkdir -p $(dir $@)
 	$(SWIFTC) -target x86_64-apple-macos$(call swlib_macos,$*) -runtime-compatibility-version none -sdk $(SDKROOT) -resource-dir $(SWIFTRES) -I $(SWIFT_MODDIR) \
