@@ -2632,3 +2632,27 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   required constraint that cannot be met is dropped. Test: tests/appkit/layout.
 - Target app window (total `^MISSING`): 221 -> 219. The app now runs past
   Auto Layout, to `-[NSTextField setAllowsWritingTools:]`.
+
+## Split views
+
+- AppKit: NSSplitView. Panes sit side by side or stacked, in a flipped
+  view, with thick, thin or pane-splitter dividers. It supports
+  `arrangesAllSubviews` and arranged subviews, holding priorities (the
+  pane that holds least takes a resize), `adjustSubviews`, and
+  `setPosition:ofDividerAtIndex:` with the minimum and maximum possible
+  positions. All the delegate's methods are used: min and max coordinates,
+  split position, `canCollapseSubview:`, double-click collapse, resizing
+  subviews, adjust size, hiding dividers, effective rects, and will and did
+  resize. Dividers can be dragged with the mouse, collapsing a pane that
+  may collapse when dragged past half its minimum. Autosave uses AppKit's
+  "NSSplitView Subview Frames" defaults key.
+- NSSplitViewItem: default, sidebar, content-list and inspector behaviors,
+  collapsing (no animation), `canCollapse`, minimum and maximum
+  thickness, preferred thickness fraction and holding priority.
+  NSSplitViewController is its split view's delegate, applies the items'
+  limits, hides dividers next to collapsed edge items, and supports
+  `toggleSidebar:` and `toggleInspector:`.
+- The Auto Layout pass solves again when a split view moves its panes, so
+  constraints inside panes follow. Test: tests/appkit/split.
+- Target app window (total `^MISSING`): 219 -> 219 (NSSplitViewController
+  and NSSplitViewItem were stubs).

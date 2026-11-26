@@ -17,8 +17,6 @@
 @end
 @interface NSOpenPanel : NSSavePanel
 @end
-@interface NSSplitViewController : NSViewController
-@end
 @interface NSCell : NSObject
 @end
 @interface NSActionCell : NSCell
@@ -30,8 +28,6 @@
 @interface NSFontManager : NSObject
 @end
 @interface NSDraggingItem : NSObject
-@end
-@interface NSSplitViewItem : NSObject
 @end
 @interface NSTouchBar : NSObject
 @end
