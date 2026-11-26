@@ -40,12 +40,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends golang-go pytho
     && rm -rf /var/lib/apt/lists/*
 # the Go tests' go.mod wants Go 1.24, newer than Ubuntu 24.04's golang-go
 ENV GOTOOLCHAIN=go1.24.0
+ENV BITTEN_CLANG=/opt/swift/usr/bin/clang
 COPY tests ./tests
 RUN make -j"$(nproc)" BUILD=/out check && make check-dmgx
 
-FROM debian:trixie-slim
+FROM debian:trixie-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 zsh procps less ca-certificates libx11-6 \
+        # Metal compiles guest shader libraries on first use.
+        clang libc6-dev binutils \
         # open fonts: CoreText maps Apple's font names to these
         fonts-dejavu-core fonts-noto-core \
     && rm -rf /var/lib/apt/lists/* \
@@ -57,6 +60,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=build /out/mrun /usr/local/bin/mrun
 COPY --from=build /out/root /usr/local/lib/bitten/root
 COPY tools/dmgx /usr/local/bin/dmgx
+COPY tools/metal-compile.py tools/metal-runtime.c /usr/local/lib/bitten/tools/
 COPY docker/bitten /usr/local/bin/bitten
 # macOS programs start shells through `login -fpl user ...`
 COPY docker/login /usr/bin/login
@@ -69,3 +73,20 @@ ENV HOME=/Users/mac USER=mac LOGNAME=mac SHELL=/bin/zsh TMPDIR=/tmp LANG=C.UTF-8
 ENV BITTEN_DISPLAY_PUBLIC=1
 EXPOSE 7681
 ENTRYPOINT ["/usr/local/bin/bitten"]
+
+# Exercise the packaged Metal compiler as the normal runtime user, without
+# prewarmed caches or the source tree: docker build --target test-runtime-metal .
+FROM build AS metal-fixture
+COPY tests ./tests
+RUN make -j"$(nproc)" BUILD=/out /out/tests/metal/render
+
+FROM runtime AS test-runtime-metal
+COPY --from=metal-fixture /out/tests/metal/render /out/tests/metal/render.metallib /tmp/bitten-metal-test/
+RUN set -eu; \
+    export HOME="$(mktemp -d)"; \
+    output="$(mrun /tmp/bitten-metal-test/render)"; \
+    printf '%s\n' "$output"; \
+    printf '%s\n' "$output" | grep -Fx 'render ok'; \
+    test -n "$(find "$HOME/Library/Caches/bitten/metal" -name shaders.so -type f -size +0c -print -quit)"
+
+FROM runtime AS release
