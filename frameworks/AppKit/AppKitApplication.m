@@ -73,7 +73,6 @@ static BOOL modal_running;
 }
 - (void)orderFrontStandardAboutPanel:(id)sender { [self orderFrontStandardAboutPanelWithOptions:@{}]; }
 - (void)orderFrontCharacterPalette:(id)sender {}
-OBJ_PROP(NSImage *, applicationIconImage, setApplicationIconImage, "icon")
 OBJ_PROP(NSMenu *, windowsMenu, setWindowsMenu, "windowsMenu")
 OBJ_PROP(NSMenu *, servicesMenu, setServicesMenu, "servicesMenu")
 OBJ_PROP(NSMenu *, helpMenu, setHelpMenu, "helpMenu")

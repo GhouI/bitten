@@ -180,7 +180,45 @@ static NSMutableDictionary<NSString *, NSImage *> *named_images;
     if ((self = [self initWithSize:size])) [self addRepresentation:rep];
     return self;
 }
+/* Icon files (.icns): a big-endian "icns" header and (type, length,
+ * data) entries. The PNG entries become one representation each, sized in
+ * points (types ic11..ic14 and ic10 are @2x), the largest first. Older
+ * raw-bitmap entries are skipped. */
+static NSImage *bn_icns_image(NSImage *img, NSData *data) {
+    const uint8_t *b = data.bytes;
+    NSUInteger n = data.length;
+    if (n < 8 || memcmp(b, "icns", 4) != 0) return nil;
+    struct { char type[5]; CGFloat points; } kinds[] = {
+        {"icp4", 16}, {"icp5", 32}, {"icp6", 64}, {"ic07", 128}, {"ic08", 256}, {"ic09", 512},
+        {"ic11", 16}, {"ic12", 32}, {"ic13", 128}, {"ic14", 256}, {"ic10", 512},
+    };
+    NSMutableArray<NSBitmapImageRep *> *reps = [NSMutableArray array];
+    CGFloat largest = 0;
+    for (NSUInteger i = 8; i + 8 <= n;) {
+        uint32_t len = (uint32_t)b[i + 4] << 24 | (uint32_t)b[i + 5] << 16 | (uint32_t)b[i + 6] << 8 | b[i + 7];
+        if (len < 8 || i + len > n) break;
+        for (size_t k = 0; k < sizeof kinds / sizeof kinds[0]; k++) {
+            if (memcmp(b + i, kinds[k].type, 4) != 0 || len < 16 || memcmp(b + i + 8, "\x89PNG", 4) != 0) continue;
+            NSBitmapImageRep *rep = [NSBitmapImageRep imageRepWithData:[data subdataWithRange:NSMakeRange(i + 8, len - 8)]];
+            if (!rep) break;
+            rep.size = NSMakeSize(kinds[k].points, kinds[k].points);
+            [reps addObject:rep];
+            largest = MAX(largest, kinds[k].points);
+            break;
+        }
+        i += len;
+    }
+    if (!reps.count) return nil;
+    [reps sortUsingComparator:^NSComparisonResult(NSBitmapImageRep *x, NSBitmapImageRep *y) {
+        return x.pixelsWide > y.pixelsWide ? NSOrderedAscending : x.pixelsWide < y.pixelsWide ? NSOrderedDescending : NSOrderedSame;
+    }];
+    if (!(img = [img initWithSize:NSMakeSize(largest, largest)])) return nil;
+    for (NSBitmapImageRep *rep in reps) [img addRepresentation:rep];
+    return img;
+}
+
 - (instancetype)initWithData:(NSData *)data {
+    if (data.length >= 8 && memcmp(data.bytes, "icns", 4) == 0) return bn_icns_image(self, data);
     NSBitmapImageRep *rep = [NSBitmapImageRep imageRepWithData:data];
     if (!rep) return nil;
     if ((self = [self initWithSize:rep.size])) [self addRepresentation:rep];
