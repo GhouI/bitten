@@ -115,6 +115,21 @@ module Foundation [system] {
   export *
 }
 
+module CoreImage [system] {
+  header "CoreImage/CoreImage.h"
+  export *
+}
+
+module AVFAudio [system] {
+  header "AVFAudio/AVFAudio.h"
+  export *
+}
+
+module ScreenCaptureKit [system] {
+  header "ScreenCaptureKit/ScreenCaptureKit.h"
+  export *
+}
+
 module Metal [system] {
   header "Metal/Metal.h"
   export *
@@ -138,8 +153,19 @@ module Dispatch [system] {
 }
 
 // Security.framework's Swift-visible types (the TLS protocol objects).
+module CoreAudio [system] {
+  header "CoreAudio/CoreAudioTypes.h"
+  export *
+}
+
+module LocalAuthentication [system] {
+  header "LocalAuthentication/LocalAuthentication.h"
+  export *
+}
+
 module Security [system] {
   header "Security/SecProtocolObject.h"
+  header "Security/SecAccessControl.h"
   export *
 }
 

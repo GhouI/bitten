@@ -480,27 +480,3 @@ public enum P521 {
     }
   }
 }
-
-/// No Secure Enclave exists here: isAvailable is false and no key can be
-/// created. The type and its accessors exist so programs that link them
-/// load; their initialisers (which take Security and LocalAuthentication
-/// types) are not provided.
-public enum SecureEnclave {
-  public static var isAvailable: Bool { return false }
-
-  public enum P256 {
-    public enum Signing {
-      public struct PrivateKey {
-        let key: CryptoKit.P256.Signing.PrivateKey
-        let data: [UInt8]
-
-        public var publicKey: CryptoKit.P256.Signing.PublicKey { return key.publicKey }
-        public var dataRepresentation: Data { return Data(data) }
-
-        public func signature<D: DataProtocol>(for data: D) throws -> CryptoKit.P256.Signing.ECDSASignature {
-          return try key.signature(for: data)
-        }
-      }
-    }
-  }
-}
