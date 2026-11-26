@@ -73,8 +73,6 @@
 @end
 @interface NSGradient : NSObject
 @end
-@interface NSBezierPath : NSObject
-@end
 @interface NSAnimationContext : NSObject
 @end
 @interface NSCursor : NSObject

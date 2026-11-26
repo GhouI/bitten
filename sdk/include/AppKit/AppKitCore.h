@@ -185,6 +185,21 @@ APPKIT_EXTERN int NSApplicationMain(int argc, const char *argv[]);
 @property (readonly) CGFloat scrollingDeltaY;
 + (NSPoint)mouseLocation;
 + (NSEventModifierFlags)modifierFlags;
++ (nullable NSEvent *)mouseEventWithType:(NSEventType)type location:(NSPoint)location
+                           modifierFlags:(NSEventModifierFlags)flags timestamp:(NSTimeInterval)time
+                            windowNumber:(NSInteger)wNum context:(nullable id)unusedPassNil
+                             eventNumber:(NSInteger)eNum clickCount:(NSInteger)cNum pressure:(float)pressure;
++ (nullable NSEvent *)keyEventWithType:(NSEventType)type location:(NSPoint)location
+                         modifierFlags:(NSEventModifierFlags)flags timestamp:(NSTimeInterval)time
+                          windowNumber:(NSInteger)wNum context:(nullable id)unusedPassNil
+                            characters:(NSString *)keys charactersIgnoringModifiers:(NSString *)ukeys
+                             isARepeat:(BOOL)flag keyCode:(unsigned short)code;
+@property (readonly) NSInteger windowNumber;
+@property (readonly, getter=isARepeat) BOOL ARepeat;
+@property (readonly) NSInteger buttonNumber;
+@property (readonly) CGFloat deltaX;
+@property (readonly) CGFloat deltaY;
+@property (readonly) BOOL hasPreciseScrollingDeltas;
 @end
 
 @interface NSColor : NSObject <NSCopying>
@@ -224,10 +239,72 @@ APPKIT_EXTERN int NSApplicationMain(int argc, const char *argv[]);
 @property (readonly) CGFloat backingScaleFactor;
 @end
 
+@interface NSWindow (NSEvents)
+@property (readonly, weak) NSResponder *firstResponder;
+- (BOOL)makeFirstResponder:(nullable NSResponder *)responder;
+- (void)sendEvent:(NSEvent *)event;
+- (void)performClose:(nullable id)sender;
+@end
+@interface NSResponder (BittenEvents)
+- (void)rightMouseUp:(NSEvent *)event;
+@end
+@interface NSWindow (BittenDisplay)
+- (void)_bn_scheduleDisplay;
+- (void)_bn_closeDisplay;
+- (void)displayIfNeeded;
+- (nullable CGContextRef)_bn_backingContext;
+@end
 @interface NSGraphicsContext : NSObject
++ (NSGraphicsContext *)graphicsContextWithCGContext:(CGContextRef)graphicsPort flipped:(BOOL)initialFlippedState;
 @property (class, nullable, strong) NSGraphicsContext *currentContext;
++ (BOOL)currentContextDrawingToScreen;
 + (void)saveGraphicsState;
 + (void)restoreGraphicsState;
+- (void)saveGraphicsState;
+- (void)restoreGraphicsState;
+- (void)flushGraphics;
+@property (readonly) CGContextRef CGContext;
+@property (readonly, getter=isFlipped) BOOL flipped;
+@property (readonly, getter=isDrawingToScreen) BOOL drawingToScreen;
+@end
+
+APPKIT_EXTERN void NSRectFill(NSRect rect);
+APPKIT_EXTERN void NSRectFillUsingOperation(NSRect rect, NSCompositingOperation op);
+APPKIT_EXTERN void NSFrameRect(NSRect rect);
+APPKIT_EXTERN void NSFrameRectWithWidth(NSRect rect, CGFloat frameWidth);
+APPKIT_EXTERN void NSEraseRect(NSRect rect);
+
+typedef NS_ENUM(NSUInteger, NSLineCapStyle) { NSLineCapStyleButt = 0, NSLineCapStyleRound = 1, NSLineCapStyleSquare = 2 };
+typedef NS_ENUM(NSUInteger, NSLineJoinStyle) { NSLineJoinStyleMiter = 0, NSLineJoinStyleRound = 1, NSLineJoinStyleBevel = 2 };
+@interface NSBezierPath : NSObject <NSCopying>
++ (NSBezierPath *)bezierPath;
++ (NSBezierPath *)bezierPathWithRect:(NSRect)rect;
++ (NSBezierPath *)bezierPathWithOvalInRect:(NSRect)rect;
++ (NSBezierPath *)bezierPathWithRoundedRect:(NSRect)rect xRadius:(CGFloat)xRadius yRadius:(CGFloat)yRadius;
++ (void)fillRect:(NSRect)rect;
++ (void)strokeRect:(NSRect)rect;
++ (void)strokeLineFromPoint:(NSPoint)point1 toPoint:(NSPoint)point2;
+- (void)moveToPoint:(NSPoint)point;
+- (void)lineToPoint:(NSPoint)point;
+- (void)curveToPoint:(NSPoint)endPoint controlPoint1:(NSPoint)controlPoint1 controlPoint2:(NSPoint)controlPoint2;
+- (void)closePath;
+- (void)removeAllPoints;
+- (void)appendBezierPath:(NSBezierPath *)path;
+- (void)appendBezierPathWithRect:(NSRect)rect;
+- (void)appendBezierPathWithOvalInRect:(NSRect)rect;
+- (void)appendBezierPathWithRoundedRect:(NSRect)rect xRadius:(CGFloat)xRadius yRadius:(CGFloat)yRadius;
+- (void)appendBezierPathWithArcWithCenter:(NSPoint)center radius:(CGFloat)radius startAngle:(CGFloat)startAngle
+                                 endAngle:(CGFloat)endAngle clockwise:(BOOL)clockwise;
+- (void)fill;
+- (void)stroke;
+- (void)addClip;
+- (void)setClip;
+@property CGFloat lineWidth;
+@property NSLineCapStyle lineCapStyle;
+@property NSLineJoinStyle lineJoinStyle;
+@property (readonly, getter=isEmpty) BOOL empty;
+@property (readonly) NSRect bounds;
+@property (readonly) CGPathRef CGPath;
 @end
 
 @interface NSMenu : NSObject

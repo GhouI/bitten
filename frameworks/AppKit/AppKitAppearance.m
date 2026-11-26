@@ -70,7 +70,7 @@ static void make_drawing_key(void) { pthread_key_create(&drawing_key, NULL); }
     pthread_once(&drawing_once, make_drawing_key);
     pthread_setspecific(drawing_key, (__bridge void *)appearance);
 }
-- (void)performAsCurrentDrawingAppearance:(void (^)(void))block {
+- (void)performAsCurrentDrawingAppearance:(NS_NOESCAPE void (^)(void))block {
     pthread_once(&drawing_once, make_drawing_key);
     void *previous = pthread_getspecific(drawing_key);
     pthread_setspecific(drawing_key, (__bridge void *)self);
