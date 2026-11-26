@@ -123,6 +123,31 @@ $(USERNOTIFICATIONS): $(UN_OBJS) $(FOUNDATION) $(BUILD)/sdk/libSystem.tbd
 	    -install_name /System/Library/Frameworks/UserNotifications.framework/Versions/A/UserNotifications \
 	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) -o $@ $(UN_OBJS)
 
+# ---- Metal ---------------------------------------------------------------------
+# Objective-C over Foundation (frameworks/Metal). No GPU: no devices, and
+# descriptors that hold their values.
+METAL := $(FW_ROOT)/System/Library/Frameworks/Metal.framework/Versions/A/Metal
+FRAMEWORKS += $(if $(HAVE_MACHO),$(METAL))
+all: $(if $(HAVE_MACHO),$(METAL))
+METAL_OBJS := $(patsubst frameworks/Metal/%.m,$(BUILD)/fw/Metal/%.o,$(wildcard frameworks/Metal/*.m))
+$(BUILD)/fw/Metal/%.o: frameworks/Metal/%.m $(wildcard sdk/include/Metal/*.h sdk/include/Foundation/*.h)
+	@mkdir -p $(dir $@)
+	$(MACHO_CC) $(FW_CFLAGS) -c -o $@ $<
+$(METAL): $(METAL_OBJS) $(FOUNDATION) $(BUILD)/sdk/libSystem.tbd
+	@mkdir -p $(dir $@)
+	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
+	    -install_name /System/Library/Frameworks/Metal.framework/Versions/A/Metal \
+	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) -o $@ $(METAL_OBJS)
+
+# Metal tests, like the AppKit ones.
+TEST_METAL     := $(wildcard tests/metal/*.m)
+TEST_METALBINS := $(if $(HAVE_MACHO),$(patsubst tests/metal/%.m,$(BUILD)/tests/metal/%,$(TEST_METAL)))
+$(BUILD)/tests/metal/%: tests/metal/%.m $(METAL) $(wildcard sdk/include/*/*.h)
+	@mkdir -p $(dir $@)
+	$(MACHO_CC) $(FW_CFLAGS) -O1 -c -o $@.o $<
+	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -e _main \
+	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) $(METAL) -o $@ $@.o
+
 # UserNotifications tests, like the AppKit ones.
 TEST_UN     := $(wildcard tests/usernotifications/*.m)
 TEST_UNBINS := $(if $(HAVE_MACHO),$(patsubst tests/usernotifications/%.m,$(BUILD)/tests/usernotifications/%,$(TEST_UN)))
@@ -439,9 +464,9 @@ $(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTC
 	$(MACHO_LD) -arch x86_64 -platform_version macos $(call swlib_macos,$*) $(call swlib_macos,$*) -e _main \
 	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(OVERLAY_LIBS) $(SWLIB_LIBS_$*) -o $@ $@.o $@.swift.o
 
-test-bins: $(TEST_APPKITBINS) $(TEST_UNBINS) $(TEST_QCBINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
+test-bins: $(TEST_APPKITBINS) $(TEST_UNBINS) $(TEST_QCBINS) $(TEST_METALBINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
 
-check: $(BUILD)/mrun $(FRAMEWORKS) $(TEST_APPKITBINS) $(TEST_UNBINS) $(TEST_QCBINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
+check: $(BUILD)/mrun $(FRAMEWORKS) $(TEST_APPKITBINS) $(TEST_UNBINS) $(TEST_QCBINS) $(TEST_METALBINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
 	BUILD=$(BUILD) tests/run.sh
 
 check-dmgx:
