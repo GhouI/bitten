@@ -506,6 +506,7 @@ internal final class _PlatformViewNode: _ViewNode {
     context?.livePlatformViews.insert(ObjectIdentifier(v))
   }
   override func collectPlatformViews(_ into: inout [NSView]) { into.append(view) }
+  override func hitsContent(_ point: CGPoint) -> Bool { return frame._contains(point) }
   /// The AppKit view takes the click where it is on top and its own hit
   /// testing finds something (the hosting view then hands it the event).
   override func hit(_ point: CGPoint) -> _ViewNode? {

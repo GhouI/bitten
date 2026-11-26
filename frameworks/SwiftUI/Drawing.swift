@@ -411,6 +411,7 @@ extension Canvas where Symbols == EmptyView {
 }
 
 internal final class _CanvasNode: _ViewNode {
+  override func hitsContent(_ point: CGPoint) -> Bool { return frame._contains(point) }
   let renderer: (inout GraphicsContext, CGSize) -> Void
   init(renderer: @escaping (inout GraphicsContext, CGSize) -> Void, environment: EnvironmentValues) {
     self.renderer = renderer

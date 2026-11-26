@@ -3335,3 +3335,15 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   multipayload.swift (generic multi-payload enums built by compiled code,
   taken apart through runtime layouts). All clean under valgrind.
 - Target app window (total `^MISSING`): 11 -> 11.
+
+## Gestures take clicks where their content draws
+
+- SwiftUI: a gesture (onTapGesture and the like) takes a click only where
+  its content draws something or has a content shape, as in SwiftUI, and
+  controls inside it go first; `contentShape` makes a node of its own for
+  this. Text, images, dividers, canvases, opaque shapes and AppKit views
+  count as content; `allowsHitTesting(false)` content does not.
+- The target app's onboarding now advances: Continue (a button whose
+  style taps through a gesture) moves to the appearance page (colour
+  scheme, toolbar layout).
+- Target app window (total `^MISSING`): 11 -> 11.

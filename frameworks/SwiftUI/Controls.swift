@@ -761,7 +761,11 @@ internal class _ControlNode: _ViewNode {
   override func hit(_ point: CGPoint) -> _ViewNode? {
     guard frame._contains(point) else { return nil }
     if let inner = super.hit(point), inner !== self { return inner }
-    return handlesTaps ? self : nil
+    guard handlesTaps else { return nil }
+    // A control drawing itself takes its frame; a gesture on content takes
+    // only the points where that content draws (or has a content shape).
+    if children.isEmpty { return self }
+    return children.contains { $0.hitsContent(point) } ? self : nil
   }
   var tapPoint = CGPoint(x: 0, y: 0)
   override func tap() { onTap?(tapPoint) }

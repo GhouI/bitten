@@ -162,6 +162,12 @@ internal class _ViewNode {
     return handlesTaps ? self : nil
   }
   var handlesTaps: Bool { return false }
+  /// Whether something this subtree draws (or a content shape) is at
+  /// `point`: gestures take clicks only there, as in SwiftUI.
+  func hitsContent(_ point: CGPoint) -> Bool {
+    guard frame._contains(point) else { return false }
+    return children.contains { $0.hitsContent(point) }
+  }
   func tap() {}
   /// Where a press that may become a tap began.
   func press(at point: CGPoint) {}
