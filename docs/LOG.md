@@ -1551,6 +1551,5 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   independent implementation both ways on all three curves.
 - `tests/swiftlib/cryptokit`: SHA-2 and AES-GCM vectors, RFC 8032 and RFC
   7748 through the Swift API, round trips on every curve, PEM, tampering.
-- Target app window (total `^MISSING`): 3,522 -> 3,379 (143 of its 146
-  CryptoKit imports; the rest are the two Secure Enclave initialisers and
-  none other).
+- Target app window (total `^MISSING`): 3,522 -> 3,378 (144 of its 146
+  CryptoKit imports; the other two are the Secure Enclave initialisers).
