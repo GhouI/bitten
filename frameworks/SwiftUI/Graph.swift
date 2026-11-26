@@ -159,6 +159,22 @@ internal class _ViewNode {
   }
   var handlesTaps: Bool { return false }
   func tap() {}
+  /// Where a press that may become a tap began.
+  func press(at point: CGPoint) {}
+  /// A drag from `start` now at `point`; true when this node took it.
+  func drag(from start: CGPoint, to point: CGPoint, ended: Bool) -> Bool { return false }
+  /// The scroll wheel over `point`; true when something scrolled.
+  func scroll(at point: CGPoint, dx: CGFloat, dy: CGFloat) -> Bool {
+    for c in children.reversed() where c.frame._contains(point) {
+      if c.scroll(at: point, dx: dx, dy: dy) { return true }
+    }
+    return false
+  }
+  /// A key typed while this host has focus; true when handled.
+  func key(_ characters: String, keyCode: UInt16) -> Bool {
+    for c in children where c.key(characters, keyCode: keyCode) { return true }
+    return false
+  }
   /// Layout priority and flexibility, for stacks.
   var layoutPriority: Double { return children.count == 1 ? children[0].layoutPriority : 0 }
   var isSpacer: Bool { return false }

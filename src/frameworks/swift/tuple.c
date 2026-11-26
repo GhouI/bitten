@@ -84,6 +84,13 @@ static struct utable tuples;
 static const sw_metadata *get_tuple(size_t n, const sw_metadata *const *elements,
                                     const char *labels, int copy_labels) {
     if (n == 0) return sw_empty_tuple_metadata;
+    /* The layout is read from the elements' value witnesses once and kept:
+     * an element still being initialized (a struct with resilient fields
+     * whose layout is computed at run time) must be finished first. */
+    static sw_response (*check)(sw_request, const sw_metadata *);
+    if (!check) check = dx_registry_lookup("_swift_checkMetadataState");
+    if (check)
+        for (size_t i = 0; i < n; i++) check(0, elements[i]);
     size_t llen = labels ? strlen(labels) + 1 : 0;
     size_t nkey = 1 + n + (llen + 7) / 8;
     uintptr_t key[nkey];

@@ -224,7 +224,7 @@ public struct NSApplicationDelegateAdaptor<DelegateType: NSObject & NSApplicatio
     _AppHost.shared.installDelegate(DelegateType.self)
   }
   @MainActor public var wrappedValue: DelegateType {
-    return _AppHost.shared.delegate as! DelegateType
+    return _AppHost.shared.makeDelegate() as! DelegateType
   }
 }
 
