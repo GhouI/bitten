@@ -647,24 +647,20 @@ extension View {
     return self
   }
   public func onScrollPhaseChange(_ action: @escaping (ScrollPhase, ScrollPhase) -> Void) -> some View { return self }
+  /// Inlinable in Apple's SDK, so programs see through the opaque result to
+  /// ModifiedContent<Self, _InsetViewModifier<V>> and lay it out themselves:
+  /// the underlying type must be exactly that.
   public func safeAreaInset<V: View>(edge: VerticalEdge, alignment: HorizontalAlignment = .center, spacing: CGFloat? = nil,
                                      @ViewBuilder content: () -> V) -> some View {
-    let inset = content()
-    return _SafeAreaInsetView(content: self, inset: inset, top: edge == .top, spacing: spacing ?? 0)
+    return modifier(_InsetViewModifier(content: content(), edge: edge == .top ? .top : .bottom, regions: .container,
+                                       spacing: spacing, alignmentKey: alignment.key))
+  }
+  public func safeAreaInset<V: View>(edge: HorizontalEdge, alignment: VerticalAlignment = .center, spacing: CGFloat? = nil,
+                                     @ViewBuilder content: () -> V) -> some View {
+    return modifier(_InsetViewModifier(content: content(), edge: edge == .leading ? .leading : .trailing,
+                                       regions: .container, spacing: spacing, alignmentKey: alignment.key))
   }
   public func ignoresSafeArea(_ regions: SafeAreaRegions = .all, edges: Edge.Set = .all) -> some View { return self }
-}
-internal struct _SafeAreaInsetView<Content: View, Inset: View>: View {
-  let content: Content, inset: Inset, top: Bool, spacing: CGFloat
-  typealias Body = Never
-  var body: Never { return fatalError("no body") }
-  nonisolated static func _makeView(view: _GraphValue<_SafeAreaInsetView>, inputs: _ViewInputs) -> _ViewOutputs {
-    let v = view.value
-    let main = _makeNode(v.content, inputs: inputs.named("content"))
-    let bar = _makeNode(v.inset, inputs: inputs.named("inset"))
-    return _ViewOutputs(_StackNode(axis: .vertical, alignment: .center, spacing: v.spacing, environment: inputs.environment,
-                                   children: v.top ? [bar, main] : [main, bar]))
-  }
 }
 @frozen
 public struct SafeAreaRegions: OptionSet, Sendable {

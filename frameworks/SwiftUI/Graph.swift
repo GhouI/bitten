@@ -231,6 +231,8 @@ internal func _sw_field(_ value: UnsafeRawPointer, _ type: Any.Type, _ index: In
 
 nonisolated(unsafe) let _debugGraph = getenv("BITTEN_SWIFTUI_DEBUG") != nil
 nonisolated(unsafe) let _debugTree = getenv("BITTEN_SWIFTUI_TREE") != nil
+/// BITTEN_SWIFTUI_BODY=Name prints the body type of views whose type starts with Name.
+nonisolated(unsafe) let _debugBodyOf: String? = getenv("BITTEN_SWIFTUI_BODY").map { String(cString: $0) }
 /// Debug output, unbuffered (it often comes just before a crash).
 internal func _dbg(_ s: String) { fputs(s + "\n", stderr) }
 
@@ -293,7 +295,7 @@ extension View {
       return _ViewOutputs(_EmptyNode(environment: inputs.environment))
     }
     let body = _withObservation(inputs) { value.body }
-    if _debugGraph && "\(Body.self)".hasPrefix("GeometryReader") { _dbg("bitten: body of \(Self.self) is \(Body.self)") }
+    if let want = _debugBodyOf, "\(Self.self)".hasPrefix(want) { _dbg("bitten: body of \(Self.self) is \(Body.self)") }
     let out = Body._makeView(view: _GraphValue({ body }), inputs: inputs.child(0))
     if _debugTree { _debugLabel(out.node, Self.self) }
     return out
@@ -311,7 +313,7 @@ extension View where Self: Animatable {
     var value = view.value
     _installDynamicProperties(&value, inputs: inputs)
     let body = _withObservation(inputs) { value.body }
-    if _debugGraph && "\(Body.self)".hasPrefix("GeometryReader") { _dbg("bitten: body of \(Self.self) is \(Body.self)") }
+    if let want = _debugBodyOf, "\(Self.self)".hasPrefix(want) { _dbg("bitten: body of \(Self.self) is \(Body.self)") }
     let out = Body._makeView(view: _GraphValue({ body }), inputs: inputs.child(0))
     if _debugTree { _debugLabel(out.node, Self.self) }
     return out

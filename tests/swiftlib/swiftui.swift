@@ -292,3 +292,20 @@ struct Forwarding: PrimitiveButtonStyle {
     return bad
   }
 }
+
+/// `safeAreaInset(edge:)` puts its content on that edge, the view in the
+/// rest (built as Apple's ModifiedContent<_, _InsetViewModifier>).
+@_silgen_name("swl_swiftui_inset") public func inset() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    let top = Color(.sRGB, red: 1, green: 0, blue: 0).frame(width: 20, height: 10)
+      .safeAreaInset(edge: .top, spacing: 0) { Color(.sRGB, red: 0, green: 0, blue: 1).frame(width: 20, height: 10) }
+    var px = render(top, 20, 20)
+    if px(10, 3) != blue || px(10, 15) != red { bad |= 1 }
+    let lead = Color(.sRGB, red: 1, green: 0, blue: 0).frame(width: 10, height: 20)
+      .safeAreaInset(edge: .leading, spacing: 0) { Color(.sRGB, red: 0, green: 0, blue: 1).frame(width: 10, height: 20) }
+    px = render(lead, 20, 20)
+    if px(3, 10) != blue || px(15, 10) != red { bad |= 2 }
+    return bad
+  }
+}
