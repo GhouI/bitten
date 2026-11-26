@@ -3,8 +3,10 @@
 #include <string.h>
 
 #include "../zlib/zlib_internal.h"
+#include "lzfse.h"
 
-enum { COMPRESSION_LZ4 = 0x100, COMPRESSION_LZ4_RAW = 0x101, COMPRESSION_ZLIB = 0x205 };
+enum { COMPRESSION_LZ4 = 0x100, COMPRESSION_LZ4_RAW = 0x101, COMPRESSION_ZLIB = 0x205, COMPRESSION_LZFSE = 0x801,
+       COMPRESSION_LZVN = 0x900 };
 enum { CMP_ERROR = -1, CMP_OK, CMP_END };
 enum { CMP_ENCODE, CMP_DECODE, CMP_FINALIZE = 1 };
 
@@ -276,6 +278,7 @@ static size_t d_compression_encode_buffer(uint8_t *out, size_t cap, const uint8_
     switch (algorithm) {
     case COMPRESSION_ZLIB: return zlib_buffer(CMP_ENCODE, out, cap, in, size);
     case COMPRESSION_LZ4: return encode_lz4_frame(out, cap, in, size);
+    case COMPRESSION_LZFSE: case COMPRESSION_LZVN: return bn_lzfse_encode(out, cap, in, size);
     case COMPRESSION_LZ4_RAW: return encode_lz4(out, cap, in, size);
     default: return 0;
     }
@@ -289,6 +292,17 @@ static size_t d_compression_decode_buffer(uint8_t *out, size_t cap, const uint8_
     switch (algorithm) {
     case COMPRESSION_ZLIB: return zlib_buffer(CMP_DECODE, out, cap, in, size);
     case COMPRESSION_LZ4: return decode_lz4_frame(out, cap, in, size);
+    case COMPRESSION_LZFSE: case COMPRESSION_LZVN: {
+        /* a buffer too small gets the beginning, as with the others */
+        size_t total = bn_lzfse_decoded_size(in, size);
+        if (total <= cap) return bn_lzfse_decode(out, cap, in, size);
+        uint8_t *tmp = malloc(total);
+        size_t got = tmp ? bn_lzfse_decode(tmp, total, in, size) : 0;
+        if (got > cap) got = cap;
+        if (got) memcpy(out, tmp, got);
+        free(tmp);
+        return got;
+    }
     case COMPRESSION_LZ4_RAW: {
         size_t written = 0;
         return decode_lz4(out, &written, cap, SIZE_MAX, in, size) == CMP_ERROR ? 0 : written;

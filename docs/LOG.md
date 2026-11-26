@@ -3123,3 +3123,23 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Target app window (total `^MISSING`): 11 -> 11. It runs past the trap,
   `BackingStorage`, `-[NSTextFieldCell initTextCell:]` and
   `-[NSView setFrameSize:]`.
+## LZFSE and LZVN
+
+- libcompression: COMPRESSION_LZFSE (0x801) and COMPRESSION_LZVN (0x900)
+  in `compression_decode_buffer` and `compression_encode_buffer`
+  (src/frameworks/compression/lzfse.c).
+  - **Blocks:** the container's stored (`bvx-`), LZFSE (`bvx1`, and
+    `bvx2` with its packed header and frequency tables), LZVN (`bvxn`) and
+    end (`bvx$`) blocks, plus bare LZVN streams.
+  - **LZFSE:** FSE decoding of the four interleaved literal streams and
+    the L/M/D value streams, read backwards, with distances repeated and
+    matches reaching into earlier blocks.
+  - **LZVN:** its whole opcode set.
+  - **Short buffers:** a buffer too small gets the beginning, as with the
+    other algorithms.
+  - **Encoding** writes stored blocks, which any LZFSE or LZVN decoder
+    reads.
+- Checked against every LZFSE and LZVN stream in the target app's three
+  Assets.car catalogs: 980 streams, 666 MB, each block decoding to exactly
+  its declared size. Among them is an SVG that decodes to valid XML, which
+  is now a test vector. Test: tests/c/zlib.
