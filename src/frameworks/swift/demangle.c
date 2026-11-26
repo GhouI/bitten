@@ -29,6 +29,30 @@
 #include "sw_map.h"
 #include "swift_internal.h"
 
+#include <sys/mman.h>
+#include <unistd.h>
+/* Whether [p, p+n) is mapped. */
+static int readable_ptr(const void *p, size_t n) {
+    if ((uintptr_t)p < 4096 || (uintptr_t)p >= (1ULL << 47)) return 0;
+    long pg = sysconf(_SC_PAGESIZE);
+    uintptr_t start = (uintptr_t)p & ~(uintptr_t)(pg - 1), end = ((uintptr_t)p + n + (uintptr_t)pg - 1) & ~(uintptr_t)(pg - 1);
+    unsigned char vec[4];
+    size_t pages = (end - start) / (size_t)pg;
+    if (pages > 4) pages = 4;
+    return mincore((void *)start, pages * (size_t)pg, vec) == 0;
+}
+/* A readable C identifier (protocol names). */
+static int is_identifier(const char *s) {
+    if (!readable_ptr(s, 1)) return 0;
+    for (int i = 0; i < 256; i++) {
+        if (((uintptr_t)(s + i) & 4095) == 0 && !readable_ptr(s + i, 1)) return 0;
+        char c = s[i];
+        if (!c) return i > 0;
+        if (!(c == '_' || c == '.' || (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))) return 0;
+    }
+    return 0;
+}
+
 /* ---- runtime entry points reached through the registry -------------------
  * Public Swift and Objective-C runtime functions implemented elsewhere in
  * bitten are looked up by their exported names, so this file does not
@@ -391,16 +415,24 @@ static int symbolic(struct parser *P, int kind) {
          * isa, then the name) in the image. Its isa may not be bound, so
          * the runtime's protocol of that name stands for it. */
         RT(const void *(*)(const char *), getproto, "_objc_getProtocol");
-        const char *name = ((const char *const *)target)[1];
-        if ((uintptr_t)name < 4096 || (uintptr_t)name >= (1ULL << 47)) {
-            /* Not a protocol_t: a relative pointer to the image's protocol
-             * reference (in __objc_protorefs), which points at it. */
+        /* Either a protocol_t (isa, then the name), or a relative pointer
+         * to the image's protocol reference (in __objc_protorefs), which
+         * points at one. A name is believed only if it is readable memory
+         * holding an identifier. */
+        const char *name = NULL;
+        const void *rec = target;
+        if (readable_ptr(target, 16) && is_identifier(((const char *const *)target)[1])) {
+            name = ((const char *const *)target)[1];
+        } else {
             const char *at = (const char *)target;
             const void *const *ref = (const void *const *)(at + *(const int32_t *)at);
-            const void *rec = *ref;
-            name = (uintptr_t)rec >= 4096 && (uintptr_t)rec < (1ULL << 47) ? ((const char *const *)rec)[1] : NULL;
-            if ((uintptr_t)name < 4096 || (uintptr_t)name >= (1ULL << 47)) name = NULL;
-            else target = rec;
+            if (readable_ptr(ref, 8)) {
+                rec = *ref;
+                if (readable_ptr(rec, 16) && is_identifier(((const char *const *)rec)[1])) {
+                    name = ((const char *const *)rec)[1];
+                    target = rec;
+                }
+            }
         }
         const void *proto = getproto && name ? getproto(name) : NULL;
         struct node *n = mk(P, NK_OBJC_PROTO);

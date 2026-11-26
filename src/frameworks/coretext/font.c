@@ -168,9 +168,13 @@ CGFloat ct_ascent(const struct ct_font *f) { return f->face->ascent * ct_scale(f
 CGFloat ct_descent(const struct ct_font *f) { return -f->face->descent * ct_scale(f); }
 CGFloat ct_leading(const struct ct_font *f) { return f->face->line_gap * ct_scale(f); }
 
+static int ct_debug = -1;
+#define CT_TRACE(...) do { if (ct_debug < 0) ct_debug = getenv("BITTEN_CT_DEBUG") != NULL; \
+                           if (ct_debug) fprintf(stderr, "coretext: " __VA_ARGS__); } while (0)
 static struct ct_font *d_CTFontCreateWithName(Ref name, CGFloat size, const CGAffineTransform *matrix) {
     char n[256];
     cstring(name, n, sizeof n);
+    CT_TRACE("CTFontCreateWithName %s -> %s\n", n, ct_face_for_name(n) ? ct_face_for_name(n)->postscript : "(none)");
     return ct_font_new(ct_face_for_name(n), size, matrix, name);
 }
 DX_FN(CTFontCreateWithName);
@@ -353,22 +357,79 @@ DX_FN(CTFontDrawGlyphs);
 
 /* ---- names and attributes ------------------------------------------------------------- */
 
+/* Apple's own fonts are served by stand-ins (fonts.c); a font asked for by
+ * one of their names reports that font's names, as on a Mac. */
+static const struct { const char *prefix, *family, *ps; } apple_fonts[] = {
+    {".AppleSystemUIFontMonospaced", ".AppleSystemUIFontMonospaced", ".SFNSMono"},
+    {".AppleSystemUIFont", ".AppleSystemUIFont", ".SFNS"},
+    {".SFNSMono", ".AppleSystemUIFontMonospaced", ".SFNSMono"},
+    {".SFNS", ".AppleSystemUIFont", ".SFNS"},
+    {"SFMono", "SF Mono", "SFMono"}, {"SF Mono", "SF Mono", "SFMono"},
+    {"SFPro", "SF Pro", "SFPro"}, {"SF Pro", "SF Pro", "SFPro"},
+    {"Menlo", "Menlo", "Menlo"}, {"Monaco", "Monaco", "Monaco"},
+    {"HelveticaNeue", "Helvetica Neue", "HelveticaNeue"}, {"Helvetica Neue", "Helvetica Neue", "HelveticaNeue"},
+    {"Helvetica", "Helvetica", "Helvetica"}, {"Courier New", "Courier New", "CourierNewPSMT"},
+    {"Courier", "Courier", "Courier"}, {"Times New Roman", "Times New Roman", "TimesNewRomanPSMT"},
+    {"Times", "Times", "Times"}, {"Lucida Grande", "Lucida Grande", "LucidaGrande"},
+    {"LucidaGrande", "Lucida Grande", "LucidaGrande"}, {"Geneva", "Geneva", "Geneva"},
+    {"Andale Mono", "Andale Mono", "AndaleMono"},
+};
+static int apple_index(const char *name) {
+    for (size_t i = 0; i < sizeof apple_fonts / sizeof *apple_fonts; i++)
+        if (!strncasecmp(name, apple_fonts[i].prefix, strlen(apple_fonts[i].prefix))) return (int)i;
+    return -1;
+}
+/* The names a font reports: its face's, or the Apple font's it stands in
+ * for. Returns 1 when standing in. */
+static int reported_names(const struct ct_font *f, char *family, char *ps, char *full, size_t n) {
+    char req[256] = "";
+    if (f->requested_name) cstring(f->requested_name, req, sizeof req);
+    int a = req[0] ? apple_index(req) : -1;
+    if (a < 0 || !strcasecmp(f->face->family, apple_fonts[a].family)) {
+        snprintf(family, n, "%s", f->face->family);
+        snprintf(ps, n, "%s", f->face->postscript[0] ? f->face->postscript : f->face->full);
+        snprintf(full, n, "%s", f->face->full);
+        return 0;
+    }
+    const char *style = f->face->style[0] ? f->face->style : "Regular";
+    if (!strcasecmp(style, "Book") || !strcasecmp(style, "Roman") || !strcasecmp(style, "Normal")) style = "Regular";
+    char st[64];
+    snprintf(st, sizeof st, "%s", style);
+    for (char *c = st; *c; c++) if (*c == ' ') *c = 0;  /* "Bold Oblique" -> "Bold" */
+    snprintf(family, n, "%s", apple_fonts[a].family);
+    snprintf(ps, n, "%s-%s", apple_fonts[a].ps, st);
+    snprintf(full, n, "%s %s", apple_fonts[a].family, style);
+    return 1;
+}
 static Ref d_CTFontCopyPostScriptName(const struct ct_font *f) {
-    return f ? ct_cfstring(f->face->postscript[0] ? f->face->postscript : f->face->full) : NULL;
+    if (!f) return NULL;
+    char fam[256], ps[256], full[256];
+    reported_names(f, fam, ps, full, sizeof fam);
+    return ct_cfstring(ps);
 }
 DX_FN(CTFontCopyPostScriptName);
-static Ref d_CTFontCopyFamilyName(const struct ct_font *f) { return f ? ct_cfstring(f->face->family) : NULL; }
+static Ref d_CTFontCopyFamilyName(const struct ct_font *f) {
+    if (!f) return NULL;
+    char fam[256], ps[256], full[256];
+    reported_names(f, fam, ps, full, sizeof fam);
+    return ct_cfstring(fam);
+}
 DX_FN(CTFontCopyFamilyName);
-static Ref d_CTFontCopyFullName(const struct ct_font *f) { return f ? ct_cfstring(f->face->full) : NULL; }
+static Ref d_CTFontCopyFullName(const struct ct_font *f) {
+    if (!f) return NULL;
+    char fam[256], ps[256], full[256];
+    reported_names(f, fam, ps, full, sizeof fam);
+    return ct_cfstring(full);
+}
 DX_FN(CTFontCopyFullName);
-static Ref d_CTFontCopyDisplayName(const struct ct_font *f) { return f ? ct_cfstring(f->face->full) : NULL; }
+static Ref d_CTFontCopyDisplayName(const struct ct_font *f) { return d_CTFontCopyFullName(f); }
 DX_FN(CTFontCopyDisplayName);
 
 static Ref d_CTFontCopyName(const struct ct_font *f, Ref key) {
     if (!f || !key) return NULL;
-    if (d_CFEqual(key, d_kCTFontFamilyNameKey)) return ct_cfstring(f->face->family);
+    if (d_CFEqual(key, d_kCTFontFamilyNameKey)) return d_CTFontCopyFamilyName(f);
     if (d_CFEqual(key, d_kCTFontSubFamilyNameKey) || d_CFEqual(key, d_kCTFontStyleNameKey)) return ct_cfstring(f->face->style);
-    if (d_CFEqual(key, d_kCTFontFullNameKey) || d_CFEqual(key, d_kCTFontUniqueNameKey)) return ct_cfstring(f->face->full);
+    if (d_CFEqual(key, d_kCTFontFullNameKey) || d_CFEqual(key, d_kCTFontUniqueNameKey)) return d_CTFontCopyFullName(f);
     if (d_CFEqual(key, d_kCTFontPostScriptNameKey)) return d_CTFontCopyPostScriptName(f);
     return NULL;
 }
@@ -505,12 +566,45 @@ static struct ct_desc *d_CTFontDescriptorCreateCopyWithAttributes(const struct c
 }
 DX_FN(CTFontDescriptorCreateCopyWithAttributes);
 
-/* The descriptors that match: here, the descriptor itself (every name
- * resolves to some installed face). */
+/* The descriptors that match: for a name or family, the installed face
+ * (or the stand-in for an Apple font), described by its names; nothing
+ * for a font that is not there. Other descriptors match themselves. */
+static struct ct_font *d_CTFontCreateWithFontDescriptor(const struct ct_desc *d, CGFloat size, const CGAffineTransform *m);
 static Ref d_CTFontDescriptorCreateMatchingFontDescriptors(const struct ct_desc *d, Ref mandatory) {
     if (!d) return NULL;
-    const void *one[] = {d};
-    return make_array(one, 1);
+    char a[256] = "", b[256] = "";
+    cstring(d_CFDictionaryGetValue(d->attributes, d_kCTFontNameAttribute), a, sizeof a);
+    cstring(d_CFDictionaryGetValue(d->attributes, d_kCTFontFamilyNameAttribute), b, sizeof b);
+    CT_TRACE("matching name=%s family=%s\n", a, b);
+    if (d_CFDictionaryGetValue(d->attributes, d_kCTFontURLAttribute) || (!a[0] && !b[0])) {
+        const void *one[] = {d};
+        return make_array(one, 1);
+    }
+    const char *want = a[0] ? a : b;
+    struct ttf *face = ct_face_for_name(want);
+    if (!face) return NULL;
+    int apple = apple_index(want) >= 0;
+    int real = !strcasecmp(face->family, want) || !strcasecmp(face->postscript, want) || !strcasecmp(face->full, want);
+    if (!real && !apple) {
+        /* a family's member asked for by family and style */
+        char base[256];
+        snprintf(base, sizeof base, "%s", want);
+        char *dash = strchr(base, '-');
+        if (dash) *dash = 0;
+        real = !strcasecmp(face->family, base);
+    }
+    if (!real && !apple) return NULL;
+    struct ct_font *f = d_CTFontCreateWithFontDescriptor(d, 12, NULL);
+    if (!f) return NULL;
+    Ref ps = d_CTFontCopyPostScriptName(f), fam = d_CTFontCopyFamilyName(f);
+    const void *keys[] = {d_kCTFontNameAttribute, d_kCTFontFamilyNameAttribute};
+    const void *vals[] = {ps, fam};
+    Ref dict = make_dict(keys, vals, 2);
+    struct ct_desc *r = desc_new(dict);
+    const void *one[] = {r};
+    Ref arr = make_array(one, 1);
+    cg_release(r); cg_release(dict); cg_release(ps); cg_release(fam); cg_release(f);
+    return arr;
 }
 DX_FN(CTFontDescriptorCreateMatchingFontDescriptors);
 
