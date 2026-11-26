@@ -50,6 +50,10 @@ public struct Selector: Sendable {
   public init(_cString name: UnsafePointer<CChar>) {
     self = sel_registerName(name)
   }
+  /// The selector with this name (`Selector("doThing:")`).
+  public init(_ name: String) {
+    self = name.withCString { sel_registerName($0) }
+  }
 }
 
 extension Selector: Equatable, Hashable {

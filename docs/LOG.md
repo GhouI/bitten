@@ -2832,3 +2832,25 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Target app window (total `^MISSING`): 62 -> 55. The app now gets past
   `+[NSAppleEventManager sharedAppleEventManager]`, to
   `-[NSWindow occlusionState]`.
+
+## Core Apple events, menus, asset-catalog images, runtime aliases
+
+- AppKit: the core Apple-event handlers installed as the application
+  finishes launching (open, reopen, open documents, get URL, quit, show
+  preferences, forwarded to the delegate); NSWindow.occlusionState;
+  NSMenu delegates (asked to fill and update a menu before it is shown),
+  fonts, widths, sizes, pop-up and context menus, item views, represented
+  objects, subtitles and parent items; `NSImage(named:)` answers with an
+  empty icon-sized image for names in the bundle's compiled asset catalog
+  (Assets.car is not decoded yet).
+- Runtime and overlays: the `__objc_autoreleasePoolPush/Pop` and
+  `__swiftImmortalRefCount` spellings; `swift_stdlib_random`; `_ArrayProtocol`;
+  `Selector(_:)`; AsyncThrowingStream's initializers and makeStream and
+  AsyncStream's `yield()` with method-level where clauses (as mangled);
+  os's `checkForErrorAndConsumeState` returning a value.
+- Mangling: `Never: SortComparator` lives in Foundation (not a retroactive
+  conformance in SwiftUI); the symbol-effect kind protocols do not refine
+  SymbolEffect, so `T: ContentTransitionSymbolEffect, T: SymbolEffect`
+  keeps both requirements.
+- The target application now runs until NSXPCConnection.
+- Target app window (total `^MISSING`): 62 -> 41.

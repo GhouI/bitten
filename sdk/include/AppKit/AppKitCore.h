@@ -139,6 +139,8 @@ typedef NS_ENUM(NSInteger, NSViewLayerContentsPlacement) {
 - (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag;
 - (nullable NSMenu *)applicationDockMenu:(NSApplication *)sender;
 - (void)application:(NSApplication *)application openURLs:(NSArray<NSURL *> *)urls;
+- (void)application:(NSApplication *)sender openFiles:(NSArray<NSString *> *)filenames;
+- (BOOL)application:(NSApplication *)sender openFile:(NSString *)filename;
 @end
 
 APPKIT_EXTERN NSAppearanceName const NSAppearanceNameVibrantDark, NSAppearanceNameVibrantLight,
@@ -2109,4 +2111,47 @@ typedef NS_OPTIONS(NSUInteger, NSWritingToolsResultOptions) {
 @property (readonly, strong) NSDockTile *dockTile;
 @property (readonly, copy) NSArray<NSWindow *> *orderedWindows;
 @property (readonly, getter=isFullKeyboardAccessEnabled) BOOL fullKeyboardAccessEnabled;
+@end
+
+typedef NS_OPTIONS(NSUInteger, NSWindowOcclusionState) { NSWindowOcclusionStateVisible = 1UL << 1 } NS_SWIFT_NAME(NSWindow.OcclusionState);
+@interface NSWindow (BittenOcclusion)
+@property (readonly) NSWindowOcclusionState occlusionState;
+@end
+@interface NSApplication (BittenAppleEvents)
+- (void)_bn_installCoreEventHandlers;
+@end
+
+typedef NS_ENUM(NSInteger, NSMenuSelectionMode) {
+    NSMenuSelectionModeAutomatic = 0, NSMenuSelectionModeSelectOne = 1, NSMenuSelectionModeSelectAny = 2
+};
+@protocol NSMenuDelegate <NSObject>
+@optional
+- (void)menuNeedsUpdate:(NSMenu *)menu;
+- (NSInteger)numberOfItemsInMenu:(NSMenu *)menu;
+- (BOOL)menu:(NSMenu *)menu updateItem:(NSMenuItem *)item atIndex:(NSInteger)index shouldCancel:(BOOL)shouldCancel;
+- (void)menuWillOpen:(NSMenu *)menu;
+- (void)menuDidClose:(NSMenu *)menu;
+- (void)menu:(NSMenu *)menu willHighlightItem:(nullable NSMenuItem *)item;
+@end
+@interface NSMenu (BittenExtras)
+@property (nullable, weak) id<NSMenuDelegate> delegate;
+@property CGFloat minimumWidth;
+@property (null_resettable, strong) NSFont *font;
+@property NSMenuSelectionMode selectionMode;
+@property (readonly) CGFloat menuBarHeight;
+@property (readonly) NSSize size;
+- (NSInteger)indexOfItemWithTitle:(NSString *)title;
+- (BOOL)popUpMenuPositioningItem:(nullable NSMenuItem *)item atLocation:(NSPoint)location inView:(nullable NSView *)view;
++ (void)popUpContextMenu:(NSMenu *)menu withEvent:(NSEvent *)event forView:(NSView *)view;
++ (void)popUpContextMenu:(NSMenu *)menu withEvent:(NSEvent *)event forView:(NSView *)view withFont:(nullable NSFont *)font;
+- (void)cancelTracking;
+- (void)cancelTrackingWithoutAnimation;
+@end
+@interface NSMenuItem (BittenExtras)
+@property (nullable, strong) NSView *view;
+@property (nullable, strong) id representedObject;
+@property (nullable, copy) NSString *subtitle;
+@property (readonly, getter=isHighlighted) BOOL highlighted;
+@property (readonly, getter=isHiddenOrHasHiddenAncestor) BOOL hiddenOrHasHiddenAncestor;
+@property (nullable, readonly, weak) NSMenuItem *parentItem;
 @end

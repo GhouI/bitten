@@ -497,6 +497,9 @@ static void *d_objc_autoreleasePoolPush(void) {
     return (void *)(uintptr_t)p->count; /* token: index just past the mark */
 }
 DX_FN(objc_autoreleasePoolPush);
+/* The underscored spellings the compiler emits for @autoreleasepool in
+ * Swift on newer SDKs. */
+DX_EXPORT("__objc_autoreleasePoolPush", d_objc_autoreleasePoolPush);
 
 static void pool_drain_to(struct pool *p, size_t mark_index) {
     while (p->count > mark_index) {
@@ -516,6 +519,7 @@ static void d_objc_autoreleasePoolPop(void *token) {
     pool_drain_to(p, idx - 1);
 }
 DX_FN(objc_autoreleasePoolPop);
+DX_EXPORT("__objc_autoreleasePoolPop", d_objc_autoreleasePoolPop);
 
 static void pool_thread_exit(void *arg) {
     struct pool *p = arg;

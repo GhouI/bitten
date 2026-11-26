@@ -53,6 +53,9 @@ public struct OSSignpostID: Comparable, Hashable, Sendable {
 
 public enum OSSignpostError: Error, Sendable {
   case doubleEnd
+  /// The interval was open: no error (the check returns a value, not an
+  /// optional).
+  case none
 }
 
 public final class OSSignpostIntervalState: Codable, @unchecked Sendable {
@@ -76,10 +79,10 @@ public final class OSSignpostIntervalState: Codable, @unchecked Sendable {
 }
 
 /// Ends an interval: reports a second end of the same interval.
-public func checkForErrorAndConsumeState(state: OSSignpostIntervalState) -> OSSignpostError? {
+public func checkForErrorAndConsumeState(state: OSSignpostIntervalState) -> OSSignpostError {
   if !state.isOpen { return .doubleEnd }
   state.isOpen = false
-  return nil
+  return .none
 }
 
 public struct OSSignposter: @unchecked Sendable {

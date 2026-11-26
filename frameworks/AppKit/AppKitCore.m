@@ -410,6 +410,7 @@ static NSUInteger next_window_number = 1;
 - (void)finishLaunching {
     if (_launched) return;
     _launched = YES;
+    [self _bn_installCoreEventHandlers];
     NSNotification *n = [NSNotification notificationWithName:NSApplicationWillFinishLaunchingNotification
                                                       object:self userInfo:nil];
     if ([_delegate respondsToSelector:@selector(applicationWillFinishLaunching:)])
