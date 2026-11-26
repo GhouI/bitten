@@ -16,6 +16,8 @@ void bitten_cg_restore_to_depth(CGContextRef c, size_t depth);
 int bitten_display_present(uint32_t window, const void *pixels, size_t width, size_t height, size_t row_bytes,
                            uint32_t bitmap_info, double x, double y, const char *title);
 void bitten_display_close(uint32_t window);
+int bitten_display_set_style(uint32_t window, uint32_t flags, int32_t level);
+void bitten_display_order_front(uint32_t window);
 
 /* ---- NSGraphicsContext ---------------------------------------------------- */
 
@@ -487,6 +489,7 @@ static const char kScheduledKey;
     if (getenv("BITTEN_VIEW_TREE")) bn_dump_tree(self.contentView, 0);
     [self.contentView _bn_drawIn:c parentFlipped:NO];
     CGContextRestoreGState(c);
+    [self _bn_sendStyle];
     /* The page's coordinates run down from the top of the main screen. */
     NSRect screen = [NSScreen mainScreen].frame;
     double top = CGRectGetMaxY(screen) - CGRectGetMaxY(self.frame);
@@ -496,6 +499,25 @@ static const char kScheduledKey;
                            self.title.UTF8String ?: "");
     [NSApplication _bn_listenToDisplay];
 }
+
+/* How the display should show this window: without a title bar and frame
+ * when it has none, see-through when it is not opaque, and stacked by its
+ * level (floating panels above normal windows). Sent when it changes. */
+static const char kStyleKey;
+- (void)_bn_sendStyle {
+    uint32_t flags = 0;
+    if (!(self.styleMask & NSWindowStyleMaskTitled)) flags |= 1;
+    CGFloat bgAlpha = self.backgroundColor ? self.backgroundColor.alphaComponent : 1;
+    if (!self.isOpaque || bgAlpha < 1) flags |= 2;
+    int32_t level = (int32_t)self.level;
+    uint64_t packed = (uint64_t)flags << 32 | (uint32_t)level;
+    NSNumber *sent = objc_getAssociatedObject(self, &kStyleKey);
+    if (sent && sent.unsignedLongLongValue == packed) return;
+    objc_setAssociatedObject(self, &kStyleKey, @(packed), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    bitten_display_set_style((uint32_t)self.windowNumber, flags, level);
+}
+/* Raises the window within its level on the display (without focus). */
+- (void)_bn_orderFrontOnDisplay { bitten_display_order_front((uint32_t)self.windowNumber); }
 
 /* Redraws on the next turn of the main queue, once per batch of changes. */
 - (void)_bn_scheduleDisplay {

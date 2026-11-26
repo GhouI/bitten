@@ -406,6 +406,7 @@ static NSUInteger next_window_number = 1;
         fprintf(stderr, "bitten: window %s %s ordered front\n", object_getClassName(self), NSStringFromRect(_frame).UTF8String);
     _visible = YES;
     [self display];
+    [self _bn_orderFrontOnDisplay];
 }
 - (void)makeKeyAndOrderFront:(id)sender {
     for (NSWindow *w in all_windows) w->_key = NO;

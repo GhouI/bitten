@@ -3686,3 +3686,18 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   without stopping.
 - Test: tests/appkit/text.m (NSTextView settings).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: window styles and stacking on the display
+
+- Windows tell the display how to show them, through the other session's
+  `bitten_display_set_style` (#173), sent before a present when it changes:
+  - borderless when the style mask has no title bar,
+  - transparent when not opaque or the background colour has alpha,
+  - stacked by `level` (floating panels above normal windows).
+- Ordering a window front (`orderFront:`, `makeKeyAndOrderFront:`,
+  `orderFrontRegardless`) raises it on the display with
+  `bitten_display_order_front`.
+- The target app's ⇧⌘P command palette (a borderless floating panel) now
+  appears above the workspace with its commands and shortcuts. Its
+  Settings window (⌘,) opens in front of the workspace.
+- Target app (total `^MISSING`): 0 -> 0.
