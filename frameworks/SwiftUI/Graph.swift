@@ -36,6 +36,10 @@ public struct _GraphValue<Value>: Equatable {
 internal final class _RenderContext {
   var storage: [String: AnyObject] = [:]
   var invalidate: () -> Void = {}
+  /// The view AppKit subviews (representables) are added to.
+  weak var hostView: NSView?
+  /// AppKit subviews placed in the last layout.
+  var livePlatformViews: Set<ObjectIdentifier> = []
   func store<T: AnyObject>(_ key: String, _ make: () -> T) -> T {
     if let s = storage[key] as? T { return s }
     let s = make()
@@ -134,6 +138,12 @@ internal class _ViewNode {
   /// Layout priority and flexibility, for stacks.
   var layoutPriority: Double { return children.count == 1 ? children[0].layoutPriority : 0 }
   var isSpacer: Bool { return false }
+  /// Values for custom layouts (`layoutValue(key:value:)`).
+  var layoutValues: [ObjectIdentifier: Any] { return children.count == 1 ? children[0].layoutValues : [:] }
+  /// Collects the preference values for `key` written in this subtree.
+  func preference(_ key: ObjectIdentifier, into values: inout [Any]) {
+    for c in children { c.preference(key, into: &values) }
+  }
 }
 
 /// Nodes of views made from other nodes without adding anything.

@@ -58,6 +58,13 @@ public class AnyKeyPath: _AppendKeyPath {
 
   deinit { _kpDestroy(_kpRef(self)) }
 
+  /// The Objective-C key path string of a path made of @objc properties
+  /// (what KVO observes), or nil.
+  final public var _kvcKeyPathString: String? {
+    guard let s = _kpKVCString(_kpRef(self)) else { return nil }
+    return String(cString: s)
+  }
+
   final public var hashValue: Int { return _hashValue(for: self) }
 
   final public func hash(into hasher: inout Hasher) {

@@ -12,6 +12,7 @@
 
 int _dispatch_get_main_queue_port_4CF(void);
 void _dispatch_main_queue_callback_4CF(void *msg);
+void _bn_runloop_notify(CFRunLoopActivity activity);
 
 NSRunLoopMode const NSDefaultRunLoopMode = @"kCFRunLoopDefaultMode";
 NSRunLoopMode const NSRunLoopCommonModes = @"kCFRunLoopCommonModes";
@@ -79,7 +80,10 @@ static void make_loop_key(void) { pthread_key_create(&loop_key, NULL); }
     _currentMode = mode;
     struct pollfd fd = {.fd = _dispatch_get_main_queue_port_4CF(), .events = POLLIN};
     int ms = wait > 86400 ? 86400000 : (int)(wait * 1000);
+    _bn_runloop_notify(kCFRunLoopBeforeTimers | kCFRunLoopBeforeSources);
+    _bn_runloop_notify(kCFRunLoopBeforeWaiting);
     poll(&fd, 1, ms);
+    _bn_runloop_notify(kCFRunLoopAfterWaiting);
     _dispatch_main_queue_callback_4CF(NULL);
     _currentMode = saved;
     return YES;
@@ -208,4 +212,83 @@ static void make_loop_key(void) { pthread_key_create(&loop_key, NULL); }
 - (NSTimeInterval)tolerance { return _tolerance; }
 - (void)setTolerance:(NSTimeInterval)t { _tolerance = t; }
 - (id)userInfo { return _userInfo; }
+@end
+
+/* ---- delayed performs -------------------------------------------------------
+ * -performSelector:withObject:afterDelay: queues the message on the current
+ * run loop's queue after the delay; the cancel methods mark matching
+ * requests so they do nothing when they come due. */
+@interface _BNPerformRequest : NSObject {
+  @public
+    __unsafe_unretained id _target;
+    SEL _selector;
+    id _argument;
+    BOOL _cancelled;
+}
+@end
+@implementation _BNPerformRequest
+@end
+
+static NSMutableArray<_BNPerformRequest *> *pending_performs;
+static pthread_mutex_t performs_lock = PTHREAD_MUTEX_INITIALIZER;
+
+@implementation NSObject (NSDelayedPerforming)
+- (void)performSelector:(SEL)selector withObject:(id)argument afterDelay:(NSTimeInterval)delay
+                inModes:(NSArray<NSRunLoopMode> *)modes {
+    _BNPerformRequest *r = [_BNPerformRequest new];
+    r->_target = self;
+    r->_selector = selector;
+    r->_argument = argument;
+    id strongSelf = self; /* the target is kept until the request runs */
+    pthread_mutex_lock(&performs_lock);
+    if (!pending_performs) pending_performs = [NSMutableArray array];
+    [pending_performs addObject:r];
+    pthread_mutex_unlock(&performs_lock);
+    dispatch_queue_t q = [[NSRunLoop currentRunLoop] _bn_queue];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), q, ^{
+        pthread_mutex_lock(&performs_lock);
+        [pending_performs removeObjectIdenticalTo:r];
+        BOOL cancelled = r->_cancelled;
+        pthread_mutex_unlock(&performs_lock);
+        if (!cancelled) ((void (*)(id, SEL, id))objc_msgSend)(strongSelf, r->_selector, r->_argument);
+    });
+}
+- (void)performSelector:(SEL)selector withObject:(id)argument afterDelay:(NSTimeInterval)delay {
+    [self performSelector:selector withObject:argument afterDelay:delay inModes:@[ NSDefaultRunLoopMode ]];
+}
++ (void)cancelPreviousPerformRequestsWithTarget:(id)target selector:(SEL)selector object:(id)argument {
+    pthread_mutex_lock(&performs_lock);
+    for (_BNPerformRequest *r in pending_performs)
+        if (r->_target == target && r->_selector == selector &&
+            (r->_argument == argument || [r->_argument isEqual:argument]))
+            r->_cancelled = YES;
+    pthread_mutex_unlock(&performs_lock);
+}
++ (void)cancelPreviousPerformRequestsWithTarget:(id)target {
+    pthread_mutex_lock(&performs_lock);
+    for (_BNPerformRequest *r in pending_performs)
+        if (r->_target == target) r->_cancelled = YES;
+    pthread_mutex_unlock(&performs_lock);
+}
+@end
+
+@implementation NSObject (NSThreadPerformAdditions)
+- (void)performSelectorOnMainThread:(SEL)selector withObject:(id)arg waitUntilDone:(BOOL)wait
+                              modes:(NSArray<NSString *> *)modes {
+    id me = self;
+    if (wait && [NSThread isMainThread]) {
+        ((void (*)(id, SEL, id))objc_msgSend)(me, selector, arg);
+        return;
+    }
+    void (^block)(void) = ^{ ((void (*)(id, SEL, id))objc_msgSend)(me, selector, arg); };
+    if (wait) dispatch_sync(dispatch_get_main_queue(), block);
+    else dispatch_async(dispatch_get_main_queue(), block);
+}
+- (void)performSelectorOnMainThread:(SEL)selector withObject:(id)arg waitUntilDone:(BOOL)wait {
+    [self performSelectorOnMainThread:selector withObject:arg waitUntilDone:wait modes:@[ NSRunLoopCommonModes ]];
+}
+- (void)performSelectorInBackground:(SEL)selector withObject:(id)arg {
+    id me = self;
+    dispatch_async(dispatch_get_global_queue(0, 0), ^{ ((void (*)(id, SEL, id))objc_msgSend)(me, selector, arg); });
+}
 @end

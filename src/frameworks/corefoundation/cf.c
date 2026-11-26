@@ -13,7 +13,7 @@ Boolean cf_objc_equal(const void *left, const void *right);
 
 const void *d_CFRetain(const void *object) {
     struct cf_object *o = (struct cf_object *)object;
-    if (!o || cf_is_constant_string(o)) return object;
+    if (!o || cf_is_constant(o)) return object;
     if (!cf_is_cf(o)) return dx_objc_retain(o);
     if (atomic_load_explicit(&o->refs, memory_order_relaxed) != LONG_MAX)
         atomic_fetch_add_explicit(&o->refs, 1, memory_order_relaxed);
@@ -23,7 +23,7 @@ DX_FN(CFRetain);
 
 void d_CFRelease(const void *object) {
     struct cf_object *o = (struct cf_object *)object;
-    if (!o || cf_is_constant_string(o)) return;
+    if (!o || cf_is_constant(o)) return;
     if (!cf_is_cf(o)) {
         dx_objc_release(o);
         return;
@@ -46,7 +46,7 @@ DX_FN(CFGetTypeID);
 static CFIndex d_CFGetRetainCount(const void *object) {
     const struct cf_object *o = object;
     if (!o) return 0;
-    if (cf_is_constant_string(o) || !cf_is_cf(o)) return LONG_MAX;
+    if (cf_is_constant(o) || !cf_is_cf(o)) return LONG_MAX;
     return atomic_load_explicit(&o->refs, memory_order_relaxed);
 }
 DX_FN(CFGetRetainCount);
@@ -154,6 +154,9 @@ static const void *d_kCFNull = &null_value;
 DX_EXPORT("_kCFBooleanTrue", &d_kCFBooleanTrue);
 DX_EXPORT("_kCFBooleanFalse", &d_kCFBooleanFalse);
 DX_EXPORT("_kCFNull", &d_kCFNull);
+/* The objects themselves, which Swift's literal bridging references. */
+DX_EXPORT("___kCFBooleanTrue", &boolean_true);
+DX_EXPORT("___kCFBooleanFalse", &boolean_false);
 CF_TYPE_ID(CFBoolean, CF_BOOLEAN);
 CF_TYPE_ID(CFNull, CF_NULL);
 
@@ -224,6 +227,7 @@ struct cf_number *d_CFNumberCreate(const void *allocator, CFIndex type, const vo
 DX_FN(CFNumberCreate);
 
 Boolean d_CFNumberGetValue(const struct cf_number *n, CFIndex type, void *out) {
+    n = CF_STR(n);
     if (!n || !out) return 0;
     long double value = n->value;
 #define WRITE_INT(code, c_type, min, max) \
@@ -252,19 +256,22 @@ Boolean d_CFNumberGetValue(const struct cf_number *n, CFIndex type, void *out) {
 }
 DX_FN(CFNumberGetValue);
 
-static CFIndex d_CFNumberGetType(const struct cf_number *n) { return n ? n->type : 0; }
+static CFIndex d_CFNumberGetType(const struct cf_number *n) { n = CF_STR(n); return n ? n->type : 0; }
 DX_FN(CFNumberGetType);
 
-static Boolean d_CFNumberIsFloatType(const struct cf_number *n) { return n && n->type >= 5; }
+static Boolean d_CFNumberIsFloatType(const struct cf_number *n) { n = CF_STR(n); return n && n->type >= 5; }
 DX_FN(CFNumberIsFloatType);
 
 static CFIndex d_CFNumberGetByteSize(const struct cf_number *n) {
+    n = CF_STR(n);
     static const CFIndex sizes[] = {0, 1, 2, 4, 8, 4, 8};
     return n ? sizes[n->type] : 0;
 }
 DX_FN(CFNumberGetByteSize);
 
 static CFIndex d_CFNumberCompare(const struct cf_number *a, const struct cf_number *b, void *context) {
+    a = CF_STR(a);
+    b = CF_STR(b);
     if (isnan(a->value)) return isnan(b->value) ? 0 : signbit(b->value) ? 1 : -1;
     if (isnan(b->value)) return signbit(a->value) ? -1 : 1;
     return (a->value > b->value) - (a->value < b->value);

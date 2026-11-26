@@ -25,11 +25,68 @@ int cf_is_constant_string(const void *object) {
     return object && *(void *const *)object == (void *)&constant_string_class;
 }
 
+/* The classes of compiler-emitted constant collections and numbers
+ * (`@[...]`, `@{...}`, `@42` in newer clang). Their storage is the
+ * compiler's: arrays {isa, count, objects}, dictionaries {isa, options,
+ * count, keys, objects}, integers {isa, encoding, value}, floats and
+ * doubles {isa, value}. Like constant strings, CF functions resolve them to
+ * an immortal CF object made on first use. */
+static struct objc_class constant_array_class, constant_array_meta, constant_dict_class, constant_dict_meta,
+    constant_int_class, constant_int_meta, constant_float_class, constant_float_meta, constant_double_class,
+    constant_double_meta;
+DX_EXPORT("_OBJC_CLASS_$_NSConstantArray", &constant_array_class);
+DX_EXPORT("_OBJC_CLASS_$_NSConstantDictionary", &constant_dict_class);
+DX_EXPORT("_OBJC_CLASS_$_NSConstantIntegerNumber", &constant_int_class);
+DX_EXPORT("_OBJC_CLASS_$_NSConstantFloatNumber", &constant_float_class);
+DX_EXPORT("_OBJC_CLASS_$_NSConstantDoubleNumber", &constant_double_class);
+
+static int is_constant_literal(const void *object) {
+    if (!object || ((uintptr_t)object & 1)) return 0;
+    const void *isa = *(void *const *)object;
+    return isa == &constant_array_class || isa == &constant_dict_class || isa == &constant_int_class ||
+           isa == &constant_float_class || isa == &constant_double_class;
+}
+int cf_is_constant(const void *object) { return cf_is_constant_string(object) || is_constant_literal(object); }
+
+struct const_array { void *isa; unsigned long count; const void *const *objects; };
+struct const_dict { void *isa; unsigned long options, count; const void *const *keys, *const *objects; };
+struct const_int { void *isa; const char *encoding; long long value; };
+struct const_float { void *isa; float value; };
+struct const_double { void *isa; double value; };
+
+static const void *make_literal(const void *object) {
+    const void *isa = *(void *const *)object;
+    if (isa == &constant_array_class) {
+        const struct const_array *a = object;
+        const void *(*create)(const void *, const void *const *, CFIndex, const void *) =
+            dx_registry_lookup("_CFArrayCreate");
+        return create(NULL, a->objects, (CFIndex)a->count, dx_registry_lookup("_kCFTypeArrayCallBacks"));
+    }
+    if (isa == &constant_dict_class) {
+        const struct const_dict *d = object;
+        const void *(*create)(const void *, const void *const *, const void *const *, CFIndex, const void *,
+                              const void *) = dx_registry_lookup("_CFDictionaryCreate");
+        return create(NULL, d->keys, d->objects, (CFIndex)d->count, dx_registry_lookup("_kCFTypeDictionaryKeyCallBacks"),
+                      dx_registry_lookup("_kCFTypeDictionaryValueCallBacks"));
+    }
+    const void *(*number)(const void *, CFIndex, const void *) = dx_registry_lookup("_CFNumberCreate");
+    if (isa == &constant_int_class) {
+        const struct const_int *n = object;
+        if (n->encoding && (n->encoding[0] == 'c' || n->encoding[0] == 'B')) {
+            const void *const *b = dx_registry_lookup(n->value ? "_kCFBooleanTrue" : "_kCFBooleanFalse");
+            return *b;
+        }
+        return number(NULL, 11 /* kCFNumberLongLongType */, &n->value);
+    }
+    if (isa == &constant_float_class) return number(NULL, 12 /* kCFNumberFloatType */, &((const struct const_float *)object)->value);
+    return number(NULL, 13 /* kCFNumberDoubleType */, &((const struct const_double *)object)->value);
+}
+
 int cf_is_cf(const void *object) {
     if (!object || ((uintptr_t)object & 1)) return 0;
     const void *isa = *(void *const *)object;
     return (isa >= (const void *)&cf_classes[0] && isa < (const void *)&cf_classes[CF_TYPE_MAX]) ||
-           isa == (const void *)&constant_string_class;
+           isa == (const void *)&constant_string_class || is_constant_literal(object);
 }
 
 /* constant string -> immortal CF string */
@@ -42,7 +99,7 @@ static size_t shadow_cap, shadow_count;
 static pthread_mutex_t shadow_lock = PTHREAD_MUTEX_INITIALIZER;
 
 const void *cf_resolve(const void *object) {
-    if (!cf_is_constant_string(object)) return object;
+    if (!cf_is_constant(object)) return object;
     pthread_mutex_lock(&shadow_lock);
     if (shadow_count * 2 >= shadow_cap) {
         size_t ncap = shadow_cap ? shadow_cap * 2 : 256;
@@ -61,7 +118,8 @@ const void *cf_resolve(const void *object) {
     while (shadows[i].constant && shadows[i].constant != object) i = (i + 1) & (shadow_cap - 1);
     if (!shadows[i].constant) {
         shadows[i].constant = object;
-        shadows[i].string = cf_string_from_constant(object);
+        shadows[i].string = cf_is_constant_string(object) ? cf_string_from_constant(object)
+                                                          : (struct cf_string *)make_literal(object);
         shadow_count++;
     }
     struct cf_string *s = shadows[i].string;
@@ -165,11 +223,16 @@ __attribute__((constructor(102))) static void bridge_init(void) {
     Class cfstring = cf_class(CF_STRING, mstring, "__NSCFString");
     Class konst = make_class(&constant_string_class, &constant_string_meta, cfstring, "__NSCFConstantString", 0);
     dx_objc_register_class(konst);
-    cf_class(CF_ARRAY, marray, "__NSCFArray");
-    cf_class(CF_DICTIONARY, mdict, "__NSCFDictionary");
+    Class cfarray = cf_class(CF_ARRAY, marray, "__NSCFArray");
+    Class cfdict = cf_class(CF_DICTIONARY, mdict, "__NSCFDictionary");
+    dx_objc_register_class(make_class(&constant_array_class, &constant_array_meta, cfarray, "NSConstantArray", 0));
+    dx_objc_register_class(make_class(&constant_dict_class, &constant_dict_meta, cfdict, "NSConstantDictionary", 0));
     cf_class(CF_SET, mset, "__NSCFSet");
     cf_class(CF_DATA, mdata, "__NSCFData");
-    cf_class(CF_NUMBER, number, "__NSCFNumber");
+    Class cfnumber = cf_class(CF_NUMBER, number, "__NSCFNumber");
+    dx_objc_register_class(make_class(&constant_int_class, &constant_int_meta, cfnumber, "NSConstantIntegerNumber", 0));
+    dx_objc_register_class(make_class(&constant_float_class, &constant_float_meta, cfnumber, "NSConstantFloatNumber", 0));
+    dx_objc_register_class(make_class(&constant_double_class, &constant_double_meta, cfnumber, "NSConstantDoubleNumber", 0));
     cf_class(CF_BOOLEAN, number, "__NSCFBoolean");
     cf_class(CF_DATE, date, "__NSCFDate");
     cf_class(CF_ERROR, error, "__NSCFError");

@@ -208,4 +208,44 @@ void CFAttributedStringRemoveAttribute(CFMutableAttributedStringRef, CFRange, CF
 void CFAttributedStringReplaceAttributedString(CFMutableAttributedStringRef, CFRange, CFAttributedStringRef);
 void CFAttributedStringBeginEditing(CFMutableAttributedStringRef);
 void CFAttributedStringEndEditing(CFMutableAttributedStringRef);
+
+/* ---- run loops (in Foundation, over the main dispatch queue) ---- */
+#ifndef CF_ENUM
+#define CF_ENUM(_type, _name) enum __attribute__((enum_extensibility(open))) _name : _type _name; \
+    enum __attribute__((enum_extensibility(open))) _name : _type
+#define CF_OPTIONS(_type, _name) enum __attribute__((flag_enum, enum_extensibility(open))) _name : _type _name; \
+    enum __attribute__((flag_enum, enum_extensibility(open))) _name : _type
+#endif
+typedef struct CF_BRIDGED(id) __CFRunLoop *CFRunLoopRef;
+typedef struct CF_BRIDGED(id) __CFRunLoopObserver *CFRunLoopObserverRef;
+typedef struct CF_BRIDGED(id) __CFRunLoopTimer *CFRunLoopTimerRef;
+typedef CFStringRef CFRunLoopMode;
+typedef CF_OPTIONS(CFOptionFlags, CFRunLoopActivity) {
+    kCFRunLoopEntry = 1UL << 0, kCFRunLoopBeforeTimers = 1UL << 1, kCFRunLoopBeforeSources = 1UL << 2,
+    kCFRunLoopBeforeWaiting = 1UL << 5, kCFRunLoopAfterWaiting = 1UL << 6, kCFRunLoopExit = 1UL << 7,
+    kCFRunLoopAllActivities = 0x0FFFFFFFU
+};
+typedef CF_ENUM(int32_t, CFRunLoopRunResult) {
+    kCFRunLoopRunFinished = 1, kCFRunLoopRunStopped = 2, kCFRunLoopRunTimedOut = 3, kCFRunLoopRunHandledSource = 4
+};
+extern const CFRunLoopMode kCFRunLoopDefaultMode;
+extern const CFRunLoopMode kCFRunLoopCommonModes;
+CFRunLoopRef CFRunLoopGetMain(void);
+CFRunLoopRef CFRunLoopGetCurrent(void);
+void CFRunLoopRun(void);
+CFRunLoopRunResult CFRunLoopRunInMode(CFRunLoopMode mode, CFTimeInterval seconds, Boolean returnAfterSourceHandled);
+void CFRunLoopStop(CFRunLoopRef rl);
+void CFRunLoopWakeUp(CFRunLoopRef rl);
+void CFRunLoopPerformBlock(CFRunLoopRef rl, CFTypeRef mode, void (^block)(void));
+CFRunLoopObserverRef CFRunLoopObserverCreateWithHandler(CFAllocatorRef allocator, CFOptionFlags activities,
+    Boolean repeats, CFIndex order, void (^block)(CFRunLoopObserverRef observer, CFRunLoopActivity activity))
+    CF_RETURNS_RETAINED;
+void CFRunLoopAddObserver(CFRunLoopRef rl, CFRunLoopObserverRef observer, CFRunLoopMode mode);
+void CFRunLoopRemoveObserver(CFRunLoopRef rl, CFRunLoopObserverRef observer, CFRunLoopMode mode);
+void CFRunLoopObserverInvalidate(CFRunLoopObserverRef observer);
+Boolean CFRunLoopObserverIsValid(CFRunLoopObserverRef observer);
+
+/* ---- bundle keys ---- */
+extern const CFStringRef kCFBundleInfoDictionaryVersionKey, kCFBundleExecutableKey, kCFBundleIdentifierKey,
+    kCFBundleVersionKey, kCFBundleDevelopmentRegionKey, kCFBundleNameKey, kCFBundleLocalizationsKey;
 #endif

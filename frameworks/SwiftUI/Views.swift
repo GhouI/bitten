@@ -1465,6 +1465,16 @@ extension EnvironmentValues {
 
 internal final class _ButtonNode: _ViewNode {
   let action: () -> Void
+  /// The label's text, for menus.
+  var title: String {
+    var out = ""
+    func walk(_ n: _ViewNode) {
+      if let t = n as? _TextNode { out += t.string; return }
+      for c in n.children { walk(c) }
+    }
+    walk(self)
+    return out
+  }
   let style: _ButtonAppearance
   init(label: _ViewNode, action: @escaping () -> Void, style: _ButtonAppearance, environment: EnvironmentValues) {
     self.action = action
@@ -1585,5 +1595,30 @@ extension View {
   }
   public func buttonStyle<S: ButtonStyle>(_ style: S) -> some View {
     return environment(\._buttonStyle, .plain)
+  }
+}
+
+// MARK: - Divider
+
+public struct Divider: View {
+  public init() {}
+  public typealias Body = Never
+  public var body: Never { fatalError("Divider has no body") }
+  public static func _makeView(view: _GraphValue<Divider>, inputs: _ViewInputs) -> _ViewOutputs {
+    return _ViewOutputs(_DividerNode(environment: inputs.environment))
+  }
+}
+
+/// A one-point line across the stack it is in (either direction).
+internal final class _DividerNode: _ViewNode {
+  override func sizeThatFits(_ proposal: ProposedViewSize) -> CGSize {
+    // In a vertical stack a divider is offered a width; in a horizontal
+    // one, a height.
+    if let w = proposal.width, proposal.height == nil { return CGSize(width: w, height: 1) }
+    if let h = proposal.height, proposal.width == nil { return CGSize(width: 1, height: h) }
+    return CGSize(width: proposal.width ?? 1, height: 1)
+  }
+  override func draw(_ context: CGContext) {
+    _Paint(r: 0, g: 0, b: 0, a: 0.1).fill(CGPathCreateWithRect(frame, nil), in: context)
   }
 }

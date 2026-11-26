@@ -385,4 +385,12 @@ public func _convertInOutToPointerArgument<ToPointer: _Pointer>(_ from: Builtin.
     @_transparent nonmutating unsafeMutableAddress { return UnsafeMutablePointer(_rawValue) }
   }
   @_transparent public init<U>(_ from: UnsafeMutablePointer<U>) { _rawValue = from._rawValue }
+  @_transparent public init?<U>(_ from: UnsafeMutablePointer<U>?) {
+    guard let p = from else { return nil }
+    _rawValue = p._rawValue
+  }
+  @_transparent public init<U>(_ from: UnsafePointer<U>) { _rawValue = from._rawValue }
+  @inlinable public subscript(i: Int) -> Pointee {
+    @_transparent unsafeAddress { return UnsafePointer<Pointee>(_rawValue) + i }
+  }
 }

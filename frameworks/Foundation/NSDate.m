@@ -48,6 +48,14 @@ NSString *const NSLocalizedDescriptionKey = @"NSLocalizedDescription";
 NSString *const NSLocalizedFailureReasonErrorKey = @"NSLocalizedFailureReason";
 NSString *const NSUnderlyingErrorKey = @"NSUnderlyingError";
 NSString *const NSFilePathErrorKey = @"NSFilePath";
+NSString *const NSURLErrorKey = @"NSURL";
+NSString *const NSLocalizedRecoverySuggestionErrorKey = @"NSLocalizedRecoverySuggestion";
+NSString *const NSLocalizedRecoveryOptionsErrorKey = @"NSLocalizedRecoveryOptions";
+NSString *const NSRecoveryAttempterErrorKey = @"NSRecoveryAttempter";
+NSString *const NSHelpAnchorErrorKey = @"NSHelpAnchor";
+NSString *const NSMultipleUnderlyingErrorsKey = @"NSMultipleUnderlyingErrorsKey";
+NSString *const NSStringEncodingErrorKey = @"NSStringEncodingErrorKey";
+NSString *const NSLocalizedFailureErrorKey = @"NSLocalizedFailure";
 
 @implementation NSError (Foundation)
 + (instancetype)errorWithDomain:(NSErrorDomain)domain code:(NSInteger)code userInfo:(NSDictionary *)userInfo {

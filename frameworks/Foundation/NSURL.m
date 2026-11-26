@@ -1,4 +1,5 @@
 #import "FoundationInternal.h"
+#include <unistd.h>
 
 /* Components of a parsed URL (strong references: the pieces are fresh
  * substrings that nothing else keeps alive). */
@@ -123,6 +124,18 @@ static BNURLParts *parse(NSString *url) {
     return path;
 }
 - (BOOL)isFileURL { return [self.scheme isEqualToString:@"file"]; }
+- (BOOL)checkResourceIsReachableAndReturnError:(NSError **)error {
+    if (self.isFileURL && access(self.path.fileSystemRepresentation, F_OK) == 0) return YES;
+    if (error) {
+        NSInteger code = self.isFileURL ? NSFileReadNoSuchFileError : NSFileReadUnsupportedSchemeError;
+        *error = [NSError errorWithDomain:NSCocoaErrorDomain code:code
+                                 userInfo:@{NSURLErrorKey : self, NSFilePathErrorKey : self.path ?: @""}];
+    }
+    return NO;
+}
+- (BOOL)checkPromisedItemIsReachableAndReturnError:(NSError **)error {
+    return [self checkResourceIsReachableAndReturnError:error];
+}
 - (NSString *)lastPathComponent { return self.path.lastPathComponent; }
 - (NSString *)pathExtension { return self.path.pathExtension; }
 - (NSURL *)URLByAppendingPathComponent:(NSString *)component {
