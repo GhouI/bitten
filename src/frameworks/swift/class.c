@@ -303,7 +303,14 @@ static void layout_fields(sw_class_metadata *self, size_t n, const sw_type_layou
     size_t size = sizeof(sw_heap_object), am = 7;
     const sw_class_metadata *super = self->superclass;
     if (is_swift_class(super)) {
-        size = super->instance_size;
+        /* The Objective-C side may have slid the superclass's ivars past
+         * the size its Swift metadata was compiled with (a superclass
+         * such as NSView is larger here than in Apple's AppKit). */
+        pthread_mutex_lock(&dx_objc_lock);
+        realize_class((Class)super);
+        size = RW((Class)super)->instance_size;
+        pthread_mutex_unlock(&dx_objc_lock);
+        if (super->instance_size > size) size = super->instance_size;
         am = super->instance_align_mask;
     } else if (super) {
         pthread_mutex_lock(&dx_objc_lock);
@@ -345,8 +352,8 @@ static void register_objc(sw_class_metadata *self, size_t n, const sw_type_layou
     if (!class_realized(cls)) {
         struct class_ro *ro = (struct class_ro *)(self->data & CLASS_DATA_MASK);
         uint32_t start = sizeof(sw_heap_object);
-        if (is_swift_class(super)) start = super->instance_size;
-        else if (super) start = RW((Class)super)->instance_size;
+        if (super) start = RW((Class)super)->instance_size;
+        if (is_swift_class(super) && super->instance_size > start) start = super->instance_size;
         ro->instance_start = start;
         ro->instance_size = self->instance_size;
         if (!ro->name) {

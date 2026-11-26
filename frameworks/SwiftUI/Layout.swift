@@ -258,6 +258,11 @@ extension ModifiedContent: View where Content: View, Modifier: ViewModifier {
   public var body: Never { fatalError("ModifiedContent has no body") }
   public static func _makeView(view: _GraphValue<ModifiedContent>, inputs: _ViewInputs) -> _ViewOutputs {
     let v = view.value
+    if _debugGraph && "\(Content.self)".hasPrefix("GeometryReader") {
+      var c = v.content
+      let w = withUnsafeBytes(of: &c) { r in (0..<min(2, r.count / 8)).map { String(r.load(fromByteOffset: $0 * 8, as: UInt.self), radix: 16) } }
+      _dbg("bitten: modified geometry \(w) modifier \(Modifier.self)")
+    }
     return Modifier._makeView(modifier: _GraphValue({ v.modifier }), inputs: inputs.named("m")) { _, i in
       Content._makeView(view: _GraphValue({ v.content }), inputs: i.named("c"))
     }

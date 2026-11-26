@@ -3209,3 +3209,29 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   per ARGB pixel: an alpha plane first, then predicted residual planes,
   still to be worked out.
 - Target app window (total `^MISSING`): 11 -> 11.
+
+## Return conventions of frozen SwiftUI types, thread-safe Observation
+
+- SwiftUI: `GeometryReader`, `ScrollViewReader`, `ScrollPhase` and
+  `GestureMask` are `@frozen`, as in Apple's SwiftUI. Programs take a
+  frozen value's result in registers (a GeometryReader in rax:rdx) and
+  pass a frozen enum's self by value; ours returned them through an
+  indirect result, so the target app stored two unrelated registers as its
+  GeometryReader and later called a heap address. Found by auditing each
+  imported SwiftUI function's call site in the app (indirect-result
+  pointer set up before the call, or the result read from rax/rdx after)
+  against our implementation's prologue.
+- Observation: the registrar's tables are shared by every thread (the
+  app mutates observable models from background tasks while views track
+  them on the main thread); they are now used under a lock, tracking is
+  per thread, and change callbacks run outside the lock.
+- Runtime: when the Objective-C side slides a Swift class's ivars past
+  its compiled start (our NSView is larger than the one programs were
+  built against), the Swift metadata's instance size follows, and Swift
+  subclasses lay out their fields from the larger of the two.
+- Test: tests/swiftlib/handoff.swift (decoded values handed from
+  background tasks to the main actor by every route, key paths over
+  them, Observation from many threads; clean under valgrind).
+- Target app window (total `^MISSING`): 11 -> 11. It now runs past the
+  GeometryReader crash; the next one is a TupleView inside a mask
+  modifier whose value the app lays out differently from our metadata.

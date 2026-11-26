@@ -262,6 +262,7 @@ public struct FileDialogBrowserOptions: OptionSet, Sendable {
 
 // MARK: - gestures
 
+@frozen
 public struct GestureMask: OptionSet, Sendable {
   public let rawValue: UInt32
   public init(rawValue: UInt32) { self.rawValue = rawValue }
@@ -617,6 +618,7 @@ public struct ScrollGeometry: Equatable, Sendable {
       a.contentSize.width == b.contentSize.width && a.contentSize.height == b.contentSize.height
   }
 }
+@frozen
 public enum ScrollPhase: Equatable, Sendable {
   case idle, tracking, interacting, decelerating, animating
   public var isScrolling: Bool { return self != .idle }
