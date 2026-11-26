@@ -3261,3 +3261,51 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   source-atop) colours the glyph instead of its whole square.
 - Test: tests/appkit/compositing.m.
 - Target app window (total `^MISSING`): 11 -> 11.
+
+## A software Metal device
+
+- Metal: `MTLCreateSystemDefaultDevice` returns a device now
+  (frameworks/Metal/MetalDevice.m).
+  - **Resources:** buffers (including no-copy), textures in R8, RG8,
+    RGBA8, BGRA8 (and their sRGB forms), RGBA16F and RGBA32F, with
+    replace/get bytes and views; samplers.
+  - **Libraries** from files, URLs, data or a bundle's default.metallib.
+  - **Pipelines,** with blending and write masks.
+  - **Commands:** queues and command buffers (presenting, scheduled and
+    completed handlers, waits), render encoders (buffers, bytes, textures,
+    samplers, viewport, scissor, blend colour, plain, instanced and
+    indexed draws of triangles and strips) and blit encoders.
+  - **Drawables** come from CAMetalLayer's `nextDrawable`. Presenting one
+    makes its pixels the layer's contents.
+- Shaders are the program's own. A metallib holds one AIR module per
+  function, and AIR is LLVM bitcode, so tools/metal-compile.py compiles it
+  to x86-64 with clang.
+  - **Intrinsics:** the AIR intrinsics a module calls are defined in LLVM
+    IR (math, conversions); texture reads and sampling are in C
+    (tools/metal-runtime.c), with AIR's constexpr sampler encoding read
+    for filters and pixel or normalised coordinates.
+  - **Calling them:** each function gets a plain C wrapper,
+    `bn_call_<name>(args, out)`, taking 16-byte argument and result
+    slots.
+  - **Manifest:** a manifest records each argument (vertex or instance
+    id, buffer, texture or sampler index, position, fragment input by
+    name) and each output.
+  - **Caching:** mrun compiles and caches the result under
+    `~/Library/Caches/bitten/metal/<hash>`, then `dlopen`s it
+    (src/frameworks/metal/metal.c). That needs python3 and a clang that
+    reads current AIR (`BITTEN_CLANG`, else the Swift toolchain's or the
+    system's).
+- The rasteriser shades each vertex and instance, rasterises triangles at
+  pixel centres with perspective-correct interpolation of vertex outputs
+  into the fragment inputs of the same name (integer outputs flat), runs
+  the fragment shader per pixel, and blends.
+- The target app's renderer library compiles whole: all 12 of its
+  functions (cell backgrounds, text with its glyph atlases, images, rects,
+  row strips, overlays and transitions).
+- Test: tests/metal/render, with hand-written AIR (tests/metal/shaders)
+  packed by tools/metal-pack.py. It covers a cleared target, instanced
+  triangles with interpolated colours, a texture read, alpha blending,
+  blits and completion.
+- Target app: its renderer still stops before asking for a device, with
+  `Renderer.Error` 1, which is probably `fontUnavailable`; its font
+  checks are next.

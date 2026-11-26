@@ -4,6 +4,11 @@
  * zPosition order under masksToBounds, then the border. Transforms apply
  * their affine part; shadows, filters and masks are kept but not drawn. */
 #import <QuartzCore/QuartzCore.h>
+#include <dlfcn.h>
+#include <stdlib.h>
+#include <math.h>
+#include <objc/message.h>
+#include <objc/runtime.h>
 #include <CoreText/CoreText.h>
 #include <math.h>
 #include <string.h>
@@ -746,8 +751,9 @@ static CFTimeInterval from_root(CALayer *l, CFTimeInterval t) {
 }
 @end
 
-/* No GPU here: no device, no drawables. Programs that ask for Metal learn
- * it is unavailable (MTLCreateSystemDefaultDevice returns nil). */
+/* Drawables come from bitten's software Metal device (found through the
+ * runtime: QuartzCore does not link Metal); presenting one makes its
+ * pixels the layer's contents. */
 @implementation CAMetalLayer {
     CGColorSpaceRef _colorspace;
 }
@@ -767,10 +773,68 @@ static CFTimeInterval from_root(CALayer *l, CFTimeInterval t) {
     return self;
 }
 - (void)dealloc { set_cg((CFTypeRef *)&_colorspace, NULL); }
-- (id)preferredDevice { return nil; }
+- (id)preferredDevice {
+    id (*create)(void) = (id (*)(void))dlsym(RTLD_DEFAULT, "MTLCreateSystemDefaultDevice");
+    return create ? create() : nil;
+}
 - (CGColorSpaceRef)colorspace { return _colorspace; }
 - (void)setColorspace:(CGColorSpaceRef)c { set_cg((CFTypeRef *)&_colorspace, c); }
-- (id)nextDrawable { return nil; }
+- (id)nextDrawable {
+    Class c = objc_getClass("BNMTLDrawable");
+    if (!c) return nil;
+    CGSize s = _drawableSize;
+    if (s.width <= 0 || s.height <= 0) {
+        CGRect b = self.bounds;
+        CGFloat k = self.contentsScale > 0 ? self.contentsScale : 1;
+        s = CGSizeMake(b.size.width * k, b.size.height * k);
+    }
+    if (s.width < 1 || s.height < 1) return nil;
+    return ((id (*)(id, SEL, id, id, NSUInteger, NSUInteger, NSUInteger))objc_msgSend)(
+        c, @selector(_bn_drawableForLayer:device:format:width:height:), self, _device, _pixelFormat,
+        (NSUInteger)s.width, (NSUInteger)s.height);
+}
+/* A presented drawable's pixels (BGRA or RGBA, 8 bits; or half floats). */
+- (void)_bn_presentPixels:(const void *)pixels width:(NSUInteger)w height:(NSUInteger)h bytesPerRow:(NSUInteger)bpr
+                   format:(int)format {
+    if (!pixels || !w || !h) return;
+    size_t outbpr = w * 4;
+    uint8_t *copy = malloc(outbpr * h);
+    BOOL bgra = format == 2 || format == 7;
+    for (NSUInteger y = 0; y < h; y++) {
+        const uint8_t *src = (const uint8_t *)pixels + y * bpr;
+        uint8_t *dst = copy + y * outbpr;
+        if (format == 5) {                      /* RGBA16F */
+            for (NSUInteger x = 0; x < w; x++)
+                for (int c = 0; c < 4; c++) {
+                    uint16_t hv = ((const uint16_t *)src)[4 * x + c];
+                    uint32_t e = (hv >> 10) & 0x1f, m = hv & 0x3ff, bits = e == 0 ? 0 : (e + 112) << 23 | m << 13;
+                    float f;
+                    memcpy(&f, &bits, 4);
+                    if (hv & 0x8000) f = 0;
+                    dst[4 * x + (c < 3 ? 2 - c : 3)] = (uint8_t)(f >= 1 ? 255 : f * 255 + 0.5f);
+                }
+        } else if (format == 1 || format == 6 || format == 2 || format == 7) {
+            memcpy(dst, src, outbpr);
+        }
+    }
+    if (format == 5) bgra = YES;
+    CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
+    CFDataRef data = CFDataCreate(NULL, copy, (CFIndex)(outbpr * h));
+    free(copy);
+    CGDataProviderRef dp = CGDataProviderCreateWithCFData(data);
+    CGBitmapInfo info = bgra ? (kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little)
+                             : (CGBitmapInfo)kCGImageAlphaPremultipliedLast;
+    CGImageRef img = CGImageCreate(w, h, 8, 32, outbpr, cs, info, dp, NULL, false, kCGRenderingIntentDefault);
+    CGDataProviderRelease(dp);
+    CFRelease(data);
+    CGColorSpaceRelease(cs);
+    if (!img) return;
+    id contents = (__bridge_transfer id)img;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        self.contents = contents;
+        [self setNeedsDisplay];
+    });
+}
 @end
 
 /* Foundation's NSValue holds the encodings it knows; a transform is kept

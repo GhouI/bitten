@@ -7,8 +7,8 @@
 
 int main(void) {
     @autoreleasepool {
-        CHECK(MTLCreateSystemDefaultDevice() == nil);
-        CHECK(MTLCopyAllDevices().count == 0);
+        CHECK(MTLCreateSystemDefaultDevice() != nil && MTLCreateSystemDefaultDevice() == MTLCreateSystemDefaultDevice());
+        CHECK(MTLCopyAllDevices().count == 1);
 
         MTLTextureDescriptor *t = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
                                                                                      width:256 height:64 mipmapped:YES];

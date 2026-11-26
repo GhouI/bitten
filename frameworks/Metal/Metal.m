@@ -1,4 +1,4 @@
-/* Metal without a GPU: no devices, and descriptors that only hold values. */
+/* Metal's descriptors. The device is in MetalDevice.m. */
 #import <Metal/Metal.h>
 #include <string.h>
 
@@ -6,8 +6,6 @@
 - (void)_bn_take:(id)other;
 @end
 
-id<MTLDevice> MTLCreateSystemDefaultDevice(void) { return nil; }
-NSArray<id<MTLDevice>> *MTLCopyAllDevices(void) { return @[]; }
 
 @implementation MTLTextureDescriptor
 @synthesize textureType = _textureType, pixelFormat = _pixelFormat, width = _width, height = _height,
