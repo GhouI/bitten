@@ -190,6 +190,17 @@ SIZE_PROP(resizeIncrements, setResizeIncrements, "resizeIncrements", NSMakeSize(
     }
     return button;
 }
+/* A title-bar button made on its own (for a custom title bar). */
++ (NSButton *)standardWindowButton:(NSWindowButton)b forStyleMask:(NSWindowStyleMask)styleMask {
+    if (b > NSWindowZoomButton && b != NSWindowDocumentIconButton && b != NSWindowDocumentVersionsButton) return nil;
+    NSButton *button = [[NSButton alloc] initWithFrame:NSMakeRect(0, 0, 14, 16)];
+    button.bordered = NO;
+    button.title = @"";
+    if (b == NSWindowMiniaturizeButton && !(styleMask & NSWindowStyleMaskMiniaturizable)) button.enabled = NO;
+    if (b == NSWindowCloseButton && !(styleMask & NSWindowStyleMaskClosable)) button.enabled = NO;
+    if (b == NSWindowZoomButton && !(styleMask & NSWindowStyleMaskResizable)) button.enabled = NO;
+    return button;
+}
 
 /* ---- frames ---- */
 - (void)setFrameOrigin:(NSPoint)point {

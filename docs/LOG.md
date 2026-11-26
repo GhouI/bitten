@@ -3156,3 +3156,39 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   remains. It comes from the Ghostty renderer's resource preparation,
   which needs a Metal device (`MTLCreateSystemDefaultDevice` returns nil
   here), not from font lookup.
+
+## Conformances in mangled names, the missing-selector sweep, NSCache keys
+
+- Swift runtime: mangled names may carry protocol conformances
+  (`HC`/`HP`/`Hr`/`HD`/`HI`/`HA`/`HO`, retroactive `g`), as the target
+  app's opaque `onChange` results do. They are parsed and dropped (types
+  resolve their conformances by lookup). A demangling failure names the
+  operator it stopped at.
+- AppKit (AppKitCompat.m): the AppKit selectors the target app references
+  that nothing implemented. View alignment rects, `autoresizesSubviews`,
+  key-view and live-resize hooks, `menuForEvent:`; responder forwarding
+  for `mouseEntered:`/`mouseExited:`/`otherMouse*`/`cursorUpdate:` and
+  `undoManager` (a window keeps its own); window saved-frame strings,
+  `windowNumberAtPoint:belowWindowWithWindowNumber:`, `inLiveResize`,
+  `isOnActiveSpace`; NSEvent `pressure`, `phase`, `momentumPhase`,
+  `pressedMouseButtons`, `doubleClickInterval`; view controllers presented
+  as sheets; `+[NSWindow standardWindowButton:forStyleMask:]`;
+  `displayLinkWithTarget:selector:` on views, windows and screens
+  (QuartzCore's CADisplayLink); NSImage drawing with `respectFlipped:`,
+  `-[NSBundle imageForResource:]`, NSGradient from C locations, string
+  drawing variants; NSBezierPath winding rules and
+  `appendBezierPathWithArcFromPoint:toPoint:radius:`. Selectors listed by
+  running the app's selector references against every method our
+  classes have.
+- QuartzCore: `-[CALayer convertTime:fromLayer:]`/`toLayer:` through the
+  layers' begin times, speeds and offsets.
+- Foundation: NSCache retains its keys instead of copying them (the app
+  keys one with a plain Swift class); NSError recovery suggestion and
+  options; NSFileManager `setAttributes:ofItemAtPath:error:` and
+  `displayNameAtPath:`; `+[NSString pathWithComponents:]`. Test
+  tests/foundation/cachekeys.m.
+- SwiftUI: a hosting view's tree is not rebuilt or re-placed while it is
+  being placed (AppKit views laid out during placement asked for it
+  again), and GeometryReader keeps its old content alive while placing
+  the new.
+- Target app window (total `^MISSING`): 11 -> 11.

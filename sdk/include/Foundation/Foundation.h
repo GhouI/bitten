@@ -227,6 +227,7 @@ __attribute__((swift_bridge("Swift.String")))
 - (NSString *)stringByAppendingPathComponent:(NSString *)component;
 - (NSString *)stringByAppendingPathExtension:(NSString *)extension;
 @property (readonly, copy) NSArray<NSString *> *pathComponents;
++ (NSString *)pathWithComponents:(NSArray<NSString *> *)components;
 @property (readonly, getter=isAbsolutePath) BOOL absolutePath;
 @property (readonly, copy) NSString *stringByExpandingTildeInPath;
 @property (readonly, copy) NSString *stringByStandardizingPath;
@@ -523,6 +524,10 @@ enum {
 @property (nullable, readonly, copy) NSDictionary *userInfo;
 @property (readonly, copy) NSString *localizedDescription;
 @property (readonly, copy) NSString *localizedFailureReason;
+@property (nullable, readonly, copy) NSString *localizedRecoverySuggestion;
+@property (nullable, readonly, copy) NSArray<NSString *> *localizedRecoveryOptions;
+@property (nullable, readonly, strong) id recoveryAttempter;
+@property (nullable, readonly, copy) NSString *helpAnchor;
 @end
 @interface NSError (BittenSwift)
 + (NSError *)_bn_errorWithDomain:(NSString *)domain code:(NSInteger)code
@@ -674,6 +679,8 @@ NS_SWIFT_NAME(FileManager)
 - (BOOL)createDirectoryAtPath:(NSString *)path withIntermediateDirectories:(BOOL)intermediates attributes:(nullable NSDictionary *)attributes error:(NSError **)error;
 - (BOOL)createFileAtPath:(NSString *)path contents:(NSData *)data attributes:(NSDictionary *)attributes;
 - (NSData *)contentsAtPath:(NSString *)path;
+- (BOOL)setAttributes:(NSDictionary<NSFileAttributeKey, id> *)attributes ofItemAtPath:(NSString *)path error:(NSError **)error;
+- (NSString *)displayNameAtPath:(NSString *)path;
 - (BOOL)contentsEqualAtPath:(NSString *)path1 andPath:(NSString *)path2;
 - (BOOL)removeItemAtPath:(NSString *)path error:(NSError **)error;
 - (BOOL)copyItemAtPath:(NSString *)source toPath:(NSString *)destination error:(NSError **)error;

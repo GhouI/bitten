@@ -137,6 +137,7 @@ CFMutableDictionaryRef CFDictionaryCreateMutable(CFAllocatorRef, CFIndex, const 
 CFMutableDictionaryRef CFDictionaryCreateMutableCopy(CFAllocatorRef, CFIndex, CFDictionaryRef) CF_RETURNS_RETAINED;
 CFIndex CFDictionaryGetCount(CFDictionaryRef);
 const void *CFDictionaryGetValue(CFDictionaryRef, const void *);
+Boolean CFDictionaryContainsKey(CFDictionaryRef, const void *);
 void CFDictionaryGetKeysAndValues(CFDictionaryRef, const void **, const void **);
 void CFDictionarySetValue(CFMutableDictionaryRef, const void *, const void *);
 void CFDictionaryRemoveValue(CFMutableDictionaryRef, const void *);

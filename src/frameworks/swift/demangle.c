@@ -106,6 +106,8 @@ enum {
     NK_PACK,       /* a pack of types (QP): kids are the element types */
     NK_XSHAPE,     /* ptr = extended existential shape (unique) */
     NK_XEXIST,     /* extended existential (any P<T>): ptr = unique shape; kids = generalization arguments */
+    NK_CONFREF,    /* a protocol conformance reference (protocol and module): not a type */
+    NK_CONF,       /* a protocol conformance (concrete or dependent): not a type */
 };
 enum { FL_THROWS = 1, FL_ASYNC = 2, FL_SENDABLE = 4, FL_GLOBAL_ACTOR = 8, FL_TYPED_THROWS = 16,
        FL_OTHER = 32 };
@@ -877,6 +879,53 @@ static int annotation(struct parser *P) {
     }
 }
 
+/* ---- protocol conformances ------------------------------------------------
+ * Bound generic arguments of opaque types may carry the conformances they
+ * were checked with (retroactive conformances, "g"). Types are resolved
+ * here by looking conformances up at run time, so these are parsed and
+ * dropped. */
+static int pop_conformance_list(struct parser *P) {
+    if (pop_kind(P, NK_EMPTY)) return 0;
+    for (;;) {
+        struct node *n = pop(P);
+        if (!n) return fail(P, "bad conformance list");
+        if (n->kind == NK_FIRST) return pop(P) ? 0 : fail(P, "bad conformance list");
+    }
+}
+static int conformance(struct parser *P) {
+    int h = next(P);
+    switch (h) {
+    case 'P': case 'r': /* protocol-conformance-ref in the type's module / resilient */
+        if (!pop(P)) return fail(P, "bad conformance reference");
+        push(P, mk(P, NK_CONFREF));
+        return 0;
+    case 'C': { /* type protocol-conformance-ref conformance-list 'HC' */
+        if (pop_conformance_list(P)) return -1;
+        if (!pop_kind(P, NK_CONFREF)) {
+            /* protocol module */
+            if (!pop(P) || !pop(P)) return fail(P, "bad concrete conformance");
+        }
+        if (!pop(P)) return fail(P, "bad concrete conformance");
+        push(P, mk(P, NK_CONF));
+        return 0;
+    }
+    case 'D': case 'I': case 'A': case 'O': { /* dependent, inherited, associated, opaque */
+        if (h != 'O' && mindex(P) < 0) return fail(P, "bad dependent conformance");
+        int pops = h == 'A' ? 3 : 2;
+        for (int i = 0; i < pops; i++)
+            if (!pop(P)) return fail(P, "bad dependent conformance");
+        push(P, mk(P, NK_CONF));
+        return 0;
+    }
+    default:
+        return fail(P, "unsupported conformance mangling");
+    }
+}
+static int retroactive_conformance(struct parser *P) {
+    if (mindex(P) < 0 || !pop_kind(P, NK_CONF)) return fail(P, "bad retroactive conformance");
+    return 0;
+}
+
 static int op(struct parser *P) {
     int c = next(P);
     if (c >= 0x01 && c <= 0x17) return symbolic(P, c);
@@ -888,6 +937,8 @@ static int op(struct parser *P) {
     switch (c) {
     case 'A': return multi_subst(P);
     case 'B': return builtin(P);
+    case 'H': return conformance(P);
+    case 'g': return retroactive_conformance(P);
     case 'C': case 'O': case 'V': case 'P': case 'a': return nominal(P, c);
     case 'E': return extension(P);
     case 'G': return bound_generic(P);
@@ -935,7 +986,11 @@ static int op(struct parser *P) {
     case 'x': push(P, gparam(P, 0, 0)); return 0;
     case 'y': push(P, mk(P, NK_EMPTY)); return 0;
     case '_': push(P, mk(P, NK_FIRST)); return 0;
-    default: return fail(P, "unsupported mangling operator");
+    default: {
+        static __thread char why[48];
+        snprintf(why, sizeof why, "unsupported mangling operator '%c'", c > 0x20 && c < 0x7f ? c : '?');
+        return fail(P, why);
+    }
     }
 }
 

@@ -183,6 +183,8 @@ typedef NS_OPTIONS(unsigned int, CAAutoresizingMask) {
 @property BOOL drawsAsynchronously;
 - (void)drawInContext:(CGContextRef)ctx;
 - (void)renderInContext:(CGContextRef)ctx;
+- (CFTimeInterval)convertTime:(CFTimeInterval)t fromLayer:(nullable CALayer *)l;
+- (CFTimeInterval)convertTime:(CFTimeInterval)t toLayer:(nullable CALayer *)l;
 @property CAEdgeAntialiasingMask edgeAntialiasingMask;
 @property BOOL allowsEdgeAntialiasing;
 @property (nullable) CGColorRef backgroundColor;

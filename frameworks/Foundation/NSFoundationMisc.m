@@ -56,10 +56,11 @@ static NSString *env_locale(void) {
 
 /* ---- NSCache: a dictionary with limits that evicts the oldest ---- */
 
+/* Keys are retained, not copied (unlike a dictionary's): programs key
+ * caches with their own objects, which need not be copyable. */
 @implementation NSCache {
-    NSMutableDictionary *_objects;
+    CFMutableDictionaryRef _objects, _costs;
     NSMutableArray *_order;
-    NSMutableDictionary *_costs;
     NSUInteger _totalCost, _countLimit, _totalCostLimit;
     NSString *_name;
     BOOL _evicts;
@@ -67,12 +68,16 @@ static NSString *env_locale(void) {
 }
 - (instancetype)init {
     self = [super init];
-    _objects = [NSMutableDictionary dictionary];
+    _objects = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    _costs = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, NULL);
     _order = [NSMutableArray array];
-    _costs = [NSMutableDictionary dictionary];
     _name = @"";
     _evicts = YES;
     return self;
+}
+- (void)dealloc {
+    CFRelease(_objects);
+    CFRelease(_costs);
 }
 - (NSString *)name { return _name; }
 - (void)setName:(NSString *)n { _name = [n copy] ?: @""; }
@@ -91,9 +96,20 @@ static NSString *env_locale(void) {
 - (BOOL)evictsObjectsWithDiscardedContent { return _evicts; }
 - (void)setEvictsObjectsWithDiscardedContent:(BOOL)b { _evicts = b; }
 - (id)objectForKey:(id)key {
-    @synchronized(self) { return key ? _objects[key] : nil; }
+    if (!key) return nil;
+    @synchronized(self) { return (__bridge id)CFDictionaryGetValue(_objects, (__bridge const void *)key); }
 }
 - (void)setObject:(id)obj forKey:(id)key { [self setObject:obj forKey:key cost:0]; }
+- (void)_bn_forget:(id)key {
+    _totalCost -= (NSUInteger)CFDictionaryGetValue(_costs, (__bridge const void *)key);
+    CFDictionaryRemoveValue(_objects, (__bridge const void *)key);
+    CFDictionaryRemoveValue(_costs, (__bridge const void *)key);
+    for (NSUInteger i = 0; i < _order.count; i++)
+        if ([_order[i] isEqual:key]) {
+            [_order removeObjectAtIndex:i];
+            break;
+        }
+}
 - (void)setObject:(id)obj forKey:(id)key cost:(NSUInteger)cost {
     if (!key) return;
     if (!obj) {
@@ -101,12 +117,9 @@ static NSString *env_locale(void) {
         return;
     }
     @synchronized(self) {
-        if (_objects[key]) {
-            _totalCost -= [_costs[key] unsignedIntegerValue];
-            [_order removeObject:key];
-        }
-        _objects[key] = obj;
-        _costs[key] = @(cost);
+        if (CFDictionaryContainsKey(_objects, (__bridge const void *)key)) [self _bn_forget:key];
+        CFDictionarySetValue(_objects, (__bridge const void *)key, (__bridge const void *)obj);
+        CFDictionarySetValue(_costs, (__bridge const void *)key, (const void *)cost);
         _totalCost += cost;
         [_order addObject:key];
     }
@@ -115,17 +128,13 @@ static NSString *env_locale(void) {
 - (void)removeObjectForKey:(id)key {
     if (!key) return;
     @synchronized(self) {
-        if (!_objects[key]) return;
-        _totalCost -= [_costs[key] unsignedIntegerValue];
-        [_objects removeObjectForKey:key];
-        [_costs removeObjectForKey:key];
-        [_order removeObject:key];
+        if (CFDictionaryContainsKey(_objects, (__bridge const void *)key)) [self _bn_forget:key];
     }
 }
 - (void)removeAllObjects {
     @synchronized(self) {
-        [_objects removeAllObjects];
-        [_costs removeAllObjects];
+        CFDictionaryRemoveAllValues(_objects);
+        CFDictionaryRemoveAllValues(_costs);
         [_order removeAllObjects];
         _totalCost = 0;
     }
@@ -134,10 +143,11 @@ static NSString *env_locale(void) {
     for (;;) {
         id key, obj;
         @synchronized(self) {
-            BOOL over = (_countLimit && _objects.count > _countLimit) || (_totalCostLimit && _totalCost > _totalCostLimit);
+            NSUInteger n = (NSUInteger)CFDictionaryGetCount(_objects);
+            BOOL over = (_countLimit && n > _countLimit) || (_totalCostLimit && _totalCost > _totalCostLimit);
             if (!over || !_order.count) return;
             key = _order.firstObject;
-            obj = _objects[key];
+            obj = (__bridge id)CFDictionaryGetValue(_objects, (__bridge const void *)key);
         }
         id<NSCacheDelegate> d = _delegate;
         if ([d respondsToSelector:@selector(cache:willEvictObject:)]) [d cache:self willEvictObject:obj];
