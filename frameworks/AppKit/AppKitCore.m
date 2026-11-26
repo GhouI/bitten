@@ -53,7 +53,10 @@ NSApplication *NSApp;
 - (BOOL)needsDisplay { return _needsDisplay; }
 - (void)setNeedsDisplay:(BOOL)flag {
     _needsDisplay = flag;
-    if (flag) _superview.needsDisplay = YES;
+    if (flag) {
+        if (_superview) _superview.needsDisplay = YES;
+        else [_window _bn_scheduleDisplay];
+    }
 }
 - (void)setNeedsDisplayInRect:(NSRect)rect { self.needsDisplay = YES; }
 - (BOOL)isHidden { return _hidden; }
@@ -88,12 +91,8 @@ NSApplication *NSApp;
     [self _setWindow:nil];
     s.needsDisplay = YES;
 }
-- (void)display {
-    [self drawRect:_bounds];
-    for (NSView *v in _subviews)
-        if (!v.hidden) [v display];
-    _needsDisplay = NO;
-}
+/* Views draw as part of their window (AppKitDrawing.m). */
+- (void)display { [_window display]; }
 - (void)drawRect:(NSRect)dirtyRect {}
 - (void)layout {}
 - (void)viewDidMoveToWindow {}
@@ -249,16 +248,19 @@ static NSUInteger next_window_number = 1;
     [self orderFront:sender];
     [self _post:NSWindowDidBecomeKeyNotification];
 }
-- (void)orderOut:(id)sender { _visible = NO; }
+- (void)orderOut:(id)sender {
+    _visible = NO;
+    [self _bn_closeDisplay];
+}
 - (void)close {
     if ([_delegate respondsToSelector:@selector(windowWillClose:)])
         [_delegate windowWillClose:[NSNotification notificationWithName:NSWindowWillCloseNotification
                                                                  object:self userInfo:nil]];
     [self _post:NSWindowWillCloseNotification];
     _visible = NO;
+    [self _bn_closeDisplay];
     [all_windows removeObject:self];
 }
-- (void)display { [_contentView display]; }
 @end
 
 /* ---- NSApplication --------------------------------------------------------------- */
@@ -340,7 +342,6 @@ static NSUInteger next_window_number = 1;
                             inMode:(NSRunLoopMode)mode dequeue:(BOOL)deqFlag {
     return nil;
 }
-- (void)sendEvent:(NSEvent *)event {}
 @end
 
 int NSApplicationMain(int argc, const char *argv[]) {
@@ -351,24 +352,84 @@ int NSApplicationMain(int argc, const char *argv[]) {
 /* ---- NSEvent ------------------------------------------------------------------------ */
 
 @implementation NSEvent {
+  @public
     NSEventType _type;
     NSEventModifierFlags _flags;
     NSPoint _location;
-    NSString *_chars;
+    NSString *_chars, *_charsIgnoring;
+    NSTimeInterval _timestamp;
+    NSInteger _windowNumber, _clickCount;
+    unsigned short _keyCode;
+    CGFloat _dx, _dy;
+    BOOL _repeat;
+}
+static NSPoint mouse_location;
+static NSEventModifierFlags current_flags;
+
++ (NSEvent *)mouseEventWithType:(NSEventType)type location:(NSPoint)location modifierFlags:(NSEventModifierFlags)flags
+                      timestamp:(NSTimeInterval)time windowNumber:(NSInteger)wn context:(id)context
+                    eventNumber:(NSInteger)n clickCount:(NSInteger)clicks pressure:(float)pressure {
+    NSEvent *e = [NSEvent new];
+    e->_type = type;
+    e->_location = location;
+    e->_flags = flags;
+    e->_timestamp = time;
+    e->_windowNumber = wn;
+    e->_clickCount = clicks;
+    return e;
+}
++ (NSEvent *)keyEventWithType:(NSEventType)type location:(NSPoint)location modifierFlags:(NSEventModifierFlags)flags
+                    timestamp:(NSTimeInterval)time windowNumber:(NSInteger)wn context:(id)context
+                   characters:(NSString *)chars charactersIgnoringModifiers:(NSString *)unmod
+                    isARepeat:(BOOL)repeat keyCode:(unsigned short)code {
+    NSEvent *e = [NSEvent new];
+    e->_type = type;
+    e->_location = location;
+    e->_flags = flags;
+    e->_timestamp = time;
+    e->_windowNumber = wn;
+    e->_chars = [chars copy];
+    e->_charsIgnoring = [unmod copy];
+    e->_repeat = repeat;
+    e->_keyCode = code;
+    return e;
 }
 - (NSEventType)type { return _type; }
 - (NSEventModifierFlags)modifierFlags { return _flags; }
-- (NSTimeInterval)timestamp { return 0; }
-- (NSWindow *)window { return nil; }
+- (NSTimeInterval)timestamp { return _timestamp; }
+- (NSInteger)windowNumber { return _windowNumber; }
+- (NSWindow *)window {
+    for (NSWindow *w in [NSApp windows])
+        if (w.windowNumber == _windowNumber) return w;
+    return nil;
+}
 - (NSPoint)locationInWindow { return _location; }
-- (NSInteger)clickCount { return 1; }
+- (NSInteger)clickCount { return _clickCount; }
 - (NSString *)characters { return _chars; }
-- (NSString *)charactersIgnoringModifiers { return _chars; }
-- (unsigned short)keyCode { return 0; }
-- (CGFloat)scrollingDeltaX { return 0; }
-- (CGFloat)scrollingDeltaY { return 0; }
-+ (NSPoint)mouseLocation { return NSZeroPoint; }
-+ (NSEventModifierFlags)modifierFlags { return 0; }
+- (NSString *)charactersIgnoringModifiers { return _charsIgnoring ?: _chars; }
+- (BOOL)isARepeat { return _repeat; }
+- (unsigned short)keyCode { return _keyCode; }
+- (CGFloat)scrollingDeltaX { return _dx; }
+- (CGFloat)scrollingDeltaY { return _dy; }
+- (CGFloat)deltaX { return _dx; }
+- (CGFloat)deltaY { return _dy; }
+- (BOOL)hasPreciseScrollingDeltas { return YES; }
+- (NSInteger)buttonNumber {
+    switch (_type) {
+    case NSEventTypeRightMouseDown: case NSEventTypeRightMouseUp: case NSEventTypeRightMouseDragged: return 1;
+    default: return 0;
+    }
+}
++ (NSPoint)mouseLocation { return mouse_location; }
++ (NSEventModifierFlags)modifierFlags { return current_flags; }
++ (void)_bn_setMouseLocation:(NSPoint)p flags:(NSEventModifierFlags)f {
+    mouse_location = p;
+    current_flags = f;
+}
+- (void)_bn_setScrollDeltaX:(CGFloat)dx y:(CGFloat)dy {
+    _dx = dx;
+    _dy = dy;
+}
 @end
 
 /* ---- NSColor -------------------------------------------------------------------------- */
@@ -394,9 +455,6 @@ int NSApplicationMain(int argc, const char *argv[]) {
 - (CGFloat)blueComponent { return _b; }
 - (CGFloat)alphaComponent { return _a; }
 - (NSColor *)colorWithAlphaComponent:(CGFloat)a { return [NSColor colorWithSRGBRed:_r green:_g blue:_b alpha:a]; }
-- (void)set {}
-- (void)setFill {}
-- (void)setStroke {}
 /* The named colours of the light appearance. */
 + (NSColor *)blackColor { return [self colorWithWhite:0 alpha:1]; }
 + (NSColor *)whiteColor { return [self colorWithWhite:1 alpha:1]; }
@@ -484,13 +542,6 @@ int NSApplicationMain(int argc, const char *argv[]) {
 
 /* ---- NSGraphicsContext ------------------------------------------------------------------------ */
 
-static NSGraphicsContext *current_context;
-@implementation NSGraphicsContext
-+ (NSGraphicsContext *)currentContext { return current_context; }
-+ (void)setCurrentContext:(NSGraphicsContext *)c { current_context = c; }
-+ (void)saveGraphicsState {}
-+ (void)restoreGraphicsState {}
-@end
 
 /* ---- NSMenu and NSMenuItem ----------------------------------------------------------------------- */
 

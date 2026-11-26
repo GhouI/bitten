@@ -1869,3 +1869,24 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - The target app's run stopped at `+[UNNotificationCategory self]`; it now
   goes on to `+[NSWorkspace sharedWorkspace]` (AppKit).
 - Target app window (total `^MISSING`): 2,536 -> 2,526.
+
+## 2026-11-26: windows on the display, events in
+
+- AppKit draws: `NSGraphicsContext` over a CGContext (current per thread,
+  flipped or not), `NSColor` `set`/`setFill`/`setStroke`/`CGColor`,
+  `NSRectFill`, `NSFrameRect`, `NSEraseRect`, and `NSBezierPath` over
+  CGPath (rects, ovals, rounded rects, arcs, curves, fill, stroke, clip).
+- A window draws its view tree into a bitmap CGContext (frames, bounds,
+  clipping, flipped views inside unflipped ones and the reverse) and hands
+  it to the display (`bitten_display_present`, from #79), which shows it in
+  the browser; `setNeedsDisplay:` redraws on the next turn of the main
+  queue; ordering out and closing remove it.
+- Events: the display's events become NSEvents (mouse, drag, scroll, keys,
+  click counts, modifier flags) delivered as AppKit does: the window
+  hit-tests a mouse-down, keeps the view for the drags and mouse-up, makes
+  it first responder; keys go to the first responder; close and resize
+  requests act like the title bar's controls (`performClose:`,
+  `windowShouldClose:`).
+- Test: `tests/appkit/drawing` (pixels of a drawn window; event routing).
+- Target app window (total `^MISSING`): 2,526 (unchanged; this is behaviour,
+  not imports). It stops at `+[NSWorkspace sharedWorkspace]`.
