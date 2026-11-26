@@ -2613,3 +2613,22 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   views, toolbars, alerts, popovers, status items, colour spaces, dynamic
   colours, string sizing).
 - Target app window (total `^MISSING`): 221 -> 221 (run-time classes only).
+## Auto Layout
+
+- AppKit: NSLayoutConstraint (item/attribute constructor, activate and
+  deactivate, constant, priority, identifier, items, attributes and
+  anchors), NSLayoutAnchor with its X-axis, Y-axis and dimension kinds
+  (every equal, at-least and at-most form, multipliers, system spacing,
+  offset anchors), NSLayoutGuide and `addLayoutGuide:`, NSView's anchors,
+  `constraints`, add and remove, safe-area and margins guides, baseline
+  offsets and `updateConstraints`. NSStackView: horizontal and vertical,
+  spacing and custom spacing, edge insets, alignments, fill, fill-equally
+  and gravity distributions, hidden views detached.
+- A Cassowary solver in C (AppKitSolver.m, after Kiwi's algorithm) solves
+  each view tree in `layoutSubtreeIfNeeded`, which a window now runs
+  before it draws. Views that translate their autoresizing mask keep their
+  frames as their masks say; the rest get hugging and compression
+  resistance from their intrinsic sizes and have their frames set. A
+  required constraint that cannot be met is dropped. Test: tests/appkit/layout.
+- Target app window (total `^MISSING`): 221 -> 219. The app now runs past
+  Auto Layout, to `-[NSTextField setAllowsWritingTools:]`.

@@ -4,4 +4,5 @@
 #import <AppKit/AppKitBase.h>
 #import <AppKit/AppKitCore.h>
 #import <AppKit/AppKitClasses.h>
+#import <AppKit/AppKitLayout.h>
 #endif

@@ -293,6 +293,7 @@ static const char kScheduledKey;
 /* Draws the content view hierarchy and shows the result. */
 - (void)display {
     if (!self.isVisible) return;
+    [self.contentView layoutSubtreeIfNeeded];
     NSRect content = [self contentRectForFrameRect:self.frame];
     CGContextRef c = [self _bn_backing:content.size];
     if (!c) return;
