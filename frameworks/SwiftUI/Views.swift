@@ -983,59 +983,8 @@ public struct LocalizedStringKey: Equatable, ExpressibleByStringInterpolation, S
   }
 }
 
-public protocol _FormatSpecifiable: Equatable {
-  associatedtype _Arg: CVarArg
-  var _arg: _Arg { get }
-  var _specifier: String { get }
-}
-extension Int: _FormatSpecifiable {
-  public var _arg: Int { return self }
-  public var _specifier: String { return "%lld" }
-}
-extension Int8: _FormatSpecifiable {
-  public var _arg: Int32 { return Int32(self) }
-  public var _specifier: String { return "%d" }
-}
-extension Int16: _FormatSpecifiable {
-  public var _arg: Int32 { return Int32(self) }
-  public var _specifier: String { return "%d" }
-}
-extension Int32: _FormatSpecifiable {
-  public var _arg: Int32 { return self }
-  public var _specifier: String { return "%d" }
-}
-extension Int64: _FormatSpecifiable {
-  public var _arg: Int64 { return self }
-  public var _specifier: String { return "%lld" }
-}
-extension UInt: _FormatSpecifiable {
-  public var _arg: UInt { return self }
-  public var _specifier: String { return "%llu" }
-}
-extension UInt8: _FormatSpecifiable {
-  public var _arg: UInt32 { return UInt32(self) }
-  public var _specifier: String { return "%u" }
-}
-extension UInt16: _FormatSpecifiable {
-  public var _arg: UInt32 { return UInt32(self) }
-  public var _specifier: String { return "%u" }
-}
-extension UInt32: _FormatSpecifiable {
-  public var _arg: UInt32 { return self }
-  public var _specifier: String { return "%u" }
-}
-extension UInt64: _FormatSpecifiable {
-  public var _arg: UInt64 { return self }
-  public var _specifier: String { return "%llu" }
-}
-extension Float: _FormatSpecifiable {
-  public var _arg: Double { return Double(self) }
-  public var _specifier: String { return "%f" }
-}
-extension Double: _FormatSpecifiable {
-  public var _arg: Double { return self }
-  public var _specifier: String { return "%lf" }
-}
+// _FormatSpecifiable and its conformances are Foundation's (as on Apple's
+// systems): frameworks/Foundation/swift/LocalizedStringResource.swift.
 
 /// Text layout without glyph outlines: each character is a fixed fraction
 /// of the point size wide. Drawing goes through CoreText when the target
