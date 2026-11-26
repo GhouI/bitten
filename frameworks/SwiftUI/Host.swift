@@ -30,10 +30,19 @@ final class _AppHost {
     return delegate
   }
 
+  /// State in the App value (`@State`, `@StateObject`, ...) lives here,
+  /// for as long as the app runs.
+  let appContext = _RenderContext()
+  var app: Any?
+
   func start<A: App>(_ app: A) {
     let nsapp = NSApplication.shared
     _ = makeDelegate()
-    visit(app.body)
+    var a = app
+    let inputs = _ViewInputs(_GraphInputs(environment: EnvironmentValues(), context: appContext, path: "app"))
+    _installDynamicProperties(&a, inputs: inputs)
+    self.app = a
+    visit(a.body)
     _installMainMenu(commands)
     nsapp.run()
   }

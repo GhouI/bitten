@@ -676,4 +676,90 @@ typedef NS_ENUM(NSUInteger, NSLineJoinStyle) { NSLineJoinStyleMiter = 0, NSLineJ
 - (void)close;
 @end
 
+
+typedef NSString *NSImageName NS_TYPED_EXTENSIBLE_ENUM NS_SWIFT_NAME(NSImage.Name);
+typedef NS_ENUM(NSInteger, NSImageScaling) {
+    NSImageScaleProportionallyDown = 0, NSImageScaleAxesIndependently, NSImageScaleNone, NSImageScaleProportionallyUpOrDown
+};
+typedef NS_ENUM(NSInteger, NSImageSymbolScale) {
+    NSImageSymbolScaleSmall = 1, NSImageSymbolScaleMedium = 2, NSImageSymbolScaleLarge = 3
+} NS_SWIFT_NAME(NSImage.SymbolScale);
+
+@interface NSImageRep : NSObject <NSCopying>
+@property NSSize size;
+@property NSInteger pixelsWide, pixelsHigh;
+@property (getter=hasAlpha) BOOL alpha;
+- (BOOL)draw;
+- (BOOL)drawInRect:(NSRect)rect;
+- (nullable CGImageRef)CGImageForProposedRect:(nullable NSRect *)proposedDestRect context:(nullable NSGraphicsContext *)context
+                                         hints:(nullable NSDictionary *)hints;
+@end
+
+@interface NSBitmapImageRep : NSImageRep
+- (instancetype)initWithCGImage:(CGImageRef)cgImage;
+- (nullable instancetype)initWithData:(NSData *)data;
++ (nullable instancetype)imageRepWithData:(NSData *)data;
+@property (nullable, readonly) CGImageRef CGImage;
+@end
+
+@interface NSImageSymbolConfiguration : NSObject <NSCopying>
++ (instancetype)configurationWithPointSize:(CGFloat)pointSize weight:(NSFontWeight)weight;
++ (instancetype)configurationWithPointSize:(CGFloat)pointSize weight:(NSFontWeight)weight scale:(NSImageSymbolScale)scale;
++ (instancetype)configurationWithScale:(NSImageSymbolScale)scale;
++ (instancetype)configurationWithTextStyle:(NSString *)style;
++ (instancetype)configurationWithHierarchicalColor:(NSColor *)hierarchicalColor;
++ (instancetype)configurationWithPaletteColors:(NSArray<NSColor *> *)paletteColors;
++ (instancetype)configurationPreferringMulticolor;
+- (instancetype)configurationByApplyingConfiguration:(NSImageSymbolConfiguration *)configuration;
+@end
+
+@interface NSImage : NSObject <NSCopying>
++ (nullable NSImage *)imageNamed:(NSImageName)name;
++ (nullable instancetype)imageWithSystemSymbolName:(NSString *)name accessibilityDescription:(nullable NSString *)description;
++ (nullable instancetype)imageWithSystemSymbolName:(NSString *)name variableValue:(double)value
+                          accessibilityDescription:(nullable NSString *)description;
++ (nullable instancetype)imageWithSymbolName:(NSString *)name variableValue:(double)value;
++ (instancetype)imageWithSize:(NSSize)size flipped:(BOOL)drawingHandlerShouldBeCalledWithFlippedContext
+               drawingHandler:(BOOL (^)(NSRect dstRect))drawingHandler;
+- (instancetype)initWithSize:(NSSize)size;
+- (nullable instancetype)initWithData:(NSData *)data;
+- (nullable instancetype)initWithContentsOfURL:(NSURL *)url;
+- (nullable instancetype)initWithContentsOfFile:(NSString *)fileName;
+- (nullable instancetype)initByReferencingURL:(NSURL *)url;
+- (nullable instancetype)initByReferencingFile:(NSString *)fileName;
+- (instancetype)initWithCGImage:(CGImageRef)cgImage size:(NSSize)size;
+@property NSSize size;
+@property (getter=isTemplate) BOOL template;
+@property (nullable, copy) NSString *accessibilityDescription;
+@property (readonly, copy) NSArray<NSImageRep *> *representations;
+@property (readonly, getter=isValid) BOOL valid;
+- (nullable NSImageName)name;
+- (BOOL)setName:(nullable NSImageName)string;
+- (void)addRepresentation:(NSImageRep *)imageRep;
+- (void)removeRepresentation:(NSImageRep *)imageRep;
+- (nullable CGImageRef)CGImageForProposedRect:(nullable NSRect *)proposedDestRect context:(nullable NSGraphicsContext *)context
+                                         hints:(nullable NSDictionary *)hints;
+- (nullable NSData *)TIFFRepresentation;
+- (void)drawInRect:(NSRect)rect;
+- (void)drawInRect:(NSRect)dstSpacePortionRect fromRect:(NSRect)srcSpacePortionRect
+         operation:(NSCompositingOperation)op fraction:(CGFloat)requestedAlpha;
+- (void)drawAtPoint:(NSPoint)point fromRect:(NSRect)fromRect operation:(NSCompositingOperation)op fraction:(CGFloat)delta;
+- (void)lockFocus;
+- (void)unlockFocus;
+- (nullable NSImage *)imageWithSymbolConfiguration:(NSImageSymbolConfiguration *)configuration;
+@property (readonly, copy) NSImageSymbolConfiguration *symbolConfiguration;
+@property NSRect alignmentRect;
+@property NSEdgeInsets capInsets;
+@property NSInteger resizingMode;
+@property BOOL matchesOnlyOnBestFittingAxis;
+@property NSUInteger cacheMode;
+@property (copy) NSColor *backgroundColor;
+@property BOOL usesEPSOnResolutionMismatch, prefersColorMatch, matchesOnMultipleResolution;
+@property (getter=isFlipped) BOOL flipped;
+- (void)recache;
+- (nullable NSImageRep *)bestRepresentationForRect:(NSRect)rect context:(nullable NSGraphicsContext *)referenceContext
+                                             hints:(nullable NSDictionary *)hints;
+- (NSImage *)imageWithLocale:(nullable id)locale;
+@end
+
 #pragma clang assume_nonnull end

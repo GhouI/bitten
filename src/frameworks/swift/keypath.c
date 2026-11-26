@@ -718,6 +718,9 @@ static void read_continue(void **buffer, _Bool unwind) {
 static kp_yield d_swift_readAtKeyPath(void **buffer, const sw_opaque *root, const void *kp,
                                       const sw_metadata *R, const sw_metadata *V) {
     (void)R;
+    /* Compilers call this with (buffer, root, keyPath, Root) only: the
+     * value type comes from the key path. */
+    V = body_of(kp)->leaf;
     struct access *s = access_new(body_of(kp));
     sw_opaque *t = temp_new(s, V);
     kp_get(root, kp, t);

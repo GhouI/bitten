@@ -208,8 +208,15 @@ public struct ButtonBorderShape: Equatable, Sendable {
 
 @MainActor @preconcurrency
 public struct DismissAction: Sendable {
-  public func callAsFunction() { NSApp.keyWindow?.performClose(nil) }
+  /// Inside a sheet or popover: closes it; elsewhere the key window.
+  nonisolated(unsafe) let action: (() -> Void)?
+  init(action: (() -> Void)? = nil) { self.action = action }
+  public func callAsFunction() {
+    if let a = action { a() } else { NSApp.keyWindow?.performClose(nil) }
+  }
+  public var isPresented: Bool { return action != nil }
 }
+struct _DismissKey: EnvironmentKey { static let defaultValue: DismissAction? = nil }
 
 public struct OpenURLAction: Sendable {
   public struct Result: Sendable {
@@ -263,7 +270,8 @@ extension EnvironmentValues {
     get { return _envGet(self, "controlSize", .regular) }
     set { _envSet(&self, "controlSize", newValue) }
   }
-  @MainActor public var dismiss: DismissAction { return DismissAction() }
+  @MainActor public var dismiss: DismissAction { return self[_DismissKey.self] ?? DismissAction() }
+  public var isPresented: Bool { return self[_DismissKey.self] != nil }
   public var displayScale: CGFloat {
     get { return _envGet(self, "displayScale", CGFloat(1)) }
     set { _envSet(&self, "displayScale", newValue) }

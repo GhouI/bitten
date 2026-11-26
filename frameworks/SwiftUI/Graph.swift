@@ -209,17 +209,21 @@ internal func _sw_field(_ value: UnsafeRawPointer, _ type: Any.Type, _ index: In
                         _ name: UnsafeMutablePointer<UnsafePointer<CChar>?>,
                         _ childType: UnsafeMutablePointer<Any.Type?>) -> UnsafeRawPointer?
 
+nonisolated(unsafe) let _debugGraph = getenv("BITTEN_SWIFTUI_DEBUG") != nil
+
 /// Installs every installable stored property of `value` (a struct).
 internal func _installDynamicProperties<V>(_ value: inout V, inputs: _ViewInputs) {
   withUnsafeMutablePointer(to: &value) { p in
     let raw = UnsafeRawPointer(p)
     let n = _sw_fieldCount(raw, V.self)
+    if _debugGraph { print("bitten: install \(V.self): \(n) fields") }
     var i = 0
     while i < n {
       var name: UnsafePointer<CChar>? = nil
       var type: Any.Type? = nil
       if let addr = _sw_field(raw, V.self, i, &name, &type), let t = type {
         let key = inputs.base.path + "#" + (name.map { String(cString: $0) } ?? "\(i)")
+        if _debugGraph { print("  field \(name.map { String(cString: $0) } ?? "?"): \(t) installable=\(t is _GraphInstallable.Type)") }
         if let installable = t as? _GraphInstallable.Type {
           func install<T: _GraphInstallable>(_: T.Type) {
             UnsafeMutableRawPointer(mutating: addr).assumingMemoryBound(to: T.self).pointee._install(key: key, inputs: inputs)

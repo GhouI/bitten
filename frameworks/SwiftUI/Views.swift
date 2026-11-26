@@ -1461,7 +1461,9 @@ internal final class _ButtonNode: _ViewNode {
   override var handlesTaps: Bool { return environment.isEnabled }
   override func tap() {
     let a = action
+    let after = environment._afterButtonTap
     MainActor.assumeIsolated { a() }
+    after?()
   }
   override func hit(_ point: CGPoint) -> _ViewNode? {
     return frame._contains(point) && handlesTaps ? self : nil
