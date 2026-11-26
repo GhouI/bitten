@@ -635,13 +635,14 @@ static void place_guides(BNLayoutPass *P) {
 }
 
 static BOOL in_pass;
+static unsigned rearranged;
 
-/* Solves the constraints of the tree rooted at root and sets frames. */
-void bn_layout_tree(NSView *root) {
-    if (in_pass || !root) return;
-    in_pass = YES;
+/* A view that places its own subviews (split views) moved them: what was
+ * solved from their old frames is solved again. */
+void bn_layout_note_rearranged(void) { rearranged++; }
+
+static void solve(NSView *root) {
     @autoreleasepool {
-        [root updateConstraintsForSubtreeIfNeeded];
         NSMutableArray *all = [NSMutableArray array];
         collect(root, all);
         if (all.count) {
@@ -699,6 +700,18 @@ void bn_layout_tree(NSView *root) {
             place(P, root);
             place_guides(P);
         }
+    }
+}
+
+/* Solves the constraints of the tree rooted at root and sets frames. */
+void bn_layout_tree(NSView *root) {
+    if (in_pass || !root) return;
+    in_pass = YES;
+    [root updateConstraintsForSubtreeIfNeeded];
+    for (int i = 0; i < 4; i++) {
+        unsigned before = rearranged;
+        solve(root);
+        if (rearranged == before) break;
     }
     in_pass = NO;
 }
