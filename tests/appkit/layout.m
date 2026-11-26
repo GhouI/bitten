@@ -16,6 +16,18 @@
 - (BOOL)isFlipped { return YES; }
 @end
 
+/* Places its child itself, in layout. */
+@interface Manual : NSView
+@property NSView *child;
+@property int layouts;
+@end
+@implementation Manual
+- (void)layout {
+    self.layouts++;
+    self.child.frame = NSInsetRect(self.bounds, 5, 5);
+}
+@end
+
 @interface Sized : NSView
 @property NSSize size;
 @end
@@ -223,6 +235,21 @@ int main(void) {
     [w makeKeyAndOrderFront:nil];
     [w display];
     RECT(fill, 16, 16, 288, 168);
+
+    /* Views lay out the first time and whenever their size changes, without
+     * being asked. */
+    Manual *manual = [[Manual alloc] initWithFrame:NSMakeRect(0, 0, 100, 60)];
+    manual.child = [[NSView alloc] initWithFrame:NSZeroRect];
+    [manual addSubview:manual.child];
+    [w.contentView addSubview:manual];
+    [w display];
+    RECT(manual.child, 5, 5, 90, 50);
+    int before = manual.layouts;
+    [w display];
+    CHECK(manual.layouts == before);
+    manual.frame = NSMakeRect(0, 0, 200, 60);
+    [w display];
+    RECT(manual.child, 5, 5, 190, 50);
 
     printf("layout ok\n");
     return 0;

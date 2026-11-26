@@ -3084,3 +3084,18 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Test: tests/swiftlib/swiftui.swift (`styles`).
 - Target app window (total `^MISSING`): 11 -> 11. Its "Start Again" and
   "Open Diagnostics" buttons draw in its own capsule styles.
+
+## Views lay out when their size changes
+
+- AppKit: a view now gets `layout` when its size or its subviews changed
+  since it last laid out, the first time included, as well as when
+  `needsLayout` is set. AppKit marks views as needing layout when their
+  frames change; here nothing did. So views that place their subviews in
+  their own `layout` (most of the target app's chrome: the tab bar and its
+  surface stacks, the sidebar footer, the toolbar capsules) left them at
+  0x0. The app sets only six constraints; the rest of its chrome is laid
+  out by code.
+- `BITTEN_LAYOUT_DEBUG=1` prints each constraint pass's counts and the
+  constraints it skips or drops as unsatisfiable.
+- Test: tests/appkit/layout (a view laid out by code, at first display
+  and after a resize).

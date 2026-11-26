@@ -138,9 +138,16 @@ extern void bn_layout_tree(NSView *root);
     bn_layout_tree(root);
     [self _bn_layoutSubtree];
 }
+/* As in AppKit, a view lays out when asked to and also when its size or
+ * its subviews changed since it last did (frame changes mark views as
+ * needing layout there), the first time included. */
+static const char k_laidOut;
 - (void)_bn_layoutSubtree {
-    if (self.needsLayout) {
+    NSSize size = self.bounds.size;
+    NSString *sig = [NSString stringWithFormat:@"%g,%g,%lu", size.width, size.height, (unsigned long)self.subviews.count];
+    if (self.needsLayout || ![objc_getAssociatedObject(self, &k_laidOut) isEqual:sig]) {
         self.needsLayout = NO;
+        objc_setAssociatedObject(self, &k_laidOut, sig, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         [self layout];
     }
     for (NSView *v in self.subviews) [v _bn_layoutSubtree];
