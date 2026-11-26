@@ -276,3 +276,19 @@ struct Forwarding: PrimitiveButtonStyle {
     return bad
   }
 }
+
+/// `.aspectRatio(_:contentMode: .fit)` offered only a width (as a stack
+/// offers its children) takes that width and the height the ratio gives.
+@_silgen_name("swl_swiftui_aspect") public func aspect() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    let view = VStack(spacing: 0) {
+      Color(.sRGB, red: 1, green: 0, blue: 0).aspectRatio(1, contentMode: .fit)
+    }.frame(width: 20)
+    let px = render(view, 20, 30)
+    // 20x20, centred vertically: rows 5..<25.
+    if px(1, 6) != red || px(18, 23) != red { bad |= 1 }
+    if px(1, 2) != white || px(1, 27) != white { bad |= 2 }
+    return bad
+  }
+}
