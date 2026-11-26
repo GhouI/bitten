@@ -7,6 +7,7 @@
  * before the metadata is completed, so that completion functions that
  * (indirectly) ask for the same type find it and get its current state. */
 #define _GNU_SOURCE
+#include <alloca.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -77,8 +78,10 @@ static sw_response d_swift_getGenericMetadata(sw_request req, const void *const 
                                               const sw_type_context_descriptor *desc) {
     const sw_type_generic_context_header *g = sw_type_generic_header(desc);
     if (!g) dx_fatal("swift_getGenericMetadata: %s is not generic", sw_descriptor_name(desc));
-    if (g->base.flags & 1) dx_fatal("swift: generic type %s has parameter packs", sw_descriptor_name(desc));
     unsigned n = g->base.num_key_arguments;
+    /* Packs key the cache (and go into the metadata) in their heap form. */
+    const void **normal = (g->base.flags & 1) ? alloca((n + 1) * sizeof *normal) : NULL;
+    if (normal) args = sw_normalize_pack_args(&g->base, args, normal);
     size_t h = key_hash(desc, args, n);
 
     sw_md_lock();

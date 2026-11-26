@@ -2382,3 +2382,24 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   odd sizes, a progressive file).
 - Target app window (total `^MISSING`): 454 -> 454 (images the program
   loads at run time; no import changes).
+
+## 2026-11-26: Parameter packs in the runtime (PR: packs)
+
+- Swift runtime (`swift/packs.c`, taken over from the runtime side for
+  this): generic contexts with packs (their pack shape header and
+  descriptors; pack lengths at the start of the key arguments), metadata
+  and witness-table packs moved to the heap and uniqued (tagged in the low
+  bit, the length before the elements) before they key the metadata cache,
+  `swift_allocateMetadataPack` and `swift_allocateWitnessTablePack`.
+  `swift_getGenericMetadata` no longer stops on packs.
+- Conformances: conditional requirements over packs (`where repeat each T:
+  P`) are checked element by element and give a witness-table pack;
+  conformance descriptors' conditional pack shape descriptors (flags bits
+  24-31) are skipped, so their witness tables are found.
+- Demangling: `QP` packs in mangled names (`Group<Pack{Int, String}>`),
+  printing them; parameter lookup past the pack lengths.
+- Charts: builders with several marks (BuilderTuple) now draw.
+- Tests: `tests/swiftlib/packs`, `tests/swiftlib/charts` (three marks in
+  one builder).
+- Target app window (total `^MISSING`): 454 -> 454 (run-time support; the
+  app now gets past the renderer error to NSPasteboard).

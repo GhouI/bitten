@@ -93,6 +93,21 @@ const sw_metadata *sw_get_generic_metadata(const sw_type_context_descriptor *des
                                            const void *const *arguments);
 /* Number of key arguments of a generic type descriptor (0 if not generic). */
 unsigned sw_generic_key_argument_count(const sw_type_context_descriptor *desc);
+
+/* Parameter packs (packs.c). */
+typedef struct sw_pack_shape_descriptor {
+    uint16_t kind;         /* 0 metadata pack, 1 witness table pack */
+    uint16_t index;        /* in the key arguments */
+    uint16_t shape_class;  /* the key argument holding its length */
+    uint16_t unused;
+} sw_pack_shape_descriptor;
+const sw_pack_shape_descriptor *sw_pack_shapes(const sw_generic_context_header *h, unsigned *npacks,
+                                               unsigned *nshapes);
+const void *const *sw_heap_pack(const void *const *pack, size_t count);
+const void *const *sw_pack_elements(const void *const *pack);
+size_t sw_pack_count(const void *const *pack);
+const void *const *sw_normalize_pack_args(const sw_generic_context_header *h, const void *const *args,
+                                          const void **out);
 /* The descriptor's name, e.g. "Pair"; `qualified` writes "Module.Outer.Pair". */
 const char *sw_descriptor_name(const sw_type_context_descriptor *desc);
 void sw_descriptor_qualified_name(const sw_context_descriptor *desc, char *buf, size_t len);
@@ -148,6 +163,7 @@ struct sw_env {
     const uint8_t *params; /* SW_GP_* per parameter */
     unsigned nreqs;
     const sw_generic_requirement *reqs;
+    unsigned nshapes; /* pack length words at the start of the key arguments */
     const void *const *args;
     const sw_metadata *const *flat;
     /* Protocol context (names in witness tables prefixed by 0xFF): Self,

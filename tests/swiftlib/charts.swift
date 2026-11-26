@@ -65,6 +65,14 @@ func near(_ px: (Int, Int) -> UInt32, _ x: Int, _ y: Int, blue: Bool) -> Bool {
     }
     let px2 = render(styled, 100, 100)
     if !near(px2, 50, 2, blue: true) { bad |= 8 }           // y = 3 tops the 0...3 scale; the first style is blue
+    // Two marks in one builder: a BuilderTuple over a parameter pack.
+    let pair = Chart {
+      LineMark(x: .value("x", 0.0), y: .value("y", 0.0))
+      LineMark(x: .value("x", 4.0), y: .value("y", 4.0))
+      PointMark(x: .value("x", 2.0), y: .value("y", 2.0))
+    }
+    let px3 = render(pair, 100, 100)
+    if !near(px3, 50, 50, blue: true) || !near(px3, 97, 3, blue: true) { bad |= 0x20 }
     let labelled = render(chart.chartYAxisLabel("Value"), 140, 100)
     var ink = false
     for x in 0..<40 { for y in 0..<100 where labelled(x, y) != 0xffffff { ink = true } }
