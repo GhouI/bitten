@@ -90,7 +90,14 @@ function frame(buf) {
   const x = v.getInt32(5, true), y = v.getInt32(9, true), width = v.getUint32(13, true), height = v.getUint32(17, true);
   const tl = v.getUint16(21, true), title = new TextDecoder().decode(new Uint8Array(buf, 23, tl));
   const w = wins.get(id) || makeWindow(id);
-  if (!w.moved) { w.el.style.left = x + "px"; w.el.style.top = y + "px"; }
+  // Where the program put it, kept inside the page: a window placed for a
+  // taller screen than this viewport still shows its title bar.
+  if (!w.moved) {
+    const bar = 28;
+    const left = Math.max(0, Math.min(x, innerWidth - Math.min(width, innerWidth)));
+    const top = Math.max(0, Math.min(y, innerHeight - Math.min(height + bar, innerHeight)));
+    w.el.style.left = left + "px"; w.el.style.top = top + "px";
+  }
   w.title.textContent = title; document.title = title || "bitten";
   if (w.canvas.width !== width || w.canvas.height !== height) { w.canvas.width = width; w.canvas.height = height; }
   if (width && height) w.ctx.putImageData(new ImageData(new Uint8ClampedArray(buf, 23 + tl, width * height * 4), width, height), 0, 0);

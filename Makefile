@@ -597,3 +597,6 @@ clean:
 	rm -rf $(BUILD)
 
 .PHONY: all clean check check-dmgx test-bins
+
+# The display server embeds its page (page.h, generated from page.html).
+$(BUILD)/obj/frameworks/display/display.o: src/frameworks/display/page.h
