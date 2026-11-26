@@ -2515,3 +2515,11 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   side), the runs view beyond `_bnRuns`.
 - Test: `tests/swiftlib/attributed`.
 - Target app window (total `^MISSING`): 274 -> 230.
+
+## 2026-11-26: UTType for item providers (PR: uttype-load)
+
+- `NSItemProvider.loadFileRepresentation(for:openInPlace:completionHandler:)`
+  and `registeredContentTypes`, on Foundation's NSItemProvider and
+  NSProgress.
+- Test: `tests/swiftlib/uttype` (a file loaded by type).
+- Target app window (total `^MISSING`): 230 -> 229.

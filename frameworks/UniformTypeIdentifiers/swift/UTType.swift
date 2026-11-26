@@ -396,3 +396,29 @@ extension URL {
     return appendingPathComponent(partialName).appendingPathExtension(ext)
   }
 }
+
+// ---- item providers ----
+
+extension NSItemProvider {
+  /// A file of the given type: a copy (removed when the handler returns,
+  /// as on macOS), or the file itself when opening in place is allowed.
+  public func loadFileRepresentation(for contentType: UTType, openInPlace: Bool = false,
+                                     completionHandler: @escaping @Sendable (URL?, Bool, Error?) -> Void) -> NSProgress {
+    let progress: NSProgress?
+    if openInPlace {
+      progress = loadInPlaceFileRepresentation(forTypeIdentifier: contentType.identifier) { url, inPlace, error in
+        completionHandler(url, inPlace, error)
+      }
+    } else {
+      progress = loadFileRepresentation(forTypeIdentifier: contentType.identifier) { url, error in
+        completionHandler(url, false, error)
+      }
+    }
+    return progress ?? NSProgress(totalUnitCount: 1)
+  }
+
+  /// The registered type identifiers as types.
+  public var registeredContentTypes: [UTType] {
+    return registeredTypeIdentifiers.compactMap { UTType($0) }
+  }
+}
