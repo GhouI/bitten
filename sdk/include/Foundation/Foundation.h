@@ -1399,6 +1399,34 @@ extern NSStreamPropertyKey const NSStreamDataWrittenToMemoryStreamKey, NSStreamF
 @property (readonly) BOOL hasSpaceAvailable;
 @end
 
+@interface NSMethodSignature : NSObject
++ (nullable NSMethodSignature *)signatureWithObjCTypes:(const char *)types;
+@property (readonly) NSUInteger numberOfArguments;
+- (const char *)getArgumentTypeAtIndex:(NSUInteger)idx;
+@property (readonly) NSUInteger frameLength;
+- (BOOL)isOneway;
+@property (readonly) const char *methodReturnType;
+@property (readonly) NSUInteger methodReturnLength;
+@end
+@interface NSObject (BittenMethodSignature)
+- (nullable NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector;
++ (nullable NSMethodSignature *)instanceMethodSignatureForSelector:(SEL)aSelector;
+@end
+@interface NSInvocation : NSObject
++ (NSInvocation *)invocationWithMethodSignature:(NSMethodSignature *)sig;
+@property (readonly, retain) NSMethodSignature *methodSignature;
+- (void)retainArguments;
+@property (readonly) BOOL argumentsRetained;
+@property (nullable, assign) id target;
+@property SEL selector;
+- (void)getReturnValue:(void *)retLoc;
+- (void)setReturnValue:(void *)retLoc;
+- (void)getArgument:(void *)argumentLocation atIndex:(NSInteger)idx;
+- (void)setArgument:(void *)argumentLocation atIndex:(NSInteger)idx;
+- (void)invoke;
+- (void)invokeWithTarget:(id)target;
+@end
+
 @interface NSProgress : NSObject
 + (nullable NSProgress *)currentProgress;
 + (NSProgress *)progressWithTotalUnitCount:(int64_t)unitCount;

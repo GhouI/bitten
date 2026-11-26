@@ -2869,3 +2869,19 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   garbage protocol. It now resolves to the runtime's protocol of that
   name.
 - Target app window (total `^MISSING`): 41 -> 38.
+
+## NSInvocation
+
+- Foundation: NSMethodSignature (Objective-C type encodings split into
+  arguments and return, each classified the System V x86-64 way: integer,
+  SSE, mixed eightbytes for structs up to 16 bytes, memory above) and
+  NSInvocation (arguments stored by value, retained on request, invoked
+  through `dx_objc_invoke`, with `objc_msgSend_stret` for memory-class
+  returns); `-methodSignatureForSelector:` from method type encodings.
+- Runtime: `dx_objc_invoke` (src/frameworks/objc/invoke.S), a generic
+  System V call loading six integer and eight vector registers and any
+  stack words.
+- Test: tests/foundation/invocation.m (integers, doubles and floats,
+  NSRect in memory, a 32-byte struct return, stack-spilled arguments,
+  object and point arguments).
+- Target app window (total `^MISSING`): 38 -> 37.
