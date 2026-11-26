@@ -103,6 +103,21 @@ written specifications and then reviewed, built and verified here: the
 disk-image reader, and the CoreFoundation / Security / libproc / resolver
 batch. The pull requests say so.
 
+### Windows are shown in a browser
+A Mac app's windows need somewhere to appear, and a container has no
+display. The choice was between an X11 or Wayland client (the container
+then needs a display server and the host a way to see it) and a page in a
+browser. bitten draws every window itself (CoreGraphics in mrun renders
+into the window's bitmap; AppKit decides what to draw) and serves the
+result from mrun: a small HTTP server (port `BITTEN_DISPLAY_PORT`, 7681 by
+default, loopback unless `BITTEN_DISPLAY_PUBLIC` is set) whose page draws
+each window on a canvas over a WebSocket and sends mouse, scroll and
+keyboard input back as Mac key codes and modifier flags. Nothing is needed
+in the container or on the host but a browser, it follows the terminal
+viewer that came before, and an X11 or Wayland back end can be added
+behind the same interface later (`bitten_display_present` and
+`bitten_display_next_event`, `src/frameworks/display`).
+
 ## Dead ends and corrections
 
 - **`LC_UNIXTHREAD` means "static binary".** Wrong. Go's linker emits it for
