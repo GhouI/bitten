@@ -44,6 +44,16 @@ enum Tag: AttributedStringKey {
   } else { bad |= 0x800 }
   let lit: AttributedString = "literal"
   if String(_characters: lit.characters) != "literal" { bad |= 0x1000 }
+  // NSAttributedString both ways: text, runs, values.
+  var rich = AttributedString("héllo ")
+  rich.languageIdentifier = "fr"
+  rich += AttributedString("world")
+  let ns = NSAttributedString(rich)
+  if ns.string != "héllo world" || ns.length != 11 { bad |= 0x4000 }
+  if (ns.attribute("NSLanguage", at: 0, effectiveRange: nil) as? String) != "fr" { bad |= 0x8000 }
+  if ns.attribute("NSLanguage", at: 7, effectiveRange: nil) != nil { bad |= 0x10000 }
+  let back = AttributedString(ns)
+  if back != rich || back._bnRuns.count != 2 { bad |= 0x20000 }
   let loc = AttributedString(localized: "Plain")
   if String(loc.characters) != "Plain" { bad |= 0x2000 }
   return bad

@@ -2552,3 +2552,15 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   item formatter); `TimeZone` bridges to NSTimeZone.
 - Test: `tests/media/formatters`, `tests/swiftlib/formatstyle` (bridging).
 - Target app window (total `^MISSING`): 225 -> 222.
+
+## 2026-11-26: AttributedString and NSAttributedString (PR: attr-bridge)
+
+- `NSAttributedString(_: AttributedString)` and
+  `AttributedString(_: NSAttributedString)`: text and runs both ways (run
+  lengths converted between characters and UTF-16), attribute values as
+  their objects.
+- Foundation's own keys: `NSPresentationIntentAttributeName`,
+  `NSInlinePresentationIntentAttributeName`, the alternate description and
+  language identifier keys.
+- Test: `tests/swiftlib/attributed` (a round trip).
+- Target app window (total `^MISSING`): 222 -> 221.

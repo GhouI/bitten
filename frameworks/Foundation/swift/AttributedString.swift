@@ -504,3 +504,55 @@ extension String.LocalizationValue.StringInterpolation {
     appendInterpolation(String(_characters: attributedString.characters))
   }
 }
+
+// ---- NSAttributedString ----------------------------------------------------------
+
+extension NSAttributedString {
+  /// The same text and runs; attribute values go across as objects
+  /// (bridged where they bridge: String, URL, numbers...).
+  public convenience init(_ attrStr: AttributedString) {
+    let m = NSMutableAttributedString(string: attrStr._string)
+    var location = 0
+    var i = attrStr._string.startIndex
+    for run in attrStr._runs {
+      let j = attrStr._string.index(i, offsetBy: run.count)
+      let length = attrStr._string[i..<j].utf16.count
+      if !run.attributes.isEmpty {
+        var attrs: [String: Any] = [:]
+        for (k, v) in run.attributes { attrs[k] = v.base }
+        m.setAttributes(attrs, range: NSRange(location: location, length: length))
+      }
+      location += length
+      i = j
+    }
+    self.init(attributedString: m)
+  }
+}
+
+extension AttributedString {
+  /// The same text and runs; attribute values that are not Hashable are
+  /// kept as their objects.
+  public init(_ nsStr: NSAttributedString) {
+    self.init(nsStr.string)
+    let s = nsStr.string as NSString
+    var location = 0
+    let total = s.length
+    var offset = 0
+    var runs: [_Run] = []
+    while location < total {
+      var range = NSRange(location: 0, length: 0)
+      let attrs = nsStr.attributes(at: location, effectiveRange: &range)
+      let end = Swift.min(Swift.max(range.location + range.length, location + 1), total)
+      let text = s.substring(with: NSRange(location: location, length: end - location))
+      var dict: _Attributes = [:]
+      for (k, v) in attrs {
+        if let h = v as? AnyHashable { dict[k] = h } else { dict[k] = AnyHashable(ObjectIdentifier(v as AnyObject)) }
+      }
+      runs.append(_Run(count: text.count, attributes: dict))
+      offset += text.count
+      location = end
+    }
+    _runs = runs
+    _coalesce()
+  }
+}
