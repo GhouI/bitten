@@ -1650,3 +1650,22 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   failures, the path monitor.
 - Target app window (total `^MISSING`): 3,215 -> 2,999 (all 216 Network
   imports).
+
+## 2026-11-26: Carbon keyboard input sources and events; Launch Services bits (PR: carbon)
+
+- `src/frameworks/carbon/carbon.c`: Text Input Sources with one source,
+  the US keyboard layout, as a CF dictionary of its properties
+  (`TISCopyCurrentKeyboardLayoutInputSource` and friends,
+  `TISGetInputSourceProperty`, `TISCreateInputSourceList`), the `kTIS...`
+  keys and types, `LMGetKbdType`, and `UCKeyTranslate` over the layout data
+  it hands out (a table of bitten's own: the ANSI key codes with Shift,
+  Caps Lock and Control, return/tab/escape/arrows and function keys; not
+  Apple's 'uchr' format). Carbon event handlers and hot keys are accepted
+  and kept but never called, as no window server delivers events;
+  `GetEventParameter` reports no parameter. `LSRegisterURL` succeeds and
+  the `kLSQuarantine...` keys exist.
+- `tests/c/carbon`: the input source and its properties, key translation
+  with modifiers, handlers and hot keys.
+- Target app window (total `^MISSING`): 2,999 -> 2,976 (all 18 Carbon and
+  5 CoreServices imports). On main the run stops before it gets here, at
+  `Unicode.Scalar.Properties` (standard library, in progress elsewhere).
