@@ -2576,3 +2576,23 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Build: display.o depends on page.h (edits to page.html did not reach
   mrun).
 - Target app window (total `^MISSING`): 221 -> 221.
+
+## Controls and value classes, constrained existentials, subview ordering
+
+- Runtime: extended existentials (`any P<T>`, `any Sequence<Int>`): the
+  `Xj` mangling with unique and non-unique shape references, and
+  `swift_getExtendedExistentialTypeMetadata` (+ `_unique`) and
+  `swift_getExtendedExistentialTypeShape`. Values are laid out like plain
+  existentials of the shape's kind, with only the non-generalization key
+  arguments stored after the value. Test: tests/swiftlib/xexistential.
+- AppKit: NSImageView, NSButton (push, check, radio, image buttons, states,
+  key equivalents, drawing, intrinsic size), NSProgressIndicator (bar and
+  spinner), NSSegmentedControl, NSCursor, NSParagraphStyle and
+  NSMutableParagraphStyle, NSGradient, NSSound (silent), haptic feedback,
+  NSAccessibilityCustomAction, NSGestureRecognizer with click and press
+  recognizers; symbol configuration constructors; NSView
+  `addSubview:positioned:relativeTo:`, `replaceSubview:with:`,
+  `setSubviews:`, `sortSubviewsUsingFunction:context:`,
+  `ancestorSharedWithView:`.
+- Target app window (total `^MISSING`): 221 -> 221 (run-time gaps only;
+  the app now stops at Auto Layout, `-[NSView widthAnchor]`).

@@ -550,6 +550,7 @@ LIBCONCURRENCY := $(FW_ROOT)/usr/lib/swift/libswift_Concurrency.dylib
 # macOS 14) are hidden from older targets by $ld$hide directives.
 SWLIB_MACOS_darwin := 14.0
 SWLIB_MACOS_packs := 14.0
+SWLIB_MACOS_xexistential := 14.0
 swlib_macos = $(or $(SWLIB_MACOS_$(1)),11.0)
 # Frameworks a test links besides the overlays.
 SWLIB_LIBS_foundation := $(FOUNDATION) $(FOUNDATION_COMBINE)

@@ -122,6 +122,53 @@ NSApplication *NSApp;
     [view _setWindow:_window];
     self.needsDisplay = YES;
 }
+- (void)addSubview:(NSView *)view positioned:(NSWindowOrderingMode)place relativeTo:(NSView *)other {
+    if (!view) return;
+    [view removeFromSuperview];
+    NSUInteger i = other ? [_subviews indexOfObjectIdenticalTo:other] : NSNotFound;
+    if (i == NSNotFound) i = place == NSWindowBelow ? 0 : _subviews.count;
+    else if (place == NSWindowAbove) i++;
+    [_subviews insertObject:view atIndex:i];
+    view->_superview = self;
+    view.nextResponder = self;
+    [view _setWindow:_window];
+    self.needsDisplay = YES;
+}
+- (void)replaceSubview:(NSView *)old with:(NSView *)replacement {
+    NSUInteger i = [_subviews indexOfObjectIdenticalTo:old];
+    if (i == NSNotFound) return;
+    [old removeFromSuperview];
+    if (!replacement) return;
+    [replacement removeFromSuperview];
+    [_subviews insertObject:replacement atIndex:MIN(i, _subviews.count)];
+    replacement->_superview = self;
+    replacement.nextResponder = self;
+    [replacement _setWindow:_window];
+    self.needsDisplay = YES;
+}
+- (void)setSubviews:(NSArray<NSView *> *)views {
+    for (NSView *v in [_subviews copy])
+        if (![views containsObject:v]) [v removeFromSuperview];
+    [_subviews removeAllObjects];
+    for (NSView *v in views) {
+        if (v->_superview && v->_superview != self) [v removeFromSuperview];
+        [_subviews addObject:v];
+        v->_superview = self;
+        v.nextResponder = self;
+        [v _setWindow:_window];
+    }
+    self.needsDisplay = YES;
+}
+- (void)sortSubviewsUsingFunction:(NSComparisonResult (*)(id, id, void *))compare context:(void *)context {
+    [_subviews sortUsingComparator:^NSComparisonResult(id a, id b) { return compare(a, b, context); }];
+    self.needsDisplay = YES;
+}
+- (NSView *)ancestorSharedWithView:(NSView *)other {
+    for (NSView *a = self; a; a = a->_superview)
+        for (NSView *b = other; b; b = b->_superview)
+            if (a == b) return a;
+    return nil;
+}
 - (void)removeFromSuperview {
     NSView *s = _superview;
     if (!s) return;

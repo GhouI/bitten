@@ -3,21 +3,13 @@
 #import <AppKit/AppKitBase.h>
 
 #pragma clang assume_nonnull begin
-@interface NSButton : NSControl
-@end
 @interface NSSecureTextField : NSTextField
 @end
-@interface NSImageView : NSControl
-@end
 @interface NSColorWell : NSControl
-@end
-@interface NSSegmentedControl : NSControl
 @end
 @interface NSText : NSView
 @end
 @interface NSTextView : NSText
-@end
-@interface NSProgressIndicator : NSView
 @end
 @interface NSPanel : NSWindow
 @end
@@ -41,17 +33,7 @@
 @end
 @interface NSFontManager : NSObject
 @end
-@interface NSParagraphStyle : NSObject
-@end
-@interface NSMutableParagraphStyle : NSParagraphStyle
-@end
-@interface NSGradient : NSObject
-@end
-@interface NSCursor : NSObject
-@end
 @interface NSAlert : NSObject
-@end
-@interface NSSound : NSObject
 @end
 @interface NSStatusBar : NSObject
 @end
@@ -66,12 +48,6 @@
 @interface NSMenuToolbarItem : NSToolbarItem
 @end
 @interface NSSplitViewItem : NSObject
-@end
-@interface NSGestureRecognizer : NSObject
-@end
-@interface NSClickGestureRecognizer : NSGestureRecognizer
-@end
-@interface NSPressGestureRecognizer : NSGestureRecognizer
 @end
 @interface NSTouchBar : NSObject
 @end
@@ -94,10 +70,6 @@
 @interface NSTextRange : NSObject
 @end
 @interface NSTextInputContext : NSObject
-@end
-@interface NSAccessibilityCustomAction : NSObject
-@end
-@interface NSHapticFeedbackManager : NSObject
 @end
 
 APPKIT_EXTERN NSNotificationName const NSApplicationDidBecomeActiveNotification;

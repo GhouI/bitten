@@ -104,6 +104,8 @@ enum {
     NK_LIST,       /* generic arguments of one level */
     NK_PRIVATE,    /* private declaration name: text = name, kids[0] = discriminator */
     NK_PACK,       /* a pack of types (QP): kids are the element types */
+    NK_XSHAPE,     /* ptr = extended existential shape (unique) */
+    NK_XEXIST,     /* extended existential (any P<T>): ptr = unique shape; kids = generalization arguments */
 };
 enum { FL_THROWS = 1, FL_ASYNC = 2, FL_SENDABLE = 4, FL_GLOBAL_ACTOR = 8, FL_TYPED_THROWS = 16,
        FL_OTHER = 32 };
@@ -250,7 +252,7 @@ static int is_type(const struct node *n) {
     case NK_STD: return std_lookup(n) && std_lookup(n)->kind != 'P';
     case NK_ACCESSOR: case NK_BOUND: case NK_TUPLE: case NK_FUNC: case NK_PARAMFLAG: case NK_PACK:
     case NK_METATYPE: case NK_EXIST_METATYPE: case NK_EXIST: case NK_GPARAM: case NK_DEPMEMBER:
-    case NK_BUILTIN: case NK_OPAQUE: case NK_STORAGE:
+    case NK_BUILTIN: case NK_OPAQUE: case NK_STORAGE: case NK_XEXIST:
         return 1;
     default: return 0;
     }
@@ -389,10 +391,17 @@ static int symbolic(struct parser *P, int kind) {
         push(P, n);
         return 0;
     }
+    case 0x0a: case 0x0b: {
+        /* An extended existential shape: unique, or a non-unique local copy
+         * that the runtime uniques. */
+        struct node *n = mk(P, NK_XSHAPE);
+        n->ptr = kind == 0x0a ? target : sw_unique_extended_existential_shape(target);
+        if (!n->ptr) return fail(P, "bad extended existential shape");
+        push(P, n);
+        return 0;
+    }
     default:
-        return fail(P, kind == 0x0a || kind == 0x0b
-                           ? "extended existential shapes (any P<T>) are not supported yet"
-                           : "unknown symbolic reference kind");
+        return fail(P, "unknown symbolic reference kind");
     }
 }
 
@@ -773,6 +782,21 @@ static int flag(struct parser *P, uint32_t f, int with_type) {
 static int special(struct parser *P) {
     int c = next(P);
     switch (c) {
+    case 'j': {
+        /* shape, generalization arguments..., Xj */
+        unsigned i = P->nstack;
+        while (i > 0 && P->stack[i - 1]->kind != NK_XSHAPE) i--;
+        if (!i) return fail(P, "extended existential without a shape");
+        struct node *x = mk(P, NK_XEXIST);
+        x->ptr = P->stack[i - 1]->ptr;
+        for (unsigned k = i; k < P->nstack; k++) {
+            if (!is_type(P->stack[k])) return fail(P, "bad extended existential argument");
+            add_kid(P, x, P->stack[k]);
+        }
+        P->nstack = i - 1;
+        push(P, x);
+        return 0;
+    }
     case 'p': return wrap(P, NK_EXIST_METATYPE, 0, 0);
     case 'M': return wrap(P, NK_METATYPE, next(P), 0); /* with representation: T thick, t thin, o objc */
     case 'm': return wrap(P, NK_EXIST_METATYPE, next(P), 0);
@@ -1112,6 +1136,7 @@ static void print_node(struct sbuf *b, const struct node *n) {
     case NK_CTX: print_ctx(b, n->ptr); break;
     case NK_OBJC_PROTO: print_objc_proto(b, n->ptr); break;
     case NK_ACCESSOR: sb_puts(b, "<accessor>"); break;
+    case NK_XEXIST: case NK_XSHAPE: sb_puts(b, "<extended existential>"); break;
     case NK_STD: sb_puts(b, "Swift."); sb_puts(b, std_lookup(n)->name); break;
     case NK_BOUND: {
         const struct node *base = n->kids[0], *l = n->kids[n->nkids - 1];
@@ -1850,6 +1875,13 @@ static const sw_metadata *resolve(struct resolver *R, const struct node *n) {
         return getexm(t);
     }
     case NK_EXIST: return resolve_existential(R, n);
+    case NK_XEXIST: {
+        const void **args = alloca((n->nkids + 1) * sizeof *args);
+        for (unsigned i = 0; i < n->nkids; i++)
+            if (!(args[i] = resolve(R, n->kids[i]))) return NULL;
+        const sw_metadata *m = sw_get_extended_existential(n->ptr, args, n->nkids);
+        return m ? m : rfail(R, n, "extended existential metadata could not be made");
+    }
     case NK_GPARAM: {
         const sw_metadata *m = env_param(R->env, n->a, n->b);
         return m ? m : rfail(R, n, "generic parameter has no value in this context");
@@ -2009,6 +2041,11 @@ static void print_desc_name(struct sbuf *b, const sw_context_descriptor *d, int 
     }
 }
 static void print_proto_ref(struct sbuf *b, proto_ref p, int qualified) {
+    if (p < 4096 || p >= (1ULL << 47)) {
+        dx_log(1, "swift: bad protocol reference %#lx in an existential", (unsigned long)p);
+        sb_puts(b, "<bad protocol>");
+        return;
+    }
     if (p & PROTO_OBJC) {
         RT(const char *(*)(const void *), getname, "_protocol_getName");
         sb_puts(b, getname ? getname((const void *)(p & ~(proto_ref)1)) : "?");
@@ -2159,6 +2196,8 @@ static void print_metadata(struct sbuf *b, const sw_metadata *m, int qualified) 
     case SW_KIND_EXISTENTIAL: {
         const sw_existential_metadata *e = (const sw_existential_metadata *)m;
         const void *const *tail = (const void *const *)(e + 1);
+        if (dx_verbose && e->num_protocols > 64)
+            dx_log(1, "swift: existential %p has %u protocols (flags %#x)", (const void *)m, e->num_protocols, e->flags);
         int has_super = (e->flags & 0x40000000) != 0;
         int class_bound = !(e->flags & 0x80000000);
         unsigned count = 0;

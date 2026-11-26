@@ -292,3 +292,132 @@ static const sw_metadata *d_swift_getExistentialMetatypeMetadata(const sw_metada
     return m;
 }
 DX_FN(swift_getExistentialMetatypeMetadata);
+
+/* ---- extended existentials (any P<T>, any Collection<Int>, ...) ----------------------- *
+ *
+ * The compiler describes one with a shape: flags, the mangled existential
+ * type, the requirement signature's header, then (as the flags say) the
+ * generalization signature's header, a type expression and suggested
+ * value witnesses, parameter descriptors and requirements. Its values are
+ * laid out like ordinary existentials of the same kind: after the value
+ * come the requirement signature's key arguments that are not the
+ * generalization signature's (Self's metadata, then its witness tables).
+ * Metadata: kind, shape, generalization arguments. */
+enum {
+    XS_SPECIAL_MASK = 0xFF, XS_SPECIAL_NONE = 0, XS_SPECIAL_CLASS = 1, XS_SPECIAL_METATYPE = 2,
+    XS_SPECIAL_EXPLICIT_LAYOUT = 3,
+    XS_HAS_GEN_SIG = 0x100, XS_HAS_TYPE_EXPR = 0x200, XS_HAS_SUGGESTED_VWT = 0x400,
+};
+struct xshape {
+    uint32_t flags;
+    int32_t existential_type;
+    uint16_t req_params, req_requirements, req_key_args, req_flags;
+};
+struct xheader { uint16_t params, requirements, key_args, flags; };
+
+static const struct xheader *xs_gen_header(const struct xshape *s) {
+    return s->flags & XS_HAS_GEN_SIG ? (const struct xheader *)(s + 1) : NULL;
+}
+static unsigned xs_gen_args(const struct xshape *s) {
+    const struct xheader *g = xs_gen_header(s);
+    return g ? g->key_args : 0;
+}
+static const sw_vwt *xs_suggested_vwt(const struct xshape *s) {
+    if (!(s->flags & XS_HAS_SUGGESTED_VWT)) return NULL;
+    const int32_t *p = (const int32_t *)((const char *)(s + 1) + (s->flags & XS_HAS_GEN_SIG ? 8 : 0) +
+                                         (s->flags & XS_HAS_TYPE_EXPR ? 4 : 0));
+    /* Relative indirectable: the low bit says the target is a pointer to it. */
+    intptr_t off = *p;
+    const char *t = (const char *)p + (off & ~(intptr_t)1);
+    return off & 1 ? *(const sw_vwt *const *)t : (const sw_vwt *)t;
+}
+
+/* Non-unique shapes: {relative pointer to a cache slot, local copy}. The
+ * first copy seen for a given existential type becomes the unique one. */
+static struct utable xshapes;
+const void *sw_unique_extended_existential_shape(const void *nonunique) {
+    const int32_t *rel = nonunique;
+    const void *volatile *cache = (const void *volatile *)sw_rel(rel);
+    if (cache && *cache) return (const void *)*cache;
+    const struct xshape *local = (const struct xshape *)(rel + 1);
+    const char *name = sw_rel(&local->existential_type);
+    size_t len = sw_mangled_name_length(name);
+    /* Key on the mangled name's bytes (symbolic references included, which
+     * the copies share since they point at the same descriptors). */
+    size_t nw = (len + sizeof(uintptr_t) - 1) / sizeof(uintptr_t) + 1;
+    uintptr_t key[nw];
+    memset(key, 0, sizeof key);
+    key[0] = len;
+    memcpy(key + 1, name, len);
+    size_t h = words_hash(key, nw);
+    sw_md_lock();
+    const void *u = ufind(&xshapes, key, nw, h);
+    if (!u) {
+        u = local;
+        uinsert(&xshapes, key, nw, h, u);
+    }
+    sw_md_unlock();
+    if (cache) *cache = u;
+    return u;
+}
+
+struct full_xexistential {
+    const sw_vwt *vwt;
+    uintptr_t kind;
+    const struct xshape *shape;
+    const void *args[];
+};
+static struct utable xexistentials;
+
+const sw_metadata *sw_get_extended_existential(const void *shape_ptr, const void *const *args, unsigned nargs) {
+    const struct xshape *shape = shape_ptr;
+    unsigned n = xs_gen_args(shape);
+    if (nargs && nargs != n) return NULL;
+    uintptr_t key[n + 1];
+    key[0] = (uintptr_t)shape;
+    memcpy(key + 1, args, n * sizeof *args);
+    size_t h = words_hash(key, n + 1);
+    sw_md_lock();
+    const sw_metadata *m = ufind(&xexistentials, key, n + 1, h);
+    if (!m) {
+        struct full_xexistential *f = calloc(1, sizeof *f + (n + 1) * sizeof(void *));
+        f->kind = SW_KIND_EXTENDED_EXISTENTIAL;
+        f->shape = shape;
+        memcpy(f->args, args, n * sizeof *args);
+        /* The requirement signature starts with the generalization
+         * signature's parameters, whose values the metadata holds; the value
+         * holds Self's metadata and Self's witness tables. */
+        unsigned stored = shape->req_key_args > n ? shape->req_key_args - n : 1;
+        unsigned nwt = stored - 1;
+        dx_log(2, "swift: extended existential shape %p: flags %#x, %u params, %u requirements, %u key arguments, "
+                  "%u generalization arguments", (const void *)shape, shape->flags, shape->req_params,
+               shape->req_requirements, shape->req_key_args, n);
+        switch (shape->flags & XS_SPECIAL_MASK) {
+        case XS_SPECIAL_CLASS: f->vwt = existential_vwt(REP_CLASS, nwt); break;
+        case XS_SPECIAL_METATYPE: f->vwt = existential_vwt(REP_METATYPE, nwt); break;
+        case XS_SPECIAL_EXPLICIT_LAYOUT: f->vwt = xs_suggested_vwt(shape); break;
+        default: f->vwt = existential_vwt(REP_OPAQUE, nwt); break;
+        }
+        if (!f->vwt) f->vwt = existential_vwt(REP_OPAQUE, nwt);
+        m = (const sw_metadata *)&f->kind;
+        uinsert(&xexistentials, key, n + 1, h, m);
+    }
+    sw_md_unlock();
+    return m;
+}
+
+/* const ExtendedExistentialTypeMetadata *swift_getExtendedExistentialTypeMetadata(
+ *     const NonUniqueExtendedExistentialTypeShape *shape, const void *const *generalizationArgs) */
+static const sw_metadata *d_swift_getExtendedExistentialTypeMetadata(const void *shape, const void *const *args) {
+    return sw_get_extended_existential(sw_unique_extended_existential_shape(shape), args, 0);
+}
+DX_FN(swift_getExtendedExistentialTypeMetadata);
+static const sw_metadata *d_swift_getExtendedExistentialTypeMetadata_unique(const void *shape,
+                                                                            const void *const *args) {
+    return sw_get_extended_existential(shape, args, 0);
+}
+DX_FN(swift_getExtendedExistentialTypeMetadata_unique);
+static const void *d_swift_getExtendedExistentialTypeShape(const void *nonunique) {
+    return sw_unique_extended_existential_shape(nonunique);
+}
+DX_FN(swift_getExtendedExistentialTypeShape);
