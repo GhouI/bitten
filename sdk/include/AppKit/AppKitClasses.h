@@ -7,12 +7,6 @@
 @end
 @interface NSColorWell : NSControl
 @end
-@interface NSPanel : NSWindow
-@end
-@interface NSSavePanel : NSPanel
-@end
-@interface NSOpenPanel : NSSavePanel
-@end
 @interface NSCell : NSObject
 @end
 @interface NSActionCell : NSCell

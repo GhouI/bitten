@@ -2731,3 +2731,31 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   (y runs from the other edge of a frame when a view's flippedness differs
   from its superview's), as drawing already did. Test: tests/appkit/geometry.
 - Target app window (total `^MISSING`): 202 -> 113.
+## Open and save panels
+
+- AppKit: NSPanel (floating, becomes-key-only-if-needed, works-when-modal),
+  NSSavePanel and NSOpenPanel, as real panels that browse the file system.
+  - **Listing:** a directory list (folders first, hidden files only on
+    request, packages as files unless `treatsFilePackagesAsDirectories`),
+    back and Up buttons, the path, the message, a name field when saving,
+    the accessory view, New Folder, Cancel and the prompt button.
+  - **Choosing:** entries the panel can't choose are dimmed: by
+    `allowedContentTypes` (UTType objects or identifiers, matched by
+    extension), `allowedFileTypes`, `canChooseFiles` and
+    `canChooseDirectories`, or the delegate's `shouldEnableURL`.
+    Command-click and shift-click select several when allowed. Clicking an
+    existing file while saving takes its name.
+  - **Navigating:** double-click goes into a folder or chooses a file.
+    Arrows, Return and Escape work from the keyboard. With nothing
+    selected and directories allowed, the folder shown is chosen.
+  - **Saving:** the allowed type's extension is added to a typed name.
+  - **Delegate:** validate, did-change-directory, user-entered-filename
+    and selection-did-change.
+  - **Running:** `runModal`, `beginSheetModalForWindow:completionHandler:`
+    and `beginWithCompletionHandler:`. Test: tests/appkit/panels.
+- Fix: `-[BNDynamicColor CGColor]` returned the CGColor of a colour ARC had
+  already freed, which crashed text drawn in, for example,
+  `disabledControlTextColor`. The resolved colour is now kept until the
+  next call.
+- Target app window (total `^MISSING`): 113 -> 113 (NSPanel, NSSavePanel
+  and NSOpenPanel were stubs).

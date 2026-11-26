@@ -7,4 +7,5 @@
 #import <AppKit/AppKitLayout.h>
 #import <AppKit/AppKitSplit.h>
 #import <AppKit/AppKitDragging.h>
+#import <AppKit/AppKitPanels.h>
 #endif
