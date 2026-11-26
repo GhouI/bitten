@@ -306,15 +306,21 @@ all: $(SWIFT_FW_LIBS)
 # One rule per framework: the path names the framework twice, which a
 # pattern rule cannot express.
 SWIFT_FW_DEPS_SwiftUI := Combine
+# A framework can name a later deployment target, like the tests below:
+# Network's NWError carries POSIXErrorCode, which moved into the _errno
+# overlay in macOS 14 and is hidden from older targets.
+SWIFT_FW_MACOS_Network := 14.0
+swift_fw_macos  = $(or $(SWIFT_FW_MACOS_$(1)),11.0)
+swift_fw_target = $(if $(SWIFT_FW_MACOS_$(1)),-target x86_64-apple-macos$(SWIFT_FW_MACOS_$(1)) -runtime-compatibility-version none,$(SWIFT_TARGET))
 define swift_framework
 $(call swift_fw_lib,$(1)): $(wildcard frameworks/$(1)/*.swift) $(OVERLAY_LIBS) $(APPKIT) $(FOUNDATION) $(foreach d,$(SWIFT_FW_DEPS_$(1)),$(call swift_fw_lib,$(d)))
 	@mkdir -p $$(dir $$@) $(BUILD)/swiftfw
-	$(SWIFTC) -module-name $(1) $(SWIFT_TARGET) -sdk $(SDKROOT) -resource-dir $(SWIFTRES) -I $(SWIFT_MODDIR) \
+	$(SWIFTC) -module-name $(1) $(call swift_fw_target,$(1)) -sdk $(SDKROOT) -resource-dir $(SWIFTRES) -I $(SWIFT_MODDIR) \
 	    -Xfrontend -disable-implicit-string-processing-module-import \
 	    -enable-library-evolution -wmo -parse-as-library -O \
 	    -emit-module -emit-module-path $(SWIFT_MODDIR)/$(1).swiftmodule \
 	    -c -o $(BUILD)/swiftfw/$(1).o $(wildcard frameworks/$(1)/*.swift)
-	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
+	$(MACHO_LD) -arch x86_64 -platform_version macos $(call swift_fw_macos,$(1)) $(call swift_fw_macos,$(1)) -dylib \
 	    -install_name /System/Library/Frameworks/$(1).framework/Versions/A/$(1) \
 	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(OVERLAY_LIBS) $(FOUNDATION) $(APPKIT) \
 	    $(foreach d,$(SWIFT_FW_DEPS_$(1)),$(call swift_fw_lib,$(d))) -o $$@ $(BUILD)/swiftfw/$(1).o
@@ -337,6 +343,8 @@ swlib_macos = $(or $(SWLIB_MACOS_$(1)),11.0)
 # Frameworks a test links besides the overlays.
 SWLIB_LIBS_foundation := $(FOUNDATION)
 SWLIB_LIBS_cryptokit := $(FOUNDATION) $(call swift_fw_lib,CryptoKit)
+SWLIB_LIBS_network := $(FOUNDATION) $(call swift_fw_lib,Network)
+SWLIB_MACOS_network := 14.0
 $(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTCORE) $(OVERLAY_LIBS) tests/include/darwin.h $$(SWLIB_LIBS_$$*)
 	@mkdir -p $(dir $@)
 	$(SWIFTC) -target x86_64-apple-macos$(call swlib_macos,$*) -runtime-compatibility-version none -sdk $(SDKROOT) -resource-dir $(SWIFTRES) -I $(SWIFT_MODDIR) \

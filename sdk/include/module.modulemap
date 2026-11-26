@@ -122,6 +122,12 @@ module Dispatch [system] {
   export *
 }
 
+// Security.framework's Swift-visible types (the TLS protocol objects).
+module Security [system] {
+  header "Security/SecProtocolObject.h"
+  export *
+}
+
 module os [system] {
   header "os/lock.h"
   header "os/object.h"

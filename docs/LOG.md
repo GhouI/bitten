@@ -1624,3 +1624,29 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   timers, user-data sources, times, specific values, data.
 - Target app window (total `^MISSING`): 3,301 -> 3,215 (all 84 Dispatch
   overlay imports and the two dispatch classes it binds from libSystem).
+
+## 2026-11-26: Network.framework (PR: network)
+
+- `frameworks/Network`: `NWConnection` and `NWListener` over BSD sockets
+  (TCP, UDP and Unix-domain; getaddrinfo, both address families, the
+  state machine with `preparing`/`ready`/`failed`/`cancelled`, `send` with
+  final-message half-close, `receive` with minimum and maximum lengths,
+  establishment and data-transfer reports), `NWEndpoint` with `Host` and
+  `Port`, `IPv4Address`/`IPv6Address`, `NWInterface`, `NWError`,
+  `NWPath` and `NWPathMonitor` (interfaces by index), `NWParameters` with
+  its protocol stack, and the TCP, UDP, IP and TLS protocol classes. Each
+  connection does its blocking work on two private serial queues and
+  reports on the queue it was started on. There is no TLS: a connection
+  or listener that asks for it fails with `NWError.tls`.
+- `sdk/include/Security/SecProtocolObject.h` and a `Security` Clang module:
+  the TLS protocol object types (`sec_protocol_options_t`,
+  `sec_protocol_metadata_t`) Network's API names.
+- Makefile: `SWIFT_FW_MACOS_NAME` gives a Swift framework a later
+  deployment target, as `SWLIB_MACOS_NAME` does for tests. Network uses
+  14.0, because `NWError.posix` carries `POSIXErrorCode`, which lives in
+  the _errno overlay from macOS 14 and is hidden from older targets.
+- `tests/swiftlib/network`: addresses and endpoints, a loopback listener
+  and client exchanging data with a half-close, refused, DNS and TLS
+  failures, the path monitor.
+- Target app window (total `^MISSING`): 3,215 -> 2,999 (all 216 Network
+  imports).
