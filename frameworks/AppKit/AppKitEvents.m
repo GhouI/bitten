@@ -269,6 +269,13 @@ static NSString *bn_key_characters(unsigned short code) {
         case 9:
             [window setContentSize:NSMakeSize(e.width, e.height)];
             continue;
+        case 10: {
+            /* Moved on the display: (x, y) is the content's top left, down from the screen's top. */
+            NSRect moved = content;
+            moved.origin = NSMakePoint(e.x, NSMaxY([NSScreen mainScreen].frame) - e.y - content.size.height);
+            [window setFrameOrigin:[window frameRectForContentRect:moved].origin];
+            continue;
+        }
         default:
             continue;
         }

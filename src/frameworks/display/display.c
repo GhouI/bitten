@@ -39,31 +39,25 @@
 #include "dx.h"
 #include "../coregraphics/cg.h"
 
+#include "display.h"
 #include "page.h"                          /* the page: DISPLAY_PAGE */
 
 /* ---- windows ------------------------------------------------------------------ */
 
-struct window {
-    uint32_t id;
-    int32_t x, y;
-    uint32_t width, height;
-    char title[256];
-    uint32_t flags;                        /* BITTEN_DISPLAY_BORDERLESS, _TRANSPARENT */
-    int32_t level;                         /* NSWindow level: 0 normal, 3 floating, 101 pop-up menu, ... */
-    uint32_t front;                        /* bumped by each order-front */
-    uint8_t *rgba;                         /* straight alpha; NULL until the first frame */
-    uint64_t version;
-    bool closed;
-    struct window *next;
-};
-
-static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t display_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t changed = PTHREAD_COND_INITIALIZER;
-static struct window *windows;
-static uint64_t version;                   /* bumped by every change */
+struct window *display_windows;
+uint64_t display_version;                  /* bumped by every change */
+int display_x11_wake_fd = -1;
+
+void display_changed(void) {
+    pthread_cond_broadcast(&changed);
+    uint64_t one = 1;
+    if (display_x11_wake_fd >= 0) (void)!write(display_x11_wake_fd, &one, sizeof one);
+}
 
 static struct window *find(uint32_t id) {
-    for (struct window *w = windows; w; w = w->next)
+    for (struct window *w = display_windows; w; w = w->next)
         if (w->id == id) return w;
     return NULL;
 }
@@ -73,44 +67,27 @@ static struct window *find_or_add(uint32_t id) {
     w = calloc(1, sizeof *w);
     if (!w) return NULL;
     w->id = id;
-    w->next = windows;
-    windows = w;
+    w->next = display_windows;
+    display_windows = w;
     return w;
 }
 
 /* ---- events ---------------------------------------------------------------------- */
-
-struct bitten_display_event {
-    uint32_t type;                         /* see enum below */
-    uint32_t window;
-    double x, y;                           /* in the window, origin top left */
-    double dx, dy;                         /* scroll deltas */
-    uint32_t button;
-    uint32_t modifiers;                    /* NSEventModifierFlags bits */
-    uint32_t key_code;                     /* Mac virtual key code */
-    char characters[32];                   /* UTF-8 */
-    double width, height;                  /* resize */
-};
-
-enum {
-    EV_MOUSE_DOWN = 1, EV_MOUSE_UP = 2, EV_MOUSE_MOVED = 3, EV_MOUSE_DRAGGED = 4, EV_SCROLL = 5,
-    EV_KEY_DOWN = 6, EV_KEY_UP = 7, EV_CLOSE = 8, EV_RESIZE = 9,
-};
 
 #define QUEUE 1024
 static struct bitten_display_event queue[QUEUE];
 static size_t q_head, q_count;
 static int event_fd = -1;
 
-static void push_event(const struct bitten_display_event *e) {
-    pthread_mutex_lock(&lock);
+void display_push_event(const struct bitten_display_event *e) {
+    pthread_mutex_lock(&display_lock);
     if (q_count == QUEUE) {                /* drop the oldest */
         q_head = (q_head + 1) % QUEUE;
         q_count--;
     }
     queue[(q_head + q_count) % QUEUE] = *e;
     q_count++;
-    pthread_mutex_unlock(&lock);
+    pthread_mutex_unlock(&display_lock);
     uint64_t one = 1;
     if (event_fd >= 0) (void)!write(event_fd, &one, sizeof one);
 }
@@ -249,7 +226,7 @@ static void handle_input(const char *json) {
     e.width = json_number(json, "cw", 0);
     e.height = json_number(json, "ch", 0);
     json_string(json, "c", e.characters, sizeof e.characters);
-    push_event(&e);
+    display_push_event(&e);
 }
 
 /* Read one client message; false when the connection ends. */
@@ -287,29 +264,29 @@ struct client { int fd; bool dead; };
 static void *client_writer(void *arg) {
     struct client *c = arg;
     uint64_t seen = 0;
-    pthread_mutex_lock(&lock);
+    pthread_mutex_lock(&display_lock);
     while (!c->dead) {
-        if (version != seen) {
+        if (display_version != seen) {
             uint64_t since = seen;
-            seen = version;
-            for (struct window *w = windows; w; w = w->next) {
+            seen = display_version;
+            for (struct window *w = display_windows; w; w = w->next) {
                 if (w->version <= since || (!w->closed && !w->rgba)) continue;
                 /* Copy under the lock, send without it. */
                 struct window copy = *w;
                 copy.rgba = w->closed ? NULL : malloc((size_t)w->width * w->height * 4 + 1);
                 if (copy.rgba) memcpy(copy.rgba, w->rgba, (size_t)w->width * w->height * 4);
-                pthread_mutex_unlock(&lock);
+                pthread_mutex_unlock(&display_lock);
                 bool ok = (w->closed || copy.rgba) && send_window(c->fd, &copy);
                 free(copy.rgba);
-                pthread_mutex_lock(&lock);
+                pthread_mutex_lock(&display_lock);
                 if (!ok) c->dead = true;
                 if (c->dead) break;
             }
             continue;
         }
-        pthread_cond_wait(&changed, &lock);
+        pthread_cond_wait(&changed, &display_lock);
     }
-    pthread_mutex_unlock(&lock);
+    pthread_mutex_unlock(&display_lock);
     return NULL;
 }
 
@@ -340,10 +317,10 @@ static void serve_websocket(int fd, const char *key) {
         free(m);
         if (close) break;
     }
-    pthread_mutex_lock(&lock);
+    pthread_mutex_lock(&display_lock);
     c.dead = true;
     pthread_cond_broadcast(&changed);
-    pthread_mutex_unlock(&lock);
+    pthread_mutex_unlock(&display_lock);
     shutdown(fd, SHUT_RDWR);
     pthread_join(writer, NULL);
 }
@@ -394,7 +371,6 @@ static void *acceptor(void *arg) {
 }
 
 static void start_server(void) {
-    event_fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
     const char *env = getenv("BITTEN_DISPLAY_PORT");
     int port = requested_port >= 0 ? requested_port : env ? atoi(env) : 7681;
     int fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
@@ -416,11 +392,23 @@ static void start_server(void) {
     dx_log(0, "display: windows at http://localhost:%d/", server_port);
 }
 
+/* The X11 viewer with BITTEN_DISPLAY=x11, the browser page otherwise (and
+ * always for bitten_display_listen, which asks for a port). */
+static void start_display(void) {
+    event_fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+    const char *which = getenv("BITTEN_DISPLAY");
+    if (requested_port < 0 && which && !strcmp(which, "x11")) {
+        if (display_x11_start()) return;
+        dx_log(0, "display: no X11 display at %s; using the browser page", getenv("DISPLAY") ?: "(DISPLAY unset)");
+    }
+    start_server();
+}
+
 /* ---- the API (for AppKit) ------------------------------------------------------------- */
 
 /* Start the server (presenting a window starts it too); the port, or 0. */
 int bitten_display_start(void) {
-    pthread_once(&started, start_server);
+    pthread_once(&started, start_display);
     return server_port;
 }
 DX_EXPORT("_bitten_display_start", bitten_display_start);
@@ -457,9 +445,9 @@ int bitten_display_present(uint32_t id, const void *pixels, size_t width, size_t
             uint8_t *d = rgba + (r * width + c) * 4;
             for (int k = 0; k < 4; k++) d[k] = (uint8_t)(fmin(fmax(px[k], 0), 1) * 255 + 0.5);
         }
-    pthread_mutex_lock(&lock);
+    pthread_mutex_lock(&display_lock);
     struct window *w = find_or_add(id);
-    if (!w) { pthread_mutex_unlock(&lock); free(rgba); return -1; }
+    if (!w) { pthread_mutex_unlock(&display_lock); free(rgba); return -1; }
     free(w->rgba);
     w->rgba = rgba;
     w->width = (uint32_t)width;
@@ -468,9 +456,9 @@ int bitten_display_present(uint32_t id, const void *pixels, size_t width, size_t
     w->y = (int32_t)y;
     w->closed = false;
     snprintf(w->title, sizeof w->title, "%s", title ? title : "");
-    w->version = ++version;
-    pthread_cond_broadcast(&changed);
-    pthread_mutex_unlock(&lock);
+    w->version = ++display_version;
+    display_changed();
+    pthread_mutex_unlock(&display_lock);
     return 0;
 }
 DX_EXPORT("_bitten_display_present", bitten_display_present);
@@ -481,15 +469,15 @@ DX_EXPORT("_bitten_display_present", bitten_display_present);
  * before the window's first frame. */
 int bitten_display_set_style(uint32_t id, uint32_t flags, int32_t level) {
     bitten_display_start();
-    pthread_mutex_lock(&lock);
+    pthread_mutex_lock(&display_lock);
     struct window *w = find_or_add(id);
     if (w && (w->flags != flags || w->level != level)) {
         w->flags = flags;
         w->level = level;
-        w->version = ++version;
-        pthread_cond_broadcast(&changed);
+        w->version = ++display_version;
+        display_changed();
     }
-    pthread_mutex_unlock(&lock);
+    pthread_mutex_unlock(&display_lock);
     return w ? 0 : -1;
 }
 DX_EXPORT("_bitten_display_set_style", bitten_display_set_style);
@@ -497,42 +485,42 @@ DX_EXPORT("_bitten_display_set_style", bitten_display_set_style);
 /* Brings window `id` to the front of its level without focusing it. */
 void bitten_display_order_front(uint32_t id) {
     static uint32_t fronts;
-    pthread_mutex_lock(&lock);
+    pthread_mutex_lock(&display_lock);
     struct window *w = find_or_add(id);
     if (w) {
         w->front = ++fronts;
-        w->version = ++version;
-        pthread_cond_broadcast(&changed);
+        w->version = ++display_version;
+        display_changed();
     }
-    pthread_mutex_unlock(&lock);
+    pthread_mutex_unlock(&display_lock);
 }
 DX_EXPORT("_bitten_display_order_front", bitten_display_order_front);
 
 /* Take window `id` off the page. */
 void bitten_display_close(uint32_t id) {
-    pthread_mutex_lock(&lock);
+    pthread_mutex_lock(&display_lock);
     struct window *w = find(id);
     if (w) {
         free(w->rgba);
         w->rgba = NULL;
         w->closed = true;
-        w->version = ++version;
-        pthread_cond_broadcast(&changed);
+        w->version = ++display_version;
+        display_changed();
     }
-    pthread_mutex_unlock(&lock);
+    pthread_mutex_unlock(&display_lock);
 }
 DX_EXPORT("_bitten_display_close", bitten_display_close);
 
 /* The next input event, if any: 1 with *out filled, 0 when none waits. */
 int bitten_display_next_event(struct bitten_display_event *out) {
-    pthread_mutex_lock(&lock);
+    pthread_mutex_lock(&display_lock);
     int got = q_count > 0;
     if (got) {
         *out = queue[q_head];
         q_head = (q_head + 1) % QUEUE;
         q_count--;
     }
-    pthread_mutex_unlock(&lock);
+    pthread_mutex_unlock(&display_lock);
     if (!got && event_fd >= 0) {
         uint64_t drain;
         (void)!read(event_fd, &drain, sizeof drain);

@@ -27,12 +27,18 @@ Environment:
                 *.dmg under /dmg)
   BITTEN_APP    which .app to use when the image holds several
   BITTEN_DEBUG  1 or 2 for loader diagnostics
+  DISPLAY       an X server for the app's windows (they go to the browser
+                page on port 7681 without one)
 USAGE
 }
 
 die() { echo "bitten: $*" >&2; exit 1; }
 
 cmd=${1:-info}
+
+# An X server passed in (-e DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix) shows
+# the windows on the desktop; otherwise they are on the browser page.
+[ -n "${DISPLAY:-}" ] && export BITTEN_DISPLAY="${BITTEN_DISPLAY:-x11}"
 case "$cmd" in help|-h|--help) usage; exit 0 ;; esac
 
 # ---- locate and unpack the image ------------------------------------------

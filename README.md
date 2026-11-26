@@ -95,6 +95,16 @@ docker run --rm -it -v /path/App.dmg:/dmg/app.dmg:ro bitten [COMMAND]
   check NAME           list every import of NAME that is not implemented
 ```
 
+The app's windows appear on a page at http://localhost:7681 (add
+`-p 7681:7681`). To get them as windows on your Linux desktop instead (X11,
+or Wayland through Xwayland), pass the X server in:
+
+```
+docker run --rm -it -e DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v "$XAUTHORITY":/tmp/.Xauthority:ro -e XAUTHORITY=/tmp/.Xauthority \
+  -v /path/App.dmg:/dmg/app.dmg:ro bitten run
+```
+
 With Compose, from this directory:
 
 ```
@@ -113,6 +123,7 @@ make                      # builds build/mrun and the frameworks (gcc, make, cla
 build/mrun path/to/macho-program args...
 build/mrun --check path/to/macho-program     # what is missing (and unbound weak imports)
 BITTEN_DISPLAY_PORT=7681 build/mrun App.app/Contents/MacOS/App   # windows at http://localhost:7681
+BITTEN_DISPLAY=x11 build/mrun App.app/Contents/MacOS/App         # windows on the desktop ($DISPLAY)
 tools/dmgx extract App.dmg outdir            # unpack a disk image
 ```
 

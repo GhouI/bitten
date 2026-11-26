@@ -118,6 +118,13 @@ viewer that came before, and an X11 or Wayland back end can be added
 behind the same interface later (`bitten_display_present` and
 `bitten_display_next_event`, `src/frameworks/display`).
 
+The X11 back end now exists (`src/frameworks/display/x11.c`, chosen with
+`BITTEN_DISPLAY=x11`; the container's entrypoint sets it when `DISPLAY` is
+passed in). Each Mac window is its own X window, so the desktop's window
+manager frames, moves and stacks it. libX11 is loaded with `dlopen` only
+when it is chosen, so mrun keeps no X11 dependency, and the browser page
+stays the default. On Wayland desktops it works through Xwayland.
+
 ## Dead ends and corrections
 
 - **`LC_UNIXTHREAD` means "static binary".** Wrong. Go's linker emits it for

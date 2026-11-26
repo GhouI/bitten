@@ -45,6 +45,7 @@ static id freeze(id self, CFMutableDictionaryRef table) {
 - (NSUInteger)count { return (NSUInteger)CFDictionaryGetCount(CFD(self)); }
 - (id)objectForKey:(id)key { return key ? (__bridge id)CFDictionaryGetValue(CFD(self), (__bridge const void *)key) : nil; }
 - (id)objectForKeyedSubscript:(id)key { return [self objectForKey:key]; }
+- (id)__swift_objectForKeyedSubscript:(id)key { return [self objectForKey:key]; }
 - (NSArray *)allKeys {
     NSUInteger n = self.count;
     void **keys = malloc((n ? n : 1) * sizeof(void *));
@@ -119,6 +120,7 @@ static id freeze(id self, CFMutableDictionaryRef table) {
     if (object) [self setObject:object forKey:key];
     else [self removeObjectForKey:key];
 }
+- (void)__swift_setObject:(id)object forKeyedSubscript:(id)key { [self setObject:object forKeyedSubscript:key]; }
 - (void)removeObjectForKey:(id)key {
     if (key) CFDictionaryRemoveValue(CFMD(self), (__bridge const void *)key);
 }

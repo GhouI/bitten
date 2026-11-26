@@ -277,6 +277,7 @@ void NSEraseRect(NSRect r) {
 - (NSLineJoinStyle)lineJoinStyle { return _join; }
 - (void)setLineJoinStyle:(NSLineJoinStyle)j { _join = j; }
 - (BOOL)isEmpty { return CGPathIsEmpty(_path); }
+- (BOOL)containsPoint:(NSPoint)p { return CGPathContainsPoint(_path, NULL, p, _winding == 1); }   /* 1: NSWindingRuleEvenOdd */
 - (NSRect)bounds { return CGPathGetBoundingBox(_path); }
 - (CGPathRef)CGPath { return _path; }
 @end
