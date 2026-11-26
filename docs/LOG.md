@@ -3028,3 +3028,20 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   representable z-order, centred text through a cross-module key path).
 - Target app window (total `^MISSING`): 11 -> 11. Its window now shows its
   surface card with crisp text above it.
+
+## System symbols drawn from their names
+
+- AppKit: frameworks/AppKit/AppKitSymbols.m draws system symbol images
+  (`NSImage(systemSymbolName:)`, SwiftUI's `Image(systemName:)`) from their
+  names, since Apple's artwork is not ours to ship: a base glyph (arrow,
+  chevron, xmark, plus, checkmark, ellipsis, magnifyingglass, gearshape,
+  trash, doc, folder, terminal, sidebar, exclamationmark, questionmark,
+  info, clock, globe, lock, bolt, person, and others) with its direction,
+  inside a circle or square when the name says so, the glyph knocked out
+  of the fill for `.fill`. Unknown names draw a small outlined square.
+  Both NSImage and SwiftUI images use it (`bn_draw_symbol`), in the
+  image's colour.
+- Test: tests/appkit/symbols.m (every listed name draws, filled variants
+  are knocked out; `SYMBOLS_PPM=path` writes the grid).
+- Target app window (total `^MISSING`): 11 -> 11. Its status title shows
+  its warning triangle instead of a grey block.

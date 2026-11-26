@@ -1192,6 +1192,10 @@ internal class AnyImageProviderBox: @unchecked Sendable {
   func copy() -> AnyImageProviderBox { return self }
 }
 
+@_silgen_name("bn_draw_symbol")
+internal func _bn_draw_symbol(_ c: CGContext, _ name: UnsafePointer<CChar>, _ x: CGFloat, _ y: CGFloat, _ w: CGFloat,
+                              _ h: CGFloat, _ r: CGFloat, _ g: CGFloat, _ b: CGFloat, _ a: CGFloat, _ flipped: Int32)
+
 final class _NamedImageBox: AnyImageProviderBox, @unchecked Sendable {
   let n: String
   let system: Bool
@@ -1318,7 +1322,15 @@ internal final class _ImageNode: _ViewNode {
       CGContextRestoreGState(context)
       return
     }
-    // Symbols and asset images: a rounded placeholder in the foreground colour.
+    if let named = provider as? _NamedImageBox, named.system {
+      // Drawn from the symbol's name (AppKitSymbols.m); the context is flipped.
+      named.n.withCString {
+        _bn_draw_symbol(context, $0, frame._minX, frame._minY, frame._width, frame._height,
+                        paint.r, paint.g, paint.b, paint.a, 1)
+      }
+      return
+    }
+    // Asset images: a rounded placeholder in the foreground colour.
     let inset = frame._insetBy(min(frame._width, frame._height) * 0.15)
     paint.with(opacity: 0.6).fill(CGPathCreateWithRoundedRect(inset, inset._width * 0.25, inset._height * 0.25, nil),
                                   in: context)
