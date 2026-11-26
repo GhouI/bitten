@@ -7,6 +7,7 @@
 #include <pwd.h>
 #include <signal.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
@@ -249,9 +250,92 @@ static int count_args(char *const argv[]) {
 static int is_launchctl(const char *p) {
     return (!strcmp(p, "/bin/launchctl") || !strcmp(p, "/usr/bin/launchctl")) && access(p, X_OK) != 0;
 }
+/* macOS login(1) runs a program as a user without asking for a password
+ * when root passes -f: `login [-pq] [-h host] [-l] [-f] user [prog [args]]`.
+ * Terminal programs start shells that way. Linux's login cannot run a
+ * program, so this does what macOS's would: become the user (when that
+ * needs and is allowed a change), set up the environment (kept with -p,
+ * except for the user's own variables) and exec the program, or the
+ * user's shell. Unless -l is given it is a login session: argv[0] gets a
+ * leading '-' and the program starts in the home directory. */
+static int is_login(const char *p) { return !strcmp(p, "/usr/bin/login") || !strcmp(p, "/bin/login"); }
+
+static int exec_any(const char *path, char *const argv[], char *const envp[]);
+
+static int exec_login(char *const argv[], char *const envp[]) {
+    int n = count_args(argv), i = 1, keep_env = 0, not_session = 0, force = 0;
+    for (; i < n && argv[i][0] == '-' && argv[i][1]; i++) {
+        if (!strcmp(argv[i], "--")) {
+            i++;
+            break;
+        }
+        for (const char *f = argv[i] + 1; *f; f++) {
+            if (*f == 'p') keep_env = 1;
+            else if (*f == 'l') not_session = 1;
+            else if (*f == 'f') force = 1;
+            else if (*f == 'h') {
+                if (!f[1]) i++; /* the host is the next argument */
+                break;
+            } else if (*f != 'q') {
+                errno = EINVAL;
+                return -1;
+            }
+        }
+    }
+    if (!force || i >= n) return execve("/usr/bin/login", argv, envp); /* interactive: the real one */
+    struct passwd *pw = getpwnam(argv[i++]);
+    if (!pw) {
+        errno = ENOENT;
+        return -1;
+    }
+    if (getuid() != pw->pw_uid || getgid() != pw->pw_gid) {
+        if (initgroups(pw->pw_name, pw->pw_gid) != 0 || setgid(pw->pw_gid) != 0 || setuid(pw->pw_uid) != 0)
+            return -1;
+    }
+    const char *shell = pw->pw_shell && *pw->pw_shell ? pw->pw_shell : "/bin/sh";
+    const char *prog = i < n ? argv[i] : shell;
+    /* the environment: the caller's with -p, else a fresh one; either way
+     * the user's own variables */
+    int envn = 0;
+    while (keep_env && envp && envp[envn]) envn++;
+    char **env = alloca((envn + 6) * sizeof(char *));
+    int k = 0;
+    static const char *const own[] = {"HOME=", "USER=", "LOGNAME=", "SHELL=", NULL};
+    for (int j = 0; j < envn; j++) {
+        int mine = 0;
+        for (int o = 0; own[o]; o++) mine |= !strncmp(envp[j], own[o], strlen(own[o]));
+        if (!mine) env[k++] = envp[j];
+    }
+    size_t hl = strlen(pw->pw_dir) + 6, ul = strlen(pw->pw_name) + 9, sl = strlen(shell) + 7;
+    char *home = alloca(hl), *user = alloca(ul), *logname = alloca(ul), *sh = alloca(sl);
+    snprintf(home, hl, "HOME=%s", pw->pw_dir);
+    snprintf(user, ul, "USER=%s", pw->pw_name);
+    snprintf(logname, ul, "LOGNAME=%s", pw->pw_name);
+    snprintf(sh, sl, "SHELL=%s", shell);
+    env[k++] = home;
+    env[k++] = user;
+    env[k++] = logname;
+    env[k++] = sh;
+    if (!keep_env) env[k++] = (char *)"PATH=/usr/bin:/bin:/usr/sbin:/sbin";
+    env[k] = NULL;
+    if (!not_session && chdir(pw->pw_dir) != 0) (void)chdir("/");
+    /* argv: the program's arguments, argv[0] marked as a login session */
+    int rest = n - i;
+    char **nargv = alloca((rest + 2) * sizeof(char *));
+    const char *base = strrchr(prog, '/') ? strrchr(prog, '/') + 1 : prog;
+    char *dashed = alloca(strlen(base) + 2);
+    dashed[0] = '-';
+    strcpy(dashed + 1, base);
+    nargv[0] = not_session ? (char *)prog : dashed;
+    for (int j = 1; j < rest; j++) nargv[j] = argv[i + j];
+    nargv[rest > 0 ? rest : 1] = NULL;
+    return exec_any(prog, nargv, env);
+}
+
 static int exec_any(const char *path, char *const argv[], char *const envp[]) {
     char pbuf[PATH_MAX];
     const char *p = dx_path(path, pbuf, sizeof pbuf);
+    if (is_login(path)) return exec_login(argv, envp);
     if (is_launchctl(path) || is_launchctl(p)) {
         /* there is no launchd: mrun stands in for launchctl */
         int n = count_args(argv);
