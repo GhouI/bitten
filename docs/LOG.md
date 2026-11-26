@@ -2054,3 +2054,20 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   `MakeWithDictionaryRepresentation`.
 - Test: `tests/swiftlib/coregraphics`.
 - Target app window (total `^MISSING`): 1,894 -> 1,873.
+
+## 2026-11-26: UniformTypeIdentifiers (PR: uttype)
+
+- `libswiftUniformTypeIdentifiers`: `UTType` over a table of about ninety
+  system types (identifier, supertypes, filename extensions, MIME types):
+  `conforms(to:)`, `isSubtype`/`isSupertype`, `supertypes`, `tags`,
+  lookup by identifier, extension or MIME type, dynamic types for unknown
+  tags (conforming to the type asked for), `exportedAs`/`importedAs`
+  declarations, `Codable`, the static types (`.png`, `.folder`,
+  `.applicationBundle`, `.osaScript`...). `URLResourceValues.contentType`
+  and `URL.appendingPathComponent(_:conformingTo:)`.
+- Build: Swift libraries that need Foundation's Swift API (QuartzCore's
+  overlay, this one) share one rule, `LATE_SWIFT`, built after Foundation.
+- Not yet: `NSItemProvider.loadFileRepresentation(for:...)` (Foundation has
+  no `NSItemProvider`).
+- Test: `tests/swiftlib/uttype`.
+- Target app window (total `^MISSING`): 1,873 -> 1,852.
