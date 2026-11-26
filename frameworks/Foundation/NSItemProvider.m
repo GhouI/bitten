@@ -129,8 +129,13 @@ static NSError *unavailable(NSString *type) {
                            userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"No %@ representation", type]}];
 }
 - (NSProgress *)loadDataRepresentationForTypeIdentifier:(NSString *)type
-                                      completionHandler:(void (^)(NSData *, NSError *))done {
+                                      completionHandler:(void (^)(NSData *, NSError *))handler {
     _BNItemRep *r = [self _rep:type];
+    NSProgress *progress = [NSProgress discreteProgressWithTotalUnitCount:1];
+    void (^done)(NSData *, NSError *) = ^(NSData *d, NSError *e) {
+        progress.completedUnitCount = 1;
+        handler(d, e);
+    };
     dispatch_async(dispatch_get_global_queue(0, 0), ^{
         if (!r) done(nil, unavailable(type));
         else if (r->_data) r->_data(done);
@@ -138,11 +143,16 @@ static NSError *unavailable(NSString *type) {
             done(url ? [NSData dataWithContentsOfFile:url.path] : nil, error);
         });
     });
-    return nil;
+    return progress;
 }
 - (NSProgress *)loadFileRepresentationForTypeIdentifier:(NSString *)type
-                                      completionHandler:(void (^)(NSURL *, NSError *))done {
+                                      completionHandler:(void (^)(NSURL *, NSError *))handler {
     _BNItemRep *r = [self _rep:type];
+    NSProgress *progress = [NSProgress discreteProgressWithTotalUnitCount:1];
+    void (^done)(NSURL *, NSError *) = ^(NSURL *u, NSError *e) {
+        progress.completedUnitCount = 1;
+        handler(u, e);
+    };
     NSString *name = _suggestedName;
     dispatch_async(dispatch_get_global_queue(0, 0), ^{
         if (!r) {
@@ -165,7 +175,7 @@ static NSError *unavailable(NSString *type) {
             });
         }
     });
-    return nil;
+    return progress;
 }
 - (NSProgress *)loadInPlaceFileRepresentationForTypeIdentifier:(NSString *)type
                                             completionHandler:(void (^)(NSURL *, BOOL, NSError *))done {
@@ -187,7 +197,7 @@ static NSError *unavailable(NSString *type) {
                          : @[];
     for (NSString *t in types) {
         if (![self _rep:t]) continue;
-        [self loadDataRepresentationForTypeIdentifier:t completionHandler:^(NSData *data, NSError *error) {
+        return [self loadDataRepresentationForTypeIdentifier:t completionHandler:^(NSData *data, NSError *error) {
             if (!data) {
                 done(nil, error);
                 return;
@@ -200,10 +210,13 @@ static NSError *unavailable(NSString *type) {
             id o = [cls objectWithItemProviderData:data typeIdentifier:t error:&e];
             done(o, e);
         }];
-        return nil;
     }
-    dispatch_async(dispatch_get_global_queue(0, 0), ^{ done(nil, unavailable(NSStringFromClass(cls))); });
-    return nil;
+    NSProgress *progress = [NSProgress discreteProgressWithTotalUnitCount:1];
+    dispatch_async(dispatch_get_global_queue(0, 0), ^{
+        progress.completedUnitCount = 1;
+        done(nil, unavailable(NSStringFromClass(cls)));
+    });
+    return progress;
 }
 - (void)loadItemForTypeIdentifier:(NSString *)type options:(NSDictionary *)options
                 completionHandler:(void (^)(id, NSError *))done {

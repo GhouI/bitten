@@ -104,7 +104,7 @@ HANDWRITTEN = {"NSResponder", "NSView", "NSWindow", "NSApplication", "NSEvent",
                "NSColor", "NSFont", "NSScreen", "NSGraphicsContext", "NSMenu",
                "NSMenuItem", "NSControl", "NSAppearance", "NSBezierPath", "NSWorkspace", "NSRunningApplication", "NSWorkspaceOpenConfiguration",
                "NSViewController", "NSWindowController", "NSImage", "NSImageRep", "NSBitmapImageRep",
-               "NSImageSymbolConfiguration", "NSPasteboard", "NSPasteboardItem"}
+               "NSImageSymbolConfiguration", "NSPasteboard", "NSPasteboardItem", "NSColorSpace", "NSVisualEffectView", "NSAnimationContext", "NSShadow", "NSTrackingArea"}
 
 NOTIFICATIONS = """
 NSApplicationDidBecomeActiveNotification NSApplicationDidChangeScreenParametersNotification
