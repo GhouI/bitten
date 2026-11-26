@@ -330,6 +330,52 @@ static int d_access(const char *path, int mode) {
     return DX_RET(access(P(path), mode & 7));
 }
 DX_FN(access);
+
+/* Darwin pathconf selectors are not the glibc enum values. Zero encodes
+ * unsupported here; add one because glibc's _PC_LINK_MAX itself is zero. */
+static int host_pathconf_name(int name) {
+    static const int names[] = {
+        [1] = _PC_LINK_MAX + 1, [2] = _PC_MAX_CANON + 1,
+        [3] = _PC_MAX_INPUT + 1, [4] = _PC_NAME_MAX + 1,
+        [5] = _PC_PATH_MAX + 1, [6] = _PC_PIPE_BUF + 1,
+        [7] = _PC_CHOWN_RESTRICTED + 1, [8] = _PC_NO_TRUNC + 1,
+        [9] = _PC_VDISABLE + 1, [15] = _PC_2_SYMLINKS + 1,
+        [16] = _PC_ALLOC_SIZE_MIN + 1, [17] = _PC_ASYNC_IO + 1,
+        [18] = _PC_FILESIZEBITS + 1, [19] = _PC_PRIO_IO + 1,
+        [20] = _PC_REC_INCR_XFER_SIZE + 1, [21] = _PC_REC_MAX_XFER_SIZE + 1,
+        [22] = _PC_REC_MIN_XFER_SIZE + 1, [23] = _PC_REC_XFER_ALIGN + 1,
+        [24] = _PC_SYMLINK_MAX + 1, [25] = _PC_SYNC_IO + 1,
+    };
+    if (name < 0 || (size_t)name >= sizeof names / sizeof *names) return -1;
+    return names[name] - 1;
+}
+
+static long d_pathconf(const char *path, int name) {
+    int host = host_pathconf_name(name);
+    if (host == -1) { dx_set_errno(dx_errno_to_darwin(EINVAL)); return -1; }
+    PBUF;
+    const char *translated = P(path);
+    int saved = errno;
+    errno = 0;
+    long r = pathconf(translated, host);
+    if (r == -1 && errno) dx_set_errno(dx_errno_to_darwin(errno));
+    errno = saved;
+    return r;
+}
+DX_FN(pathconf);
+
+static long d_fpathconf(int fd, int name) {
+    int host = host_pathconf_name(name);
+    if (host == -1) { dx_set_errno(dx_errno_to_darwin(EINVAL)); return -1; }
+    int saved = errno;
+    errno = 0;
+    long r = fpathconf(fd, host);
+    if (r == -1 && errno) dx_set_errno(dx_errno_to_darwin(errno));
+    errno = saved;
+    return r;
+}
+DX_FN(fpathconf);
+
 static int d_faccessat(int dirfd, const char *path, int mode, int flags) {
     PBUF;
     return DX_RET(faccessat(dx_at_fd(dirfd), P(path), mode & 7, dx_at_flags_to_host(flags)));

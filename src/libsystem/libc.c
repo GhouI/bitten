@@ -485,10 +485,18 @@ DX_PASS(fgetc); DX_PASS(fgets); DX_PASS(getc); DX_PASS(getchar); DX_PASS(ungetc)
 DX_PASS(fwrite); DX_PASS(fread); DX_PASS(fflush); DX_PASS(fclose); DX_PASS(fileno);
 DX_PASS(fseek); DX_PASS(ftell); DX_PASS(fseeko); DX_PASS(ftello); DX_PASS(rewind);
 DX_PASS(feof); DX_PASS(ferror); DX_PASS(clearerr); DX_PASS(setvbuf); DX_PASS(setbuf);
-DX_PASS(getline); DX_PASS(getdelim); DX_PASS(fdopen); DX_PASS(tmpfile); DX_PASS(flockfile);
+DX_PASS(getline); DX_PASS(getdelim); DX_PASS(tmpfile); DX_PASS(flockfile);
 DX_PASS(funlockfile); DX_PASS(pclose); DX_PASS(popen); DX_PASS(setlinebuf);
 DX_PASS(putc_unlocked); DX_PASS(getc_unlocked); DX_PASS(putchar_unlocked);
 DX_PASS(getchar_unlocked);
+
+static FILE *d_fdopen(int fd, const char *mode) {
+    FILE *f = fdopen(fd, mode);
+    if (!f) dx_set_errno(dx_errno_to_darwin(errno));
+    return f;
+}
+DX_FN(fdopen);
+DX_EXPORT("_fdopen$DARWIN_EXTSN", d_fdopen);
 
 static FILE *d_fopen(const char *path, const char *mode) {
     char buf[PATH_MAX];
@@ -554,6 +562,10 @@ DX_PASS(sqrt); DX_PASS(cbrt); DX_PASS(hypot); DX_PASS(floor); DX_PASS(ceil); DX_
 DX_PASS(trunc); DX_PASS(fmod); DX_PASS(fabs); DX_PASS(frexp); DX_PASS(ldexp); DX_PASS(modf);
 DX_PASS(rint); DX_PASS(nearbyint); DX_PASS(lround); DX_PASS(llround); DX_PASS(lrint);
 DX_PASS(fmin); DX_PASS(fmax); DX_PASS(copysign); DX_PASS(nan); DX_PASS(remainder);
+DX_PASS(acosh); DX_PASS(asinh); DX_PASS(atanh); DX_PASS(erf); DX_PASS(erfc);
+DX_PASS(fdim); DX_PASS(j0); DX_PASS(j1); DX_PASS(jn); DX_PASS(y0); DX_PASS(y1); DX_PASS(yn);
+DX_PASS(lgamma); DX_PASS(lgamma_r); DX_PASS(tgamma); DX_PASS(logb);
+DX_PASS(nextafter); DX_PASS(nexttoward); DX_PASS(scalb); DX_PASS(scalbln);
 DX_PASS(sinf); DX_PASS(cosf); DX_PASS(tanf); DX_PASS(expf); DX_PASS(logf); DX_PASS(powf);
 DX_PASS(sqrtf); DX_PASS(floorf); DX_PASS(ceilf); DX_PASS(roundf); DX_PASS(truncf);
 DX_PASS(fmodf); DX_PASS(fabsf); DX_PASS(atan2f); DX_PASS(log2f); DX_PASS(log10f);
