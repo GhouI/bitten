@@ -3099,3 +3099,27 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   constraints it skips or drops as unsatisfiable.
 - Test: tests/appkit/layout (a view laid out by code, at first display
   and after a resize).
+
+## Data's iterator, resilient superclasses, cells, frame setters
+
+- Foundation: `Data.Iterator` is no longer `@frozen` (Apple's is not).
+  Frozen, `_copyContents(initializing:)` returned its `(Iterator, Int)`
+  whole through the indirect result, while programs take the iterator
+  indirectly and the count in a register; the target app compared a
+  pointer with the byte count and trapped about 20 seconds in.
+- Swift runtime: classes whose superclass is in another resilient module
+  (`BackingStorage` in the target app) get their metadata from the
+  descriptor's pattern: `swift_relocateClassMetadata` allocates it at the
+  size the superclass's bounds give, and the completion function fills it
+  in as for any class.
+- AppKit: NSCell, NSActionCell, NSButtonCell and NSTextFieldCell keep the
+  state programs set through them (values, font, alignment, wrapping,
+  state, target and action) and draw it; `NSControl.cell` is made from the
+  class's `+cellClass` (a program's subclass included). Test
+  tests/appkit/cells.m.
+- AppKit: NSView `setFrameOrigin:`, `setFrameSize:`, `setBoundsOrigin:`,
+  `setBoundsSize:`; `setFrame:` goes through the first two, as AppKit's
+  does, so subclasses' overrides run.
+- Target app window (total `^MISSING`): 11 -> 11. It runs past the trap,
+  `BackingStorage`, `-[NSTextFieldCell initTextCell:]` and
+  `-[NSView setFrameSize:]`.

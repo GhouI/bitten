@@ -327,12 +327,13 @@ static sw_response d_swift_getSingletonMetadata(sw_request req,
     struct sw_md_entry *e = cache->private_data;
     if (!e) {
         /* With a superclass from another resilient module, a class's
-         * incomplete metadata is a pattern to relocate; not supported yet. */
+         * incomplete metadata is a pattern to relocate (class.c). */
+        const sw_metadata *m;
         if (sw_ctx_kind(desc->flags) == SW_CTX_CLASS &&
             (sw_ctx_kind_flags(desc->flags) & SW_CLASS_HAS_RESILIENT_SUPERCLASS))
-            dx_fatal("swift: class %s has a resilient superclass (metadata relocation is not "
-                     "implemented)", sw_descriptor_name(desc));
-        const sw_metadata *m = sw_rel(&init->incomplete_metadata);
+            m = sw_relocate_class((const sw_class_descriptor *)desc, sw_rel(&init->incomplete_metadata));
+        else
+            m = sw_rel(&init->incomplete_metadata);
         e = sw_md_entry_new(m, (sw_completion_fn)sw_rel(&init->completion_function), NULL);
         e->published = (const sw_metadata **)&cache->metadata;
         cache->private_data = e;

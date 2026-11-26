@@ -4,6 +4,7 @@
 #import <AppKit/AppKitBase.h>
 #import <AppKit/AppKitCore.h>
 #import <AppKit/AppKitClasses.h>
+#import <AppKit/AppKitCells.h>
 #import <AppKit/AppKitLayout.h>
 #import <AppKit/AppKitSplit.h>
 #import <AppKit/AppKitDragging.h>

@@ -46,6 +46,7 @@ void sw_each_section(int which, sw_section_cb cb, void *ctx, int future);
  * (metadata[-2]) and class ivar destroyers are swiftcc functions taking
  * the object as self. */
 void sw_call_with_self(const void *fn, void *self);
+const sw_metadata *sw_relocate_class(const sw_class_descriptor *desc, const void *pattern);
 /* Calls fn(a, b, c) with the indirect result `out` in rax (swiftcc's
  * indirect return register). */
 void sw_call_indirect(const void *fn, void *out, const void *a, const void *b, const void *c);

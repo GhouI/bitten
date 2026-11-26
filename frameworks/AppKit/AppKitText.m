@@ -199,7 +199,6 @@ static void draw_text(NSAttributedString *s, NSRect rect, NSInteger maxLines, BO
     f.size = s;
     self.frame = f;
 }
-- (id)cell { return nil; }
 - (NSText *)currentEditor { return nil; }
 - (BOOL)refusesFirstResponder { return [objc_getAssociatedObject(self, @selector(refusesFirstResponder)) boolValue]; }
 - (void)setRefusesFirstResponder:(BOOL)b {

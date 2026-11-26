@@ -747,7 +747,8 @@ public struct Data: Equatable, Hashable, RandomAccessCollection, MutableCollecti
 
   // MARK: iteration
 
-  @frozen
+  // Not frozen in Apple's Foundation: programs get it (and the
+  // _copyContents result holding it) indirectly.
   public struct Iterator: IteratorProtocol, Sendable {
     @usableFromInline
     internal typealias Buffer = (UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
