@@ -1398,5 +1398,11 @@ typedef NS_OPTIONS(NSUInteger, NSISO8601DateFormatOptions) {
 - (nullable NSString *)stringFromItems:(NSArray *)items;
 @property (nullable, copy) NSFormatter *itemFormatter;
 @end
+
+/* Foundation's attributed string keys (NSAttributedStringKeys.m). */
+extern NSAttributedStringKey const NSPresentationIntentAttributeName;
+extern NSAttributedStringKey const NSInlinePresentationIntentAttributeName;
+extern NSAttributedStringKey const NSAlternateDescriptionAttributeName;
+extern NSAttributedStringKey const NSLanguageIdentifierAttributeName;
 #pragma clang assume_nonnull end
 #endif
