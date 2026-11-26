@@ -10,7 +10,7 @@ final class _AppHost {
   var registered: [String: (title: String, make: () -> NSView)] = [:]
 
   var appName: String {
-    return NSProcessInfo.processInfo.processName
+    return ProcessInfo.processInfo.processName
   }
 
   func installDelegate(_ type: (NSObject & NSApplicationDelegate).Type) {

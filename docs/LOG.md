@@ -1689,3 +1689,30 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   missing descriptor instead of returning nil to the program.
 - Target app window (total `^MISSING`): 2,976 -> 2,935. It runs past Carbon
   and Unicode to Foundation's `NSObject.KeyValueObservingPublisher`.
+
+## 2026-11-26: run loops, timers, Foundation's Combine publishers
+
+- Foundation: `NSRunLoop` (the main loop waits on and drains the main
+  dispatch queue through `_dispatch_get_main_queue_port_4CF` /
+  `_dispatch_main_queue_callback_4CF`; other threads get a queue each) and
+  `NSTimer` (dispatch timer sources). `-[NSNotification initWithName:...]`.
+- Foundation's Swift overlay now imports Combine (built below Foundation):
+  `NotificationCenter.Publisher`, `NSObject.KeyValueObservingPublisher`
+  (initial value only; no KVO yet), `Timer.publish`/`TimerPublisher`,
+  `RunLoop: Scheduler`, and the `Notification` value type.
+- Headers match Apple's Swift view: NS_TYPED_EXTENSIBLE_ENUM and friends
+  (`NSNotification.Name`, `RunLoop.Mode` are newtype structs); NSData,
+  NSDate and NSNotification bridge to Data, Date and Notification; Swift
+  names without the NS prefix (`RunLoop`, `Timer`, `Bundle`, `UserDefaults`,
+  `FileManager`, `OperationQueue`, ...); `NSObject.h` is nonnull by default.
+- stdlib: `_SwiftNewtypeWrapper` (hashing, AnyHashable and bridging for
+  those newtypes; without it their witness tables had holes).
+  Foundation: `AnyHashable: _ObjectiveCBridgeable` (needed to lower
+  `[AnyHashable: Any]` signatures; the compiler crashed without it).
+- Combine: `Scheduler` convenience overloads; `autoconnect()` keeps its
+  connection alive through the downstream subscription.
+- ObjC runtime: a class that declares no protocols conforms to one whose
+  required methods it implements (runtime-made classes such as
+  `__NSCFString` now pass `as NSCopying`).
+- Target app window (total `^MISSING`): 2,935 -> 2,906. It now stops at the
+  standard library's sort helper `_minimumMergeRunLength`.

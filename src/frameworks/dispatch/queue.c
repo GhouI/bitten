@@ -846,6 +846,11 @@ static void d__dispatch_main_queue_callback_4CF(void *unused) {
     dx_dispatch_main_drain();
 }
 DX_FN(_dispatch_main_queue_callback_4CF);
+/* What CFRunLoop waits on for main-queue work: a Mach port on macOS, the
+ * main queue's eventfd here. Foundation's run loop polls it, then calls
+ * _dispatch_main_queue_callback_4CF. */
+static int d__dispatch_get_main_queue_port_4CF(void) { return dx_dispatch_main_fd(); }
+DX_FN(_dispatch_get_main_queue_port_4CF);
 
 static void d_dispatch_main(void) {
     if (!on_main_thread()) dx_fatal("dispatch_main: must be called on the main thread");

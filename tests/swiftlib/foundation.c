@@ -9,6 +9,7 @@ long swl_foundation_misc(void);
 long swl_foundation_data(void);
 long swl_foundation_json(void);
 long swl_foundation_decimal(void);
+long swl_foundation_combine(void);
 
 static int check(const char *what, long bad) {
     if (bad) printf("%s: failed checks %#lx\n", what, bad);
@@ -24,6 +25,7 @@ int main(void) {
     ok &= check("data", swl_foundation_data());
     ok &= check("json", swl_foundation_json());
     ok &= check("decimal", swl_foundation_decimal());
+    ok &= check("combine", swl_foundation_combine());
     CHECK(ok);
     puts("swift foundation ok");
     return 0;

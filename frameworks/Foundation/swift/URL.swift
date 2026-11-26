@@ -236,7 +236,7 @@ public struct URL: Equatable, Hashable, Sendable {
   }
   static func _isDirectoryOnDisk(_ path: String) -> Bool {
     var isDir: ObjCBool = false
-    return NSFileManager.default.fileExists(atPath: path, isDirectory: &isDir) && isDir.boolValue
+    return FileManager.default.fileExists(atPath: path, isDirectory: &isDir) && isDir.boolValue
   }
   static func _percentDecode(_ s: String) -> String {
     guard s.contains("%") else { return s }

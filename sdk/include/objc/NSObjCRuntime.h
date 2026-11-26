@@ -20,5 +20,10 @@ typedef unsigned long NSUInteger;
     enum __attribute__((flag_enum, enum_extensibility(open))) _name : _type
 #define NS_SWIFT_NAME(_name) __attribute__((swift_name(#_name)))
 #define NS_NOESCAPE __attribute__((noescape))
+/* String constants Swift imports as a struct wrapping the string. */
+#define NS_TYPED_ENUM __attribute__((swift_newtype(enum)))
+#define NS_TYPED_EXTENSIBLE_ENUM __attribute__((swift_newtype(struct)))
+#define NS_STRING_ENUM NS_TYPED_ENUM
+#define NS_EXTENSIBLE_STRING_ENUM NS_TYPED_EXTENSIBLE_ENUM
 #define NS_REFINED_FOR_SWIFT __attribute__((swift_private))
 #endif
