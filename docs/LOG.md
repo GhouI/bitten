@@ -3347,3 +3347,25 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   style taps through a gesture) moves to the appearance page (colour
   scheme, toolbar layout).
 - Target app window (total `^MISSING`): 11 -> 11.
+
+## Compiled asset catalogs: images from Assets.car
+
+- AppKit (AppKitAssets.m): `NSImage(named:)` reads the bundle's
+  Assets.car. The BOM store's FACETKEYS give each name's attributes,
+  KEYFORMAT the attributes of rendition keys, RENDITIONS the CSI
+  renditions; the best rendition (light appearance, sRGB, highest scale)
+  is drawn. Links (layout 1003) crop their rectangle out of the packed
+  atlas their KLNI record names (rectangles measured from the atlas's
+  bottom). Bitmaps are LZFSE/LZVN pixels or deepmap2 (compression 11):
+  per band, an alpha plane, a predictor per row (none, left/up selector,
+  left, up, mean), and 16-bit sign-magnitude YCoCg residuals, high bytes
+  then low; also the raw, lossless and palette methods and KCBC bands.
+  The format is as described by the public carfile-go reader (no Apple
+  code), and was checked against the target app's catalog. Vector
+  renditions (PDF, SVG) still get an empty stand-in.
+- SwiftUI: `Image("name")` and `Image(nsImage:)` draw the AppKit image
+  (templates in the foreground colour); `Image(nsImage:)` was a
+  placeholder.
+- Test: tests/appkit/deepmap2.m (a hand-made blob).
+- Target app window (total `^MISSING`): 11 -> 11. Its onboarding shows
+  its artwork and previews.
