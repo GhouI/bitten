@@ -130,6 +130,11 @@ module ScreenCaptureKit [system] {
   export *
 }
 
+module WebKit [system] {
+  header "WebKit/WebKit.h"
+  export *
+}
+
 module Metal [system] {
   header "Metal/Metal.h"
   export *
