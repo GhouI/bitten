@@ -362,10 +362,45 @@ extension Publishers {
     private var connection: Cancellable?
     public init(upstream: Upstream) { self.upstream = upstream }
     public func receive<S: Subscriber>(subscriber: S) where Upstream.Failure == S.Failure, Upstream.Output == S.Input {
-      upstream.receive(subscriber: subscriber)
+      // The downstream subscription keeps this publisher, and so its
+      // connection, alive; cancelling it ends the connection.
+      upstream.receive(subscriber: _AutoconnectSubscriber(downstream: subscriber, owner: self))
       if connection == nil { connection = upstream.connect() }
     }
+    fileprivate func disconnect() {
+      connection?.cancel()
+      connection = nil
+    }
   }
+}
+
+private final class _AutoconnectSubscription<Upstream: ConnectablePublisher>: Subscription {
+  let inner: Subscription
+  var owner: Publishers.Autoconnect<Upstream>?
+  init(inner: Subscription, owner: Publishers.Autoconnect<Upstream>) {
+    self.inner = inner
+    self.owner = owner
+  }
+  func request(_ demand: Subscribers.Demand) { inner.request(demand) }
+  func cancel() {
+    inner.cancel()
+    owner?.disconnect()
+    owner = nil
+  }
+}
+
+private struct _AutoconnectSubscriber<Upstream: ConnectablePublisher, Downstream: Subscriber>: Subscriber
+where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure {
+  typealias Input = Upstream.Output
+  typealias Failure = Upstream.Failure
+  let downstream: Downstream
+  let owner: Publishers.Autoconnect<Upstream>
+  let combineIdentifier = CombineIdentifier()
+  func receive(subscription: Subscription) {
+    downstream.receive(subscription: _AutoconnectSubscription(inner: subscription, owner: owner))
+  }
+  func receive(_ input: Input) -> Subscribers.Demand { return downstream.receive(input) }
+  func receive(completion: Subscribers.Completion<Failure>) { downstream.receive(completion: completion) }
 }
 
 /// Operator subscriptions are kept alive for the life of the process: our
@@ -411,6 +446,24 @@ public protocol Scheduler<SchedulerTimeType> {
                 _ action: @escaping () -> Void)
   func schedule(after date: SchedulerTimeType, interval: SchedulerTimeType.Stride, tolerance: SchedulerTimeType.Stride,
                 options: SchedulerOptions?, _ action: @escaping () -> Void) -> Cancellable
+}
+
+extension Scheduler {
+  public func schedule(after date: SchedulerTimeType, _ action: @escaping () -> Void) {
+    schedule(after: date, tolerance: minimumTolerance, action)
+  }
+  public func schedule(_ action: @escaping () -> Void) { schedule(options: nil, action) }
+  public func schedule(after date: SchedulerTimeType, tolerance: SchedulerTimeType.Stride, _ action: @escaping () -> Void) {
+    schedule(after: date, tolerance: tolerance, options: nil, action)
+  }
+  public func schedule(after date: SchedulerTimeType, interval: SchedulerTimeType.Stride,
+                       tolerance: SchedulerTimeType.Stride, _ action: @escaping () -> Void) -> Cancellable {
+    return schedule(after: date, interval: interval, tolerance: tolerance, options: nil, action)
+  }
+  public func schedule(after date: SchedulerTimeType, interval: SchedulerTimeType.Stride,
+                       _ action: @escaping () -> Void) -> Cancellable {
+    return schedule(after: date, interval: interval, tolerance: minimumTolerance, action)
+  }
 }
 
 /// Runs actions immediately on the calling thread.

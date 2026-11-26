@@ -190,3 +190,42 @@ struct Item: Identifiable { let id: Int }
   if #available(macOS 99, *) { bad |= 8192 }
   return bad
 }
+
+final class Watched: NSObject { var level = 7 }
+
+@_silgen_name("swl_foundation_combine") public func combine() -> Int {
+  var bad = 0
+  // NotificationCenter publisher
+  var got: [String] = []
+  let name = Notification.Name("org.example.ping")
+  let c1 = NotificationCenter.default.publisher(for: name).sink { note in got.append(note.name.rawValue) }
+  NotificationCenter.default.post(name: name, object: nil)
+  if got != ["org.example.ping"] { bad |= 1 }
+  c1.cancel()
+  NotificationCenter.default.post(name: name, object: nil)
+  if got.count != 1 { bad |= 2 }
+  // Timer publisher on the main run loop
+  var ticks = 0
+  let c2 = Timer.publish(every: 0.01, on: .main, in: .default).autoconnect().sink { _ in ticks += 1 }
+  RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
+  c2.cancel()
+  if ticks < 3 { print("ticks", ticks); bad |= 4 }
+  // RunLoop as a scheduler, and plain timers
+  var scheduled = false
+  RunLoop.main.schedule { scheduled = true }
+  var fired = 0
+  let t = Timer.scheduledTimer(withTimeInterval: 0.01, repeats: false) { _ in fired += 1 }
+  RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.1))
+  if !scheduled || fired != 1 || t.isValid { bad |= 8 }
+  // KVO publisher: the initial value
+  let w = Watched()
+  var levels: [Int] = []
+  let c3 = w.publisher(for: \.level).sink { levels.append($0) }
+  if levels != [7] { bad |= 16 }
+  c3.cancel()
+  // Notification bridging
+  let n = Notification(name: name, object: w, userInfo: ["k": 1])
+  let ns = n as NSNotification
+  if ns.name != name || ns.object as AnyObject? !== w || (ns as Notification).name != name { bad |= 32 }
+  return bad
+}

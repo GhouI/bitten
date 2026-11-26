@@ -3,11 +3,18 @@
 
 @implementation NSNotification
 + (instancetype)notificationWithName:(NSNotificationName)name object:(id)object userInfo:(NSDictionary *)userInfo {
-    NSNotification *n = [self new];
-    n->_name = [name copy];
-    n->_object = object;
-    n->_userInfo = [userInfo copy];
-    return n;
+    return [[self alloc] initWithName:name object:object userInfo:userInfo];
+}
++ (instancetype)notificationWithName:(NSNotificationName)name object:(id)object {
+    return [[self alloc] initWithName:name object:object userInfo:nil];
+}
+- (instancetype)initWithName:(NSNotificationName)name object:(id)object userInfo:(NSDictionary *)userInfo {
+    if ((self = [super init])) {
+        _name = [name copy];
+        _object = object;
+        _userInfo = [userInfo copy];
+    }
+    return self;
 }
 - (id)copyWithZone:(NSZone *)zone { return self; }
 - (NSString *)description {

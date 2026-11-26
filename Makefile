@@ -283,9 +283,11 @@ $(FW_ROOT)/usr/lib/swift/libswift%.dylib: $$(wildcard overlays/%/*.swift) $$(cal
 # Objective-C objects.
 FOUNDATION_SWIFT_SRCS := $(wildcard frameworks/Foundation/swift/*.swift)
 FOUNDATION_SWIFT_OBJ  := $(if $(and $(SWIFTC),$(HAVE_MACHO),$(FOUNDATION_SWIFT_SRCS)),$(BUILD)/fw/Foundation/FoundationSwift.o)
-FOUNDATION_SWIFT_LINK  = $(if $(FOUNDATION_SWIFT_OBJ),$(FOUNDATION_SWIFT_OBJ) $(LIBSWIFTCORE) $(OVERLAY_LIBS))
+# Foundation's overlay adds Combine publishers, so Combine comes first.
+FOUNDATION_COMBINE    := $(FW_ROOT)/System/Library/Frameworks/Combine.framework/Versions/A/Combine
+FOUNDATION_SWIFT_LINK  = $(if $(FOUNDATION_SWIFT_OBJ),$(FOUNDATION_SWIFT_OBJ) $(LIBSWIFTCORE) $(OVERLAY_LIBS) $(FOUNDATION_COMBINE))
 $(FOUNDATION): $(FOUNDATION_SWIFT_OBJ)
-$(BUILD)/fw/Foundation/FoundationSwift.o: $(FOUNDATION_SWIFT_SRCS) $(OVERLAY_LIBS) $(SDKROOT)/.stamp $(SWIFTRES)/.stamp
+$(BUILD)/fw/Foundation/FoundationSwift.o: $(FOUNDATION_SWIFT_SRCS) $(OVERLAY_LIBS) $(FOUNDATION_COMBINE) $(SDKROOT)/.stamp $(SWIFTRES)/.stamp
 	@mkdir -p $(dir $@)
 	$(SWIFTC) -module-name Foundation $(SWIFT_TARGET) $(SWIFT_SDKFLAGS) \
 	    -enable-library-evolution -wmo -parse-as-library -O \
@@ -312,8 +314,13 @@ SWIFT_FW_DEPS_SwiftUI := Combine
 SWIFT_FW_MACOS_Network := 14.0
 swift_fw_macos  = $(or $(SWIFT_FW_MACOS_$(1)),11.0)
 swift_fw_target = $(if $(SWIFT_FW_MACOS_$(1)),-target x86_64-apple-macos$(SWIFT_FW_MACOS_$(1)) -runtime-compatibility-version none,$(SWIFT_TARGET))
+# Combine sits below Foundation (whose Swift overlay adds its publishers and
+# RunLoop's Scheduler conformance), so it is built without Foundation or
+# AppKit.
+SWIFT_FW_BELOW_FOUNDATION := Combine
+swift_fw_base = $(if $(filter $(1),$(SWIFT_FW_BELOW_FOUNDATION)),,$(FOUNDATION) $(APPKIT))
 define swift_framework
-$(call swift_fw_lib,$(1)): $(wildcard frameworks/$(1)/*.swift) $(OVERLAY_LIBS) $(APPKIT) $(FOUNDATION) $(foreach d,$(SWIFT_FW_DEPS_$(1)),$(call swift_fw_lib,$(d)))
+$(call swift_fw_lib,$(1)): $(wildcard frameworks/$(1)/*.swift) $(OVERLAY_LIBS) $(call swift_fw_base,$(1)) $(foreach d,$(SWIFT_FW_DEPS_$(1)),$(call swift_fw_lib,$(d)))
 	@mkdir -p $$(dir $$@) $(BUILD)/swiftfw
 	$(SWIFTC) -module-name $(1) $(call swift_fw_target,$(1)) -sdk $(SDKROOT) -resource-dir $(SWIFTRES) -I $(SWIFT_MODDIR) \
 	    -Xfrontend -disable-implicit-string-processing-module-import \
@@ -322,7 +329,7 @@ $(call swift_fw_lib,$(1)): $(wildcard frameworks/$(1)/*.swift) $(OVERLAY_LIBS) $
 	    -c -o $(BUILD)/swiftfw/$(1).o $(wildcard frameworks/$(1)/*.swift)
 	$(MACHO_LD) -arch x86_64 -platform_version macos $(call swift_fw_macos,$(1)) $(call swift_fw_macos,$(1)) -dylib \
 	    -install_name /System/Library/Frameworks/$(1).framework/Versions/A/$(1) \
-	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(OVERLAY_LIBS) $(FOUNDATION) $(APPKIT) \
+	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(OVERLAY_LIBS) $(call swift_fw_base,$(1)) \
 	    $(foreach d,$(SWIFT_FW_DEPS_$(1)),$(call swift_fw_lib,$(d))) -o $$@ $(BUILD)/swiftfw/$(1).o
 endef
 $(foreach f,$(SWIFT_FWS),$(eval $(call swift_framework,$(f))))
@@ -341,7 +348,7 @@ LIBCONCURRENCY := $(FW_ROOT)/usr/lib/swift/libswift_Concurrency.dylib
 SWLIB_MACOS_darwin := 14.0
 swlib_macos = $(or $(SWLIB_MACOS_$(1)),11.0)
 # Frameworks a test links besides the overlays.
-SWLIB_LIBS_foundation := $(FOUNDATION)
+SWLIB_LIBS_foundation := $(FOUNDATION) $(FOUNDATION_COMBINE)
 SWLIB_LIBS_cryptokit := $(FOUNDATION) $(call swift_fw_lib,CryptoKit)
 SWLIB_LIBS_network := $(FOUNDATION) $(call swift_fw_lib,Network)
 SWLIB_MACOS_network := 14.0

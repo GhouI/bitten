@@ -359,6 +359,7 @@ typedef NS_OPTIONS(NSUInteger, NSDataSearchOptions) {
     NSDataSearchBackwards NS_SWIFT_NAME(backwards) = 1,
     NSDataSearchAnchored NS_SWIFT_NAME(anchored) = 2
 } NS_SWIFT_NAME(NSData.SearchOptions);
+__attribute__((swift_bridge("Foundation.Data")))
 @interface NSData : NSObject <NSCopying, NSMutableCopying>
 + (instancetype)data;
 + (instancetype)dataWithBytes:(const void *)bytes length:(NSUInteger)length;
@@ -392,6 +393,7 @@ typedef NS_OPTIONS(NSUInteger, NSDataSearchOptions) {
 - (void)setData:(NSData *)data;
 @end
 
+__attribute__((swift_bridge("Foundation.Date")))
 @interface NSDate : NSObject <NSCopying>
 + (instancetype)date;
 + (instancetype)dateWithTimeIntervalSinceNow:(NSTimeInterval)seconds;
@@ -513,6 +515,7 @@ extern NSExceptionName const NSGenericException, NSRangeException, NSInvalidArgu
 typedef struct {
     NSInteger majorVersion, minorVersion, patchVersion;
 } NSOperatingSystemVersion;
+NS_SWIFT_NAME(ProcessInfo)
 @interface NSProcessInfo : NSObject
 @property (class, readonly, strong) NSProcessInfo *processInfo;
 @property (readonly, copy) NSArray<NSString *> *arguments;
@@ -553,6 +556,7 @@ typedef NS_OPTIONS(NSUInteger, NSDirectoryEnumerationOptions) {
     NSDirectoryEnumerationSkipsSubdirectoryDescendants = 1, NSDirectoryEnumerationSkipsPackageDescendants = 2,
     NSDirectoryEnumerationSkipsHiddenFiles = 4
 };
+NS_SWIFT_NAME(FileManager)
 @interface NSFileManager : NSObject
 - (NSArray<NSURL *> *)URLsForDirectory:(NSSearchPathDirectory)directory inDomains:(NSSearchPathDomainMask)domainMask;
 - (nullable NSURL *)URLForDirectory:(NSSearchPathDirectory)directory inDomain:(NSSearchPathDomainMask)domain
@@ -616,6 +620,7 @@ typedef NSUInteger NSJSONWritingOptions;
 enum { NSJSONReadingMutableContainers = 1, NSJSONReadingMutableLeaves = 2, NSJSONReadingFragmentsAllowed = 4 };
 enum { NSJSONWritingPrettyPrinted = 1, NSJSONWritingSortedKeys = 2, NSJSONWritingFragmentsAllowed = 4,
        NSJSONWritingWithoutEscapingSlashes = 8 };
+NS_SWIFT_NAME(JSONSerialization)
 @interface NSJSONSerialization : NSObject
 + (BOOL)isValidJSONObject:(id)object;
 + (NSData *)dataWithJSONObject:(id)object options:(NSJSONWritingOptions)options error:(NSError **)error;
@@ -634,6 +639,7 @@ typedef NS_ENUM(NSUInteger, NSPropertyListFormat) {
     NSPropertyListXMLFormat_v1_0 = 100,
     NSPropertyListBinaryFormat_v1_0 = 200
 };
+NS_SWIFT_NAME(PropertyListSerialization)
 @interface NSPropertyListSerialization : NSObject
 + (BOOL)propertyList:(id)plist isValidForFormat:(NSPropertyListFormat)format;
 + (nullable NSData *)dataWithPropertyList:(id)plist format:(NSPropertyListFormat)format
@@ -642,6 +648,7 @@ typedef NS_ENUM(NSUInteger, NSPropertyListFormat) {
                              format:(nullable NSPropertyListFormat *)format error:(NSError **)error;
 @end
 
+NS_SWIFT_NAME(Bundle)
 @interface NSBundle : NSObject
 @property (class, readonly, strong) NSBundle *mainBundle;
 + (nullable instancetype)bundleWithPath:(NSString *)path;
@@ -688,6 +695,7 @@ typedef NS_ENUM(NSUInteger, NSPropertyListFormat) {
 
 extern NSString *const NSGlobalDomain, *const NSArgumentDomain, *const NSRegistrationDomain;
 extern NSString *const NSUserDefaultsDidChangeNotification;
+NS_SWIFT_NAME(UserDefaults)
 @interface NSUserDefaults : NSObject
 @property (class, readonly, strong) NSUserDefaults *standardUserDefaults;
 + (void)resetStandardUserDefaults;
@@ -727,22 +735,32 @@ extern NSString *const NSUserDefaultsDidChangeNotification;
 - (BOOL)objectIsForcedForKey:(NSString *)key inDomain:(NSString *)domain;
 @end
 
-typedef NSString *NSNotificationName;
+typedef NSString *NSNotificationName NS_TYPED_EXTENSIBLE_ENUM NS_SWIFT_NAME(NSNotification.Name);
+__attribute__((swift_bridge("Foundation.Notification")))
 @interface NSNotification : NSObject <NSCopying>
-+ (instancetype)notificationWithName:(NSNotificationName)name object:(id)object userInfo:(NSDictionary *)userInfo;
++ (instancetype)notificationWithName:(NSNotificationName)name object:(nullable id)object;
++ (instancetype)notificationWithName:(NSNotificationName)name object:(nullable id)object
+                            userInfo:(nullable NSDictionary *)userInfo;
+- (instancetype)initWithName:(NSNotificationName)name object:(nullable id)object
+                    userInfo:(nullable NSDictionary *)userInfo;
 @property (readonly, copy) NSNotificationName name;
-@property (readonly, strong) id object;
+@property (nullable, readonly, strong) id object;
 @property (nullable, readonly, copy) NSDictionary *userInfo;
 @end
+@class NSOperationQueue;
+NS_SWIFT_NAME(NotificationCenter)
 @interface NSNotificationCenter : NSObject
 @property (class, readonly, strong) NSNotificationCenter *defaultCenter;
-- (void)addObserver:(id)observer selector:(SEL)selector name:(NSNotificationName)name object:(id)object;
-- (id)addObserverForName:(NSNotificationName)name object:(id)object queue:(id)queue usingBlock:(void (^)(NSNotification *note))block;
+- (void)addObserver:(id)observer selector:(SEL)selector name:(nullable NSNotificationName)name object:(nullable id)object;
+- (id<NSObject>)addObserverForName:(nullable NSNotificationName)name object:(nullable id)object
+                             queue:(nullable NSOperationQueue *)queue usingBlock:(void (^)(NSNotification *note))block
+    NS_SWIFT_NAME(addObserver(forName:object:queue:using:));
 - (void)removeObserver:(id)observer;
-- (void)removeObserver:(id)observer name:(NSNotificationName)name object:(id)object;
+- (void)removeObserver:(id)observer name:(nullable NSNotificationName)name object:(nullable id)object;
 - (void)postNotification:(NSNotification *)notification;
-- (void)postNotificationName:(NSNotificationName)name object:(id)object;
-- (void)postNotificationName:(NSNotificationName)name object:(id)object userInfo:(NSDictionary *)userInfo;
+- (void)postNotificationName:(NSNotificationName)name object:(nullable id)object NS_SWIFT_NAME(post(name:object:));
+- (void)postNotificationName:(NSNotificationName)name object:(nullable id)object userInfo:(nullable NSDictionary *)userInfo
+    NS_SWIFT_NAME(post(name:object:userInfo:));
 @end
 typedef NSString *NSDistributedNotificationCenterType;
 typedef NS_ENUM(NSUInteger, NSNotificationSuspensionBehavior) {
@@ -752,6 +770,7 @@ typedef NS_ENUM(NSUInteger, NSNotificationSuspensionBehavior) {
 typedef NS_OPTIONS(NSUInteger, NSDistributedNotificationOptions) {
     NSDistributedNotificationDeliverImmediately = 1, NSDistributedNotificationPostToAllSessions = 2
 };
+NS_SWIFT_NAME(DistributedNotificationCenter)
 @interface NSDistributedNotificationCenter : NSNotificationCenter
 + (NSDistributedNotificationCenter *)notificationCenterForType:(NSDistributedNotificationCenterType)type;
 + (NSDistributedNotificationCenter *)defaultCenter;
@@ -775,6 +794,7 @@ typedef NS_ENUM(NSInteger, NSOperationQueuePriority) {
     NSOperationQueuePriorityVeryLow = -8, NSOperationQueuePriorityLow = -4, NSOperationQueuePriorityNormal = 0,
     NSOperationQueuePriorityHigh = 4, NSOperationQueuePriorityVeryHigh = 8
 };
+NS_SWIFT_NAME(Operation)
 @interface NSOperation : NSObject
 - (void)start;
 - (void)main;
@@ -795,12 +815,14 @@ typedef NS_ENUM(NSInteger, NSOperationQueuePriority) {
 @property NSQualityOfService qualityOfService;
 @property (nullable, copy) NSString *name;
 @end
+NS_SWIFT_NAME(BlockOperation)
 @interface NSBlockOperation : NSOperation
 + (instancetype)blockOperationWithBlock:(void (^)(void))block;
 - (void)addExecutionBlock:(void (^)(void))block;
 @property (readonly, copy) NSArray<void (^)(void)> *executionBlocks;
 @end
 #define NSOperationQueueDefaultMaxConcurrentOperationCount (-1)
+NS_SWIFT_NAME(OperationQueue)
 @interface NSOperationQueue : NSObject
 - (void)addOperation:(NSOperation *)op;
 - (void)addOperations:(NSArray<NSOperation *> *)ops waitUntilFinished:(BOOL)wait;
@@ -875,6 +897,54 @@ typedef NSPointerFunctionsOptions NSMapTableOptions;
 - (NSDictionary<KeyType, ObjectType> *)dictionaryRepresentation;
 @end
 
+typedef NSString *NSRunLoopMode NS_TYPED_EXTENSIBLE_ENUM NS_SWIFT_NAME(RunLoop.Mode);
+extern NSRunLoopMode const NSDefaultRunLoopMode NS_SWIFT_NAME(RunLoop.Mode.default);
+extern NSRunLoopMode const NSRunLoopCommonModes NS_SWIFT_NAME(RunLoop.Mode.common);
+@class NSTimer;
+NS_SWIFT_NAME(RunLoop)
+@interface NSRunLoop : NSObject
+@property (class, readonly, strong) NSRunLoop *currentRunLoop;
+@property (class, readonly, strong) NSRunLoop *mainRunLoop;
+@property (nullable, readonly, copy) NSRunLoopMode currentMode;
+- (void)addTimer:(NSTimer *)timer forMode:(NSRunLoopMode)mode;
+- (nullable NSDate *)limitDateForMode:(NSRunLoopMode)mode;
+- (void)acceptInputForMode:(NSRunLoopMode)mode beforeDate:(NSDate *)limitDate;
+- (void)run;
+- (void)runUntilDate:(NSDate *)limitDate;
+- (BOOL)runMode:(NSRunLoopMode)mode beforeDate:(NSDate *)limitDate;
+- (void)performInModes:(NSArray<NSRunLoopMode> *)modes block:(void (^)(void))block;
+- (void)performBlock:(void (^)(void))block;
+- (void)performSelector:(SEL)aSelector target:(id)target argument:(nullable id)arg order:(NSUInteger)order
+                  modes:(NSArray<NSRunLoopMode> *)modes;
+@end
+NS_SWIFT_NAME(Timer)
+@interface NSTimer : NSObject
++ (NSTimer *)timerWithTimeInterval:(NSTimeInterval)ti target:(id)aTarget selector:(SEL)aSelector
+                          userInfo:(nullable id)userInfo repeats:(BOOL)yesOrNo;
++ (NSTimer *)scheduledTimerWithTimeInterval:(NSTimeInterval)ti target:(id)aTarget selector:(SEL)aSelector
+                                   userInfo:(nullable id)userInfo repeats:(BOOL)yesOrNo;
++ (NSTimer *)timerWithTimeInterval:(NSTimeInterval)interval repeats:(BOOL)repeats block:(void (^)(NSTimer *timer))block;
++ (NSTimer *)scheduledTimerWithTimeInterval:(NSTimeInterval)interval repeats:(BOOL)repeats
+                                      block:(void (^)(NSTimer *timer))block;
+- (instancetype)initWithFireDate:(NSDate *)date interval:(NSTimeInterval)interval repeats:(BOOL)repeats
+                           block:(void (^)(NSTimer *timer))block;
+- (instancetype)initWithFireDate:(NSDate *)date interval:(NSTimeInterval)ti target:(id)t selector:(SEL)s
+                        userInfo:(nullable id)ui repeats:(BOOL)rep;
+- (void)fire;
+@property (copy) NSDate *fireDate;
+@property (readonly) NSTimeInterval timeInterval;
+@property NSTimeInterval tolerance;
+- (void)invalidate;
+@property (readonly, getter=isValid) BOOL valid;
+@property (nullable, readonly, retain) id userInfo;
+@end
+typedef NS_OPTIONS(NSUInteger, NSKeyValueObservingOptions) {
+    NSKeyValueObservingOptionNew NS_SWIFT_NAME(new) = 0x01,
+    NSKeyValueObservingOptionOld NS_SWIFT_NAME(old) = 0x02,
+    NSKeyValueObservingOptionInitial NS_SWIFT_NAME(initial) = 0x04,
+    NSKeyValueObservingOptionPrior NS_SWIFT_NAME(prior) = 0x08
+};
+
 @protocol NSLocking
 - (void)lock;
 - (void)unlock;
@@ -895,6 +965,7 @@ typedef NSPointerFunctionsOptions NSMapTableOptions;
 @property (copy) NSString *name;
 @end
 
+NS_SWIFT_NAME(Thread)
 @interface NSThread : NSObject
 @property (class, readonly, strong) NSThread *currentThread;
 @property (class, readonly, strong) NSThread *mainThread;

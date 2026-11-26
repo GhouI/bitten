@@ -6,18 +6,19 @@
 #include <objc/NSObjCRuntime.h>
 
 #ifdef __OBJC__
+#pragma clang assume_nonnull begin
 @class NSString, Protocol;
 struct _NSZone;
 
 @protocol NSObject
-- (BOOL)isEqual:(id)object;
+- (BOOL)isEqual:(nullable id)object;
 @property (readonly) NSUInteger hash;
-@property (readonly) Class superclass;
+@property (nullable, readonly) Class superclass;
 - (Class)class OBJC_SWIFT_UNAVAILABLE("use 'type(of: x)' instead");
 - (instancetype)self;
-- (id)performSelector:(SEL)aSelector;
-- (id)performSelector:(SEL)aSelector withObject:(id)object;
-- (id)performSelector:(SEL)aSelector withObject:(id)object1 withObject:(id)object2;
+- (nullable id)performSelector:(SEL)aSelector;
+- (nullable id)performSelector:(SEL)aSelector withObject:(nullable id)object;
+- (nullable id)performSelector:(SEL)aSelector withObject:(nullable id)object1 withObject:(nullable id)object2;
 - (BOOL)isProxy;
 - (BOOL)isKindOfClass:(Class)aClass;
 - (BOOL)isMemberOfClass:(Class)aClass;
@@ -51,18 +52,19 @@ OBJC_ROOT_CLASS
 + (id)mutableCopyWithZone:(struct _NSZone *)zone OBJC_SWIFT_UNAVAILABLE("zones are not used");
 + (BOOL)instancesRespondToSelector:(SEL)aSelector;
 + (BOOL)conformsToProtocol:(Protocol *)protocol;
-- (IMP)methodForSelector:(SEL)aSelector;
-+ (IMP)instanceMethodForSelector:(SEL)aSelector;
+- (nullable IMP)methodForSelector:(SEL)aSelector;
++ (nullable IMP)instanceMethodForSelector:(SEL)aSelector;
 - (void)doesNotRecognizeSelector:(SEL)aSelector;
-- (id)forwardingTargetForSelector:(SEL)aSelector;
+- (nullable id)forwardingTargetForSelector:(SEL)aSelector;
 + (BOOL)resolveClassMethod:(SEL)sel;
 + (BOOL)resolveInstanceMethod:(SEL)sel;
 + (NSUInteger)hash;
-+ (Class)superclass;
++ (nullable Class)superclass;
 + (Class)class OBJC_SWIFT_UNAVAILABLE("use 'aClass.self' instead");
 + (NSString *)description;
 + (NSString *)debugDescription;
 + (BOOL)isSubclassOfClass:(Class)aClass;
 @end
+#pragma clang assume_nonnull end
 #endif
 #endif

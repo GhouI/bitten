@@ -102,6 +102,27 @@ extension Array: _ObjectiveCBridgeable {
   }
 }
 
+// ---- AnyHashable ----------------------------------------------------------------------
+// Bridges to the object of its base value; NSDictionary keys come back as
+// AnyHashable this way ([AnyHashable: Any] is how untyped dictionaries import).
+
+extension AnyHashable: _ObjectiveCBridgeable {
+  public typealias _ObjectiveCType = NSObject
+  public func _bridgeToObjectiveC() -> NSObject {
+    return _bridgeAnythingToObjectiveC(base) as! NSObject
+  }
+  public static func _forceBridgeFromObjectiveC(_ x: NSObject, result: inout AnyHashable?) {
+    result = AnyHashable(x)
+  }
+  public static func _conditionallyBridgeFromObjectiveC(_ x: NSObject, result: inout AnyHashable?) -> Bool {
+    result = AnyHashable(x)
+    return true
+  }
+  public static func _unconditionallyBridgeFromObjectiveC(_ source: NSObject?) -> AnyHashable {
+    return AnyHashable(source ?? NSObject())
+  }
+}
+
 extension Dictionary: _ObjectiveCBridgeable {
   public typealias _ObjectiveCType = NSDictionary
   public func _bridgeToObjectiveC() -> NSDictionary {

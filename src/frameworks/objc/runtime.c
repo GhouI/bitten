@@ -1109,11 +1109,28 @@ static struct protocol *d_objc_getProtocol(const char *name) {
     return r;
 }
 DX_FN(objc_getProtocol);
+/* Whether `cls` implements every required method in a protocol method list. */
+static int implements_all(Class cls, void *raw) {
+    struct mlist *l = convert_methods(raw);
+    int ok = 1;
+    for (int i = 0; l && i < l->count && ok; i++)
+        if (!find_method(cls, l->m[i].name)) ok = 0;
+    free(l);
+    return ok;
+}
 static char d_class_conformsToProtocol(Class cls, struct protocol *p) {
     if (!cls || !p) return 0;
     REALIZED(cls);
     for (int i = 0; i < RW(cls)->nprotocols; i++)
         if (protocol_conforms(RW(cls)->protocols[i], p)) return 1;
+    /* Classes bitten makes at run time (NSString's toll-free-bridged
+     * __NSCFString and the like) carry no protocol lists. For a class that
+     * declares none, conforming means implementing the protocol's required
+     * methods, so `NSString as NSCopying` holds. */
+    if (RW(cls)->nprotocols == 0 && (p->instance_methods || p->class_methods) && cls->isa) {
+        REALIZED(cls->isa);
+        return implements_all(cls, p->instance_methods) && implements_all(cls->isa, p->class_methods);
+    }
     return 0;
 }
 DX_FN(class_conformsToProtocol);
