@@ -7,6 +7,14 @@ import CoreGraphics
 public protocol EnvironmentKey {
   associatedtype Value
   static var defaultValue: Value { get }
+  static func _valuesEqual(_ lhs: Value, _ rhs: Value) -> Bool
+}
+extension EnvironmentKey {
+  /// Values of unknown equality compare unequal (so views update).
+  public static func _valuesEqual(_ lhs: Value, _ rhs: Value) -> Bool { return false }
+}
+extension EnvironmentKey where Value: Equatable {
+  public static func _valuesEqual(_ lhs: Value, _ rhs: Value) -> Bool { return lhs == rhs }
 }
 
 public struct EnvironmentValues: CustomStringConvertible {
@@ -226,8 +234,8 @@ public struct OpenURLAction: Sendable {
     public static let systemAction = Result(id: 2)
     public static func systemAction(_ url: URL) -> Result { return Result(id: 2) }
   }
-  let handler: @Sendable (URL) -> Result
-  public init(handler: @escaping @Sendable (URL) -> Result) { self.handler = handler }
+  let handler: (URL) -> Result
+  public init(handler: @escaping (URL) -> Result) { self.handler = handler }
   @MainActor public func callAsFunction(_ url: URL) {
     if handler(url).id == 2 { NSWorkspace.shared.open(url) }
   }

@@ -395,7 +395,7 @@ internal final class _GridNode: _ViewNode {
 // Grid and GridRow: frozen trees, as Apple's inlinable initializers build
 // them.
 @frozen
-public struct _GridLayout: _StackRoot, _VariadicView_UnaryViewRoot {
+public struct GridLayout: _StackRoot, _VariadicView_UnaryViewRoot {
   public var alignment: Alignment
   public var horizontalSpacing: CGFloat?
   public var verticalSpacing: CGFloat?
@@ -411,16 +411,16 @@ public struct _GridLayout: _StackRoot, _VariadicView_UnaryViewRoot {
 }
 @frozen
 public struct Grid<Content: View>: View {
-  @usableFromInline internal var _tree: _VariadicView.Tree<_GridLayout, Content>
+  @usableFromInline internal var _tree: _VariadicView.Tree<GridLayout, Content>
   @inlinable public init(alignment: Alignment = .center, horizontalSpacing: CGFloat? = nil,
                          verticalSpacing: CGFloat? = nil, @ViewBuilder content: () -> Content) {
-    _tree = .init(root: _GridLayout(alignment: alignment, horizontalSpacing: horizontalSpacing,
+    _tree = .init(root: GridLayout(alignment: alignment, horizontalSpacing: horizontalSpacing,
                                     verticalSpacing: verticalSpacing), content: content())
   }
   public typealias Body = Never
   public var body: Never { return fatalError("Grid has no body") }
   nonisolated public static func _makeView(view: _GraphValue<Grid>, inputs: _ViewInputs) -> _ViewOutputs {
-    return _VariadicView.Tree<_GridLayout, Content>._makeView(view: view[\._tree], inputs: inputs)
+    return _VariadicView.Tree<GridLayout, Content>._makeView(view: view[\._tree], inputs: inputs)
   }
 }
 @frozen

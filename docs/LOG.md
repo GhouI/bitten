@@ -2705,3 +2705,29 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   NSPasteboardWriting and NSPasteboardReading. Test: tests/appkit/dragging.
 - Target app window (total `^MISSING`): 202 -> 202 (NSDraggingItem was a
   stub).
+
+## SwiftUI's inlined types, tables, keyframes; flipped view geometry
+
+- SwiftUI: the types Apple's inlinable code builds in apps, laid out as
+  that code expects (_HoverRegionModifier, _InsetViewModifier,
+  _MaskAlignmentEffect, _MatchedGeometryEffect, _PreferenceTransformModifier,
+  HierarchicalShapeStyleModifier, _IndefiniteSymbolEffectModifier,
+  StrokeShapeView, StrokeBorderShapeView, LimitedAvailabilityToolbarContent
+  as one reference, GridLayout); Table, TableColumn, TableColumnBuilder,
+  TupleTableColumnContent, TableForEachContent and the row/column content
+  protocols; Keyframes and KeyframeTrackContent with their builders
+  (buildExpression/buildPartialBlock/buildFinalResult); SwiftUI's
+  attribute scope; ContentUnavailableView.search; `EnvironmentKey._valuesEqual`;
+  Double and CGFloat Animatable; MutableCollection.move(fromOffsets:toOffset:);
+  `Log.runtimeIssuesLog`; shader arguments and libraries; pointer styles;
+  scroll positions; Anchor sources for CGRect and CGPoint; and more.
+- Mangling: members of View whose closures are `@Sendable` are
+  `nonisolated` (View is `@preconcurrency`, which drops `@Sendable` from
+  its members' mangled names otherwise); keyframeAnimator's generic order;
+  OpenURLAction's handler is not `@Sendable`. SwiftUI links Symbols.
+- Foundation: SortComparator, SortOrder, KeyPathComparator, and
+  sorting with comparators.
+- AppKit: point and rect conversion and hit testing follow flipped views
+  (y runs from the other edge of a frame when a view's flippedness differs
+  from its superview's), as drawing already did. Test: tests/appkit/geometry.
+- Target app window (total `^MISSING`): 202 -> 113.

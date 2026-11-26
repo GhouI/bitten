@@ -823,6 +823,7 @@ public struct Text: Equatable, Sendable {
   @usableFromInline internal var modifiers: [Modifier] = [Modifier]()
 
   public init(verbatim content: String) { storage = .verbatim(content) }
+  @_disfavoredOverload
   public init(_ resource: LocalizedStringResource) { self.init(verbatim: resource.description) }
   public init<F: FormatStyle>(_ input: F.FormatInput, format: F) where F.FormatInput: Equatable, F.FormatOutput == String {
     self.init(verbatim: format.format(input))
