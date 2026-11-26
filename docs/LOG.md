@@ -3701,3 +3701,23 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   appears above the workspace with its commands and shortcuts. Its
   Settings window (⌘,) opens in front of the workspace.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: safeAreaInset returns Apple's ModifiedContent
+
+- `safeAreaInset(edge:alignment:spacing:content:)` is `@inlinable` in
+  Apple's SDK, so programs see through its opaque result to
+  `ModifiedContent<Self, _InsetViewModifier<V>>` and lay that type out
+  themselves. Ours returned a different view type under the same opaque
+  signature, so the app read garbage as the inset modifier (its settings
+  sidebar's search field landed beside the list, half-width). It now
+  returns exactly that ModifiedContent. Added the leading/trailing
+  (`HorizontalEdge`) overload.
+- To check: an app's type names (`BITTEN_SWIFTUI_DEBUG` modifier bodies)
+  that contain our internal types, like `_InsetViewModifier`, come from
+  functions that are inlinable in Apple's SDK. Ours must build the same
+  types.
+- `BITTEN_SWIFTUI_BODY=Name` prints the body type of views whose type name
+  starts with Name.
+- Test: tests/swiftlib/swiftui.swift `inset`.
+- Target app (total `^MISSING`): 0 -> 0. Its Settings sidebar shows the
+  search field above full-width sections.
