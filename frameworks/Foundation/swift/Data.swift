@@ -982,7 +982,7 @@ internal func _dataPOSIXError(_ code: Int32, url: URL, reading: Bool) -> NSError
   case EEXIST: cocoa = 516
   default: cocoa = reading ? 256 : 512
   }
-  return NSError._bn_error(withDomain: NSCocoaErrorDomain, code: cocoa, filePath: url.path, underlyingPOSIX: code)
+  return NSError._bn_error(withDomain: NSCocoaErrorDomain, code: cocoa, filePath: url.path, underlyingPOSIX: code) as NSError
 }
 
 extension Data._Representation {
