@@ -381,9 +381,8 @@ $(BUILD)/fw/Foundation/FoundationSwift.o: $(FOUNDATION_SWIFT_SRCS) $(OVERLAY_LIB
 # (frameworks/QuartzCore/swift, libswiftQuartzCore) bridges CATransform3D to
 # NSValue, so it is built after Foundation's Swift module, not in overlays/.
 QUARTZCORE := $(FW_ROOT)/System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore
-QUARTZCORE_SWIFT := $(if $(and $(SWIFTC),$(HAVE_MACHO)),$(FW_ROOT)/usr/lib/swift/libswiftQuartzCore.dylib)
-FRAMEWORKS += $(if $(HAVE_MACHO),$(QUARTZCORE)) $(QUARTZCORE_SWIFT)
-all: $(if $(HAVE_MACHO),$(QUARTZCORE)) $(QUARTZCORE_SWIFT)
+FRAMEWORKS += $(if $(HAVE_MACHO),$(QUARTZCORE))
+all: $(if $(HAVE_MACHO),$(QUARTZCORE))
 QC_OBJS := $(patsubst frameworks/QuartzCore/%.m,$(BUILD)/fw/QuartzCore/%.o,$(wildcard frameworks/QuartzCore/*.m))
 $(BUILD)/fw/QuartzCore/%.o: frameworks/QuartzCore/%.m $(wildcard sdk/include/QuartzCore/*.h sdk/include/Foundation/*.h sdk/include/CoreGraphics/*.h sdk/include/CoreText/*.h)
 	@mkdir -p $(dir $@)
@@ -393,17 +392,6 @@ $(QUARTZCORE): $(QC_OBJS) $(FOUNDATION) $(BUILD)/sdk/libSystem.tbd
 	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
 	    -install_name /System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore \
 	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) -o $@ $(QC_OBJS)
-$(FW_ROOT)/usr/lib/swift/libswiftQuartzCore.dylib: $(wildcard frameworks/QuartzCore/swift/*.swift) $(QUARTZCORE) $(FOUNDATION) $(OVERLAY_LIBS) $(SDKROOT)/.stamp $(SWIFTRES)/.stamp
-	@mkdir -p $(dir $@) $(BUILD)/overlays
-	$(SWIFTC) -module-name QuartzCore -module-link-name swiftQuartzCore -target x86_64-apple-macos$(FOUNDATION_MACOS) \
-	    -runtime-compatibility-version none $(SWIFT_SDKFLAGS) -enable-library-evolution -wmo -parse-as-library -O \
-	    -emit-module -emit-module-path $(SWIFT_MODDIR)/QuartzCore.swiftmodule \
-	    -c -o $(BUILD)/overlays/QuartzCore.o $(wildcard frameworks/QuartzCore/swift/*.swift)
-	@touch $(BUILD)/overlays/QuartzCore.o
-	$(MACHO_LD) -arch x86_64 -platform_version macos $(FOUNDATION_MACOS) $(FOUNDATION_MACOS) -dylib \
-	    -install_name /usr/lib/swift/libswiftQuartzCore.dylib \
-	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(OVERLAY_LIBS) $(FOUNDATION) $(QUARTZCORE) -o $@ $(BUILD)/overlays/QuartzCore.o
-
 # QuartzCore tests, like the AppKit ones.
 TEST_QC     := $(wildcard tests/quartzcore/*.m)
 TEST_QCBINS := $(if $(HAVE_MACHO),$(patsubst tests/quartzcore/%.m,$(BUILD)/tests/quartzcore/%,$(TEST_QC)))
@@ -412,6 +400,31 @@ $(BUILD)/tests/quartzcore/%: tests/quartzcore/%.m $(QUARTZCORE) $(wildcard sdk/i
 	$(MACHO_CC) $(FW_CFLAGS) -O1 -c -o $@.o $<
 	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -e _main \
 	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) $(QUARTZCORE) -o $@ $@.o
+
+# ---- Swift libraries above Foundation ------------------------------------------
+# Apple's Swift-only libraries that use Foundation's Swift API, so they are
+# built after it (overlays/ is built before): frameworks/NAME/swift/*.swift
+# as module NAME into /usr/lib/swift/libswiftNAME.dylib, for macOS 14 like
+# Foundation. LATE_SWIFT_LIBS_NAME: what else it links.
+LATE_SWIFT := QuartzCore UniformTypeIdentifiers
+LATE_SWIFT_LIBS_QuartzCore := $(QUARTZCORE)
+late_swift_lib = $(FW_ROOT)/usr/lib/swift/libswift$(1).dylib
+LATE_SWIFT_DYLIBS := $(if $(and $(SWIFTC),$(HAVE_MACHO)),$(foreach l,$(LATE_SWIFT),$(call late_swift_lib,$(l))))
+FRAMEWORKS += $(LATE_SWIFT_DYLIBS)
+all: $(LATE_SWIFT_DYLIBS)
+define late_swift
+$(call late_swift_lib,$(1)): $(wildcard frameworks/$(1)/swift/*.swift) $(LATE_SWIFT_LIBS_$(1)) $(FOUNDATION) $(OVERLAY_LIBS) $(SDKROOT)/.stamp $(SWIFTRES)/.stamp
+	@mkdir -p $$(dir $$@) $(BUILD)/overlays
+	$(SWIFTC) -module-name $(1) -module-link-name swift$(1) -target x86_64-apple-macos$(FOUNDATION_MACOS) \
+	    -runtime-compatibility-version none $(SWIFT_SDKFLAGS) -enable-library-evolution -wmo -parse-as-library -O \
+	    -emit-module -emit-module-path $(SWIFT_MODDIR)/$(1).swiftmodule \
+	    -c -o $(BUILD)/overlays/$(1).o $(wildcard frameworks/$(1)/swift/*.swift)
+	@touch $(BUILD)/overlays/$(1).o
+	$(MACHO_LD) -arch x86_64 -platform_version macos $(FOUNDATION_MACOS) $(FOUNDATION_MACOS) -dylib \
+	    -install_name /usr/lib/swift/libswift$(1).dylib \
+	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(OVERLAY_LIBS) $(FOUNDATION) $(LATE_SWIFT_LIBS_$(1)) -o $$@ $(BUILD)/overlays/$(1).o
+endef
+$(foreach l,$(LATE_SWIFT),$(eval $(call late_swift,$(l))))
 
 # ---- frameworks written in Swift ------------------------------------------
 # frameworks/NAME/*.swift (SwiftUI...) is built as module NAME into
@@ -476,6 +489,8 @@ SWLIB_LIBS_cryptokit := $(FOUNDATION) $(call swift_fw_lib,CryptoKit)
 SWLIB_LIBS_network := $(FOUNDATION) $(call swift_fw_lib,Network)
 SWLIB_MACOS_network := 14.0
 SWLIB_MACOS_coregraphics := 14.0
+SWLIB_LIBS_uttype := $(FOUNDATION) $(call late_swift_lib,UniformTypeIdentifiers)
+SWLIB_MACOS_uttype := 14.0
 SWLIB_LIBS_swiftui := $(FOUNDATION) $(APPKIT) $(call swift_fw_lib,Combine) $(call swift_fw_lib,SwiftUI)
 SWLIB_MACOS_swiftui := 14.0
 $(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTCORE) $(OVERLAY_LIBS) tests/include/darwin.h $$(SWLIB_LIBS_$$*)
