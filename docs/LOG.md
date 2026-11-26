@@ -3660,3 +3660,29 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   not take focus or the page title on arrival.
 - Test: tests/c/display.c.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: FocusState.Binding and Section layouts; AppKit: the rest of NSTextView's text API
+
+- `FocusState.Binding` holds the whole focus state, as in Apple's SDK.
+  For a Bool state that is three scalars the app passes in registers.
+  Ours was a single box pointer, so `.focused($flag)` read the flag as a
+  pointer and crashed.
+- `Section` has Apple's fourth stored property, `isExpanded:
+  Binding<Bool>?`. The app's inlined initializers build (header, content,
+  footer, isExpanded) and bit-cast it to the Section type, after checking
+  the sizes match, and trapped. Added the collapsible-section initializers
+  (`Section(isExpanded:content:header:)` and the titled forms). A collapsed
+  section shows only its header.
+- NSTextView now has alignment, base writing direction and default
+  paragraph style (applied to the text and the typing attributes), plus
+  `setAlignment:range:` / `setBaseWritingDirection:range:` (whole
+  paragraphs) and the align actions. Also: marked/selected/link text
+  attributes, the ruler and inspector-bar flags, the automatic-substitution
+  getters (the setters now remember), inline prediction,
+  `replaceCharactersInRange:withString:`, `setFont:range:`,
+  `setTextColor:range:`, `delete:`, `undo:`/`redo:`, `attributedString`,
+  `performValidatedReplacementInRange:withAttributedString:`.
+- Found by opening the target app's Settings window (⌘,), which now opens
+  without stopping.
+- Test: tests/appkit/text.m (NSTextView settings).
+- Target app (total `^MISSING`): 0 -> 0.

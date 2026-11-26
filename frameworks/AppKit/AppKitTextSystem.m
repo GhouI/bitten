@@ -705,6 +705,178 @@ WRITING_TOOLS
     objc_setAssociatedObject(self, &k_completion, @(b), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 @end
+/* The rest of NSText's and NSTextView's settings. Alignment, writing
+ * direction and the default paragraph style shape the text (as a paragraph
+ * style on the whole text and on what is typed next); the others are kept
+ * and reported back. */
+static const char k_tv_align, k_tv_direction, k_tv_paragraph, k_tv_marked, k_tv_selectedAttrs, k_tv_link,
+    k_tv_flags, k_tv_prediction, k_tv_bgchange;
+@implementation NSTextView (BittenTextSettings)
+- (void)_bn_applyParagraphStyle {
+    NSMutableParagraphStyle *p = [(self.defaultParagraphStyle ?: NSParagraphStyle.defaultParagraphStyle) mutableCopy];
+    p.alignment = self.alignment;
+    p.baseWritingDirection = self.baseWritingDirection;
+    NSMutableDictionary *typing = [self.typingAttributes mutableCopy];
+    typing[NSParagraphStyleAttributeName] = p;
+    self.typingAttributes = typing;
+    NSMutableAttributedString *storage = self.textStorage;
+    if (storage.length) [storage addAttribute:NSParagraphStyleAttributeName value:p range:NSMakeRange(0, storage.length)];
+    self.needsDisplay = YES;
+}
+- (NSTextAlignment)alignment { return [objc_getAssociatedObject(self, &k_tv_align) integerValue]; }
+- (void)setAlignment:(NSTextAlignment)a {
+    objc_setAssociatedObject(self, &k_tv_align, @(a), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [self _bn_applyParagraphStyle];
+}
+- (NSWritingDirection)baseWritingDirection {
+    NSNumber *n = objc_getAssociatedObject(self, &k_tv_direction);
+    return n ? n.integerValue : NSWritingDirectionNatural;
+}
+- (void)setBaseWritingDirection:(NSWritingDirection)d {
+    objc_setAssociatedObject(self, &k_tv_direction, @(d), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [self _bn_applyParagraphStyle];
+}
+- (NSParagraphStyle *)defaultParagraphStyle { return objc_getAssociatedObject(self, &k_tv_paragraph); }
+- (void)setDefaultParagraphStyle:(NSParagraphStyle *)p {
+    objc_setAssociatedObject(self, &k_tv_paragraph, [p copy], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    if (p) objc_setAssociatedObject(self, &k_tv_align, @(p.alignment), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [self _bn_applyParagraphStyle];
+}
+- (NSDictionary *)markedTextAttributes { return objc_getAssociatedObject(self, &k_tv_marked) ?: @{}; }
+- (void)setMarkedTextAttributes:(NSDictionary *)a { objc_setAssociatedObject(self, &k_tv_marked, [a copy], OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
+- (NSDictionary *)selectedTextAttributes {
+    return objc_getAssociatedObject(self, &k_tv_selectedAttrs) ?: @{NSBackgroundColorAttributeName : NSColor.selectedTextBackgroundColor};
+}
+- (void)setSelectedTextAttributes:(NSDictionary *)a {
+    objc_setAssociatedObject(self, &k_tv_selectedAttrs, [a copy], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+- (NSDictionary *)linkTextAttributes {
+    return objc_getAssociatedObject(self, &k_tv_link) ?: @{NSForegroundColorAttributeName : NSColor.linkColor,
+                                                            NSUnderlineStyleAttributeName : @1};
+}
+- (void)setLinkTextAttributes:(NSDictionary *)a { objc_setAssociatedObject(self, &k_tv_link, [a copy], OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
+/* on/off settings kept as bits */
+enum { TV_RULER = 1, TV_RULER_VISIBLE = 2, TV_INSPECTOR = 4, TV_QUOTES = 8, TV_DASHES = 16, TV_REPLACE = 32,
+       TV_SPELLING = 64, TV_LINKS = 128, TV_DATA = 256, TV_COMPLETION = 512, TV_GRAMMAR = 1024, TV_SMART = 2048 };
+static BOOL tv_flag(id tv, unsigned bit) { return ([objc_getAssociatedObject(tv, &k_tv_flags) unsignedIntValue] & bit) != 0; }
+static void tv_set_flag(id tv, unsigned bit, BOOL on) {
+    unsigned v = [objc_getAssociatedObject(tv, &k_tv_flags) unsignedIntValue];
+    v = on ? v | bit : v & ~bit;
+    objc_setAssociatedObject(tv, &k_tv_flags, @(v), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+- (BOOL)usesRuler { return tv_flag(self, TV_RULER); }
+- (void)setUsesRuler:(BOOL)b { tv_set_flag(self, TV_RULER, b); }
+- (BOOL)isRulerVisible { return tv_flag(self, TV_RULER_VISIBLE); }
+- (void)setRulerVisible:(BOOL)b { tv_set_flag(self, TV_RULER_VISIBLE, b); }
+- (BOOL)usesInspectorBar { return tv_flag(self, TV_INSPECTOR); }
+- (void)setUsesInspectorBar:(BOOL)b { tv_set_flag(self, TV_INSPECTOR, b); }
+- (BOOL)isAutomaticQuoteSubstitutionEnabled { return tv_flag(self, TV_QUOTES); }
+- (void)setAutomaticQuoteSubstitutionEnabled:(BOOL)b { tv_set_flag(self, TV_QUOTES, b); }
+- (BOOL)isAutomaticDashSubstitutionEnabled { return tv_flag(self, TV_DASHES); }
+- (void)setAutomaticDashSubstitutionEnabled:(BOOL)b { tv_set_flag(self, TV_DASHES, b); }
+- (BOOL)isAutomaticTextReplacementEnabled { return tv_flag(self, TV_REPLACE); }
+- (void)setAutomaticTextReplacementEnabled:(BOOL)b { tv_set_flag(self, TV_REPLACE, b); }
+- (BOOL)isAutomaticSpellingCorrectionEnabled { return tv_flag(self, TV_SPELLING); }
+- (void)setAutomaticSpellingCorrectionEnabled:(BOOL)b { tv_set_flag(self, TV_SPELLING, b); }
+- (BOOL)isAutomaticLinkDetectionEnabled { return tv_flag(self, TV_LINKS); }
+- (void)setAutomaticLinkDetectionEnabled:(BOOL)b { tv_set_flag(self, TV_LINKS, b); }
+- (BOOL)isAutomaticDataDetectionEnabled { return tv_flag(self, TV_DATA); }
+- (void)setAutomaticDataDetectionEnabled:(BOOL)b { tv_set_flag(self, TV_DATA, b); }
+- (BOOL)isAutomaticTextCompletionEnabled { return tv_flag(self, TV_COMPLETION); }
+- (void)setAutomaticTextCompletionEnabled:(BOOL)b { tv_set_flag(self, TV_COMPLETION, b); }
+- (BOOL)isGrammarCheckingEnabled { return tv_flag(self, TV_GRAMMAR); }
+- (void)setGrammarCheckingEnabled:(BOOL)b { tv_set_flag(self, TV_GRAMMAR, b); }
+- (BOOL)smartInsertDeleteEnabled { return tv_flag(self, TV_SMART); }
+- (void)setSmartInsertDeleteEnabled:(BOOL)b { tv_set_flag(self, TV_SMART, b); }
+- (BOOL)allowsDocumentBackgroundColorChange { return [objc_getAssociatedObject(self, &k_tv_bgchange) boolValue]; }
+- (void)setAllowsDocumentBackgroundColorChange:(BOOL)b {
+    objc_setAssociatedObject(self, &k_tv_bgchange, @(b), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+- (NSInteger)inlinePredictionType { return [objc_getAssociatedObject(self, &k_tv_prediction) integerValue]; }
+- (void)setInlinePredictionType:(NSInteger)t {
+    objc_setAssociatedObject(self, &k_tv_prediction, @(t), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+- (void)setMathExpressionCompletionType:(NSInteger)t {}
+- (id)textContentStorage { return nil; } /* TextKit 1 only */
+- (void)setSelectedRange:(NSRange)r affinity:(NSInteger)a stillSelecting:(BOOL)still { self.selectedRange = r; }
+/* paragraph settings for part of the text */
+- (void)_bn_paragraphs:(NSRange)r change:(void (^)(NSMutableParagraphStyle *))change {
+    NSMutableAttributedString *storage = self.textStorage;
+    if (NSMaxRange(r) > storage.length) return;
+    if (!r.length) { /* an empty range sets what is typed there next */
+        NSMutableDictionary *typing = [self.typingAttributes mutableCopy];
+        NSMutableParagraphStyle *p = [(typing[NSParagraphStyleAttributeName] ?: NSParagraphStyle.defaultParagraphStyle) mutableCopy];
+        change(p);
+        typing[NSParagraphStyleAttributeName] = p;
+        self.typingAttributes = typing;
+        return;
+    }
+    NSRange whole = [storage.string paragraphRangeForRange:r];
+    [storage enumerateAttribute:NSParagraphStyleAttributeName inRange:whole options:0
+                     usingBlock:^(id value, NSRange sub, BOOL *stop) {
+                         NSMutableParagraphStyle *p = [(value ?: NSParagraphStyle.defaultParagraphStyle) mutableCopy];
+                         change(p);
+                         [storage addAttribute:NSParagraphStyleAttributeName value:p range:sub];
+                     }];
+    self.needsDisplay = YES;
+}
+- (void)setAlignment:(NSTextAlignment)a range:(NSRange)r {
+    [self _bn_paragraphs:r change:^(NSMutableParagraphStyle *p) { p.alignment = a; }];
+}
+- (void)setBaseWritingDirection:(NSWritingDirection)d range:(NSRange)r {
+    [self _bn_paragraphs:r change:^(NSMutableParagraphStyle *p) { p.baseWritingDirection = d; }];
+}
+- (NSAttributedString *)attributedString { return [self.textStorage copy] ?: [[NSAttributedString alloc] init]; }
+/* replaces text as typing would: asks first, then reports the change */
+- (BOOL)performValidatedReplacementInRange:(NSRange)r withAttributedString:(NSAttributedString *)s {
+    if (NSMaxRange(r) > self.textStorage.length) return NO;
+    if (![self shouldChangeTextInRange:r replacementString:s.string]) return NO;
+    [self.textStorage replaceCharactersInRange:r withAttributedString:s ?: [[NSAttributedString alloc] init]];
+    self.selectedRange = NSMakeRange(r.location + s.length, 0);
+    [self didChangeText];
+    return YES;
+}
+- (void)showFindIndicatorForRange:(NSRange)r { [self scrollRangeToVisible:r]; }
+- (void)breakUndoCoalescing {}
+- (void)invalidateTextContainerOrigin {}
+- (void)updateInsertionPointStateAndRestartTimer:(BOOL)restart { self.needsDisplay = YES; }
+- (void)alignLeft:(id)sender { [self setAlignment:NSTextAlignmentLeft range:self.selectedRange]; }
+- (void)alignRight:(id)sender { [self setAlignment:NSTextAlignmentRight range:self.selectedRange]; }
+- (void)alignCenter:(id)sender { [self setAlignment:NSTextAlignmentCenter range:self.selectedRange]; }
+- (void)alignJustified:(id)sender { [self setAlignment:NSTextAlignmentJustified range:self.selectedRange]; }
+/* programmatic edits: no delegate check, as in AppKit */
+- (void)replaceCharactersInRange:(NSRange)r withString:(NSString *)s {
+    NSMutableAttributedString *storage = self.textStorage;
+    if (NSMaxRange(r) > storage.length) return;
+    [storage replaceCharactersInRange:r withAttributedString:[[NSAttributedString alloc] initWithString:s ?: @""
+                                                                                            attributes:self.typingAttributes]];
+    self.needsDisplay = YES;
+}
+- (void)delete:(id)sender {
+    NSRange r = self.selectedRange;
+    if (r.length && [self shouldChangeTextInRange:r replacementString:@""]) {
+        [self.textStorage deleteCharactersInRange:r];
+        self.selectedRange = NSMakeRange(r.location, 0);
+        [self didChangeText];
+    }
+}
+- (id)_bn_undoManager {
+    return [self respondsToSelector:@selector(undoManager)] ? ((id (*)(id, SEL))objc_msgSend)(self, @selector(undoManager)) : nil;
+}
+- (void)undo:(id)sender { ((void (*)(id, SEL))objc_msgSend)(self._bn_undoManager, @selector(undo)); }
+- (void)redo:(id)sender { ((void (*)(id, SEL))objc_msgSend)(self._bn_undoManager, @selector(redo)); }
+- (void)setFont:(NSFont *)font range:(NSRange)r {
+    if (font && NSMaxRange(r) <= self.textStorage.length) [self.textStorage addAttribute:NSFontAttributeName value:font range:r];
+    self.needsDisplay = YES;
+}
+- (void)setTextColor:(NSColor *)color range:(NSRange)r {
+    if (NSMaxRange(r) > self.textStorage.length) return;
+    if (color) [self.textStorage addAttribute:NSForegroundColorAttributeName value:color range:r];
+    else [self.textStorage removeAttribute:NSForegroundColorAttributeName range:r];
+    self.needsDisplay = YES;
+}
+@end
+
 @implementation NSTextView (BittenWritingTools)
 WRITING_TOOLS
 @end

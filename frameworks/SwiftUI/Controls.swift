@@ -80,10 +80,14 @@ public struct Section<Parent, Content, Footer> {
   @usableFromInline internal var header: Parent
   @usableFromInline internal var content: Content
   @usableFromInline internal var footer: Footer
-  @inlinable internal init(header: Parent, content: Content, footer: Footer) {
+  /// Collapsible sections' state (Apple's fourth stored property: the app's
+  /// inlined initializers build all four and require this layout).
+  @usableFromInline internal var isExpanded: Binding<Bool>?
+  @inlinable internal init(header: Parent, content: Content, footer: Footer, isExpanded: Binding<Bool>? = nil) {
     self.header = header
     self.content = content
     self.footer = footer
+    self.isExpanded = isExpanded
   }
 }
 extension Section: View where Parent: View, Content: View, Footer: View {
@@ -95,8 +99,11 @@ extension Section: View where Parent: View, Content: View, Footer: View {
     header.environment.font = .headline
     var children: [_ViewNode] = []
     if Parent.self != EmptyView.self { children.append(_makeNode(v.header, inputs: header.named("header"))) }
-    children += _makeNodes(v.content, inputs: inputs.named("content"))
-    if Footer.self != EmptyView.self { children.append(_makeNode(v.footer, inputs: inputs.named("footer"))) }
+    // a collapsed section shows its header only
+    if v.isExpanded?.wrappedValue ?? true {
+      children += _makeNodes(v.content, inputs: inputs.named("content"))
+      if Footer.self != EmptyView.self { children.append(_makeNode(v.footer, inputs: inputs.named("footer"))) }
+    }
     return _ViewOutputs(_StackNode(axis: .vertical, alignment: Alignment(horizontal: .leading, vertical: .center),
                                    spacing: 6, environment: inputs.environment, children: children))
   }
@@ -116,7 +123,20 @@ extension Section where Parent: View, Content: View, Footer == EmptyView {
     self.init(header: header(), content: content(), footer: EmptyView())
   }
 }
+extension Section where Parent: View, Content: View, Footer == EmptyView {
+  /// A collapsible section, expanded while `isExpanded` is true.
+  public init(isExpanded: Binding<Bool>, @ViewBuilder content: () -> Content, @ViewBuilder header: () -> Parent) {
+    self.init(header: header(), content: content(), footer: EmptyView(), isExpanded: isExpanded)
+  }
+}
 extension Section where Parent == Text, Content: View, Footer == EmptyView {
+  public init(_ titleKey: LocalizedStringKey, isExpanded: Binding<Bool>, @ViewBuilder content: () -> Content) {
+    self.init(header: Text(titleKey), content: content(), footer: EmptyView(), isExpanded: isExpanded)
+  }
+  @_disfavoredOverload
+  public init<S: StringProtocol>(_ title: S, isExpanded: Binding<Bool>, @ViewBuilder content: () -> Content) {
+    self.init(header: Text(title), content: content(), footer: EmptyView(), isExpanded: isExpanded)
+  }
   public init(_ titleKey: LocalizedStringKey, @ViewBuilder content: () -> Content) {
     self.init(header: Text(titleKey), content: content(), footer: EmptyView())
   }
@@ -1245,21 +1265,26 @@ public struct FocusState<Value: Hashable>: DynamicProperty {
   @usableFromInline internal var _box: _FocusBox<Value>?
   @usableFromInline internal let _reset: Value
 
+  /// As in Apple's SDK, the binding holds the whole focus state (the app
+  /// passes it in registers when the state is small, e.g. for Bool).
   @propertyWrapper @frozen
   public struct Binding {
-    @usableFromInline internal let _box: _FocusBox<Value>
+    @usableFromInline internal var focusState: FocusState<Value>
+    @inlinable internal init(focusState: FocusState<Value>) { self.focusState = focusState }
     public var wrappedValue: Value {
-      get { return _box.value }
-      nonmutating set { _box.value = newValue }
+      get { return focusState.wrappedValue }
+      nonmutating set { focusState.wrappedValue = newValue }
     }
     public var projectedValue: Binding { return self }
+    /// The state's storage once installed (a stand-in before that).
+    internal var _box: _FocusBox<Value> { return focusState._box ?? _FocusBox(focusState._value) }
   }
   public var wrappedValue: Value {
     get { return _box?.value ?? _value }
     nonmutating set { _box?.value = newValue }
   }
   public var projectedValue: Binding {
-    return Binding(_box: _box ?? _FocusBox(_value))
+    return Binding(focusState: self)
   }
 }
 extension FocusState {
