@@ -26,7 +26,6 @@ public struct UnitPoint: Hashable, Sendable {
   public static let bottomTrailing = UnitPoint(x: 1, y: 1)
 }
 
-@frozen
 public enum RoundedCornerStyle: Hashable, Sendable {
   case circular
   case continuous

@@ -1083,6 +1083,57 @@ NS_SWIFT_NAME(UndoManager)
 @property (readonly, copy) NSString *redoMenuItemTitle;
 @end
 
+
+typedef NS_ENUM(NSInteger, NSItemProviderRepresentationVisibility) {
+    NSItemProviderRepresentationVisibilityAll = 0, NSItemProviderRepresentationVisibilityTeam = 1,
+    NSItemProviderRepresentationVisibilityGroup = 2, NSItemProviderRepresentationVisibilityOwnProcess = 3
+};
+typedef NS_OPTIONS(NSInteger, NSItemProviderFileOptions) { NSItemProviderFileOptionOpenInPlace = 1 };
+@class NSProgress;
+@protocol NSItemProviderWriting <NSObject>
+@property (class, readonly, copy) NSArray<NSString *> *writableTypeIdentifiersForItemProvider;
+- (nullable NSProgress *)loadDataWithTypeIdentifier:(NSString *)typeIdentifier
+                   forItemProviderCompletionHandler:(void (^)(NSData *_Nullable data, NSError *_Nullable error))completionHandler;
+@end
+@protocol NSItemProviderReading <NSObject>
+@property (class, readonly, copy) NSArray<NSString *> *readableTypeIdentifiersForItemProvider;
++ (nullable instancetype)objectWithItemProviderData:(NSData *)data typeIdentifier:(NSString *)typeIdentifier
+                                              error:(NSError **)outError;
+@end
+@interface NSItemProvider : NSObject <NSCopying>
+- (instancetype)init;
+- (instancetype)initWithObject:(id<NSItemProviderWriting>)object;
+- (nullable instancetype)initWithContentsOfURL:(NSURL *)fileURL;
+- (instancetype)initWithItem:(nullable id)item typeIdentifier:(nullable NSString *)typeIdentifier;
+- (void)registerDataRepresentationForTypeIdentifier:(NSString *)typeIdentifier
+                                         visibility:(NSItemProviderRepresentationVisibility)visibility
+                                        loadHandler:(NSProgress *_Nullable (^)(void (^completionHandler)(NSData *_Nullable data,
+                                                                                                    NSError *_Nullable error)))loadHandler;
+- (void)registerFileRepresentationForTypeIdentifier:(NSString *)typeIdentifier
+                                        fileOptions:(NSItemProviderFileOptions)fileOptions
+                                         visibility:(NSItemProviderRepresentationVisibility)visibility
+                                        loadHandler:(NSProgress *_Nullable (^)(void (^completionHandler)(NSURL *_Nullable url,
+                                                                                                    BOOL coordinated,
+                                                                                                    NSError *_Nullable error)))loadHandler;
+- (void)registerObject:(id<NSItemProviderWriting>)object visibility:(NSItemProviderRepresentationVisibility)visibility;
+@property (readonly, copy) NSArray<NSString *> *registeredTypeIdentifiers;
+- (BOOL)hasItemConformingToTypeIdentifier:(NSString *)typeIdentifier;
+- (BOOL)hasRepresentationConformingToTypeIdentifier:(NSString *)typeIdentifier fileOptions:(NSItemProviderFileOptions)fileOptions;
+- (nullable NSProgress *)loadDataRepresentationForTypeIdentifier:(NSString *)typeIdentifier
+                                               completionHandler:(void (^)(NSData *_Nullable data, NSError *_Nullable error))completionHandler;
+- (nullable NSProgress *)loadFileRepresentationForTypeIdentifier:(NSString *)typeIdentifier
+                                               completionHandler:(void (^)(NSURL *_Nullable url, NSError *_Nullable error))completionHandler;
+- (nullable NSProgress *)loadInPlaceFileRepresentationForTypeIdentifier:(NSString *)typeIdentifier
+                                                     completionHandler:(void (^)(NSURL *_Nullable url, BOOL isInPlace,
+                                                                                 NSError *_Nullable error))completionHandler;
+- (BOOL)canLoadObjectOfClass:(Class)aClass;
+- (NSProgress *)loadObjectOfClass:(Class)aClass
+                completionHandler:(void (^)(id _Nullable object, NSError *_Nullable error))completionHandler;
+- (void)loadItemForTypeIdentifier:(NSString *)typeIdentifier options:(nullable NSDictionary *)options
+                completionHandler:(void (^_Nullable)(id _Nullable item, NSError *_Null_unspecified error))completionHandler;
+@property (nullable, copy) NSString *suggestedName;
+@end
+
 @interface NSObject (NSDelayedPerforming)
 - (void)performSelector:(SEL)aSelector withObject:(nullable id)anArgument afterDelay:(NSTimeInterval)delay
                 inModes:(NSArray<NSRunLoopMode> *)modes;

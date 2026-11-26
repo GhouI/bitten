@@ -317,9 +317,12 @@ public struct _ProposedSize {
     self.height = height
   }
 }
-public struct _IdentifiedViewTree {
+public enum _IdentifiedViewTree {
+  case empty
+  case proxy(_IdentifiedViewProxy)
+}
+public struct _IdentifiedViewProxy {
   internal init() {}
-  public static var empty: _IdentifiedViewTree { return _IdentifiedViewTree() }
 }
 public struct _PlatformViewRepresentableLayoutOptions: OptionSet {
   public let rawValue: Int
@@ -921,7 +924,14 @@ public struct ProgressViewStyleConfiguration {
       return AnyView._makeView(view: _GraphValue({ view.value.content }), inputs: inputs)
     }
   }
-  public typealias CurrentValueLabel = Label
+  public struct CurrentValueLabel: View {
+    let content: AnyView
+    public typealias Body = Never
+    public var body: Never { fatalError("no body") }
+    public static func _makeView(view: _GraphValue<CurrentValueLabel>, inputs: _ViewInputs) -> _ViewOutputs {
+      return AnyView._makeView(view: _GraphValue({ view.value.content }), inputs: inputs)
+    }
+  }
   public let fractionCompleted: Double?
   public var label: Label?
   public var currentValueLabel: CurrentValueLabel?

@@ -125,6 +125,21 @@ extension View {
     return modifier(_PresentationModifier(isPresented: isPresented, title: String(title), presented: { a },
                                           onDismiss: nil, style: .alert))
   }
+  public func confirmationDialog<A: View, M: View>(_ title: Text, isPresented: Binding<Bool>,
+                                                   titleVisibility: Visibility = .automatic, @ViewBuilder actions: () -> A,
+                                                   @ViewBuilder message: () -> M) -> some View {
+    let a = actions(), m = message()
+    return modifier(_PresentationModifier(isPresented: isPresented, title: title._string,
+                                          presented: { VStack(spacing: 10) { m; a } }, onDismiss: nil, style: .alert))
+  }
+  public func confirmationDialog<S: StringProtocol, A: View, M: View>(_ title: S, isPresented: Binding<Bool>,
+                                                                      titleVisibility: Visibility = .automatic,
+                                                                      @ViewBuilder actions: () -> A,
+                                                                      @ViewBuilder message: () -> M) -> some View {
+    let a = actions(), m = message()
+    return modifier(_PresentationModifier(isPresented: isPresented, title: String(title),
+                                          presented: { VStack(spacing: 10) { m; a } }, onDismiss: nil, style: .alert))
+  }
   public func confirmationDialog<A: View, M: View>(_ titleKey: LocalizedStringKey, isPresented: Binding<Bool>,
                                                    titleVisibility: Visibility = .automatic, @ViewBuilder actions: () -> A,
                                                    @ViewBuilder message: () -> M) -> some View {

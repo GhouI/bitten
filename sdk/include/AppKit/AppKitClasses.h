@@ -73,10 +73,6 @@
 @end
 @interface NSStatusBar : NSObject
 @end
-@interface NSPasteboard : NSObject
-@end
-@interface NSPasteboardItem : NSObject
-@end
 @interface NSDraggingItem : NSObject
 @end
 @interface NSToolbar : NSObject
@@ -200,10 +196,6 @@ APPKIT_EXTERN NSString *const NSBackgroundColorAttributeName;
 APPKIT_EXTERN NSString *const NSToolbarSidebarTrackingSeparatorItemIdentifier;
 APPKIT_EXTERN NSString *const NSToolbarFlexibleSpaceItemIdentifier;
 APPKIT_EXTERN NSString *const NSPasteboardURLReadingFileURLsOnlyKey;
-APPKIT_EXTERN NSString *const NSPasteboardTypeTIFF;
-APPKIT_EXTERN NSString *const NSPasteboardTypeString;
-APPKIT_EXTERN NSString *const NSPasteboardTypePNG;
-APPKIT_EXTERN NSString *const NSPasteboardTypeFileURL;
 APPKIT_EXTERN NSString *const NSImageHintInterpolation;
 APPKIT_EXTERN NSString *const NSImageHintCTM;
 APPKIT_EXTERN NSString *const NSImageNameApplicationIcon;

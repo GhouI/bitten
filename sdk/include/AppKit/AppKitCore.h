@@ -762,4 +762,60 @@ typedef NS_ENUM(NSInteger, NSImageSymbolScale) {
 - (NSImage *)imageWithLocale:(nullable id)locale;
 @end
 
+
+APPKIT_EXTERN NSPasteboardType const NSPasteboardTypeString, NSPasteboardTypePNG, NSPasteboardTypeTIFF,
+    NSPasteboardTypeFileURL, NSPasteboardTypeURL, NSPasteboardTypeRTF, NSPasteboardTypeRTFD, NSPasteboardTypeHTML,
+    NSPasteboardTypePDF, NSPasteboardTypeColor, NSPasteboardTypeFont, NSPasteboardTypeRuler, NSPasteboardTypeSound,
+    NSPasteboardTypeTabularText, NSPasteboardTypeMultipleTextSelection, NSPasteboardTypeFindPanelSearchOptions;
+APPKIT_EXTERN NSPasteboardName const NSPasteboardNameGeneral, NSPasteboardNameFind, NSPasteboardNameFont,
+    NSPasteboardNameRuler, NSPasteboardNameDrag;
+typedef NSString *NSPasteboardReadingOptionKey NS_TYPED_EXTENSIBLE_ENUM NS_SWIFT_NAME(NSPasteboard.ReadingOptionKey);
+
+@protocol NSPasteboardWriting <NSObject>
+- (NSArray<NSPasteboardType> *)writableTypesForPasteboard:(NSPasteboard *)pasteboard;
+- (nullable id)pasteboardPropertyListForType:(NSPasteboardType)type;
+@end
+@protocol NSPasteboardReading <NSObject>
++ (NSArray<NSPasteboardType> *)readableTypesForPasteboard:(NSPasteboard *)pasteboard;
+@optional
+- (nullable id)initWithPasteboardPropertyList:(id)propertyList ofType:(NSPasteboardType)type;
+@end
+
+@interface NSPasteboardItem : NSObject <NSPasteboardWriting, NSPasteboardReading>
+@property (readonly, copy) NSArray<NSPasteboardType> *types;
+- (nullable NSPasteboardType)availableTypeFromArray:(NSArray<NSPasteboardType> *)types;
+- (BOOL)setData:(NSData *)data forType:(NSPasteboardType)type;
+- (BOOL)setString:(NSString *)string forType:(NSPasteboardType)type;
+- (BOOL)setPropertyList:(id)propertyList forType:(NSPasteboardType)type;
+- (nullable NSData *)dataForType:(NSPasteboardType)type;
+- (nullable NSString *)stringForType:(NSPasteboardType)type;
+- (nullable id)propertyListForType:(NSPasteboardType)type;
+@end
+
+@interface NSPasteboard : NSObject
+@property (class, readonly, strong) NSPasteboard *generalPasteboard;
++ (NSPasteboard *)pasteboardWithName:(NSPasteboardName)name;
++ (NSPasteboard *)pasteboardWithUniqueName;
+@property (readonly, copy) NSPasteboardName name;
+@property (readonly) NSInteger changeCount;
+- (void)releaseGlobally;
+- (NSInteger)clearContents;
+- (BOOL)writeObjects:(NSArray<id<NSPasteboardWriting>> *)objects;
+- (nullable NSArray *)readObjectsForClasses:(NSArray<Class> *)classArray
+                                    options:(nullable NSDictionary<NSPasteboardReadingOptionKey, id> *)options;
+@property (nullable, readonly, copy) NSArray<NSPasteboardItem *> *pasteboardItems;
+- (BOOL)canReadItemWithDataConformingToTypes:(NSArray<NSString *> *)types;
+- (BOOL)canReadObjectForClasses:(NSArray<Class> *)classArray options:(nullable NSDictionary<NSPasteboardReadingOptionKey, id> *)options;
+- (NSInteger)declareTypes:(NSArray<NSPasteboardType> *)newTypes owner:(nullable id)newOwner;
+- (NSInteger)addTypes:(NSArray<NSPasteboardType> *)newTypes owner:(nullable id)newOwner;
+@property (nullable, readonly, copy) NSArray<NSPasteboardType> *types;
+- (nullable NSPasteboardType)availableTypeFromArray:(NSArray<NSPasteboardType> *)types;
+- (BOOL)setData:(nullable NSData *)data forType:(NSPasteboardType)dataType;
+- (BOOL)setPropertyList:(id)plist forType:(NSPasteboardType)dataType;
+- (BOOL)setString:(NSString *)string forType:(NSPasteboardType)dataType;
+- (nullable NSData *)dataForType:(NSPasteboardType)dataType;
+- (nullable id)propertyListForType:(NSPasteboardType)dataType;
+- (nullable NSString *)stringForType:(NSPasteboardType)dataType;
+@end
+
 #pragma clang assume_nonnull end

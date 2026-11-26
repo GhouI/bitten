@@ -159,6 +159,7 @@ public struct EdgeInsets: Equatable, Sendable {
     self.trailing = trailing
   }
   @inlinable public init() { self.init(top: 0, leading: 0, bottom: 0, trailing: 0) }
+  @usableFromInline internal init(_all: CGFloat) { self.init(top: _all, leading: _all, bottom: _all, trailing: _all) }
 }
 
 @frozen

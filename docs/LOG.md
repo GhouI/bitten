@@ -2427,3 +2427,26 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   (Foundation's Objective-C side).
 - Test: `tests/swiftlib/formatstyle`.
 - Target app window (total `^MISSING`): 454 -> 394.
+## Pasteboard, item providers, Canvas, and ABI fixes from the target app's code
+
+- AppKit: NSPasteboard and NSPasteboardItem (typed pasteboard-type
+  constants; the general pasteboard's text syncs with `$BITTEN_CLIPBOARD`).
+  Foundation: NSItemProvider.
+- SwiftUI: GraphicsContext and Canvas (fill, stroke, clip, text, layers,
+  transforms, gradients, shadows), LinearGradient, Material, ScaledMetric,
+  ImageRenderer, `Transaction.animation`, PreferredColorSchemeKey, more
+  confirmation dialogs, spring and timing-curve animations.
+- ABI, from the app's disassembly: `Animation` and `AnyTransition` are one
+  reference wide (boxes); `GraphicsContext` is frozen around one storage
+  reference, with resilient `Shading`/`Filter` and a frozen Int32 BlendMode;
+  `BlendMode` and `RoundedCornerStyle` are resilient enums;
+  `_IdentifiedViewTree` is an enum; LocalizedStringKey stays frozen.
+- Mangling: Slider `label:` inits, NavigationSplitView and FocusState
+  inits with method-level where clauses, unconstrained LabeledContent,
+  distinct ButtonStyleConfiguration.Label and CurrentValueLabel.
+- Runtime: accessor-function references inside an opaque type's underlying
+  type get their generic arguments laid out from the flat list (they were
+  called with NULL). `_availability_version_check` answers for macOS 15
+  instead of "everything is available", which sent the app down
+  `#available` branches into NULL weak imports.
+- Target app window (total `^MISSING`): 394 -> 313.

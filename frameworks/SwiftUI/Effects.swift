@@ -242,7 +242,6 @@ public struct _HiddenModifier: _DrawingModifier, Equatable {
   func apply(_ context: CGContext, _ frame: CGRect, _ environment: EnvironmentValues) -> Bool { return false }
 }
 
-@frozen
 public enum BlendMode: Sendable, Equatable, Hashable {
   case normal, multiply, screen, overlay, darken, lighten, colorDodge, colorBurn, softLight, hardLight, difference,
     exclusion, hue, saturation, color, luminosity, sourceAtop, destinationOver, destinationOut, plusDarker,
@@ -863,16 +862,26 @@ public struct PlaceholderContentView<Value: View>: View {
 
 // MARK: - animation (no interpolation: changes land at once)
 
-public struct Animation: Equatable, Sendable, CustomStringConvertible {
+/// What an animation is; the struct is one reference wide, like the app expects.
+@usableFromInline
+internal final class AnimationBoxBase: @unchecked Sendable {
   let name: String
   let duration: Double
-  public init<A: CustomAnimation>(_ base: A) {
-    name = "\(A.self)"
-    duration = 0.35
-  }
   init(name: String, duration: Double) {
     self.name = name
     self.duration = duration
+  }
+}
+
+@frozen
+public struct Animation: Equatable, Sendable, CustomStringConvertible {
+  @usableFromInline internal var box: AnimationBoxBase
+  public init<A: CustomAnimation>(_ base: A) { box = AnimationBoxBase(name: "\(A.self)", duration: 0.35) }
+  init(name: String, duration: Double) { box = AnimationBoxBase(name: name, duration: duration) }
+  internal var name: String { return box.name }
+  internal var duration: Double { return box.duration }
+  public static func == (a: Animation, b: Animation) -> Bool {
+    return a.box === b.box || (a.name == b.name && a.duration == b.duration)
   }
   public var description: String { return name }
   public static let `default` = Animation(name: "default", duration: 0.35)
@@ -884,12 +893,32 @@ public struct Animation: Equatable, Sendable, CustomStringConvertible {
   public static func easeOut(duration: Double) -> Animation { return Animation(name: "easeOut", duration: duration) }
   public static var easeInOut: Animation { return Animation(name: "easeInOut", duration: 0.35) }
   public static func easeInOut(duration: Double) -> Animation { return Animation(name: "easeInOut", duration: duration) }
+  public static func timingCurve(_ p1x: Double, _ p1y: Double, _ p2x: Double, _ p2y: Double, duration: Double = 0.35)
+    -> Animation { return Animation(name: "timingCurve", duration: duration) }
+  public static func timingCurve(_ curve: UnitCurve, duration: TimeInterval) -> Animation {
+    return Animation(name: "timingCurve", duration: duration)
+  }
   public static var spring: Animation { return Animation(name: "spring", duration: 0.5) }
   public static func spring(response: Double = 0.5, dampingFraction: Double = 0.825, blendDuration: TimeInterval = 0)
     -> Animation { return Animation(name: "spring", duration: response) }
   public static func spring(duration: TimeInterval = 0.5, bounce: Double = 0, blendDuration: Double = 0) -> Animation {
     return Animation(name: "spring", duration: duration)
   }
+  public static func spring(_ spring: Spring, blendDuration: TimeInterval = 0) -> Animation {
+    return Animation(name: "spring", duration: 0.5)
+  }
+  public static func interpolatingSpring(mass: Double = 1.0, stiffness: Double, damping: Double,
+                                         initialVelocity: Double = 0.0) -> Animation {
+    // Settling time of a damped spring, roughly.
+    let zeta = damping / (2 * (stiffness * mass).squareRoot())
+    let omega = (stiffness / mass).squareRoot()
+    return Animation(name: "interpolatingSpring", duration: zeta > 0 && omega > 0 ? min(4 / (zeta * omega), 2) : 0.5)
+  }
+  public static func interpolatingSpring(duration: TimeInterval = 0.5, bounce: Double = 0.0,
+                                         initialVelocity: Double = 0.0) -> Animation {
+    return Animation(name: "interpolatingSpring", duration: duration)
+  }
+  public static var interpolatingSpring: Animation { return Animation(name: "interpolatingSpring", duration: 0.5) }
   public static var smooth: Animation { return Animation(name: "smooth", duration: 0.5) }
   public static func smooth(duration: TimeInterval = 0.5, extraBounce: Double = 0) -> Animation {
     return Animation(name: "smooth", duration: duration)
@@ -940,10 +969,18 @@ public func withTransaction<Result>(_ transaction: Transaction, _ body: () throw
 
 // MARK: - transitions
 
-public struct AnyTransition: Sendable {
+@usableFromInline
+internal final class AnyTransitionBox: @unchecked Sendable {
   let name: String
-  public init<T: Transition>(_ transition: T) { name = "\(T.self)" }
   init(name: String) { self.name = name }
+}
+
+@frozen
+public struct AnyTransition: Sendable {
+  @usableFromInline internal let box: AnyTransitionBox
+  public init<T: Transition>(_ transition: T) { box = AnyTransitionBox(name: "\(T.self)") }
+  init(name: String) { box = AnyTransitionBox(name: name) }
+  internal var name: String { return box.name }
   public static let identity = AnyTransition(name: "identity")
   public static let opacity = AnyTransition(name: "opacity")
   public static let slide = AnyTransition(name: "slide")
@@ -954,11 +991,20 @@ public struct AnyTransition: Sendable {
   public static func scale(scale: CGFloat, anchor: UnitPoint = .center) -> AnyTransition { return AnyTransition(name: "scale") }
   public static func push(from edge: Edge) -> AnyTransition { return AnyTransition(name: "push") }
   public static func asymmetric(insertion: AnyTransition, removal: AnyTransition) -> AnyTransition { return insertion }
+  public static func modifier<E: ViewModifier>(active: E, identity: E) -> AnyTransition {
+    return AnyTransition(name: "modifier(\(E.self))")
+  }
   public func combined(with other: AnyTransition) -> AnyTransition { return self }
   public func animation(_ animation: Animation?) -> AnyTransition { return self }
 }
 
 public protocol Transition {}
+extension Transition {
+  public func combined<T: Transition>(with other: T) -> some Transition { return _CombinedTransition(first: self, second: other) }
+}
+public struct _CombinedTransition<A: Transition, B: Transition>: Transition {
+  var first: A, second: B
+}
 public struct IdentityTransition: Transition { public init() {} }
 public struct OpacityTransition: Transition { public init() {} }
 public struct ScaleTransition: Transition {
