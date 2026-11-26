@@ -2138,3 +2138,22 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   `SMJobBless` and `SMLoginItemSetEnabled` fail with errors saying so.
 - Test: `tests/c/imageio_accelerate`.
 - Target app window (total `^MISSING`): 1,595 -> 1,582.
+
+## 2026-11-26: LocalizedStringResource and String.LocalizationValue (PR: localized)
+
+- Foundation (`swift/LocalizedStringResource.swift`, agreed with the
+  Foundation side): `String.LocalizationValue` with its interpolation
+  (strings, `_FormatSpecifiable` numbers with or without a specifier,
+  placeholders, objects); keys are the literal with format specifiers,
+  as Apple builds them, so they match a program's .strings tables.
+  `LocalizedStringResource` (key, default, table, locale, bundle as
+  main, a class's or a URL's), `CustomLocalizedStringResourceConvertible`,
+  `String(localized:)` in its three forms. Resolving looks the key up in
+  the table and puts the arguments into the localized format, positional
+  ones ("%2$lld") included.
+- `_FormatSpecifiable` and its conformances move from SwiftUI to
+  Foundation, where Apple keeps them (the app binds them there).
+- Not yet: `AttributedString(localized:)` and the `AttributedString`
+  interpolation (Foundation has no AttributedString).
+- Test: `tests/swiftlib/localized`.
+- Target app window (total `^MISSING`): 1,582 -> 1,557.

@@ -491,6 +491,8 @@ SWLIB_MACOS_network := 14.0
 SWLIB_MACOS_coregraphics := 14.0
 SWLIB_LIBS_uttype := $(FOUNDATION) $(call late_swift_lib,UniformTypeIdentifiers)
 SWLIB_MACOS_uttype := 14.0
+SWLIB_LIBS_localized := $(FOUNDATION) $(FOUNDATION_COMBINE)
+SWLIB_MACOS_localized := 14.0
 SWLIB_LIBS_swiftui := $(FOUNDATION) $(APPKIT) $(call swift_fw_lib,Combine) $(call swift_fw_lib,SwiftUI)
 SWLIB_MACOS_swiftui := 14.0
 $(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTCORE) $(OVERLAY_LIBS) tests/include/darwin.h $$(SWLIB_LIBS_$$*)
