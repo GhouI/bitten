@@ -334,6 +334,12 @@ static void check_index(NSString *s, NSUInteger index, const char *what) {
     return found;
 }
 - (NSRange)rangeOfString:(NSString *)needle { return [self rangeOfString:needle options:0]; }
+- (NSRange)rangeOfString:(NSString *)needle options:(NSStringCompareOptions)mask range:(NSRange)range {
+    check_index(self, NSMaxRange(range), "rangeOfString:options:range:");
+    NSRange r = [[self substringWithRange:range] rangeOfString:needle options:mask];
+    if (r.location != NSNotFound) r.location += range.location;
+    return r;
+}
 - (BOOL)containsString:(NSString *)s { return [self rangeOfString:s].location != NSNotFound; }
 
 - (NSString *)substringWithRange:(NSRange)range {

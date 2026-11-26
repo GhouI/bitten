@@ -72,6 +72,7 @@ enum { NSNotFound = NSIntegerMax };
 typedef struct _NSRange {
     NSUInteger location, length;
 } NSRange;
+typedef NSRange *NSRangePointer;
 static inline NSRange NSMakeRange(NSUInteger loc, NSUInteger len) {
     NSRange r = {loc, len};
     return r;
@@ -195,6 +196,7 @@ __attribute__((swift_bridge("Swift.String")))
 - (BOOL)containsString:(NSString *)string;
 - (NSRange)rangeOfString:(NSString *)string;
 - (NSRange)rangeOfString:(NSString *)string options:(NSStringCompareOptions)mask;
+- (NSRange)rangeOfString:(NSString *)string options:(NSStringCompareOptions)mask range:(NSRange)range;
 - (NSString *)substringFromIndex:(NSUInteger)from;
 - (NSString *)substringToIndex:(NSUInteger)to;
 - (NSString *)substringWithRange:(NSRange)range;
@@ -1089,6 +1091,52 @@ typedef NS_ENUM(NSInteger, NSItemProviderRepresentationVisibility) {
     NSItemProviderRepresentationVisibilityGroup = 2, NSItemProviderRepresentationVisibilityOwnProcess = 3
 };
 typedef NS_OPTIONS(NSInteger, NSItemProviderFileOptions) { NSItemProviderFileOptionOpenInPlace = 1 };
+typedef NSString *NSAttributedStringKey NS_SWIFT_NAME(NSAttributedString.Key);
+typedef NS_OPTIONS(NSUInteger, NSAttributedStringEnumerationOptions) {
+    NSAttributedStringEnumerationReverse = 1UL << 1,
+    NSAttributedStringEnumerationLongestEffectiveRangeNotRequired = 1UL << 20
+};
+@interface NSAttributedString : NSObject <NSCopying, NSMutableCopying>
+@property (readonly, copy) NSString *string;
+@property (readonly) NSUInteger length;
+- (instancetype)initWithString:(NSString *)str;
+- (instancetype)initWithString:(NSString *)str attributes:(nullable NSDictionary<NSAttributedStringKey, id> *)attrs;
+- (instancetype)initWithAttributedString:(NSAttributedString *)attrStr;
+- (NSDictionary<NSAttributedStringKey, id> *)attributesAtIndex:(NSUInteger)location
+                                                effectiveRange:(nullable NSRangePointer)range;
+- (nullable id)attribute:(NSAttributedStringKey)attrName atIndex:(NSUInteger)location
+          effectiveRange:(nullable NSRangePointer)range;
+- (NSDictionary<NSAttributedStringKey, id> *)attributesAtIndex:(NSUInteger)location
+                                         longestEffectiveRange:(nullable NSRangePointer)range
+                                                       inRange:(NSRange)rangeLimit;
+- (nullable id)attribute:(NSAttributedStringKey)attrName atIndex:(NSUInteger)location
+   longestEffectiveRange:(nullable NSRangePointer)range inRange:(NSRange)rangeLimit;
+- (NSAttributedString *)attributedSubstringFromRange:(NSRange)range;
+- (BOOL)isEqualToAttributedString:(NSAttributedString *)other;
+- (void)enumerateAttributesInRange:(NSRange)enumerationRange options:(NSAttributedStringEnumerationOptions)opts
+                        usingBlock:(void (NS_NOESCAPE ^)(NSDictionary<NSAttributedStringKey, id> *attrs, NSRange range,
+                                                         BOOL *stop))block;
+- (void)enumerateAttribute:(NSAttributedStringKey)attrName inRange:(NSRange)enumerationRange
+                   options:(NSAttributedStringEnumerationOptions)opts
+                usingBlock:(void (NS_NOESCAPE ^)(id _Nullable value, NSRange range, BOOL *stop))block;
+@end
+
+@interface NSMutableAttributedString : NSAttributedString
+@property (readonly, retain) NSMutableString *mutableString;
+- (void)replaceCharactersInRange:(NSRange)range withString:(NSString *)str;
+- (void)replaceCharactersInRange:(NSRange)range withAttributedString:(NSAttributedString *)attrString;
+- (void)setAttributes:(nullable NSDictionary<NSAttributedStringKey, id> *)attrs range:(NSRange)range;
+- (void)addAttribute:(NSAttributedStringKey)name value:(id)value range:(NSRange)range;
+- (void)addAttributes:(NSDictionary<NSAttributedStringKey, id> *)attrs range:(NSRange)range;
+- (void)removeAttribute:(NSAttributedStringKey)name range:(NSRange)range;
+- (void)insertAttributedString:(NSAttributedString *)attrString atIndex:(NSUInteger)loc;
+- (void)appendAttributedString:(NSAttributedString *)attrString;
+- (void)deleteCharactersInRange:(NSRange)range;
+- (void)setAttributedString:(NSAttributedString *)attrString;
+- (void)beginEditing;
+- (void)endEditing;
+@end
+
 @interface NSProgress : NSObject
 + (nullable NSProgress *)currentProgress;
 + (NSProgress *)progressWithTotalUnitCount:(int64_t)unitCount;

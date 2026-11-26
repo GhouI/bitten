@@ -1029,3 +1029,272 @@ typedef NS_OPTIONS(unsigned long long, NSAlignmentOptions) {
 - (NSRect)convertRectFromBacking:(NSRect)rect;
 - (NSRect)backingAlignedRect:(NSRect)rect options:(NSAlignmentOptions)options;
 @end
+
+typedef NS_ENUM(NSUInteger, NSControlSize) {
+    NSControlSizeRegular = 0, NSControlSizeSmall = 1, NSControlSizeMini = 2, NSControlSizeLarge = 3
+};
+typedef NS_ENUM(NSInteger, NSScrollerStyle) { NSScrollerStyleLegacy = 0, NSScrollerStyleOverlay = 1 };
+typedef NS_ENUM(NSInteger, NSScrollerKnobStyle) {
+    NSScrollerKnobStyleDefault = 0, NSScrollerKnobStyleDark = 1, NSScrollerKnobStyleLight = 2
+};
+typedef NS_ENUM(NSUInteger, NSBorderType) { NSNoBorder = 0, NSLineBorder = 1, NSBezelBorder = 2, NSGrooveBorder = 3 };
+typedef NS_ENUM(NSInteger, NSScrollElasticity) {
+    NSScrollElasticityAutomatic = 0, NSScrollElasticityNone = 1, NSScrollElasticityAllowed = 2
+};
+
+@interface NSScroller : NSControl
++ (CGFloat)scrollerWidthForControlSize:(NSControlSize)controlSize scrollerStyle:(NSScrollerStyle)scrollerStyle;
+@property (class, readonly) NSScrollerStyle preferredScrollerStyle;
+@property (class, readonly, getter=isCompatibleWithOverlayScrollers) BOOL compatibleWithOverlayScrollers;
+@property double doubleValue;
+@property CGFloat knobProportion;
+@property NSScrollerStyle scrollerStyle;
+@property NSScrollerKnobStyle knobStyle;
+@end
+
+@interface NSClipView : NSView
+@property (nullable, strong) __kindof NSView *documentView;
+@property BOOL drawsBackground;
+@property (copy) NSColor *backgroundColor;
+@property NSEdgeInsets contentInsets;
+@property BOOL automaticallyAdjustsContentInsets;
+@property (readonly) NSRect documentRect;
+@property (readonly) NSRect documentVisibleRect;
+- (NSRect)constrainBoundsRect:(NSRect)proposedBounds;
+- (void)scrollToPoint:(NSPoint)newOrigin;
+@end
+
+@interface NSScrollView : NSView
+@property (strong) NSClipView *contentView;
+@property (nullable, strong) __kindof NSView *documentView;
+@property (readonly) NSSize contentSize;
+@property (readonly) NSRect documentVisibleRect;
+@property NSEdgeInsets contentInsets;
+@property BOOL automaticallyAdjustsContentInsets;
+@property NSEdgeInsets scrollerInsets;
+@property BOOL drawsBackground;
+@property (copy) NSColor *backgroundColor;
+@property NSBorderType borderType;
+@property BOOL hasVerticalScroller;
+@property BOOL hasHorizontalScroller;
+@property (nullable, strong) NSScroller *verticalScroller;
+@property (nullable, strong) NSScroller *horizontalScroller;
+@property BOOL autohidesScrollers;
+@property NSScrollerStyle scrollerStyle;
+@property NSScrollElasticity verticalScrollElasticity;
+@property NSScrollElasticity horizontalScrollElasticity;
+@property BOOL usesPredominantAxisScrolling;
+@property BOOL allowsMagnification;
+@property CGFloat magnification;
+@property CGFloat lineScroll;
+@property CGFloat verticalLineScroll;
+@property CGFloat horizontalLineScroll;
+- (void)tile;
+- (void)flashScrollers;
+- (void)reflectScrolledClipView:(NSClipView *)clipView;
+@end
+
+@interface NSView (BittenScrolling)
+- (void)scrollPoint:(NSPoint)point;
+- (BOOL)scrollRectToVisible:(NSRect)rect;
+@end
+
+@protocol NSAccessibility <NSObject>
+@end
+@interface NSResponder (BittenAccessibility) <NSAccessibility>
+@property (nullable, copy) NSString * accessibilityLabel;
+@property (nullable, copy) NSString * accessibilityTitle;
+@property (nullable, copy) NSString * accessibilityHelp;
+@property (nullable, strong) id accessibilityValue;
+@property (nullable, copy) NSAccessibilityRole accessibilityRole;
+@property (nullable, copy) NSString * accessibilitySubrole;
+@property (nullable, copy) NSString * accessibilityRoleDescription;
+@property (nullable, copy) NSString * accessibilityIdentifier;
+@property (nullable, copy) NSString * accessibilityPlaceholderValue;
+@property (nullable, copy) NSString * accessibilityValueDescription;
+@property (nullable, copy) NSArray * accessibilityChildren;
+@property (nullable, copy) NSArray * accessibilityCustomActions;
+@property (nullable, copy) NSArray * accessibilitySelectedChildren;
+@property (nullable, weak) id accessibilityParent;
+@property (nullable, strong) id accessibilityMinValue;
+@property (nullable, strong) id accessibilityMaxValue;
+@property (nullable, copy) NSArray * accessibilityRows;
+@property (nullable, copy) NSArray * accessibilitySelectedRows;
+@property (nullable, copy) NSArray * accessibilityVisibleRows;
+@property (nullable, copy) NSString * accessibilitySelectedText;
+@property (nullable, strong) NSNumber * accessibilityOrientation;
+@property (nullable, strong) NSNumber * accessibilityIndex;
+@property (getter=isAccessibilityElement) BOOL accessibilityElement;
+@property (getter=isAccessibilityEnabled) BOOL accessibilityEnabled;
+@property (getter=isAccessibilityHidden) BOOL accessibilityHidden;
+@property (getter=isAccessibilitySelected) BOOL accessibilitySelected;
+@property (getter=isAccessibilityFocused) BOOL accessibilityFocused;
+@property (getter=isAccessibilityExpanded) BOOL accessibilityExpanded;
+@property (readonly) NSRect accessibilityFrame;
+- (BOOL)accessibilityPerformPress;
+- (BOOL)accessibilityPerformIncrement;
+- (BOOL)accessibilityPerformDecrement;
+- (nullable id)accessibilityHitTest:(NSPoint)point;
+@property (nullable, readonly) id accessibilityFocusedUIElement;
+@end
+@interface NSMenuItem (BittenAccessibility) <NSAccessibility>
+@property (nullable, copy) NSString * accessibilityLabel;
+@property (nullable, copy) NSString * accessibilityTitle;
+@property (nullable, copy) NSString * accessibilityHelp;
+@property (nullable, strong) id accessibilityValue;
+@property (nullable, copy) NSAccessibilityRole accessibilityRole;
+@property (nullable, copy) NSString * accessibilitySubrole;
+@property (nullable, copy) NSString * accessibilityRoleDescription;
+@property (nullable, copy) NSString * accessibilityIdentifier;
+@property (nullable, copy) NSString * accessibilityPlaceholderValue;
+@property (nullable, copy) NSString * accessibilityValueDescription;
+@property (nullable, copy) NSArray * accessibilityChildren;
+@property (nullable, copy) NSArray * accessibilityCustomActions;
+@property (nullable, copy) NSArray * accessibilitySelectedChildren;
+@property (nullable, weak) id accessibilityParent;
+@property (nullable, strong) id accessibilityMinValue;
+@property (nullable, strong) id accessibilityMaxValue;
+@property (nullable, copy) NSArray * accessibilityRows;
+@property (nullable, copy) NSArray * accessibilitySelectedRows;
+@property (nullable, copy) NSArray * accessibilityVisibleRows;
+@property (nullable, copy) NSString * accessibilitySelectedText;
+@property (nullable, strong) NSNumber * accessibilityOrientation;
+@property (nullable, strong) NSNumber * accessibilityIndex;
+@property (getter=isAccessibilityElement) BOOL accessibilityElement;
+@property (getter=isAccessibilityEnabled) BOOL accessibilityEnabled;
+@property (getter=isAccessibilityHidden) BOOL accessibilityHidden;
+@property (getter=isAccessibilitySelected) BOOL accessibilitySelected;
+@property (getter=isAccessibilityFocused) BOOL accessibilityFocused;
+@property (getter=isAccessibilityExpanded) BOOL accessibilityExpanded;
+@property (readonly) NSRect accessibilityFrame;
+- (BOOL)accessibilityPerformPress;
+- (BOOL)accessibilityPerformIncrement;
+- (BOOL)accessibilityPerformDecrement;
+- (nullable id)accessibilityHitTest:(NSPoint)point;
+@property (nullable, readonly) id accessibilityFocusedUIElement;
+@end
+@interface NSMenu (BittenAccessibility) <NSAccessibility>
+@property (nullable, copy) NSString * accessibilityLabel;
+@property (nullable, copy) NSString * accessibilityTitle;
+@property (nullable, copy) NSString * accessibilityHelp;
+@property (nullable, strong) id accessibilityValue;
+@property (nullable, copy) NSAccessibilityRole accessibilityRole;
+@property (nullable, copy) NSString * accessibilitySubrole;
+@property (nullable, copy) NSString * accessibilityRoleDescription;
+@property (nullable, copy) NSString * accessibilityIdentifier;
+@property (nullable, copy) NSString * accessibilityPlaceholderValue;
+@property (nullable, copy) NSString * accessibilityValueDescription;
+@property (nullable, copy) NSArray * accessibilityChildren;
+@property (nullable, copy) NSArray * accessibilityCustomActions;
+@property (nullable, copy) NSArray * accessibilitySelectedChildren;
+@property (nullable, weak) id accessibilityParent;
+@property (nullable, strong) id accessibilityMinValue;
+@property (nullable, strong) id accessibilityMaxValue;
+@property (nullable, copy) NSArray * accessibilityRows;
+@property (nullable, copy) NSArray * accessibilitySelectedRows;
+@property (nullable, copy) NSArray * accessibilityVisibleRows;
+@property (nullable, copy) NSString * accessibilitySelectedText;
+@property (nullable, strong) NSNumber * accessibilityOrientation;
+@property (nullable, strong) NSNumber * accessibilityIndex;
+@property (getter=isAccessibilityElement) BOOL accessibilityElement;
+@property (getter=isAccessibilityEnabled) BOOL accessibilityEnabled;
+@property (getter=isAccessibilityHidden) BOOL accessibilityHidden;
+@property (getter=isAccessibilitySelected) BOOL accessibilitySelected;
+@property (getter=isAccessibilityFocused) BOOL accessibilityFocused;
+@property (getter=isAccessibilityExpanded) BOOL accessibilityExpanded;
+@property (readonly) NSRect accessibilityFrame;
+- (BOOL)accessibilityPerformPress;
+- (BOOL)accessibilityPerformIncrement;
+- (BOOL)accessibilityPerformDecrement;
+- (nullable id)accessibilityHitTest:(NSPoint)point;
+@property (nullable, readonly) id accessibilityFocusedUIElement;
+@end
+
+typedef NS_ENUM(NSInteger, NSTextAlignment) {
+    NSTextAlignmentLeft = 0, NSTextAlignmentCenter = 1, NSTextAlignmentRight = 2, NSTextAlignmentJustified = 3,
+    NSTextAlignmentNatural = 4
+};
+typedef NS_ENUM(NSInteger, NSLineBreakMode) {
+    NSLineBreakByWordWrapping = 0, NSLineBreakByCharWrapping, NSLineBreakByClipping, NSLineBreakByTruncatingHead,
+    NSLineBreakByTruncatingTail, NSLineBreakByTruncatingMiddle
+};
+typedef NS_OPTIONS(NSInteger, NSStringDrawingOptions) {
+    NSStringDrawingUsesLineFragmentOrigin = 1 << 0, NSStringDrawingUsesFontLeading = 1 << 1,
+    NSStringDrawingUsesDeviceMetrics = 1 << 3, NSStringDrawingTruncatesLastVisibleLine = 1 << 5
+};
+typedef float NSLayoutPriority NS_SWIFT_NAME(NSLayoutConstraint.Priority);
+typedef NS_ENUM(NSInteger, NSLayoutConstraintOrientation) {
+    NSLayoutConstraintOrientationHorizontal = 0, NSLayoutConstraintOrientationVertical = 1
+};
+typedef NS_ENUM(NSUInteger, NSTextFieldBezelStyle) { NSTextFieldSquareBezel = 0, NSTextFieldRoundedBezel = 1 };
+
+@interface NSAttributedString (NSStringDrawing)
+@property (readonly) NSSize size;
+- (void)drawAtPoint:(NSPoint)point;
+- (void)drawInRect:(NSRect)rect;
+- (NSRect)boundingRectWithSize:(NSSize)size options:(NSStringDrawingOptions)options context:(nullable id)context;
+@end
+@interface NSString (NSStringDrawing)
+- (NSSize)sizeWithAttributes:(nullable NSDictionary<NSAttributedStringKey, id> *)attrs;
+- (void)drawAtPoint:(NSPoint)point withAttributes:(nullable NSDictionary<NSAttributedStringKey, id> *)attrs;
+- (void)drawInRect:(NSRect)rect withAttributes:(nullable NSDictionary<NSAttributedStringKey, id> *)attrs;
+- (NSRect)boundingRectWithSize:(NSSize)size options:(NSStringDrawingOptions)options
+                    attributes:(nullable NSDictionary<NSAttributedStringKey, id> *)attributes context:(nullable id)context;
+@end
+
+@class NSText;
+@interface NSControl (BittenText)
+@property NSTextAlignment alignment;
+@property NSLineBreakMode lineBreakMode;
+@property NSControlSize controlSize;
+@property (getter=isHighlighted) BOOL highlighted;
+@property NSInteger tag;
+@property (nullable, copy) id objectValue;
+@property (copy) NSAttributedString *attributedStringValue;
+@property BOOL refusesFirstResponder;
+- (BOOL)sendAction:(nullable SEL)action to:(nullable id)target;
+- (void)sizeToFit;
+@property (nullable, readonly) id cell;
+@property (nullable, readonly) NSText *currentEditor;
+@end
+@interface NSView (BittenLayoutPriority)
+- (NSLayoutPriority)contentHuggingPriorityForOrientation:(NSLayoutConstraintOrientation)orientation;
+- (void)setContentHuggingPriority:(NSLayoutPriority)priority forOrientation:(NSLayoutConstraintOrientation)orientation;
+- (NSLayoutPriority)contentCompressionResistancePriorityForOrientation:(NSLayoutConstraintOrientation)orientation;
+- (void)setContentCompressionResistancePriority:(NSLayoutPriority)priority
+                                 forOrientation:(NSLayoutConstraintOrientation)orientation;
+@end
+
+@class NSTextField;
+@protocol NSTextFieldDelegate <NSObject>
+@optional
+- (void)controlTextDidChange:(NSNotification *)obj;
+- (void)controlTextDidBeginEditing:(NSNotification *)obj;
+- (void)controlTextDidEndEditing:(NSNotification *)obj;
+@end
+@interface NSTextField : NSControl
++ (instancetype)labelWithString:(NSString *)stringValue;
++ (instancetype)wrappingLabelWithString:(NSString *)stringValue;
++ (instancetype)labelWithAttributedString:(NSAttributedString *)attributedStringValue;
++ (instancetype)textFieldWithString:(NSString *)stringValue;
+@property (null_resettable, copy) NSColor *textColor;
+@property (nullable, copy) NSColor *backgroundColor;
+@property (getter=isEditable) BOOL editable;
+@property (getter=isSelectable) BOOL selectable;
+@property (getter=isBordered) BOOL bordered;
+@property (getter=isBezeled) BOOL bezeled;
+@property NSTextFieldBezelStyle bezelStyle;
+@property BOOL drawsBackground;
+@property NSInteger maximumNumberOfLines;
+@property BOOL usesSingleLineMode;
+@property BOOL truncatesLastVisibleLine;
+@property BOOL wraps;
+- (void)setScrollable:(BOOL)flag;
+- (void)setAllowsDefaultTighteningForTruncation:(BOOL)flag;
+- (void)setImportsGraphics:(BOOL)flag;
+- (void)setAllowsEditingTextAttributes:(BOOL)flag;
+@property (nullable, copy) NSString *placeholderString;
+@property (nullable, copy) NSAttributedString *placeholderAttributedString;
+@property CGFloat preferredMaxLayoutWidth;
+@property (nullable, weak) id<NSTextFieldDelegate> delegate;
+@end

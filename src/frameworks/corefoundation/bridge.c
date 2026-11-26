@@ -191,6 +191,8 @@ PUBLIC_CLASS(NSError);
 PUBLIC_CLASS(NSNull);
 PUBLIC_CLASS(NSLocale);
 PUBLIC_CLASS(NSURL);
+PUBLIC_CLASS(NSAttributedString);
+PUBLIC_CLASS(NSMutableAttributedString);
 
 static Class public_class(Class storage, Class meta, Class super, const char *name) {
     Class c = make_class(storage, meta, super, name, 0);
@@ -217,6 +219,7 @@ __attribute__((constructor(102))) static void bridge_init(void) {
     Class value = PUB(NSValue, root), number = PUB(NSNumber, value);
     Class date = PUB(NSDate, root), error = PUB(NSError, root), null = PUB(NSNull, root);
     Class locale = PUB(NSLocale, root), url = PUB(NSURL, root);
+    Class attr = PUB(NSAttributedString, root), mattr = PUB(NSMutableAttributedString, attr);
 #undef PUB
     Class generic = public_class(calloc(1, sizeof(struct objc_class)), calloc(1, sizeof(struct objc_class)),
                                  root, "__NSCFType");
@@ -252,7 +255,7 @@ __attribute__((constructor(102))) static void bridge_init(void) {
     cf_class(CF_CG_GRADIENT, generic, "__NSCFCGGradient");
     cf_class(CF_CG_PROVIDER, generic, "__NSCFCGDataProvider");
     cf_class(CF_CG_EVENT, generic, "__NSCFCGEvent");
-    cf_class(CF_ATTRIBUTED_STRING, generic, "__NSCFAttributedString");
+    cf_class(CF_ATTRIBUTED_STRING, mattr, "__NSCFAttributedString");
     cf_class(CF_CT_FONT, generic, "__NSCFCTFont");
     cf_class(CF_CT_DESCRIPTOR, generic, "__NSCFCTFontDescriptor");
     cf_class(CF_CT_LINE, generic, "__NSCFCTLine");

@@ -5,8 +5,6 @@
 #pragma clang assume_nonnull begin
 @interface NSButton : NSControl
 @end
-@interface NSTextField : NSControl
-@end
 @interface NSSecureTextField : NSTextField
 @end
 @interface NSImageView : NSControl
@@ -15,15 +13,9 @@
 @end
 @interface NSSegmentedControl : NSControl
 @end
-@interface NSScroller : NSControl
-@end
 @interface NSText : NSView
 @end
 @interface NSTextView : NSText
-@end
-@interface NSClipView : NSView
-@end
-@interface NSScrollView : NSView
 @end
 @interface NSProgressIndicator : NSView
 @end
