@@ -2596,3 +2596,20 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   `ancestorSharedWithView:`.
 - Target app window (total `^MISSING`): 221 -> 221 (run-time gaps only;
   the app now stops at Auto Layout, `-[NSView widthAnchor]`).
+
+## Toolbars, popovers, alerts, the status bar
+
+- AppKit: NSToolbar built from its delegate (default identifiers, items
+  made by the delegate, standard space items, insert/remove with the
+  will-add/did-remove notifications, validation, centering), NSToolbarItem,
+  NSToolbarItemGroup, NSMenuToolbarItem; NSTitlebarAccessoryViewController;
+  NSPopover as a borderless child window beside its anchor (show/close,
+  delegate, notifications); NSAlert laid out in a panel (message,
+  informative text, accessory, suppression button, buttons right to left
+  with return/escape) run modally or as a sheet; NSStatusBar, NSStatusItem,
+  NSStatusBarButton. NSLayoutAttribute, toolbar identifiers and
+  notifications.
+- Test: tests/appkit/controls.m (buttons, segments, text fields, scroll
+  views, toolbars, alerts, popovers, status items, colour spaces, dynamic
+  colours, string sizing).
+- Target app window (total `^MISSING`): 221 -> 221 (run-time classes only).
