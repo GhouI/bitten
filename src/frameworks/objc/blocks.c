@@ -177,3 +177,8 @@ static const char *d__Block_signature(void *block) {
     return (b->flags & BLOCK_HAS_COPY_DISPOSE) ? d[4] : d[2];
 }
 DX_FN(_Block_signature);
+
+/* NSInvocation's call (invoke.S): exported under the name Foundation links. */
+void dx_objc_invoke_impl(void (*fn)(void), const uint64_t gp[6], const double fp[8], const uint64_t *stack,
+                         size_t nstack, uint64_t out[4]);
+DX_EXPORT("_dx_objc_invoke", dx_objc_invoke_impl);
