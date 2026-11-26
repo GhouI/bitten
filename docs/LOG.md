@@ -1852,3 +1852,20 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Tests: streams and groups in `tests/swiftlib/async`.
 - Target app window (total `^MISSING`): 2,632 -> 2,537. It now stops at
   UserNotifications' `UNNotificationCategory`.
+
+## 2026-11-26: UserNotifications (PR: usernotifications)
+
+- `frameworks/UserNotifications` (Objective-C over Foundation, built like
+  AppKit) and `sdk/include/UserNotifications`: the notification center
+  (`currentNotificationCenter`, authorization, settings, categories,
+  adding, listing and removing pending and delivered notifications, badge
+  count, the delegate), content and mutable content, sounds, attachments,
+  requests, time-interval, calendar and push triggers, actions,
+  categories, settings, responses. There is no notification server:
+  authorization is granted, a delivered notification is written to
+  standard error and kept, time-interval triggers fire, the delegate hears
+  of each delivery on the main queue.
+- `tests/usernotifications` (new test directory, run by `make check`).
+- The target app's run stopped at `+[UNNotificationCategory self]`; it now
+  goes on to `+[NSWorkspace sharedWorkspace]` (AppKit).
+- Target app window (total `^MISSING`): 2,536 -> 2,526.

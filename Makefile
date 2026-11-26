@@ -108,6 +108,30 @@ $(APPKIT): $(APPKIT_OBJS) $(FOUNDATION) $(BUILD)/sdk/libSystem.tbd
 	    -install_name /System/Library/Frameworks/AppKit.framework/Versions/C/AppKit \
 	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) -o $@ $(APPKIT_OBJS)
 
+# ---- UserNotifications -------------------------------------------------------
+# Objective-C over Foundation, like AppKit (frameworks/UserNotifications).
+USERNOTIFICATIONS := $(FW_ROOT)/System/Library/Frameworks/UserNotifications.framework/Versions/A/UserNotifications
+FRAMEWORKS += $(if $(HAVE_MACHO),$(USERNOTIFICATIONS))
+all: $(if $(HAVE_MACHO),$(USERNOTIFICATIONS))
+UN_OBJS := $(patsubst frameworks/UserNotifications/%.m,$(BUILD)/fw/UserNotifications/%.o,$(wildcard frameworks/UserNotifications/*.m))
+$(BUILD)/fw/UserNotifications/%.o: frameworks/UserNotifications/%.m $(wildcard sdk/include/UserNotifications/*.h sdk/include/Foundation/*.h)
+	@mkdir -p $(dir $@)
+	$(MACHO_CC) $(FW_CFLAGS) -c -o $@ $<
+$(USERNOTIFICATIONS): $(UN_OBJS) $(FOUNDATION) $(BUILD)/sdk/libSystem.tbd
+	@mkdir -p $(dir $@)
+	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
+	    -install_name /System/Library/Frameworks/UserNotifications.framework/Versions/A/UserNotifications \
+	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) -o $@ $(UN_OBJS)
+
+# UserNotifications tests, like the AppKit ones.
+TEST_UN     := $(wildcard tests/usernotifications/*.m)
+TEST_UNBINS := $(if $(HAVE_MACHO),$(patsubst tests/usernotifications/%.m,$(BUILD)/tests/usernotifications/%,$(TEST_UN)))
+$(BUILD)/tests/usernotifications/%: tests/usernotifications/%.m $(USERNOTIFICATIONS) $(wildcard sdk/include/*/*.h)
+	@mkdir -p $(dir $@)
+	$(MACHO_CC) $(FW_CFLAGS) -O1 -c -o $@.o $<
+	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -e _main \
+	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) $(USERNOTIFICATIONS) -o $@ $@.o
+
 # AppKit tests, like the Foundation ones.
 TEST_APPKIT     := $(wildcard tests/appkit/*.m)
 TEST_APPKITBINS := $(if $(HAVE_MACHO),$(patsubst tests/appkit/%.m,$(BUILD)/tests/appkit/%,$(TEST_APPKIT)))
@@ -367,9 +391,9 @@ $(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTC
 	$(MACHO_LD) -arch x86_64 -platform_version macos $(call swlib_macos,$*) $(call swlib_macos,$*) -e _main \
 	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(OVERLAY_LIBS) $(SWLIB_LIBS_$*) -o $@ $@.o $@.swift.o
 
-test-bins: $(TEST_APPKITBINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
+test-bins: $(TEST_APPKITBINS) $(TEST_UNBINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
 
-check: $(BUILD)/mrun $(FRAMEWORKS) $(TEST_APPKITBINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
+check: $(BUILD)/mrun $(FRAMEWORKS) $(TEST_APPKITBINS) $(TEST_UNBINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
 	BUILD=$(BUILD) tests/run.sh
 
 check-dmgx:
