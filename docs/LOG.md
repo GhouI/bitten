@@ -2798,3 +2798,37 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Test: tests/swiftlib/calendar (calendar arithmetic, plist round trips,
   UTF-16 ranges).
 - Target app window (total `^MISSING`): 108 -> 62.
+## Apple events and Cocoa scripting
+
+- Foundation: NSAppleEventDescriptor.
+  - **Values:** text (UTF-16), integers, doubles, booleans, type and enum
+    codes, dates (seconds since 1904) and file URLs, with coercions
+    between them.
+  - **Containers:** one-based lists, keyword records, and Apple events
+    with parameters and attributes (class, ID, return and transaction
+    IDs, target).
+  - **Sending:** `sendEventWithOptions:timeout:error:` to this process.
+- NSAppleEventManager: `setEventHandler:andSelector:forEventClass:andEventID:`
+  (wildcards included), removing handlers, the current event and reply,
+  and suspension.
+- Cocoa scripting:
+  - **Classes:** NSScriptCommand (arguments, direct parameter, receivers,
+    evaluation, `executeCommand` calling the receivers' handler method or
+    `performDefaultImplementation`, script errors, suspension),
+    NSScriptCommandDescription, NSClassDescription and
+    NSScriptClassDescription.
+  - **Standard commands:** count, exists, get, set, quit, close, delete,
+    make, move and duplicate.
+  - **Object specifiers:** property, index, name and unique-ID, converted
+    to and from 'obj ' descriptors and evaluated by key-value coding.
+  - **sdef dispatch:** an event with no handler goes to the command its
+    sdef (`OSAScriptingDefinition`) declares. The sdef is read on first
+    use, the command class is created and given its parameters by code,
+    and its result or error becomes the reply.
+  - **Tested** against the target app's own sdef (count, its own
+    commands, and an unknown event, which gets -1708).
+- There is no transport between processes: only events sent within the
+  process arrive. Test: tests/foundation/appleevents.
+- Target app window (total `^MISSING`): 62 -> 55. The app now gets past
+  `+[NSAppleEventManager sharedAppleEventManager]`, to
+  `-[NSWindow occlusionState]`.
