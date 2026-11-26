@@ -2953,7 +2953,6 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   (its server start fails next: it runs `/bin/launchctl`).
 - Target app window (total `^MISSING`): 30 -> 30.
 
-
 ## Networking: URLSession, URLRequest, WebSockets
 
 - Foundation: NSURLRequest and NSMutableURLRequest (headers matched
@@ -3565,6 +3564,7 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Test: tests/c/login.c.
 - Target app (total `^MISSING`): 2 -> 2. The workspace's shell pane now
   runs bash.
+
 ## XML: NSXMLParser, NSXMLDocument and XPath; NSError bridges to Error
 
 - Foundation (NSXML.m): one XML 1.0 reader (the declaration and its
@@ -3591,3 +3591,20 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Tests: tests/foundation/xml.m, tests/swiftlib/xml, more of
   tests/swiftlib/coregraphics.
 - Target app (total `^MISSING`): 2 -> 0. Every import resolves.
+
+## AppKit: key events carry Mac characters for special keys
+
+- Keys that type no text of their own now carry the characters a Mac
+  reports. Return is "\r", Tab "\t", Delete 0x7F, Escape 0x1B, and keypad
+  Enter 0x03. The arrows, Home/End, Page Up/Down, forward delete and
+  F1-F12 use the function-key range (NSUpArrowFunctionKey...). With Control
+  held, a letter (or @[\]^_) gives its control character in `characters`,
+  while `charactersIgnoringModifiers` keeps the key's own. Before, Return
+  arrived with no characters, so terminal views never sent a newline.
+- `BITTEN_EVENT_DEBUG` logs each key down and the responder it goes to.
+  `BITTEN_VIEW_TREE` marks flipped views.
+- Checked in the target app: typing `touch <file>` and Return into its
+  terminal pane creates the file (keys reach the shell through the
+  terminal view, its server and the pty).
+- Target app (total `^MISSING`): 2 -> 2.
+

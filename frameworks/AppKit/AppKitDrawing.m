@@ -387,8 +387,9 @@ static void bn_layer_border(BNBackingLayer *layer, CGContextRef c, CGRect b) {
 
 /* BITTEN_VIEW_TREE=1 prints each window's view hierarchy as it is drawn. */
 static void bn_dump_tree(NSView *v, int depth) {
-    fprintf(stderr, "%*s%s %s%s layer=%s%s constraints=%lu\n", depth * 2, "", object_getClassName(v),
-            NSStringFromRect(v.frame).UTF8String, v.isHidden ? " hidden" : "", v.layer ? object_getClassName(v.layer) : "-",
+    fprintf(stderr, "%*s%s %s%s%s layer=%s%s constraints=%lu\n", depth * 2, "", object_getClassName(v),
+            NSStringFromRect(v.frame).UTF8String, v.isHidden ? " hidden" : "", v.isFlipped ? " flipped" : "",
+            v.layer ? object_getClassName(v.layer) : "-",
             v.translatesAutoresizingMaskIntoConstraints ? "" : " AL", (unsigned long)v.constraints.count);
     if (v.layer) {
         CALayer *l = (CALayer *)v.layer;
