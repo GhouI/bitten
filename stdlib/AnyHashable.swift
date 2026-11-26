@@ -115,3 +115,18 @@ extension Optional: _AnyHashableOptional where Wrapped: Hashable {
 public func _convertToAnyHashable<H: Hashable>(_ value: H) -> AnyHashable {
   return AnyHashable(value)
 }
+
+// Called by the runtime's dynamic casts (casts.c) for `x as AnyHashable`
+// and `anyHashable as? T`.
+@_silgen_name("_swift_convertToAnyHashableIndirect")
+public func _convertToAnyHashableIndirect<H: Hashable>(_ value: H, _ target: UnsafeMutablePointer<AnyHashable>) {
+  target.initialize(to: AnyHashable(value))
+}
+
+@_silgen_name("_swift_anyHashableDownCastConditionalIndirect")
+public func _anyHashableDownCastConditionalIndirect<T>(_ value: UnsafePointer<AnyHashable>,
+                                                       _ target: UnsafeMutablePointer<T>) -> Bool {
+  guard let t = value.pointee.base as? T else { return false }
+  target.initialize(to: t)
+  return true
+}

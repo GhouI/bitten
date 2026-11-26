@@ -81,7 +81,7 @@ var failures = 0
   let s: StaticString = "static"
   expect(s.description, "static", 1 << 19, &bad)
   expect(String(describing: opaque(Box())), "printing.Box", 1 << 20, &bad)
-  expect(String(describing: opaque(Point())), "Point", 1 << 21, &bad)
+  expect(String(describing: opaque(Point())), "Point(x: 1, y: 2)", 1 << 21, &bad)
   expect(String(describing: opaque([Optional(1), nil])), "[Optional(1), nil]", 1 << 22, &bad)
   let any: Any = opaque(4.5)
   expect(String(describing: any), "4.5", 1 << 23, &bad)

@@ -126,6 +126,11 @@ struct static_init {
     sw_heap_object *o;
     const sw_metadata *m;
 };
+/* An absolute symbol in Apple's runtime: its address is the refcount word
+ * statically initialized objects carry, so binding it hands programs the
+ * immortal pattern itself. */
+DX_EXPORT("_swiftImmortalRefCount", RC_IMMORTAL);
+
 static void init_static_object(void *ctx) {
     struct static_init *si = ctx;
     si->o->metadata = si->m;

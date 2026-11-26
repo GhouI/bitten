@@ -291,6 +291,10 @@ static void check_index(NSString *s, NSUInteger index, const char *what) {
 - (NSData *)dataUsingEncoding:(NSStringEncoding)e {
     return (__bridge_transfer NSData *)CFStringCreateExternalRepresentation(NULL, CFS(self), BNCFEncoding(e), 0);
 }
+- (NSData *)dataUsingEncoding:(NSStringEncoding)e allowLossyConversion:(BOOL)lossy {
+    return (__bridge_transfer NSData *)CFStringCreateExternalRepresentation(NULL, CFS(self), BNCFEncoding(e), lossy ? '?' : 0);
+}
+- (BOOL)canBeConvertedToEncoding:(NSStringEncoding)e { return [self dataUsingEncoding:e] != nil; }
 
 - (id)copyWithZone:(NSZone *)zone { return (__bridge_transfer id)CFStringCreateCopy(NULL, CFS(self)); }
 - (id)mutableCopyWithZone:(NSZone *)zone { return (__bridge_transfer id)CFStringCreateMutableCopy(NULL, 0, CFS(self)); }

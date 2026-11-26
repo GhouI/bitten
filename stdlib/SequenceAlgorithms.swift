@@ -137,14 +137,7 @@ extension Sequence where Element: Equatable {
   }
 }
 
-extension Sequence where Element: Sequence {
-  @inlinable
-  public __consuming func joined() -> [Element.Element] {
-    var result: [Element.Element] = []
-    for s in self { result.append(contentsOf: s) }
-    return result
-  }
-}
+
 
 extension Collection {
   @inlinable

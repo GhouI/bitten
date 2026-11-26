@@ -89,8 +89,8 @@ public enum DecodingError: Error {
   case keyNotFound(any CodingKey, Context)
   case dataCorrupted(Context)
 
-  public static func dataCorruptedError<C: CodingKey>(forKey key: C, in container: KeyedDecodingContainer<C>,
-                                                      debugDescription: String) -> DecodingError {
+  public static func dataCorruptedError<C: KeyedDecodingContainerProtocol>(forKey key: C.Key, in container: C,
+                                                                          debugDescription: String) -> DecodingError {
     return .dataCorrupted(Context(codingPath: container.codingPath + [key], debugDescription: debugDescription))
   }
   public static func dataCorruptedError(in container: any UnkeyedDecodingContainer, debugDescription: String) -> DecodingError {

@@ -119,6 +119,7 @@ static size_t field_offsets_word(const sw_class_descriptor *d) {
     class_info(d, &ci);
     return d->field_offset_vector_offset + (ci.resilient_super ? imm_word(d) : 0);
 }
+size_t sw_class_field_offsets_word(const sw_class_descriptor *d) { return field_offsets_word(d); }
 static size_t vtable_word(const sw_class_descriptor *d, const struct class_info *ci) {
     return ci->vtable->offset + (ci->resilient_super ? imm_word(d) : 0);
 }

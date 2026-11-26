@@ -299,6 +299,16 @@ static const sw_witness_table *find(const sw_metadata *type, const sw_protocol_d
 
 const sw_witness_table *sw_conforms_to(const sw_metadata *type, const sw_protocol_descriptor *proto) {
     if (!type || !proto) return NULL;
+    /* `any Error` conforms to Error itself (Result<T, any Error>), through
+     * the standard library's self-conformance witness table. */
+    if (sw_kind(type) == SW_KIND_EXISTENTIAL &&
+        ((((const sw_existential_metadata *)type)->flags >> 24) & 0x3F) == 1) {
+        static const sw_protocol_descriptor *error_proto;
+        static const sw_witness_table *error_self;
+        if (!error_proto) error_proto = dx_global_lookup("_$ss5ErrorMp");
+        if (!error_self) error_self = dx_global_lookup("_$ss5ErrorWS");
+        if (proto == error_proto && error_self) return error_self;
+    }
     pthread_once(&once, init_index);
     pthread_mutex_lock(&lock);
     int found;

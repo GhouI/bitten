@@ -122,7 +122,11 @@ void sw_error_value(const void *error, void **scratch, const sw_opaque **value, 
     *scratch = (void *)error;
     *value = (const sw_opaque *)scratch;
     *type = objc_object_type(error);
-    *conformance = NULL; /* NSError's Error conformance comes with Foundation's overlay */
+    /* An Objective-C error is an NSError, whose Error conformance comes with
+     * Foundation's overlay (`extension NSError: Error`). */
+    static const sw_protocol_descriptor *error_proto;
+    if (!error_proto) error_proto = dx_global_lookup("_$ss5ErrorMp");
+    *conformance = *type && error_proto ? sw_conforms_to(*type, error_proto) : NULL;
 }
 
 static void d_swift_getErrorValue(const void *error, void **scratch, error_value *out) {
@@ -227,3 +231,21 @@ static void d_swift_unexpectedError(const void *error, const char *file, long fi
     abort();
 }
 DX_FN(swift_unexpectedError);
+
+/* An error as an NSError: Foundation's overlay does the conversion
+ * (_convertErrorToNSError, taking the error existential's single word). */
+static void *d__swift_stdlib_bridgeErrorToNSError(void *error) {
+    static void *(*convert)(void *);
+    if (!convert) convert = (void *(*)(void *))dx_global_lookup("_$s10Foundation22_convertErrorToNSErrorySo0E0Cs0C0_pF");
+    if (!convert) dx_fatal("swift: bridging an error to NSError needs Foundation");
+    return convert(error);
+}
+DX_FN(_swift_stdlib_bridgeErrorToNSError);
+
+/* The OS version as SwiftShims declares it (a C struct of three words);
+ * bitten presents macOS 15.0. */
+struct sw_os_version { intptr_t major, minor, patch; };
+static struct sw_os_version d__swift_stdlib_operatingSystemVersion(void) {
+    return (struct sw_os_version){15, 0, 0};
+}
+DX_FN(_swift_stdlib_operatingSystemVersion);

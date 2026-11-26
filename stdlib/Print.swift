@@ -118,10 +118,38 @@ internal func _adHocPrint_unlocked<T, TargetStream: TextOutputStream>(
   let type = type(of: value as Any)
   let p: Builtin.RawPointer = Builtin.reinterpretCast(type)
   let kind: Int = Builtin.load(p)
+  // A metatype prints the type it names (qualified for debugPrint).
+  if kind == 0x304 || kind == 0x306, let named = value as? Any.Type {
+    target.write(_typeName(named, qualified: isDebugPrint))
+    return
+  }
   // Classes (kind 0 is a Swift class's isa, > 0x7FF an ObjC class pointer)
-  // show their qualified name, everything else its plain name.
+  // show their qualified name.
   let isClass = kind == 0 || kind > 0x7FF || kind == 0x305
-  target.write(_typeName(type, qualified: isClass))
+  if isClass {
+    target.write(_typeName(type, qualified: true))
+    return
+  }
+  // Structs and tuples show their stored properties; enums their case.
+  let mirror = Mirror(reflecting: value)
+  switch mirror.displayStyle {
+  case .some(.struct), .some(.tuple):
+    if mirror.displayStyle == .struct { target.write(_typeName(type, qualified: isDebugPrint)) }
+    target.write("(")
+    var first = true
+    for child in mirror.children {
+      if !first { target.write(", ") }
+      first = false
+      if let label = child.label, mirror.displayStyle == .struct || !label.isEmpty {
+        target.write(label)
+        target.write(": ")
+      }
+      _debugPrint_unlocked(child.value, &target)
+    }
+    target.write(")")
+  default:
+    target.write(_typeName(type, qualified: isDebugPrint))
+  }
 }
 
 extension String {
