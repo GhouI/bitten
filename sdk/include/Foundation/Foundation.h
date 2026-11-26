@@ -674,6 +674,7 @@ NS_SWIFT_NAME(FileManager)
 - (BOOL)createDirectoryAtPath:(NSString *)path withIntermediateDirectories:(BOOL)intermediates attributes:(nullable NSDictionary *)attributes error:(NSError **)error;
 - (BOOL)createFileAtPath:(NSString *)path contents:(NSData *)data attributes:(NSDictionary *)attributes;
 - (NSData *)contentsAtPath:(NSString *)path;
+- (BOOL)contentsEqualAtPath:(NSString *)path1 andPath:(NSString *)path2;
 - (BOOL)removeItemAtPath:(NSString *)path error:(NSError **)error;
 - (BOOL)copyItemAtPath:(NSString *)source toPath:(NSString *)destination error:(NSError **)error;
 - (BOOL)moveItemAtPath:(NSString *)source toPath:(NSString *)destination error:(NSError **)error;

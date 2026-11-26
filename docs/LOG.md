@@ -753,7 +753,6 @@ for the Swift layer and for the smaller independent items.
   both. No Docker here: `tests/e2e/target-app.sh` not run.
 - The Mac app window (total `^MISSING`): 5,236 -> 5,217.
 
-
 ## 2026-11-25: standard library: Hashable and Hasher (PR: stdlib-hashable)
 
 - `stdlib/Hashing.swift`: `Hashable` (with the default `_rawHashValue(seed:)`
@@ -2938,3 +2937,19 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   instead of called through a null pointer.
 - Target app window: it now runs past its first window and the model
   teardown, to `+[NSMutableURLRequest requestWithURL:]` (networking, next).
+
+## Unbound weak imports, os_release, file comparison
+
+- Loader: `--check` now also lists system weak imports left unbound
+  (`WEAK` lines, not counted as missing). Nearly all are macOS 26 APIs
+  behind availability checks; a weakly imported `swift_task_deinitOnExecutor`
+  was the app's jump to address 0, and this makes the next one visible.
+- libSystem: `os_retain`, `os_release` (OS objects are Objective-C objects
+  here) and `voucher_adopt`.
+- Foundation: `-[NSFileManager contentsEqualAtPath:andPath:]` (bytes,
+  link destinations, directories recursively); test
+  tests/foundation/filecompare.m.
+- The target application now stays up and draws its own SwiftUI window
+  (its server start fails next: it runs `/bin/launchctl`).
+- Target app window (total `^MISSING`): 30 -> 30.
+
