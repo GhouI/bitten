@@ -18,6 +18,7 @@ import Foundation
   if String(localized: v) != "Count: 7 and 8" { bad |= 0x20 }
   if LocalizedStringResource(stringLiteral: "Plain").key != "Plain" { bad |= 0x40 }
   if String(localized: "Plain", table: "NoSuchTable") != "Plain" { bad |= 0x80 }
+  if String(format: "%.2f|%d", CGFloat(2.5), 7) != "2.50|7" { bad |= 0x100 }   // CGFloat: CVarArg
   return bad
 }
 
