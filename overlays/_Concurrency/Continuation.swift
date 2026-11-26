@@ -118,9 +118,7 @@ internal func _bitten_continuationCellDestroy(_ cell: Builtin.RawPointer)
 public struct CheckedContinuation<T, E: Error>: Sendable {
   private let canary: CheckedContinuationCanary
 
-  // Apple's initializer also takes the function name (a String) for its
-  // diagnostics; it comes with String.
-  public init(continuation: UnsafeContinuation<T, E>) {
+  public init(continuation: UnsafeContinuation<T, E>, function: String = #function) {
     canary = CheckedContinuationCanary(continuation.context)
   }
 

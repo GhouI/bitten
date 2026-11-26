@@ -1834,3 +1834,21 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   stores a thrown CocoaError as its NSError, so this is how it comes back.
 - Target app window (total `^MISSING`): 2,690 -> 2,632. It now stops at
   `AsyncStream` in `_Concurrency`.
+
+## 2026-11-26: async sequences, streams, task groups
+
+- `_Concurrency`: `AsyncSequence` and `AsyncIteratorProtocol` with Apple's
+  requirements (typed-throws `next(isolation:)`, `Failure`), `contains`,
+  `first(where:)`, `reduce`, `allSatisfy`, `dropFirst`
+  (`AsyncDropFirstSequence`); `AsyncStream` and `AsyncThrowingStream`
+  (buffering policies, termination handlers, cancellation, `makeStream`,
+  `unfolding:`); `TaskGroup`, `ThrowingTaskGroup`, `DiscardingTaskGroup`
+  (frozen over the runtime's group) and `withTaskGroup`,
+  `withThrowingTaskGroup`, `withDiscardingTaskGroup`; `Clock.continuous` /
+  `.suspending`; `CheckedContinuation(continuation:function:)`.
+- Runtime: a child added with "add pending unconditionally" now counts as
+  pending (task groups saw no children before).
+- Foundation: `NSHost` (`Host`).
+- Tests: streams and groups in `tests/swiftlib/async`.
+- Target app window (total `^MISSING`): 2,632 -> 2,537. It now stops at
+  UserNotifications' `UNNotificationCategory`.
