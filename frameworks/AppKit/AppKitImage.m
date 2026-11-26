@@ -12,6 +12,7 @@ CGImageSourceRef CGImageSourceCreateWithData(CFDataRef data, CFDictionaryRef opt
 CGImageRef CGImageSourceCreateImageAtIndex(CGImageSourceRef src, size_t index, CFDictionaryRef options);
 
 int bn_blend_mode_for_operation(NSCompositingOperation op);
+NSImage *bn_asset_catalog_image(NSBundle *bundle, NSString *name);
 void bn_draw_symbol(CGContextRef c, const char *name, double x, double y, double w, double h, double r,
                     double g, double b, double a, int flipped);
 
@@ -232,10 +233,11 @@ static BOOL asset_catalog_has(NSBundle *bundle, NSString *name) {
     }
     if (!path && name.pathExtension.length) path = [b pathForResource:name ofType:nil];
     NSImage *img = path ? [[NSImage alloc] initWithContentsOfFile:path] : nil;
+    if (!img) img = bn_asset_catalog_image(b, name);
     if (!img && asset_catalog_has(b, name)) {
-        /* In the compiled asset catalog, which is not decoded yet: an empty
-         * image of the usual icon size stands in (callers may rely on the
-         * image existing, as it does on macOS). */
+        /* Named in the catalog but not decodable here (a vector rendition):
+         * an empty image of the usual icon size stands in (callers may rely
+         * on the image existing, as it does on macOS). */
         img = [[NSImage alloc] initWithSize:NSMakeSize(16, 16)];
     }
     if (!img) return nil;

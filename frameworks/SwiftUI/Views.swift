@@ -1217,6 +1217,22 @@ final class _NamedImageBox: AnyImageProviderBox, @unchecked Sendable {
   }
 }
 
+/// An AppKit image (Image(nsImage:), and asset images found by name).
+final class _NSImageBox: AnyImageProviderBox, @unchecked Sendable {
+  let image: NSImage
+  init(_ image: NSImage) { self.image = image }
+  override var size: CGSize { return image.size }
+  override func isEqual(to other: AnyImageProviderBox) -> Bool {
+    guard let o = other as? _NSImageBox else { return false }
+    return o.image === image && o.resizable == resizable
+  }
+  override func copy() -> AnyImageProviderBox {
+    let c = _NSImageBox(image)
+    c.resizable = resizable
+    return c
+  }
+}
+
 final class _CGImageBox: AnyImageProviderBox, @unchecked Sendable {
   let image: CGImage
   let scale: CGFloat
@@ -1239,11 +1255,18 @@ public struct Image: Equatable, Sendable {
   @usableFromInline internal var provider: AnyImageProviderBox
   internal init(provider: AnyImageProviderBox) { self.provider = provider }
 
-  public init(_ name: String, bundle: Bundle? = nil) { provider = _NamedImageBox(name, system: false) }
+  public init(_ name: String, bundle: Bundle? = nil) {
+    // Asset images come from the bundle's catalog through NSImage.
+    if let image = MainActor.assumeIsolated({ NSImage(named: NSImage.Name(name)) }) {
+      provider = _NSImageBox(image)
+    } else {
+      provider = _NamedImageBox(name, system: false)
+    }
+  }
   public init(systemName: String) { provider = _NamedImageBox(systemName, system: true) }
   public init(_ name: String, bundle: Bundle? = nil, label: Text) { self.init(name, bundle: bundle) }
   public init(decorative name: String, bundle: Bundle? = nil) { self.init(name, bundle: bundle) }
-  public init(nsImage: NSImage) { provider = _NamedImageBox("nsImage", system: false) }
+  public init(nsImage: NSImage) { provider = _NSImageBox(nsImage) }
   public init(_ cgImage: CGImage, scale: CGFloat, orientation: Orientation = .up, label: Text) {
     provider = _CGImageBox(cgImage, scale: scale)
   }
@@ -1324,6 +1347,30 @@ internal final class _ImageNode: _ViewNode {
       CGContextScaleCTM(context, 1, -1)
       CGContextDrawImage(context, CGRect(_x: 0, y: 0, width: frame._width, height: frame._height), cg.image)
       CGContextRestoreGState(context)
+      return
+    }
+    if let box = provider as? _NSImageBox {
+      let image = box.image
+      let rect = NSMakeRect(frame._minX, frame._minY, frame._width, frame._height)
+      let tint = paint
+      MainActor.assumeIsolated {
+        let previous = NSGraphicsContext.current
+        NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: true)
+        CGContextSaveGState(context)
+        if image.isTemplate {
+          // Templates take the foreground colour: draw, then tint what was drawn.
+          CGContextBeginTransparencyLayer(context, nil)
+          image.draw(in: rect, from: NSZeroRect, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
+          CGContextSetBlendMode(context, .sourceAtop)
+          CGContextSetRGBFillColor(context, tint.r, tint.g, tint.b, tint.a)
+          CGContextFillRect(context, rect)
+          CGContextEndTransparencyLayer(context)
+        } else {
+          image.draw(in: rect, from: NSZeroRect, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
+        }
+        CGContextRestoreGState(context)
+        NSGraphicsContext.current = previous
+      }
       return
     }
     if let named = provider as? _NamedImageBox, named.system {

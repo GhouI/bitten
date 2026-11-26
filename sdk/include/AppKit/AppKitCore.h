@@ -903,6 +903,9 @@ typedef NS_ENUM(NSInteger, NSImageSymbolScale) {
 - (void)drawInRect:(NSRect)rect;
 - (void)drawInRect:(NSRect)dstSpacePortionRect fromRect:(NSRect)srcSpacePortionRect
          operation:(NSCompositingOperation)op fraction:(CGFloat)requestedAlpha;
+- (void)drawInRect:(NSRect)dstSpacePortionRect fromRect:(NSRect)srcSpacePortionRect
+         operation:(NSCompositingOperation)op fraction:(CGFloat)requestedAlpha
+    respectFlipped:(BOOL)respectContextIsFlipped hints:(nullable NSDictionary *)hints;
 - (void)drawAtPoint:(NSPoint)point fromRect:(NSRect)fromRect operation:(NSCompositingOperation)op fraction:(CGFloat)delta;
 - (void)lockFocus;
 - (void)unlockFocus;
