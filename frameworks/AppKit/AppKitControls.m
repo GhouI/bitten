@@ -391,6 +391,9 @@ static NSSize fit(NSSize s, NSSize in) {
 @property BOOL selected, enabled;
 @property NSInteger tag;
 @property (strong) NSMenu *menu;
+@property BOOL showsMenuIndicator;
+@property NSTextAlignment alignment;
+@property NSImageScaling imageScaling;
 @end
 @implementation BNSegment
 @end
@@ -400,6 +403,8 @@ static NSSize fit(NSSize s, NSSize in) {
     NSSegmentSwitchTracking _tracking;
     NSSegmentStyle _segmentStyle;
     NSColor *_selectedTint;
+    NSSegmentDistribution _distribution;
+    BOOL _springLoaded;
 }
 + (instancetype)segmentedControlWithLabels:(NSArray<NSString *> *)labels trackingMode:(NSSegmentSwitchTracking)mode
                                     target:(id)target action:(SEL)action {
@@ -450,7 +455,7 @@ static NSSize fit(NSSize s, NSSize in) {
 - (NSString *)labelForSegment:(NSInteger)i { return [self _seg:i].label; }
 - (void)setImage:(NSImage *)img forSegment:(NSInteger)i { [self _seg:i].image = img; }
 - (NSImage *)imageForSegment:(NSInteger)i { return [self _seg:i].image; }
-- (void)setImageScaling:(NSImageScaling)s forSegment:(NSInteger)i {}
+- (void)setImageScaling:(NSImageScaling)s forSegment:(NSInteger)i { [self _seg:i].imageScaling = s; }
 - (void)setWidth:(CGFloat)w forSegment:(NSInteger)i { [self _seg:i].width = w; }
 - (CGFloat)widthForSegment:(NSInteger)i { return [self _seg:i].width; }
 - (void)setToolTip:(NSString *)t forSegment:(NSInteger)i { [self _seg:i].toolTip = t; }
@@ -494,17 +499,58 @@ static NSSize fit(NSSize s, NSSize in) {
     if (s.label.length) w += [s.label sizeWithAttributes:@{NSFontAttributeName : self.font}].width + (w ? 4 : 0);
     return w + 16;
 }
+/* Each segment's laid-out width: its own (or its content's) when the
+ * distribution is fit; otherwise the control's width is shared out, equally,
+ * in proportion to content, or by giving the extra to segments without a
+ * set width. */
+- (NSArray<NSNumber *> *)_bn_widths {
+    NSUInteger n = _segments.count;
+    NSMutableArray<NSNumber *> *out = [NSMutableArray arrayWithCapacity:n];
+    CGFloat total = 0, available = self.bounds.size.width - 2;
+    NSUInteger flexible = 0;
+    for (BNSegment *s in _segments) {
+        CGFloat w = [self _bn_width:s];
+        total += w;
+        if (s.width <= 0) flexible++;
+        [out addObject:@(w)];
+    }
+    if (!n || _distribution == NSSegmentDistributionFit || available <= total) return out;
+    for (NSUInteger i = 0; i < n; i++) {
+        CGFloat w = out[i].doubleValue;
+        switch (_distribution) {
+        case NSSegmentDistributionFillEqually: w = available / n; break;
+        case NSSegmentDistributionFillProportionally: w = total > 0 ? w * available / total : available / n; break;
+        default: if (_segments[i].width <= 0 && flexible) w += (available - total) / flexible; break;
+        }
+        out[i] = @(w);
+    }
+    return out;
+}
 - (NSSize)intrinsicContentSize {
     CGFloat w = 0;
     for (BNSegment *s in _segments) w += [self _bn_width:s];
     return NSMakeSize(w + 2, 22);
 }
+- (NSSegmentDistribution)segmentDistribution { return _distribution; }
+- (void)setSegmentDistribution:(NSSegmentDistribution)d {
+    _distribution = d;
+    self.needsDisplay = YES;
+}
+- (BOOL)isSpringLoaded { return _springLoaded; }
+- (void)setSpringLoaded:(BOOL)b { _springLoaded = b; }
+- (void)setShowsMenuIndicator:(BOOL)b forSegment:(NSInteger)i { [self _seg:i].showsMenuIndicator = b; }
+- (BOOL)showsMenuIndicatorForSegment:(NSInteger)i { return [self _seg:i].showsMenuIndicator; }
+- (void)setAlignment:(NSTextAlignment)a forSegment:(NSInteger)i { [self _seg:i].alignment = a; }
+- (NSTextAlignment)alignmentForSegment:(NSInteger)i { return [self _seg:i].alignment; }
+- (NSImageScaling)imageScalingForSegment:(NSInteger)i { return [self _seg:i].imageScaling; }
+- (double)doubleValueForSelectedSegment { return 0; }
 - (NSSize)fittingSize { return self.intrinsicContentSize; }
 - (void)mouseDown:(NSEvent *)event {
     NSPoint p = [self convertPoint:event.locationInWindow fromView:nil];
     CGFloat x = 1;
+    NSArray<NSNumber *> *widths = [self _bn_widths];
     for (NSUInteger i = 0; i < _segments.count; i++) {
-        CGFloat w = [self _bn_width:_segments[i]];
+        CGFloat w = widths[i].doubleValue;
         if (p.x >= x && p.x < x + w && _segments[i].enabled) {
             if (_tracking == NSSegmentSwitchTrackingSelectAny) [self setSelected:!_segments[i].selected forSegment:i];
             else self.selectedSegment = i;
@@ -520,8 +566,10 @@ static NSSize fit(NSSize s, NSSize in) {
     [NSColor.controlColor setFill];
     [[NSBezierPath bezierPathWithRoundedRect:NSInsetRect(b, 0.5, 0.5) xRadius:5 yRadius:5] fill];
     CGFloat x = 1;
+    NSArray<NSNumber *> *widths = [self _bn_widths];
+    NSUInteger index = 0;
     for (BNSegment *s in _segments) {
-        CGFloat w = [self _bn_width:s];
+        CGFloat w = widths[index++].doubleValue;
         NSRect r = NSMakeRect(x, 1, w, b.size.height - 2);
         if (s.selected) {
             [(_selectedTint ?: NSColor.selectedControlColor) setFill];

@@ -3736,3 +3736,26 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Test: tests/swiftlib/basics.swift `coalesce`.
 - Target app (total `^MISSING`): 0 -> 0. Its settings sidebar items now
   respond to clicks.
+
+## AppKit: segmented-control distribution; valgrind-friendly stack probes; object tracing
+
+- NSSegmentedControl gains `segmentDistribution`, used when laying out and
+  hit-testing segments. Fit uses content widths. Fill shares the extra width
+  among segments without a set width. Fill-equally gives every segment the
+  same width; fill-proportionally scales content widths. Also: per-segment
+  menu indicators, alignment and image scaling, and spring loading. The
+  target app's settings window sets the distribution.
+- `___chkstk_darwin` lowers %rsp to each page before touching it. Probing
+  below the stack pointer made valgrind kill the app with a "stack
+  overflow" a few hundred KB into the main stack. The app now runs under
+  valgrind (`--aspace-minaddr=0x200000000`) to its windows.
+- Debugging: `BITTEN_TRACE_OBJ=Name` logs the allocation, destruction and
+  freeing of Swift objects whose class name contains Name.
+  `BITTEN_TRACE_BOX=Name` does the same for boxes of matching value types.
+  Both print raw return addresses, newest first.
+- Open: closing or rebuilding the app's Interface settings page crashes
+  while list-row trait values (`listRowInsets` / `listRowBackground`) are
+  destroyed. A box or AnyView storage they hold has already been freed
+  (use after free). Isolated tests of the same patterns are clean.
+- Target app (total `^MISSING`): 0 -> 0. Its Settings window opens, the
+  sidebar responds, and the Interface page renders.

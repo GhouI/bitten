@@ -1536,6 +1536,12 @@ typedef NS_ENUM(NSInteger, NSGestureRecognizerState) {
 - (void)sizeToFit;
 @end
 
+typedef NS_ENUM(NSInteger, NSSegmentDistribution) {
+    NSSegmentDistributionFit = 0,
+    NSSegmentDistributionFill,
+    NSSegmentDistributionFillEqually,
+    NSSegmentDistributionFillProportionally,
+};
 @interface NSSegmentedControl : NSControl
 + (instancetype)segmentedControlWithLabels:(NSArray<NSString *> *)labels trackingMode:(NSSegmentSwitchTracking)trackingMode
                                     target:(nullable id)target action:(nullable SEL)action;
@@ -1548,6 +1554,13 @@ typedef NS_ENUM(NSInteger, NSGestureRecognizerState) {
 @property NSSegmentStyle segmentStyle;
 @property (nullable, copy) NSColor *selectedSegmentBezelColor;
 - (BOOL)selectSegmentWithTag:(NSInteger)tag;
+@property NSSegmentDistribution segmentDistribution;
+@property (getter=isSpringLoaded) BOOL springLoaded;
+- (void)setShowsMenuIndicator:(BOOL)show forSegment:(NSInteger)segment;
+- (BOOL)showsMenuIndicatorForSegment:(NSInteger)segment;
+- (void)setAlignment:(NSTextAlignment)alignment forSegment:(NSInteger)segment;
+- (NSTextAlignment)alignmentForSegment:(NSInteger)segment;
+- (NSImageScaling)imageScalingForSegment:(NSInteger)segment;
 - (void)setLabel:(NSString *)label forSegment:(NSInteger)segment;
 - (nullable NSString *)labelForSegment:(NSInteger)segment;
 - (void)setImage:(nullable NSImage *)image forSegment:(NSInteger)segment;
