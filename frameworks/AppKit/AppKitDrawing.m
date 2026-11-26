@@ -93,17 +93,21 @@ void NSRectFill(NSRect r) {
     CGContextRef c = current_cg();
     if (c) CGContextFillRect(c, r);
 }
+/* AppKit's compositing operations as CoreGraphics blend modes. */
+int bn_blend_mode_for_operation(NSCompositingOperation op) {
+    static const int map[] = {
+        16, 17, 0,  18, 19, 20, 21, 22, 23, 24, 25, 26, 0,  27, /* clear .. plusLighter */
+        1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, /* multiply .. luminosity */
+    };
+    return (NSUInteger)op < sizeof map / sizeof *map ? map[op] : 0;
+}
 void NSRectFillUsingOperation(NSRect r, NSCompositingOperation op) {
     CGContextRef c = current_cg();
     if (!c) return;
-    if (op == NSCompositingOperationCopy || op == NSCompositingOperationClear) {
-        CGContextSaveGState(c);
-        CGContextSetBlendMode(c, op == NSCompositingOperationClear ? kCGBlendModeClear : kCGBlendModeCopy);
-        CGContextFillRect(c, r);
-        CGContextRestoreGState(c);
-        return;
-    }
+    CGContextSaveGState(c);
+    CGContextSetBlendMode(c, (CGBlendMode)bn_blend_mode_for_operation(op));
     CGContextFillRect(c, r);
+    CGContextRestoreGState(c);
 }
 void NSFrameRectWithWidth(NSRect r, CGFloat w) {
     CGContextRef c = current_cg();
@@ -291,7 +295,12 @@ static void bn_layer_background(BNBackingLayer *layer, CGContextRef c, CGRect b)
         CGPathRelease(p);
     }
 }
-static void bn_layer_sublayers(BNBackingLayer *layer, CGContextRef c) {
+static void bn_layer_sublayers(BNBackingLayer *layer, CGContextRef c, BOOL flipped) {
+    /* As in AppKit, a flipped view's backing layer has flipped geometry,
+     * so text and contents in its sublayers come out upright. */
+    if (layer.sublayers.count && [(id)layer respondsToSelector:@selector(setGeometryFlipped:)] &&
+        [[(id)layer valueForKey:@"geometryFlipped"] boolValue] != flipped)
+        [(id)layer setValue:@(flipped) forKey:@"geometryFlipped"];
     for (BNBackingLayer *sub in layer.sublayers) {
         if ([sub.delegate isKindOfClass:[NSView class]]) continue;
         CGContextSaveGState(c);
@@ -351,7 +360,7 @@ static void bn_layer_border(BNBackingLayer *layer, CGContextRef c, CGRect b) {
     [NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithCGContext:c flipped:flipped]];
     [self drawRect:b];
     [NSGraphicsContext setCurrentContext:previous];
-    if (layer) bn_layer_sublayers(layer, c);
+    if (layer) bn_layer_sublayers(layer, c, flipped);
     if (![self _bn_drawsOwnSubviews])
         for (NSView *v in self.subviews) [v _bn_drawIn:c parentFlipped:flipped];
     if (layer) {
