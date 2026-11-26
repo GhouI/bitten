@@ -610,6 +610,8 @@ static Ref d_CTFontCollectionCreateMatchingFontDescriptors(const struct ct_colle
 DX_FN(CTFontCollectionCreateMatchingFontDescriptors);
 CF_TYPE_ID(CTFontCollection, CF_CT_COLLECTION);
 
+static struct ct_font *d_CTFontCreateWithFontDescriptor(const struct ct_desc *d, CGFloat size, const CGAffineTransform *m);
+
 /* The faces in a font file (the target app ships one in its bundle). */
 static Ref d_CTFontManagerCreateFontDescriptorsFromURL(Ref url) {
     char path[1024];
@@ -618,13 +620,25 @@ static Ref d_CTFontManagerCreateFontDescriptorsFromURL(Ref url) {
     struct ttf *face = ct_register_file(path);
     if (!face) return NULL;
     Ref name = ct_cfstring(face->postscript[0] ? face->postscript : face->full), family = ct_cfstring(face->family);
-    const void *keys[] = {d_kCTFontNameAttribute, d_kCTFontFamilyNameAttribute, d_kCTFontURLAttribute};
-    const void *vals[] = {name, family, url};
-    Ref dict = make_dict(keys, vals, 3);
+    Ref style = ct_cfstring(face->style[0] ? face->style : "Regular"), full = ct_cfstring(face->full[0] ? face->full : face->family);
+    /* the face's traits, as a font made from it reports them */
+    const void *k3[] = {d_kCTFontNameAttribute, d_kCTFontFamilyNameAttribute, d_kCTFontURLAttribute};
+    const void *v3[] = {name, family, url};
+    Ref basic = make_dict(k3, v3, 3);
+    struct ct_desc *bd = desc_new(basic);
+    struct ct_font *f = d_CTFontCreateWithFontDescriptor(bd, 12, NULL);
+    Ref traits = f ? d_CTFontCopyTraits(f) : NULL;
+    const void *keys[] = {d_kCTFontNameAttribute, d_kCTFontFamilyNameAttribute, d_kCTFontURLAttribute,
+                          d_kCTFontStyleNameAttribute, d_kCTFontDisplayNameAttribute, d_kCTFontTraitsAttribute};
+    const void *vals[] = {name, family, url, style, full, traits};
+    Ref dict = make_dict(keys, vals, traits ? 6 : 5);
     struct ct_desc *d = desc_new(dict);
     const void *one[] = {d};
     Ref a = make_array(one, 1);
-    cg_release(d); cg_release(dict); cg_release(name); cg_release(family);
+    cg_release(d); cg_release(dict); cg_release(name); cg_release(family); cg_release(style); cg_release(full);
+    cg_release(bd); cg_release(basic);
+    if (f) cg_release(f);
+    if (traits) cg_release(traits);
     return a;
 }
 DX_FN(CTFontManagerCreateFontDescriptorsFromURL);

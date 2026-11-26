@@ -3143,3 +3143,16 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   Assets.car catalogs: 980 streams, 666 MB, each block decoding to exactly
   its declared size. Among them is an SVG that decodes to valid XML, which
   is now a test vector. Test: tests/c/zlib.
+
+## Font descriptors from files carry their names and traits
+
+- CoreText: the descriptors `CTFontManagerCreateFontDescriptorsFromURL`
+  returns now carry the style name, display name and traits as well as
+  the PostScript name, family and URL, as CoreText's do.
+- Checked against the target app's bundled Symbols Nerd Font: it
+  registers, and it is found by PostScript name (`SymbolsNF`), by family,
+  by descriptor, through matching, and through a collection.
+- The app's "Could not find the bundled Symbols Nerd Font for titles"
+  remains. It comes from the Ghostty renderer's resource preparation,
+  which needs a Metal device (`MTLCreateSystemDefaultDevice` returns nil
+  here), not from font lookup.
