@@ -756,9 +756,12 @@ internal class _ControlNode: _ViewNode {
   var onTap: ((CGPoint) -> Void)?
   var onDrag: ((CGPoint, CGPoint, Bool) -> Void)?
   override var handlesTaps: Bool { return environment.isEnabled && (onTap != nil || onDrag != nil) }
+  /// Controls and gestures inside take the click first, as in SwiftUI (a
+  /// container's tap gesture does not swallow its buttons' clicks).
   override func hit(_ point: CGPoint) -> _ViewNode? {
     guard frame._contains(point) else { return nil }
-    return handlesTaps ? self : super.hit(point)
+    if let inner = super.hit(point), inner !== self { return inner }
+    return handlesTaps ? self : nil
   }
   var tapPoint = CGPoint(x: 0, y: 0)
   override func tap() { onTap?(tapPoint) }

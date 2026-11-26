@@ -203,6 +203,7 @@ public enum DynamicTypeSize: Hashable, Comparable, CaseIterable, Sendable {
     accessibility4, accessibility5
   public var isAccessibilitySize: Bool { return self >= .accessibility1 }
 }
+@frozen
 public enum Visibility: Hashable, CaseIterable, Sendable { case automatic, visible, hidden }
 public struct ButtonBorderShape: Equatable, Sendable {
   let kind: Int

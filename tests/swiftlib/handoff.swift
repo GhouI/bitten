@@ -14,6 +14,34 @@ func make(_ i: Int) -> Model {
 }
 func use(_ m: Model) -> Int { return m.a.count + m.b.count + m.c.joined().count + m.d.keys.joined().count }
 
+
+// async let, actors, cancellation handlers, sleeps, throwing streams.
+struct Small: Sendable { var a: String; var b: [String] }
+@inline(never) func makeSmall(_ i: Int) async -> Small {
+  await Task.yield()
+  return Small(a: "alpha-\(i)-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", b: ["b-\(i)-yyyyyyyyyyyyyyyyyyyyyyyyy", "c"])
+}
+@inline(never) func asyncLetPair(_ i: Int) async -> Int {
+  async let x = makeSmall(i)
+  async let y = makeSmall(i + 1)
+  let (p, q) = await (x, y)
+  return p.a.count + q.b.joined().count
+}
+@inline(never) func asyncLetUnread(_ i: Int) async -> Int {
+  async let x = makeSmall(i)
+  return i
+}
+@inline(never) func asyncLetThrowing(_ i: Int) async throws -> Int {
+  async let x: Small = { if i % 3 == 0 { throw CancellationError() }; return await makeSmall(i) }()
+  return try await x.a.count
+}
+actor Library {
+  var items: [String: Small] = [:]
+  func put(_ s: Small) { items[s.a] = s }
+  func all() -> [Small] { Array(items.values) }
+  func take(_ k: String) -> Small? { items.removeValue(forKey: k) }
+}
+
 @MainActor final class Store { var models: [String: Model] = [:]; var list: [Model] = [] }
 
 @_silgen_name("swl_handoff_start") public func start() {
@@ -80,6 +108,33 @@ func use(_ m: Model) -> Int { return m.a.count + m.b.count + m.c.joined().count 
       for _ in 0..<500 { _ = withObservationTracking({ counter.n }, onChange: {}) }
     }
     check(counter.n > 0, #line)
+    var more = 0
+    let lib = Library()
+    for i in 0..<60 {
+      more += await asyncLetPair(i) + (await asyncLetUnread(i)) + ((try? await asyncLetThrowing(i)) ?? 0)
+      let s = await makeSmall(i)
+      await lib.put(s)
+      if let back = await lib.take(s.a) { more += back.b.count }
+      await lib.put(s)
+      more += await lib.all().count
+      let r = await withTaskCancellationHandler { () -> Int in
+        try? await Task.sleep(nanoseconds: 1000)
+        return (await makeSmall(i)).a.count
+      } onCancel: { }
+      more += r
+      let st = AsyncThrowingStream<Small, Error> { c in
+        Task { for j in 0..<3 { c.yield(await makeSmall(j)) }; c.finish(throwing: i % 2 == 0 ? CancellationError() : nil) }
+      }
+      do { for try await x in st { more += x.a.count } } catch {}
+      let g = await withThrowingTaskGroup(of: Small.self) { group -> Int in
+        for j in 0..<4 { group.addTask { if j == 2 { throw CancellationError() }; return await makeSmall(j) } }
+        var n = 0
+        do { for try await x in group { n += x.a.count } } catch { group.cancelAll() }
+        return n
+      }
+      more += g
+    }
+    check(more > 0, #line)
     done()
   }
 }

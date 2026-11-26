@@ -506,6 +506,16 @@ internal final class _PlatformViewNode: _ViewNode {
     context?.livePlatformViews.insert(ObjectIdentifier(v))
   }
   override func collectPlatformViews(_ into: inout [NSView]) { into.append(view) }
+  /// The AppKit view takes the click where it is on top and its own hit
+  /// testing finds something (the hosting view then hands it the event).
+  override func hit(_ point: CGPoint) -> _ViewNode? {
+    guard frame._contains(point) else { return nil }
+    let v = view
+    let found = MainActor.assumeIsolated { () -> Bool in
+      !v.isHidden && v.hitTest(NSMakePoint(point.x, point.y)) != nil
+    }
+    return found ? self : nil
+  }
   /// Drawn here, in SwiftUI's order, rather than after all of the host's
   /// own drawing (see NSHostingView._bn_drawsOwnSubviews).
   override func draw(_ context: CGContext) {

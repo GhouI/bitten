@@ -567,8 +567,9 @@ public enum CoordinateSpace: Hashable, Sendable {
 
 // MARK: - scrolling hints
 
+@frozen
 public struct ScrollIndicatorVisibility: Equatable, Sendable {
-  let id: Int
+  @usableFromInline let id: Int
   public static let automatic = ScrollIndicatorVisibility(id: 0)
   public static let visible = ScrollIndicatorVisibility(id: 1)
   public static let hidden = ScrollIndicatorVisibility(id: 2)

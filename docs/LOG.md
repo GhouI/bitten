@@ -3309,3 +3309,29 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Target app: its renderer still stops before asking for a device, with
   `Renderer.Error` 1, which is probably `fontUnavailable`; its font
   checks are next.
+
+## More frozen SwiftUI types, hit testing in SwiftUI order, async let
+
+- SwiftUI: `ContentMode`, `TextAlignment`, `Visibility`,
+  `Image.Orientation` and `ScrollIndicatorVisibility` are `@frozen`, as in
+  Apple's SwiftUI: programs pass them by value (the target app passed
+  `aspectRatio`'s content mode in edi; ours read it through a pointer and
+  crashed some runs). Found by checking which enums the app uses without
+  importing their enum-case descriptors (resilient enums need them), then
+  confirming at a call site.
+- SwiftUI: hosting views hit-test in SwiftUI's order: a representable's
+  AppKit view takes a click only where nothing SwiftUI draws above it
+  does (the app's onboarding page has a key-handling view as a
+  background); where SwiftUI has nothing, AppKit views the program added
+  itself are tested. Controls and gestures inside a tap-gesture container
+  take clicks first. The target app's Continue button now fires.
+  `BITTEN_EVENT_DEBUG=1` logs what a click hits.
+- _Concurrency: the `async let` entry points the compiler looks up
+  (`_asyncLetStart`, `_asyncLet_get`, `_asyncLet_get_throwing`,
+  `_asyncLet_finish`); compiling `async let` against our module crashed
+  the compiler.
+- Tests: tests/swiftlib/swiftui.swift (`hits`), handoff.swift (async let,
+  actors, cancellation handlers, throwing streams and groups),
+  multipayload.swift (generic multi-payload enums built by compiled code,
+  taken apart through runtime layouts). All clean under valgrind.
+- Target app window (total `^MISSING`): 11 -> 11.

@@ -352,6 +352,7 @@ extension EnvironmentValues {
   }
 }
 
+@frozen
 public enum TextAlignment: Hashable, CaseIterable, Sendable {
   case leading, center, trailing
 }
@@ -1249,6 +1250,7 @@ public struct Image: Equatable, Sendable {
     provider = _CGImageBox(cgImage, scale: scale)
   }
 
+  @frozen
   public enum Orientation: UInt8, CaseIterable, Hashable, Sendable {
     case up, upMirrored, down, downMirrored, left, leftMirrored, right, rightMirrored
   }
@@ -1548,6 +1550,7 @@ internal final class _ButtonNode: _ViewNode {
   }
   override var handlesTaps: Bool { return environment.isEnabled }
   override func tap() {
+    if getenv("BITTEN_EVENT_DEBUG") != nil { _dbg("bitten: button tapped: \(title)") }
     let a = action
     let after = environment._afterButtonTap
     MainActor.assumeIsolated { a() }
