@@ -32,6 +32,14 @@ extension CGAffineTransform: Equatable {
 }
 
 extension CGRect {
+  // Use the C geometry functions so negative extents are standardized.
+  public var minX: CGFloat { return CGRectGetMinX(self) }
+  public var midX: CGFloat { return CGRectGetMidX(self) }
+  public var maxX: CGFloat { return CGRectGetMaxX(self) }
+  public var minY: CGFloat { return CGRectGetMinY(self) }
+  public var midY: CGFloat { return CGRectGetMidY(self) }
+  public var maxY: CGFloat { return CGRectGetMaxY(self) }
+
   public init?(dictionaryRepresentation dict: CFDictionary) {
     var r = CGRect()
     guard CGRectMakeWithDictionaryRepresentation(dict, &r) else { return nil }

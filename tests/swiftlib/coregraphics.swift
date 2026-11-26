@@ -17,6 +17,11 @@ func rect(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> CGRect {
   if CGSize(dictionaryRepresentation: CGPoint(x: 5, y: 6).dictionaryRepresentation) != nil { bad |= 0x20 }
   if CGAffineTransformIdentity != CGAffineTransform(a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0) { bad |= 0x40 }
   if CGPathFillRule.evenOdd.rawValue != 1 || CGPathFillRule(rawValue: 0) != .winding { bad |= 0x80 }
+  if r.minX != 1 || r.midX != 2.5 || r.maxX != 4 ||
+     r.minY != 2 || r.midY != 4 || r.maxY != 6 { bad |= 0x100 }
+  let reversed = rect(9, 8, -6, -4)
+  if reversed.minX != 3 || reversed.midX != 6 || reversed.maxX != 9 ||
+     reversed.minY != 4 || reversed.midY != 6 || reversed.maxY != 8 { bad |= 0x200 }
   return bad
 }
 
