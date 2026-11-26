@@ -6,7 +6,7 @@
 
 @interface NSResponder : NSObject
 @property (nullable, assign) NSResponder *nextResponder;
-- (BOOL)acceptsFirstResponder;
+@property (readonly) BOOL acceptsFirstResponder;
 - (BOOL)becomeFirstResponder;
 - (BOOL)resignFirstResponder;
 - (void)mouseDown:(NSEvent *)event NS_SWIFT_NAME(mouseDown(with:));

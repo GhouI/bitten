@@ -243,3 +243,10 @@ extension UnsignedInteger {
   @inlinable public static var isSigned: Bool { return false }
   @inlinable public var magnitude: Self { return self }
 }
+
+/// The absolute value of `x`.
+@inlinable
+public func abs<T: Comparable & SignedNumeric>(_ x: T) -> T {
+  if T.self == T.Magnitude.self { return unsafeBitCast(x.magnitude, to: T.self) }
+  return x < (0 as T) ? -x : x
+}

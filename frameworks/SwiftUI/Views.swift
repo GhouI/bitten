@@ -1275,7 +1275,6 @@ internal final class _ImageNode: _ViewNode {
 
 // MARK: - keys
 
-@frozen
 public struct KeyEquivalent: Hashable, Sendable, ExpressibleByExtendedGraphemeClusterLiteral {
   public var character: Character
   public init(_ character: Character) { self.character = character }

@@ -14,15 +14,25 @@ final class _AppHost {
     return ProcessInfo.processInfo.processName
   }
 
+  /// The delegate type an adaptor names; the delegate itself is made when
+  /// the app launches (or first asked for), not while the App value is
+  /// being initialized.
+  var delegateType: (NSObject & NSApplicationDelegate).Type?
   func installDelegate(_ type: (NSObject & NSApplicationDelegate).Type) {
-    if delegate != nil { return }
-    let d = type.init()
-    delegate = d
-    NSApplication.shared.delegate = d
+    if delegateType == nil { delegateType = type }
+  }
+  func makeDelegate() -> NSObject? {
+    if delegate == nil, let type = delegateType {
+      let d = type.init()
+      delegate = d
+      NSApplication.shared.delegate = d
+    }
+    return delegate
   }
 
   func start<A: App>(_ app: A) {
     let nsapp = NSApplication.shared
+    _ = makeDelegate()
     visit(app.body)
     _installMainMenu(commands)
     nsapp.run()
@@ -179,14 +189,48 @@ open class _HostingViewBase: NSView {
     _layout().draw(cg)
   }
 
+  var _pressPoint = CGPoint(x: 0, y: 0)
+  var _dragging = false
   override open func mouseDown(with event: NSEvent) {
     let p = convert(event.locationInWindow, from: nil)
+    _pressPoint = p
+    _dragging = false
     _pressed = _layout().hit(p)
+    _pressed?.press(at: p)
+  }
+  override open func mouseDragged(with event: NSEvent) {
+    let p = convert(event.locationInWindow, from: nil)
+    guard let pressed = _pressed else { return }
+    if !_dragging && Swift.abs(p.x - _pressPoint.x) + Swift.abs(p.y - _pressPoint.y) < 3 { return }
+    if pressed.drag(from: _pressPoint, to: p, ended: false) {
+      _dragging = true
+      needsDisplay = true
+    }
   }
   override open func mouseUp(with event: NSEvent) {
     let p = convert(event.locationInWindow, from: nil)
-    if let pressed = _pressed, _layout().hit(p) === pressed { pressed.tap() }
+    if let pressed = _pressed {
+      if _dragging {
+        _ = pressed.drag(from: _pressPoint, to: p, ended: true)
+      } else if _layout().hit(p) === pressed {
+        pressed.press(at: p)
+        pressed.tap()
+      }
+    }
     _pressed = nil
+    _dragging = false
+  }
+  override open func scrollWheel(with event: NSEvent) {
+    let p = convert(event.locationInWindow, from: nil)
+    if _layout().scroll(at: p, dx: event.scrollingDeltaX, dy: event.scrollingDeltaY) {
+      // Scrolling moves content without rebuilding it.
+      _placedIn = CGSize(width: -1, height: -1)
+      needsDisplay = true
+    }
+  }
+  override open var acceptsFirstResponder: Bool { return true }
+  override open func keyDown(with event: NSEvent) {
+    if _layout().key(event.characters ?? "", keyCode: event.keyCode) { needsDisplay = true }
   }
 
   /// The size the content wants when nothing is proposed.

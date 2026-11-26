@@ -2275,3 +2275,26 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   the current item (there are no QuickLook generators).
 - Tests: `tests/c/odds`, `tests/media/cfbridge`, `tests/swiftlib/smallswift`.
 - Target app window (total `^MISSING`): 1,033 -> 1,005.
+## 2026-11-26: SwiftUI containers and controls
+
+- `Controls.swift`: `ForEach`, `Group` and `Section` (frozen, as Apple's),
+  `List`, `ScrollView` (wheel scrolling, offsets kept across rebuilds),
+  `ScrollViewReader`, `LazyVStack`/`LazyHStack`, `LazyVGrid` with
+  `GridItem`s, `Grid`/`GridRow` (frozen trees) and the grid cell modifiers,
+  `Label` and label styles, `LabeledContent`, `GroupBox`, `Form`,
+  `ControlGroup`, `ContentUnavailableView`, `Toggle` (checkbox/switch),
+  `Slider` (click and drag), `Stepper`, `Picker` (menu and segmented, by
+  tag), `Menu`, `TextField` (keyboard input to the focused field, submit),
+  `FocusState` and `focused`, `ProgressView`, `NavigationSplitView`,
+  `GeometryReader`/`GeometryProxy`, `onGeometryChange`, `TimelineView`
+  (periodic rebuilds), `Bindable`, `AppStorage` (user defaults),
+  `Namespace`, `EquatableView`, `onReceive` (`SubscriptionView`).
+- NSHostingView passes drags, the scroll wheel and keys to the tree.
+- The app delegate of `NSApplicationDelegateAdaptor` is made at launch,
+  not while the App value is initialized.
+- ABI fixes found in the target app's code: `KeyEquivalent` is resilient
+  (passed indirectly).
+- Foundation: `UserDefaults.set(_:forKey:)`/`url(forKey:)` names; stdlib
+  `abs`; NSResponder's `acceptsFirstResponder` is a property.
+- Runtime: tuple elements are completed before their layout is taken.
+- Target app window (total `^MISSING`): 1,033 -> 779.

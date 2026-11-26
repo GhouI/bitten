@@ -782,7 +782,7 @@ NS_SWIFT_NAME(UserDefaults)
 - (instancetype)init;
 - (nullable instancetype)initWithSuiteName:(nullable NSString *)suitename;
 - (nullable id)objectForKey:(NSString *)defaultName;
-- (void)setObject:(nullable id)value forKey:(NSString *)defaultName;
+- (void)setObject:(nullable id)value forKey:(NSString *)defaultName NS_SWIFT_NAME(set(_:forKey:));
 - (void)removeObjectForKey:(NSString *)defaultName;
 - (nullable NSString *)stringForKey:(NSString *)defaultName;
 - (nullable NSArray *)arrayForKey:(NSString *)defaultName;
@@ -793,12 +793,12 @@ NS_SWIFT_NAME(UserDefaults)
 - (float)floatForKey:(NSString *)defaultName;
 - (double)doubleForKey:(NSString *)defaultName;
 - (BOOL)boolForKey:(NSString *)defaultName;
-- (nullable NSURL *)URLForKey:(NSString *)defaultName;
-- (void)setInteger:(NSInteger)value forKey:(NSString *)defaultName;
-- (void)setFloat:(float)value forKey:(NSString *)defaultName;
-- (void)setDouble:(double)value forKey:(NSString *)defaultName;
-- (void)setBool:(BOOL)value forKey:(NSString *)defaultName;
-- (void)setURL:(nullable NSURL *)url forKey:(NSString *)defaultName;
+- (nullable NSURL *)URLForKey:(NSString *)defaultName NS_SWIFT_NAME(url(forKey:));
+- (void)setInteger:(NSInteger)value forKey:(NSString *)defaultName NS_SWIFT_NAME(set(_:forKey:));
+- (void)setFloat:(float)value forKey:(NSString *)defaultName NS_SWIFT_NAME(set(_:forKey:));
+- (void)setDouble:(double)value forKey:(NSString *)defaultName NS_SWIFT_NAME(set(_:forKey:));
+- (void)setBool:(BOOL)value forKey:(NSString *)defaultName NS_SWIFT_NAME(set(_:forKey:));
+- (void)setURL:(nullable NSURL *)url forKey:(NSString *)defaultName NS_SWIFT_NAME(set(_:forKey:));
 - (void)registerDefaults:(NSDictionary<NSString *, id> *)registrationDictionary;
 - (void)addSuiteNamed:(NSString *)suiteName;
 - (void)removeSuiteNamed:(NSString *)suiteName;
