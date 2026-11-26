@@ -188,4 +188,24 @@ CFStringRef CFErrorCopyDescription(CFErrorRef) CF_RETURNS_RETAINED;
 CFURLRef CFURLCreateWithString(CFAllocatorRef, CFStringRef, CFURLRef base) CF_RETURNS_RETAINED;
 CFURLRef CFURLCreateWithFileSystemPath(CFAllocatorRef, CFStringRef, CFIndex pathStyle, Boolean isDirectory) CF_RETURNS_RETAINED;
 CFStringRef CFURLGetString(CFURLRef);
+
+/* CFAttributedString (src/frameworks/corefoundation/attributed.c). */
+typedef const struct CF_BRIDGED(id) __CFAttributedString *CFAttributedStringRef;
+typedef struct CF_BRIDGED_MUTABLE(id) __CFAttributedString *CFMutableAttributedStringRef;
+CFTypeID CFAttributedStringGetTypeID(void);
+CFAttributedStringRef CFAttributedStringCreate(CFAllocatorRef, CFStringRef, CFDictionaryRef attributes) CF_RETURNS_RETAINED;
+CFAttributedStringRef CFAttributedStringCreateCopy(CFAllocatorRef, CFAttributedStringRef) CF_RETURNS_RETAINED;
+CFMutableAttributedStringRef CFAttributedStringCreateMutable(CFAllocatorRef, CFIndex maxLength) CF_RETURNS_RETAINED;
+CFMutableAttributedStringRef CFAttributedStringCreateMutableCopy(CFAllocatorRef, CFIndex maxLength, CFAttributedStringRef) CF_RETURNS_RETAINED;
+CFStringRef CFAttributedStringGetString(CFAttributedStringRef);
+CFIndex CFAttributedStringGetLength(CFAttributedStringRef);
+CFDictionaryRef CFAttributedStringGetAttributes(CFAttributedStringRef, CFIndex loc, CFRange *effectiveRange);
+CFTypeRef CFAttributedStringGetAttribute(CFAttributedStringRef, CFIndex loc, CFStringRef attrName, CFRange *effectiveRange);
+void CFAttributedStringReplaceString(CFMutableAttributedStringRef, CFRange, CFStringRef);
+void CFAttributedStringSetAttributes(CFMutableAttributedStringRef, CFRange, CFDictionaryRef, Boolean clearOtherAttributes);
+void CFAttributedStringSetAttribute(CFMutableAttributedStringRef, CFRange, CFStringRef attrName, CFTypeRef value);
+void CFAttributedStringRemoveAttribute(CFMutableAttributedStringRef, CFRange, CFStringRef attrName);
+void CFAttributedStringReplaceAttributedString(CFMutableAttributedStringRef, CFRange, CFAttributedStringRef);
+void CFAttributedStringBeginEditing(CFMutableAttributedStringRef);
+void CFAttributedStringEndEditing(CFMutableAttributedStringRef);
 #endif

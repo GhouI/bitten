@@ -105,6 +105,11 @@ module CoreGraphics [system] {
   export *
 }
 
+module CoreText [system] {
+  header "CoreText/CoreText.h"
+  export *
+}
+
 module Foundation [system] {
   header "Foundation/Foundation.h"
   export *
