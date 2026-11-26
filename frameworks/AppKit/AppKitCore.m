@@ -3,6 +3,7 @@
  * (CoreGraphics, the display); this file keeps the object model and the
  * application life cycle. */
 #import <AppKit/AppKit.h>
+#import <objc/message.h>
 #include <dispatch/dispatch.h>
 #include <stdlib.h>
 
@@ -594,10 +595,69 @@ static const struct { unsigned short code; char plain, shifted; } bn_us_keys[] =
     return i;
 }
 - (void)removeAllItems { [_items removeAllObjects]; }
+- (void)insertItem:(NSMenuItem *)item atIndex:(NSInteger)index {
+    [_items insertObject:item atIndex:(NSUInteger)MAX(0, MIN(index, (NSInteger)_items.count))];
+}
+- (void)removeItem:(NSMenuItem *)item { [_items removeObjectIdenticalTo:item]; }
+- (void)removeItemAtIndex:(NSInteger)index {
+    if (index >= 0 && (NSUInteger)index < _items.count) [_items removeObjectAtIndex:(NSUInteger)index];
+}
+- (NSMenuItem *)itemAtIndex:(NSInteger)index {
+    return index >= 0 && (NSUInteger)index < _items.count ? _items[(NSUInteger)index] : nil;
+}
+- (NSMenuItem *)itemWithTitle:(NSString *)title {
+    for (NSMenuItem *i in _items) if ([i.title isEqualToString:title]) return i;
+    return nil;
+}
+- (NSMenuItem *)itemWithTag:(NSInteger)tag {
+    for (NSMenuItem *i in _items) if (i.tag == tag) return i;
+    return nil;
+}
+- (NSInteger)indexOfItem:(NSMenuItem *)item {
+    NSUInteger i = [_items indexOfObjectIdenticalTo:item];
+    return i == NSNotFound ? -1 : (NSInteger)i;
+}
+- (NSArray<NSMenuItem *> *)items { return [_items copy]; }
+- (void)setItems:(NSArray<NSMenuItem *> *)items { _items = [items mutableCopy]; }
+- (NSMenu *)supermenu { return nil; }
+- (void)setSupermenu:(NSMenu *)m {}
+- (BOOL)autoenablesItems { return YES; }
+- (void)setAutoenablesItems:(BOOL)a {}
+- (void)update {}
+static const NSEventModifierFlags bn_shortcut_mask = NSEventModifierFlagCommand | NSEventModifierFlagShift |
+                                                     NSEventModifierFlagOption | NSEventModifierFlagControl;
+- (BOOL)performKeyEquivalent:(NSEvent *)event {
+    if (event.type != NSEventTypeKeyDown) return NO;
+    NSString *key = event.charactersIgnoringModifiers.lowercaseString;
+    NSEventModifierFlags mods = event.modifierFlags & bn_shortcut_mask;
+    for (NSMenuItem *item in [_items copy]) {
+        if (item.submenu && [item.submenu performKeyEquivalent:event]) return YES;
+        if (!item.keyEquivalent.length || !item.isEnabled || item.isHidden) continue;
+        NSString *want = item.keyEquivalent;
+        NSEventModifierFlags wantMods = item.keyEquivalentModifierMask & bn_shortcut_mask;
+        /* An uppercase key equivalent implies shift. */
+        if (![want.lowercaseString isEqualToString:want]) wantMods |= NSEventModifierFlagShift;
+        if ([want.lowercaseString isEqualToString:key] && wantMods == mods) {
+            [self performActionForItemAtIndex:[self indexOfItem:item]];
+            return YES;
+        }
+    }
+    return NO;
+}
+- (void)performActionForItemAtIndex:(NSInteger)index {
+    NSMenuItem *item = [self itemAtIndex:index];
+    if (!item.action) return;
+    if (item.target) ((void (*)(id, SEL, id))objc_msgSend)(item.target, item.action, item);
+    else [NSApp sendAction:item.action to:nil from:item];
+}
 @end
 
 @implementation NSMenuItem {
-    BOOL _disabled;
+    BOOL _disabled, _hidden;
+    NSEventModifierFlags _mask;
+    NSInteger _state;
+    NSImage *_image;
+    NSString *_toolTip;
 }
 @synthesize title = _title, action = _action, target = _target, keyEquivalent = _keyEquivalent,
             submenu = _submenu, tag = _tag, representedObject = _representedObject;
@@ -608,9 +668,23 @@ static const struct { unsigned short code; char plain, shifted; } bn_us_keys[] =
         _title = [title copy];
         _action = action;
         _keyEquivalent = [key copy];
+        _mask = NSEventModifierFlagCommand;
     }
     return self;
 }
+- (NSMenu *)menu { return nil; }
+- (NSEventModifierFlags)keyEquivalentModifierMask { return _mask; }
+- (void)setKeyEquivalentModifierMask:(NSEventModifierFlags)m { _mask = m; }
+- (BOOL)hasSubmenu { return _submenu != nil; }
+- (BOOL)isSeparatorItem { return !_title.length && !_action && !_submenu; }
+- (NSInteger)state { return _state; }
+- (void)setState:(NSInteger)s { _state = s; }
+- (BOOL)isHidden { return _hidden; }
+- (void)setHidden:(BOOL)h { _hidden = h; }
+- (NSImage *)image { return _image; }
+- (void)setImage:(NSImage *)i { _image = i; }
+- (NSString *)toolTip { return _toolTip; }
+- (void)setToolTip:(NSString *)t { _toolTip = [t copy]; }
 - (BOOL)isEnabled { return !_disabled; }
 - (void)setEnabled:(BOOL)e { _disabled = !e; }
 @end

@@ -4,6 +4,7 @@
  * it, which then gets the drags and the mouse-up; keys go to the first
  * responder; close and resize requests act like the title bar's controls. */
 #import <AppKit/AppKit.h>
+#import <objc/message.h>
 #include <dispatch/dispatch.h>
 #include <math.h>
 #include <sys/time.h>
@@ -113,7 +114,32 @@ static const char kFirstResponderKey, kTrackingKey;
 /* ---- the application: events in from the display ---- */
 
 @implementation NSApplication (BittenEvents)
+/* The first object along the key window's responder chain (then the
+ * window, its delegate, the application and its delegate) that handles
+ * `action`. */
+- (id)targetForAction:(SEL)action to:(id)target from:(id)sender {
+    if (target) return [target respondsToSelector:action] ? target : nil;
+    NSWindow *key = self.keyWindow;
+    for (NSResponder *r = key.firstResponder; r; r = r.nextResponder)
+        if ([r respondsToSelector:action]) return r;
+    if (key && [key respondsToSelector:action]) return key;
+    if ([key.delegate respondsToSelector:action]) return key.delegate;
+    if ([self respondsToSelector:action]) return self;
+    if ([self.delegate respondsToSelector:action]) return self.delegate;
+    return nil;
+}
+- (id)targetForAction:(SEL)action { return [self targetForAction:action to:nil from:nil]; }
+- (BOOL)sendAction:(SEL)action to:(id)target from:(id)sender {
+    id t = [self targetForAction:action to:target from:sender];
+    if (!t) return NO;
+    ((void (*)(id, SEL, id))objc_msgSend)(t, action, sender);
+    return YES;
+}
 - (void)sendEvent:(NSEvent *)event {
+    /* Command-key shortcuts go to the main menu first. */
+    if (event.type == NSEventTypeKeyDown && (event.modifierFlags & NSEventModifierFlagCommand) &&
+        [self.mainMenu performKeyEquivalent:event])
+        return;
     NSWindow *w = event.window;
     if (w) [w sendEvent:event];
     else if (event.type == NSEventTypeKeyDown) [self.keyWindow sendEvent:event];

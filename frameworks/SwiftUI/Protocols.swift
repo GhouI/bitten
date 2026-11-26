@@ -550,9 +550,9 @@ public struct EmptyCommands: Commands {
 }
 
 @frozen
-public struct _TupleCommands<T>: Commands {
+public struct TupleCommandContent<T>: Commands {
   public var value: T
-  @inlinable public init(_ value: T) { self.value = value }
+  public init(_ value: T) { self.value = value }
   public typealias Body = Never
   public var body: Never { return fatalError("no body") }
   public func _resolve(into resolved: inout _ResolvedCommands) {
@@ -574,7 +574,7 @@ public struct CommandsBuilder {
   @_alwaysEmitIntoClient public static func buildBlock<C: Commands>(_ content: C) -> C { content }
   @_alwaysEmitIntoClient
   public static func buildBlock<each Content: Commands>(_ content: repeat each Content) -> some Commands {
-    return _TupleCommands((repeat each content))
+    return TupleCommandContent((repeat each content))
   }
   @_alwaysEmitIntoClient public static func buildOptional<C: Commands>(_ c: C?) -> C? { c }
 }
@@ -793,12 +793,12 @@ public struct ToolbarItemGroup<Content: View>: ToolbarContent {
 }
 
 @frozen
-public struct _TupleToolbarContent<T>: ToolbarContent {
+public struct TupleToolbarContent<T>: ToolbarContent {
   public var value: T
-  @inlinable public init(_ value: T) { self.value = value }
+  public init(_ value: T) { self.value = value }
   public typealias Body = Never
   public var body: Never { return fatalError("no body") }
-  public static func _makeContent(content: _GraphValue<_TupleToolbarContent>, inputs: _GraphInputs,
+  public static func _makeContent(content: _GraphValue<TupleToolbarContent>, inputs: _GraphInputs,
                                   resolved: inout _ToolbarItemList) {
     var r = resolved
     _forEachTupleElement(content.value.value) { (c: Any) in
@@ -807,7 +807,7 @@ public struct _TupleToolbarContent<T>: ToolbarContent {
     resolved = r
   }
 }
-extension _TupleToolbarContent: CustomizableToolbarContent {}
+extension TupleToolbarContent: CustomizableToolbarContent {}
 extension ToolbarContent {
   fileprivate func _makeContentAny(inputs: _GraphInputs, resolved: inout _ToolbarItemList) {
     let me = self
@@ -829,12 +829,12 @@ public struct ToolbarContentBuilder {
   @_alwaysEmitIntoClient public static func buildBlock<C: ToolbarContent>(_ content: C) -> C { content }
   @_alwaysEmitIntoClient
   public static func buildBlock<each Content: ToolbarContent>(_ content: repeat each Content) -> some ToolbarContent {
-    return _TupleToolbarContent((repeat each content))
+    return TupleToolbarContent((repeat each content))
   }
   @_alwaysEmitIntoClient
   public static func buildBlock<each Content: CustomizableToolbarContent>(_ content: repeat each Content)
     -> some CustomizableToolbarContent {
-    return _TupleToolbarContent((repeat each content))
+    return TupleToolbarContent((repeat each content))
   }
   @_alwaysEmitIntoClient public static func buildIf<C: ToolbarContent>(_ c: C?) -> C? { c }
   /// Views inside a toolbar are automatic items.

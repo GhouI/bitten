@@ -7,6 +7,7 @@
 // structural position, which survives the tree being rebuilt.
 
 import CoreGraphics
+import Dispatch
 
 // MARK: - graph types
 
@@ -40,6 +41,29 @@ internal final class _RenderContext {
   weak var hostView: NSView?
   /// AppKit subviews placed in the last layout.
   var livePlatformViews: Set<ObjectIdentifier> = []
+
+  /// Appear/disappear: views seen in the build in progress, and the
+  /// disappear actions of those seen in the last one.
+  private var seen: Set<String> = []
+  private var live: [String: (() -> Void)?] = [:]
+  private var pendingAppear: [() -> Void] = []
+  func beginBuild() { seen = [] }
+  func lifecycle(_ key: String, appear: (() -> Void)?, disappear: (() -> Void)?) {
+    seen.insert(key)
+    if live[key] == nil, let a = appear { pendingAppear.append(a) }
+    live[key] = .some(disappear)
+  }
+  /// Runs the appear actions of new views and the disappear actions of
+  /// views that are gone, after the build.
+  func endBuild() {
+    for (k, d) in live where !seen.contains(k) {
+      live[k] = nil
+      if let d = d { DispatchQueue.main.async { d() } }
+    }
+    let appear = pendingAppear
+    pendingAppear = []
+    for a in appear { DispatchQueue.main.async { a() } }
+  }
   func store<T: AnyObject>(_ key: String, _ make: () -> T) -> T {
     if let s = storage[key] as? T { return s }
     let s = make()

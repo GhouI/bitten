@@ -7,6 +7,7 @@ final class _AppHost {
 
   var delegate: NSObject?
   var windows: [NSWindow] = []
+  let undoManager = UndoManager()
   var registered: [String: (title: String, make: () -> NSView)] = [:]
 
   var appName: String {
@@ -23,6 +24,7 @@ final class _AppHost {
   func start<A: App>(_ app: A) {
     let nsapp = NSApplication.shared
     visit(app.body)
+    _installMainMenu(commands)
     nsapp.run()
   }
 
@@ -39,20 +41,75 @@ final class _AppHost {
     visit(scene.body)
   }
 
-  func openWindow<V: View>(title: String, id: String?, content: @escaping () -> V) {
-    let frame = NSScreen.main?.visibleFrame ?? NSMakeRect(0, 0, 1440, 875)
-    let w = NSWindow(contentRect: NSMakeRect(0, 0, min(900, frame.size.width), min(600, frame.size.height)),
-                     styleMask: [.titled, .closable, .resizable, .miniaturizable],
-                     backing: .buffered, defer: false)
+  /// The settings scene modifiers have applied to the scenes being visited.
+  var config = _SceneConfig()
+  /// Commands from every scene, applied to the main menu once all are in.
+  var commands = _ResolvedCommands()
+  var launchSuppressed = false
+
+  /// Visits `scene` with the configuration changed by `modify`.
+  func withConfig(_ modify: (inout _SceneConfig) -> Void, _ body: () -> Void) {
+    let saved = config
+    modify(&config)
+    body()
+    config = saved
+  }
+
+  func makeWindow(title: String, view: NSView) -> NSWindow {
+    let screen = NSScreen.main?.visibleFrame ?? NSMakeRect(0, 0, 1440, 875)
+    var size = config.defaultSize ?? CGSize(width: 900, height: 600)
+    let fitting = (view as? _HostingViewBase)?.fittingContentSize
+    if config.defaultSize == nil, let f = fitting, f.width > 0, f.height > 0 {
+      size = CGSize(width: max(f.width, 300), height: max(f.height, 200))
+    }
+    if config.resizability == .contentSize, let f = fitting, f.width > 0, f.height > 0 { size = f }
+    var style: NSWindow.StyleMask = [.titled, .closable, .miniaturizable]
+    if config.resizability != .contentSize { style.insert(.resizable) }
+    if config.hiddenTitleBar { style.insert(.fullSizeContentView) }
+    let w = NSWindow(contentRect: NSMakeRect(0, 0, min(size.width, screen.size.width), min(size.height, screen.size.height)),
+                     styleMask: style, backing: .buffered, defer: false)
     w.title = title
-    w.contentView = NSHostingView(rootView: content())
+    if config.hiddenTitleBar {
+      w.titleVisibility = .hidden
+      w.titlebarAppearsTransparent = true
+    }
+    w.contentView = view
+    if let f = fitting, config.resizability == .contentMinSize { w.contentMinSize = f }
     w.center()
+    return w
+  }
+
+  func openWindow<V: View>(title: String, id: String?, content: @escaping () -> V) {
+    if let id = id { registerWindow(id: id, title: title, content: content) }
+    if config.launchBehavior == .suppressed { return }
+    show(makeWindow(title: title, view: NSHostingView(rootView: content())))
+  }
+
+  func show(_ w: NSWindow) {
     w.makeKeyAndOrderFront(nil)
     windows.append(w)
   }
 
   func registerWindow<V: View>(id: String, title: String, content: @escaping () -> V) {
+    let saved = config
     registered[id] = (title, { NSHostingView(rootView: content()) })
+    configs[id] = saved
+  }
+  var configs: [String: _SceneConfig] = [:]
+
+  /// `openWindow(id:)`: brings the window forward, or makes it.
+  func open(id: String) {
+    if let w = windows.first(where: { $0.identifier?.rawValue == id && $0.isVisible }) {
+      w.makeKeyAndOrderFront(nil)
+      return
+    }
+    guard let entry = registered[id] else { return }
+    let saved = config
+    config = configs[id] ?? _SceneConfig()
+    let w = makeWindow(title: entry.title, view: entry.make())
+    config = saved
+    w.identifier = NSUserInterfaceItemIdentifier(id)
+    show(w)
   }
 }
 
@@ -150,7 +207,10 @@ open class NSHostingView<Content: View>: _HostingViewBase {
   }
   override func _makeRoot() -> _ViewNode {
     let inputs = _ViewInputs(_GraphInputs(environment: _environment, context: _context, path: ""))
-    return _makeNode(rootView, inputs: inputs)
+    _context.beginBuild()
+    let root = _makeNode(rootView, inputs: inputs)
+    _context.endBuild()
+    return root
   }
 }
 

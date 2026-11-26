@@ -104,8 +104,8 @@ extension StateObject: _GraphInstallable {
 }
 extension LazyState: _GraphInstallable {
   mutating func _install(key: String, inputs: _ViewInputs) {
-    let mine = box
-    box = inputs.base.context.store(key) { mine }
+    let me = self
+    _box = inputs.base.context.store(key) { _LazyStateBox(me._resolved()) }
   }
 }
 final class _ObjectBox<T: AnyObject> {
@@ -229,42 +229,47 @@ public struct NSApplicationDelegateAdaptor<DelegateType: NSObject & NSApplicatio
 }
 
 /// State whose initial value is computed on first use (`@State var model =
-/// Model()` for observable classes). Not frozen: programs reach it through
-/// its initializer and accessors.
-@propertyWrapper
+/// Model()` for observable classes). Frozen with its storage first, as
+/// Apple's: programs write `.value(...)` storage into it directly.
+@frozen @propertyWrapper
 public struct LazyState<Value>: DynamicProperty {
-  @usableFromInline enum Storage {
+  @usableFromInline internal enum Storage {
     case value(Value)
-    case pending(() -> Value)
+    case initially(() -> Value)
   }
-  final class Box {
-    var storage: Storage
-    init(_ s: Storage) { storage = s }
-    var value: Value {
-      get {
-        switch storage {
-        case .value(let v): return v
-        case .pending(let make):
-          let v = make()
-          storage = .value(v)
-          return v
-        }
-      }
-      set {
-        storage = .value(newValue)
-        _GraphHost.invalidate()
-      }
+  @usableFromInline internal var storage: Storage
+  /// The graph's storage, once the view is installed.
+  @usableFromInline internal var _box: _LazyStateBox<Value>?
+
+  public init(wrappedValue thunk: @autoclosure @escaping () -> Value) {
+    storage = .initially(thunk)
+    _box = nil
+  }
+  /// The value, made from the initial thunk if needed.
+  internal func _resolved() -> Value {
+    switch storage {
+    case .value(let v): return v
+    case .initially(let make): return make()
     }
   }
-  var box: Box
-
-  public init(wrappedValue thunk: @autoclosure @escaping () -> Value) { box = Box(.pending(thunk)) }
+  internal var _location: _LazyStateBox<Value> {
+    if let b = _box { return b }
+    return _LazyStateBox(_resolved())
+  }
   public var wrappedValue: Value {
-    get { return box.value }
-    nonmutating set { box.value = newValue }
+    get { return _location.value }
+    nonmutating set { _location.value = newValue }
   }
   public var projectedValue: Binding<Value> {
-    let b = box
+    let b = _location
     return Binding(get: { b.value }, set: { b.value = $0 })
   }
+}
+
+@usableFromInline
+internal final class _LazyStateBox<Value> {
+  var value: Value {
+    didSet { _GraphHost.invalidate() }
+  }
+  init(_ v: Value) { value = v }
 }

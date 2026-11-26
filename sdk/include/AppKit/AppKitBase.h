@@ -30,18 +30,22 @@ typedef NS_OPTIONS(NSUInteger, NSWindowStyleMask) {
     NSWindowStyleMaskMiniaturizable = 1 << 2,
     NSWindowStyleMaskResizable = 1 << 3,
     NSWindowStyleMaskFullSizeContentView = 1 << 15,
-};
+} NS_SWIFT_NAME(NSWindow.StyleMask);
+typedef NS_ENUM(NSInteger, NSModalResponse) {
+    NSModalResponseStop = -1000, NSModalResponseAbort = -1001, NSModalResponseContinue = -1002,
+    NSModalResponseOK = 1, NSModalResponseCancel = 0
+} NS_SWIFT_NAME(NSApplication.ModalResponse);
 typedef NS_ENUM(NSUInteger, NSBackingStoreType) {
     NSBackingStoreRetained = 0, NSBackingStoreNonretained = 1, NSBackingStoreBuffered = 2,
-};
+} NS_SWIFT_NAME(NSWindow.BackingStoreType);
 typedef NS_ENUM(NSInteger, NSApplicationActivationPolicy) {
     NSApplicationActivationPolicyRegular = 0,
     NSApplicationActivationPolicyAccessory = 1,
     NSApplicationActivationPolicyProhibited = 2,
-};
+} NS_SWIFT_NAME(NSApplication.ActivationPolicy);
 typedef NS_ENUM(NSUInteger, NSApplicationTerminateReply) {
     NSTerminateCancel = 0, NSTerminateNow = 1, NSTerminateLater = 2,
-};
+} NS_SWIFT_NAME(NSApplication.TerminateReply);
 typedef NS_ENUM(NSUInteger, NSEventType) {
     NSEventTypeLeftMouseDown = 1, NSEventTypeLeftMouseUp = 2,
     NSEventTypeRightMouseDown = 3, NSEventTypeRightMouseUp = 4,
@@ -50,14 +54,14 @@ typedef NS_ENUM(NSUInteger, NSEventType) {
     NSEventTypeKeyDown = 10, NSEventTypeKeyUp = 11, NSEventTypeFlagsChanged = 12,
     NSEventTypeAppKitDefined = 13, NSEventTypeSystemDefined = 14, NSEventTypeApplicationDefined = 15,
     NSEventTypePeriodic = 16, NSEventTypeCursorUpdate = 17, NSEventTypeScrollWheel = 22,
-};
+} NS_SWIFT_NAME(NSEvent.EventType);
 typedef NS_OPTIONS(NSUInteger, NSEventModifierFlags) {
     NSEventModifierFlagCapsLock = 1 << 16, NSEventModifierFlagShift = 1 << 17,
     NSEventModifierFlagControl = 1 << 18, NSEventModifierFlagOption = 1 << 19,
     NSEventModifierFlagCommand = 1 << 20, NSEventModifierFlagNumericPad = 1 << 21,
     NSEventModifierFlagHelp = 1 << 22, NSEventModifierFlagFunction = 1 << 23,
-};
-typedef NS_OPTIONS(unsigned long long, NSEventMask) { NSEventMaskAny = ~0ULL };
+} NS_SWIFT_NAME(NSEvent.ModifierFlags);
+typedef NS_OPTIONS(unsigned long long, NSEventMask) { NSEventMaskAny = ~0ULL } NS_SWIFT_NAME(NSEvent.EventTypeMask);
 typedef NS_ENUM(NSUInteger, NSCompositingOperation) {
     NSCompositingOperationClear = 0, NSCompositingOperationCopy = 1,
     NSCompositingOperationSourceOver = 2,

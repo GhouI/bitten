@@ -11,6 +11,7 @@ public protocol EnvironmentKey {
 
 public struct EnvironmentValues: CustomStringConvertible {
   internal var _values: [ObjectIdentifier: Any] = [:]
+  internal var _named: [String: Any] = [:]
   public init() {}
 
   public subscript<K: EnvironmentKey>(key: K.Type) -> K.Value {
@@ -137,4 +138,164 @@ extension Animatable where AnimatableData == EmptyAnimatableData {
 
 extension Animatable {
   public static func _makeAnimatable(value: inout _GraphValue<Self>, inputs: _GraphInputs) {}
+}
+
+// MARK: - observable objects in the environment
+
+extension EnvironmentValues {
+  /// The `@Observable` object of type `T` put in the environment with
+  /// `.environment(object)`.
+  public subscript<T: AnyObject & Observable>(objectType: T.Type) -> T? {
+    get { return _values[ObjectIdentifier(T.self)] as? T }
+    set { _values[ObjectIdentifier(T.self)] = newValue }
+  }
+}
+
+/// Indexes key paths to environment objects by type.
+struct _ObjectTypeKey<T: AnyObject & Observable>: Hashable {
+  init() {}
+  static func == (a: _ObjectTypeKey, b: _ObjectTypeKey) -> Bool { return true }
+  func hash(into hasher: inout Hasher) { hasher.combine(ObjectIdentifier(T.self)) }
+}
+extension EnvironmentValues {
+  internal subscript<T: AnyObject & Observable>(_object key: _ObjectTypeKey<T>) -> T? {
+    get { return self[T.self] }
+    set { self[T.self] = newValue }
+  }
+  internal subscript<T: AnyObject & Observable>(_forcedObject key: _ObjectTypeKey<T>) -> T {
+    guard let o = self[T.self] else {
+      fatalError("No Observable object of type \(T.self) found. A View.environment(_:) for \(T.self) may be missing.")
+    }
+    return o
+  }
+}
+
+extension Environment {
+  public init(_ objectType: Value.Type) where Value: AnyObject & Observable {
+    content = .keyPath(\EnvironmentValues[_forcedObject: _ObjectTypeKey<Value>()])
+  }
+  public init<T: AnyObject & Observable>(_ objectType: T.Type) where Value == T? {
+    content = .keyPath(\EnvironmentValues[_object: _ObjectTypeKey<T>()])
+  }
+}
+
+extension View {
+  public func environment<T: AnyObject & Observable>(_ object: T?) -> some View {
+    return modifier(_EnvironmentKeyWritingModifier(keyPath: \EnvironmentValues[_object: _ObjectTypeKey<T>()], value: object))
+  }
+}
+
+// MARK: - more environment values
+
+public enum ColorSchemeContrast: Hashable, CaseIterable, Sendable { case standard, increased }
+public enum ControlActiveState: Hashable, CaseIterable, Sendable { case key, active, inactive }
+public enum ControlSize: Hashable, CaseIterable, Sendable { case mini, small, regular, large, extraLarge }
+public enum DynamicTypeSize: Hashable, Comparable, CaseIterable, Sendable {
+  case xSmall, small, medium, large, xLarge, xxLarge, xxxLarge, accessibility1, accessibility2, accessibility3,
+    accessibility4, accessibility5
+  public var isAccessibilitySize: Bool { return self >= .accessibility1 }
+}
+public enum Visibility: Hashable, CaseIterable, Sendable { case automatic, visible, hidden }
+public struct ButtonBorderShape: Equatable, Sendable {
+  let kind: Int
+  let radius: CGFloat
+  public static let automatic = ButtonBorderShape(kind: 0, radius: 0)
+  public static let capsule = ButtonBorderShape(kind: 1, radius: 0)
+  public static let roundedRectangle = ButtonBorderShape(kind: 2, radius: 6)
+  public static let circle = ButtonBorderShape(kind: 3, radius: 0)
+  public static func roundedRectangle(radius: CGFloat) -> ButtonBorderShape { return ButtonBorderShape(kind: 2, radius: radius) }
+}
+
+@MainActor @preconcurrency
+public struct DismissAction: Sendable {
+  public func callAsFunction() { NSApp.keyWindow?.performClose(nil) }
+}
+
+public struct OpenURLAction: Sendable {
+  public struct Result: Sendable {
+    let id: Int
+    public static let handled = Result(id: 0)
+    public static let discarded = Result(id: 1)
+    public static let systemAction = Result(id: 2)
+    public static func systemAction(_ url: URL) -> Result { return Result(id: 2) }
+  }
+  let handler: @Sendable (URL) -> Result
+  public init(handler: @escaping @Sendable (URL) -> Result) { self.handler = handler }
+  @MainActor public func callAsFunction(_ url: URL) {
+    if handler(url).id == 2 { NSWorkspace.shared.open(url) }
+  }
+  @MainActor public func callAsFunction(_ url: URL, completion: @escaping (Bool) -> Void) {
+    callAsFunction(url)
+    completion(true)
+  }
+}
+
+/// A stored environment value with a default, by name.
+private func _envGet<V>(_ env: EnvironmentValues, _ name: String, _ dflt: V) -> V {
+  return (env._named[name] as? V) ?? dflt
+}
+private func _envSet<V>(_ env: inout EnvironmentValues, _ name: String, _ v: V) { env._named[name] = v }
+
+extension EnvironmentValues {
+  public var _buttonBorderShape: ButtonBorderShape {
+    get { return _envGet(self, "buttonBorderShape", .automatic) }
+    set { _envSet(&self, "buttonBorderShape", newValue) }
+  }
+  public var accessibilityDifferentiateWithoutColor: Bool { return false }
+  public var accessibilityReduceMotion: Bool { return false }
+  public var accessibilityReduceTransparency: Bool { return false }
+  public var accessibilityVoiceOverEnabled: Bool { return false }
+  public var accessibilityInvertColors: Bool { return false }
+  public var appearsActive: Bool {
+    get { return _envGet(self, "appearsActive", true) }
+    set { _envSet(&self, "appearsActive", newValue) }
+  }
+  public var colorSchemeContrast: ColorSchemeContrast { return .standard }
+  public var contentTransition: ContentTransition {
+    get { return _envGet(self, "contentTransition", .identity) }
+    set { _envSet(&self, "contentTransition", newValue) }
+  }
+  public var controlActiveState: ControlActiveState {
+    get { return _envGet(self, "controlActiveState", .key) }
+    set { _envSet(&self, "controlActiveState", newValue) }
+  }
+  public var controlSize: ControlSize {
+    get { return _envGet(self, "controlSize", .regular) }
+    set { _envSet(&self, "controlSize", newValue) }
+  }
+  @MainActor public var dismiss: DismissAction { return DismissAction() }
+  public var displayScale: CGFloat {
+    get { return _envGet(self, "displayScale", CGFloat(1)) }
+    set { _envSet(&self, "displayScale", newValue) }
+  }
+  public var dynamicTypeSize: DynamicTypeSize {
+    get { return _envGet(self, "dynamicTypeSize", .large) }
+    set { _envSet(&self, "dynamicTypeSize", newValue) }
+  }
+  public var layoutDirection: LayoutDirection {
+    get { return _envGet(self, "layoutDirection", .leftToRight) }
+    set { _envSet(&self, "layoutDirection", newValue) }
+  }
+  public var locale: Locale {
+    get { return _envGet(self, "locale", Locale.current) }
+    set { _envSet(&self, "locale", newValue) }
+  }
+  public var menuIndicatorVisibility: Visibility {
+    get { return _envGet(self, "menuIndicatorVisibility", .automatic) }
+    set { _envSet(&self, "menuIndicatorVisibility", newValue) }
+  }
+  public var openURL: OpenURLAction {
+    get { return _envGet(self, "openURL", OpenURLAction { _ in .systemAction }) }
+    set { _envSet(&self, "openURL", newValue) }
+  }
+  public var symbolRenderingMode: SymbolRenderingMode? {
+    get { return _envGet(self, "symbolRenderingMode", nil) }
+    set { _envSet(&self, "symbolRenderingMode", newValue) }
+  }
+  @MainActor public var undoManager: UndoManager? { return _AppHost.shared.undoManager }
+}
+
+extension View {
+  public func controlSize(_ size: ControlSize) -> some View { return environment(\.controlSize, size) }
+  public func dynamicTypeSize(_ size: DynamicTypeSize) -> some View { return environment(\.dynamicTypeSize, size) }
 }

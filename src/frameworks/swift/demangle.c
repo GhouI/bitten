@@ -694,8 +694,15 @@ static int multi_subst(struct parser *P) {
             continue;
         }
         if (c == '_') {
-            unsigned i = (unsigned)rep + 27;
-            if (rep < 0 || i >= P->nsubs) return fail(P, "substitution out of range");
+            /* "A_" is substitution 26, "A<n>_" substitution n + 27. */
+            unsigned i = (unsigned)(rep + 27);
+            if (i >= P->nsubs) {
+                if (getenv("BITTEN_DEMANGLE_DUMP")) {
+                    dx_log(1, "swift: substitution %u wanted, %u known; kinds:", i, P->nsubs);
+                    for (unsigned k = 0; k < P->nsubs; k++) dx_log(1, "  sub %u kind %u", k, P->subs[k]->kind);
+                }
+                return fail(P, "substitution out of range");
+            }
             push(P, P->subs[i]);
             return 0;
         }
@@ -1811,17 +1818,40 @@ static const sw_metadata *resolve_opaque(struct resolver *R, const struct node *
     return m ? m : rfail(R, n, "underlying type of an opaque type could not be resolved");
 }
 
+const char *dx_symbol_for_address(const void *addr, uintptr_t *sym_addr);
 static void report(const char *name, size_t len, const struct node *root, struct resolver *R,
                    const char *parse_err) {
     if (!dx_verbose) return;
     struct sbuf b = {0};
     if (root) print_node(&b, root);
     else {
-        /* Show the raw name with symbolic references elided. */
+        /* Show the raw name with symbolic references elided, or (with
+         * BITTEN_DEMANGLE_DUMP) replaced by the mangling of what they name,
+         * which swift-demangle can then read. */
+        int dump = getenv("BITTEN_DEMANGLE_DUMP") != NULL;
+        if (dump) sb_puts(&b, "$s");
         for (size_t i = 0; i < len; i++) {
             unsigned char c = name[i];
             if (c >= 1 && c <= 0x17) {
-                sb_puts(&b, "<ref>");
+                const char *sym = NULL;
+                if (dump && i + 5 <= len) {
+                    int32_t off;
+                    memcpy(&off, name + i + 1, 4);
+                    const void *t = name + i + 1 + off;
+                    if (c == 0x02 || c == 0x0c) t = *(const void *const *)t;
+                    uintptr_t at = 0;
+                    sym = dx_symbol_for_address(t, &at);
+                    if (sym && at != (uintptr_t)t) sym = NULL;
+                }
+                if (sym) {
+                    size_t n = strlen(sym);
+                    if (!strncmp(sym, "_$s", 3)) sym += 3, n -= 3;
+                    if (n >= 2 && (!strcmp(sym + n - 2, "Mn") || !strcmp(sym + n - 2, "MQ") || !strcmp(sym + n - 2, "Mp")))
+                        n -= 2;
+                    sb_putn(&b, sym, n);
+                } else {
+                    sb_puts(&b, "<ref>");
+                }
                 i += 4;
             } else if (c >= 0x20 && c < 0x7f) sb_putn(&b, (const char *)&c, 1);
         }
