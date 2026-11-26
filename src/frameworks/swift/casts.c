@@ -447,6 +447,15 @@ static int cast(sw_opaque *dest, sw_opaque *src, const sw_metadata *type, const 
             return 1;
         }
         break;
+    case SW_KIND_FOREIGN_CLASS:
+        /* A CoreFoundation type (CTFontDescriptor, CGColor, ...): as in
+         * Apple's runtime, any object casts to it unchecked (the compiler
+         * warns that such casts always succeed). */
+        if (is_class_like(type) && *(void **)src) {
+            *(void **)dest = sw_unknown_retain(*(void **)src);
+            return 1;
+        }
+        break;
     case SW_KIND_METATYPE:
         if (sk == SW_KIND_METATYPE) {
             const sw_metadata *r = d_swift_dynamicCastMetatype(*(const sw_metadata *const *)src,

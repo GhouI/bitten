@@ -92,6 +92,8 @@ const char *dx_stub_value_name(uintptr_t v);
 void *dx_image_section(const struct dx_image *img, const char *sect, size_t *size);
 const struct dx_image *dx_image_for_address(const void *addr, const char **name_out,
                                             uintptr_t *base_out);
+/* Nearest preceding symbol of a loaded image, or NULL. */
+const char *dx_symbol_for_address(const void *addr, uintptr_t *sym_addr);
 uint32_t dx_image_count(void);
 const char *dx_image_name(uint32_t i);
 const void *dx_image_header(uint32_t i);

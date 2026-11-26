@@ -712,6 +712,7 @@ static Ref d_CTFontManagerCreateFontDescriptorsFromURL(Ref url) {
     if (!url || !CALL(Boolean, CFURLGetFileSystemRepresentation, (Ref, Boolean, uint8_t *, CFIndex))(url, 1, (uint8_t *)path, sizeof path))
         return NULL;
     struct ttf *face = ct_register_file(path);
+    CT_TRACE("descriptors from %s -> %s", path, face ? face->family : "(none)");
     if (!face) return NULL;
     Ref name = ct_cfstring(face->postscript[0] ? face->postscript : face->full), family = ct_cfstring(face->family);
     Ref style = ct_cfstring(face->style[0] ? face->style : "Regular"), full = ct_cfstring(face->full[0] ? face->full : face->family);
