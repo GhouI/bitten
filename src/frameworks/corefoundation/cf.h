@@ -32,6 +32,8 @@ enum cf_type {
     CF_CT_FONT, CF_CT_DESCRIPTOR, CF_CT_LINE, CF_CT_RUN, CF_CT_COLLECTION,
     /* Security's code signing, transforms and access control (security/) */
     CF_SEC_CODE, CF_SEC_TRANSFORM, CF_SEC_ACCESS_CONTROL,
+    /* ImageIO (coregraphics/imagesource.c) */
+    CF_CG_IMAGE_SOURCE,
     CF_TYPE_COUNT
 };
 _Static_assert(CF_TYPE_COUNT <= 40, "CF_TYPE_MAX");

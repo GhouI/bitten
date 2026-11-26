@@ -226,6 +226,9 @@ struct cg_image {
 };
 
 struct cg_image *cg_image_from_surface(const struct cg_surface *s, struct cg_colorspace *space, uint32_t info);
+struct cg_image *cg_image_from_rgba(const uint8_t *rgba, size_t w, size_t h);
+/* PNG files to premultiplied RGBA, rows top to bottom (png.c); malloc'd. */
+uint8_t *cg_png_decode(const uint8_t *data, size_t n, size_t *w, size_t *h);
 /* A premultiplied RGBA sample at image coordinates (u, v), v down. */
 void cg_image_sample(const struct cg_image *img, CGFloat u, CGFloat v, bool smooth, bool tile, CGFloat out[4]);
 

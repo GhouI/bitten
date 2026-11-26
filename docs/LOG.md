@@ -2120,3 +2120,21 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - CoreFoundation: room for 40 CF types (three new Security ones).
 - Test: `tests/c/iokit_security`.
 - Target app window (total `^MISSING`): 1,629 -> 1,595.
+
+## 2026-11-26: ImageIO (PNG), Accelerate, ServiceManagement (PR: smallfw)
+
+- PNG decoding (`coregraphics/png.c`): every colour type and bit depth,
+  palettes, tRNS, the five filters, Adam7; to premultiplied RGBA.
+- ImageIO (`coregraphics/imagesource.c`): `CGImageSource` from data, a
+  data provider or a URL; type by signature (PNG, JPEG, GIF, TIFF, BMP,
+  ICO, ICNS, WebP, HEIC), count, status, images, thumbnails (the full
+  image), pixel-size properties. Only PNG decodes. Also
+  `CGImageCreateWithPNGDataProvider`.
+- Accelerate (`src/frameworks/accelerate`): vDSP's FFT setup and real
+  FFT (`vDSP_fft_zrip`, Apple's packing and 2x / 2N scaling),
+  `ctoz`/`ztoc`, `vsmul`, `vadd`, `vmul`, `zvabs`, `zvmags`, `maxv`,
+  `meanv`, `rmsqv`; vImage's RGB888 to RGBA8888 and (un)premultiply.
+- ServiceManagement: there is no launchd; `SMJobSubmit`, `SMJobRemove`,
+  `SMJobBless` and `SMLoginItemSetEnabled` fail with errors saying so.
+- Test: `tests/c/imageio_accelerate`.
+- Target app window (total `^MISSING`): 1,595 -> 1,582.
