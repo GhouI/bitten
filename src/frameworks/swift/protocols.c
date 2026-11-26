@@ -135,6 +135,9 @@ static void conf_tail(const sw_conformance_descriptor *c, struct conf_tail *t) {
     t->ncond = (c->flags >> SW_CONF_NUM_CONDITIONAL_REQUIREMENTS_SHIFT) & 0xFF;
     t->cond = (const void *)p;
     p += t->ncond * sizeof(sw_generic_requirement);
+    /* Conditional pack requirements: one pack shape descriptor each
+     * (flags bits 24-31), with no header. */
+    p += ((c->flags >> 24) & 0xFF) * sizeof(sw_pack_shape_descriptor);
     t->resilient = NULL;
     if (c->flags & SW_CONF_HAS_RESILIENT_WITNESSES) {
         t->resilient = (const void *)p;
@@ -194,7 +197,21 @@ static const sw_witness_table *d_swift_getWitnessTable(const sw_conformance_desc
     unsigned nkey = 0;
     for (unsigned i = 0; i < t.ncond; i++)
         if ((t.cond[i].flags & 0x1F) == SW_REQ_PROTOCOL && (t.cond[i].flags & SW_GP_HAS_KEY_ARGUMENT)) nkey++;
-    for (unsigned i = 0; i < nkey && i < priv && args; i++) table[-1 - (int)i] = (void *)args[i];
+    /* A pack requirement's witness tables come as a pack: on the heap, so
+     * the table can keep it (its length is the type's first pack length). */
+    const void *const *targs = sw_generic_args(type);
+    const sw_generic_context_header *th =
+        sw_generic_header((const sw_context_descriptor *)sw_type_descriptor(type));
+    unsigned tpacks = 0, tshapes = 0;
+    if (th) sw_pack_shapes(th, &tpacks, &tshapes);
+    for (unsigned i = 0, k = 0; i < t.ncond && k < nkey && k < priv && args; i++) {
+        if ((t.cond[i].flags & 0x1F) != SW_REQ_PROTOCOL || !(t.cond[i].flags & SW_GP_HAS_KEY_ARGUMENT)) continue;
+        const void *v = args[k];
+        if ((t.cond[i].flags & 0x20) && tshapes && targs)
+            v = sw_heap_pack((const void *const *)v, (size_t)(uintptr_t)targs[0]);
+        table[-1 - (int)k] = (void *)v;
+        k++;
+    }
     if (t.gwt && t.gwt->instantiator) {
         wt_instantiator fn = (wt_instantiator)sw_rel(&t.gwt->instantiator);
         fn(table, type, args);

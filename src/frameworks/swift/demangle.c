@@ -103,6 +103,7 @@ enum {
     NK_EXT,        /* extension context: kids: module, extended type */
     NK_LIST,       /* generic arguments of one level */
     NK_PRIVATE,    /* private declaration name: text = name, kids[0] = discriminator */
+    NK_PACK,       /* a pack of types (QP): kids are the element types */
 };
 enum { FL_THROWS = 1, FL_ASYNC = 2, FL_SENDABLE = 4, FL_GLOBAL_ACTOR = 8, FL_TYPED_THROWS = 16,
        FL_OTHER = 32 };
@@ -247,7 +248,7 @@ static int is_type(const struct node *n) {
     }
     case NK_NOMINAL: return n->sub != 'P';
     case NK_STD: return std_lookup(n) && std_lookup(n)->kind != 'P';
-    case NK_ACCESSOR: case NK_BOUND: case NK_TUPLE: case NK_FUNC: case NK_PARAMFLAG:
+    case NK_ACCESSOR: case NK_BOUND: case NK_TUPLE: case NK_FUNC: case NK_PARAMFLAG: case NK_PACK:
     case NK_METATYPE: case NK_EXIST_METATYPE: case NK_EXIST: case NK_GPARAM: case NK_DEPMEMBER:
     case NK_BUILTIN: case NK_OPAQUE: case NK_STORAGE:
         return 1;
@@ -637,6 +638,23 @@ static int archetype(struct parser *P) {
             for (unsigned j = 0; j < levels[i]->nkids; j++) add_kid(P, o, levels[i]->kids[j]);
         add_sub(P, o);
         push(P, o);
+        return 0;
+    }
+    case 'P': {
+        /* A pack: its element types, listed as a tuple's are ('_' after
+         * the first, 'y' for none). */
+        struct node *pk = mk(P, NK_PACK);
+        if (!pop_kind(P, NK_EMPTY)) {
+            int first;
+            do {
+                first = pop_kind(P, NK_FIRST) != NULL;
+                struct node *ty = pop_type(P);
+                if (!ty) return fail(P, "pack element is not a type");
+                add_kid(P, pk, ty);
+            } while (!first);
+            reverse_kids(pk, 0);
+        }
+        push(P, pk);
         return 0;
     }
     default:
@@ -1108,6 +1126,14 @@ static void print_node(struct sbuf *b, const struct node *n) {
         }
         break;
     }
+    case NK_PACK:
+        sb_puts(b, "Pack{");
+        for (unsigned i = 0; i < n->nkids; i++) {
+            if (i) sb_puts(b, ", ");
+            print_node(b, n->kids[i]);
+        }
+        sb_puts(b, "}");
+        break;
     case NK_TUPLE:
         sb_puts(b, "(");
         for (unsigned i = 0; i < n->nkids; i++) {
@@ -1246,6 +1272,8 @@ void sw_env_init(struct sw_env *e, const sw_context_descriptor *ctx, const void 
         e->params = (const uint8_t *)(h + 1);
         e->nreqs = h->num_requirements;
         e->reqs = header_reqs(h);
+        unsigned npacks;
+        sw_pack_shapes(h, &npacks, &e->nshapes);
     }
 }
 
@@ -1272,7 +1300,9 @@ static const sw_metadata *env_param(const struct sw_env *e, unsigned depth, unsi
     if (!e->args) return NULL;
     if (!e->params) return e->args[pos];
     if ((unsigned)pos >= e->nparams || !(e->params[pos] & SW_GP_HAS_KEY_ARGUMENT)) return NULL;
-    unsigned k = 0;
+    /* Pack lengths come first; a pack parameter's argument is its (heap,
+     * tagged) pack, which callers that take packs unwrap. */
+    unsigned k = e->nshapes;
     for (long i = 0; i < pos; i++)
         if (e->params[i] & SW_GP_HAS_KEY_ARGUMENT) k++;
     return e->args[k];
@@ -1424,7 +1454,30 @@ int sw_check_requirements(const sw_generic_requirement *reqs, unsigned n, const 
     for (unsigned i = 0; i < n; i++) {
         const sw_generic_requirement *r = &reqs[i];
         unsigned kind = r->flags & 0x1F;
-        if (r->flags & 0x60) continue; /* packs and values: not supported, assume satisfied */
+        if (r->flags & 0x40) continue; /* value generics: not supported, assume satisfied */
+        if (r->flags & 0x20) {
+            /* A pack requirement: each element of the pack conforms; the
+             * key argument is the pack of their witness tables. Other pack
+             * requirements (same type, layout) are assumed satisfied. */
+            if (kind != SW_REQ_PROTOCOL) continue;
+            const char *pname = sw_rel(&r->param);
+            const void *const *pack =
+                pname ? (const void *const *)sw_type_in_env(pname, sw_mangled_name_length(pname), e) : NULL;
+            if (!pack || !((uintptr_t)pack & 1)) return -1;
+            int32_t off = r->content;
+            const char *p = (const char *)&r->content + (off & ~3);
+            if (off & 1) p = *(const char *const *)p;
+            if (off & 2) return -1; /* Objective-C protocols over packs: not supported */
+            size_t count = sw_pack_count(pack);
+            const void *const *elems = sw_pack_elements(pack);
+            const void **wts = alloca((count + 1) * sizeof *wts);
+            for (size_t j = 0; j < count; j++) {
+                wts[j] = sw_conforms_to(elems[j], (const sw_protocol_descriptor *)p);
+                if (!wts[j]) return -1;
+            }
+            if ((r->flags & SW_GP_HAS_KEY_ARGUMENT) && key_out) key_out[(*nkey)++] = sw_heap_pack(wts, count);
+            continue;
+        }
         if (kind == SW_REQ_SAME_CONFORMANCE || kind == SW_REQ_SAME_SHAPE || kind == SW_REQ_INVERTED_PROTOCOLS)
             continue;
         const char *pname = sw_rel(&r->param);
@@ -1485,9 +1538,15 @@ static const sw_metadata *instantiate(struct resolver *R, const struct node *at,
     sw_env_init(&e, (const sw_context_descriptor *)d, NULL);
     e.flat = flat;
     const void **key = alloca((h->num_key_arguments + 1) * sizeof *key);
-    unsigned nk = 0;
+    unsigned npacks, nshapes;
+    const sw_pack_shape_descriptor *pd = sw_pack_shapes(h, &npacks, &nshapes);
+    unsigned nk = nshapes;
     for (unsigned i = 0; i < h->num_params; i++)
         if (e.params[i] & SW_GP_HAS_KEY_ARGUMENT) key[nk++] = flat[i];
+    /* Each shape class's length, from a metadata pack of that class. */
+    for (unsigned i = 0; i < npacks; i++)
+        if (pd[i].kind == 0 && pd[i].index < nk && pd[i].shape_class < nshapes)
+            key[pd[i].shape_class] = (const void *)(uintptr_t)sw_pack_count((const void *const *)key[pd[i].index]);
     if (sw_check_requirements(e.reqs, e.nreqs, &e, key, &nk))
         return rfail(R, at, "generic arguments do not satisfy the type's requirements");
     if (nk != h->num_key_arguments) return rfail(R, at, "unsupported generic signature");
@@ -1745,6 +1804,12 @@ static const sw_metadata *resolve(struct resolver *R, const struct node *n) {
          * generic arguments. */
         return ((const sw_metadata *(*)(const void *const *))n->ptr)(R->env->args);
     case NK_TUPLE: return resolve_tuple(R, n);
+    case NK_PACK: {
+        const void **el = alloca((n->nkids + 1) * sizeof *el);
+        for (unsigned i = 0; i < n->nkids; i++)
+            if (!(el[i] = resolve(R, n->kids[i]))) return NULL;
+        return (const sw_metadata *)sw_heap_pack(el, n->nkids);
+    }
     case NK_FUNC: return resolve_function(R, n);
     case NK_PARAMFLAG: case NK_STORAGE: return resolve(R, n->kids[0]);
     case NK_METATYPE: {
@@ -1968,12 +2033,27 @@ static void print_generic_ctx(struct sbuf *b, const sw_context_descriptor *c, co
     const sw_generic_context_header *h = sw_generic_header(c);
     if (!h || !args || (!qualified && !innermost)) return;
     const uint8_t *params = (const uint8_t *)(h + 1);
-    unsigned from = inherited_params(c), key = 0, printed = 0;
+    unsigned npacks, nshapes;
+    sw_pack_shapes(h, &npacks, &nshapes);
+    unsigned from = inherited_params(c), key = nshapes, printed = 0;
     for (unsigned i = 0; i < h->num_params; i++) {
         if (!(params[i] & SW_GP_HAS_KEY_ARGUMENT)) continue;
         if (i >= from) {
             sb_puts(b, printed++ ? ", " : "<");
-            print_metadata(b, args[key], qualified);
+            if ((params[i] & SW_GP_KIND_MASK) == 1) {
+                /* A pack: its elements, as Swift prints them. */
+                const void *const *pack = (const void *const *)args[key];
+                size_t n = sw_pack_count(pack);
+                const void *const *elems = sw_pack_elements(pack);
+                sb_puts(b, "Pack{");
+                for (size_t j = 0; j < n; j++) {
+                    if (j) sb_puts(b, ", ");
+                    print_metadata(b, elems[j], qualified);
+                }
+                sb_puts(b, "}");
+            } else {
+                print_metadata(b, args[key], qualified);
+            }
         }
         key++;
     }
