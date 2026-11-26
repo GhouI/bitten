@@ -447,6 +447,10 @@ SWIFT_FW_MACOS_Network := 14.0
 # SwiftUI uses CGFloat, which moved into the CoreFoundation overlay in
 # macOS 14 (the target application's own deployment target).
 SWIFT_FW_MACOS_SwiftUI := 14.0
+# AppIntents uses LocalizedStringResource and UTType (macOS 13 and up).
+SWIFT_FW_MACOS_AppIntents := 14.0
+# Libraries besides frameworks a Swift framework links (the late Swift ones).
+SWIFT_FW_EXTRA_AppIntents = $(call late_swift_lib,UniformTypeIdentifiers)
 swift_fw_macos  = $(or $(SWIFT_FW_MACOS_$(1)),11.0)
 swift_fw_target = $(if $(SWIFT_FW_MACOS_$(1)),-target x86_64-apple-macos$(SWIFT_FW_MACOS_$(1)) -runtime-compatibility-version none,$(SWIFT_TARGET))
 # Combine sits below Foundation (whose Swift overlay adds its publishers and
@@ -455,7 +459,7 @@ swift_fw_target = $(if $(SWIFT_FW_MACOS_$(1)),-target x86_64-apple-macos$(SWIFT_
 SWIFT_FW_BELOW_FOUNDATION := Combine
 swift_fw_base = $(if $(filter $(1),$(SWIFT_FW_BELOW_FOUNDATION)),,$(FOUNDATION) $(APPKIT))
 define swift_framework
-$(call swift_fw_lib,$(1)): $(wildcard frameworks/$(1)/*.swift) $(OVERLAY_LIBS) $(call swift_fw_base,$(1)) $(foreach d,$(SWIFT_FW_DEPS_$(1)),$(call swift_fw_lib,$(d)))
+$(call swift_fw_lib,$(1)): $(wildcard frameworks/$(1)/*.swift) $(OVERLAY_LIBS) $(call swift_fw_base,$(1)) $(foreach d,$(SWIFT_FW_DEPS_$(1)),$(call swift_fw_lib,$(d))) $(SWIFT_FW_EXTRA_$(1))
 	@mkdir -p $$(dir $$@) $(BUILD)/swiftfw
 	$(SWIFTC) -module-name $(1) $(call swift_fw_target,$(1)) -sdk $(SDKROOT) -resource-dir $(SWIFTRES) -I $(SWIFT_MODDIR) \
 	    -Xfrontend -disable-implicit-string-processing-module-import \
@@ -466,7 +470,7 @@ $(call swift_fw_lib,$(1)): $(wildcard frameworks/$(1)/*.swift) $(OVERLAY_LIBS) $
 	$(MACHO_LD) -arch x86_64 -platform_version macos $(call swift_fw_macos,$(1)) $(call swift_fw_macos,$(1)) -dylib \
 	    -install_name /System/Library/Frameworks/$(1).framework/Versions/A/$(1) \
 	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(OVERLAY_LIBS) $(call swift_fw_base,$(1)) \
-	    $(foreach d,$(SWIFT_FW_DEPS_$(1)),$(call swift_fw_lib,$(d))) -o $$@ $(BUILD)/swiftfw/$(1).o
+	    $(foreach d,$(SWIFT_FW_DEPS_$(1)),$(call swift_fw_lib,$(d))) $(SWIFT_FW_EXTRA_$(1)) -o $$@ $(BUILD)/swiftfw/$(1).o
 endef
 $(foreach f,$(SWIFT_FWS),$(eval $(call swift_framework,$(f))))
 
@@ -493,6 +497,8 @@ SWLIB_LIBS_uttype := $(FOUNDATION) $(call late_swift_lib,UniformTypeIdentifiers)
 SWLIB_MACOS_uttype := 14.0
 SWLIB_LIBS_localized := $(FOUNDATION) $(FOUNDATION_COMBINE)
 SWLIB_MACOS_localized := 14.0
+SWLIB_LIBS_appintents := $(FOUNDATION) $(FOUNDATION_COMBINE) $(APPKIT) $(call late_swift_lib,UniformTypeIdentifiers) $(call swift_fw_lib,AppIntents) $(LIBCONCURRENCY)
+SWLIB_MACOS_appintents := 14.0
 SWLIB_LIBS_swiftui := $(FOUNDATION) $(APPKIT) $(call swift_fw_lib,Combine) $(call swift_fw_lib,SwiftUI)
 SWLIB_MACOS_swiftui := 14.0
 $(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTCORE) $(OVERLAY_LIBS) tests/include/darwin.h $$(SWLIB_LIBS_$$*)
