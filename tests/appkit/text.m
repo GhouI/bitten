@@ -73,6 +73,28 @@ int main(void) {
         CHECK(start == 0 && contents == 3 && end == 5);
         NSString *e = @"éx";
         CHECK(NSEqualRanges([e rangeOfComposedCharacterSequenceAtIndex:0], NSMakeRange(0, 2)));
+        // NSTextView's text settings: alignment shapes the text and what
+        // is typed next; programmatic edits and range attributes.
+        NSTextView *tv2 = [[NSTextView alloc] initWithFrame:NSMakeRect(0, 0, 200, 50)];
+        tv2.string = @"hello";
+        tv2.alignment = NSTextAlignmentCenter;
+        CHECK(tv2.alignment == NSTextAlignmentCenter);
+        NSParagraphStyle *ps = [tv2.textStorage attribute:NSParagraphStyleAttributeName atIndex:0 effectiveRange:NULL];
+        CHECK(ps.alignment == NSTextAlignmentCenter);
+        CHECK(((NSParagraphStyle *)tv2.typingAttributes[NSParagraphStyleAttributeName]).alignment == NSTextAlignmentCenter);
+        [tv2 replaceCharactersInRange:NSMakeRange(0, 1) withString:@"j"];
+        CHECK([tv2.string isEqualToString:@"jello"]);
+        NSColor *red = NSColor.redColor;
+        [tv2 setTextColor:red range:NSMakeRange(1, 2)];
+        CHECK([tv2.textStorage attribute:NSForegroundColorAttributeName atIndex:1 effectiveRange:NULL] == red);
+        [tv2 setAlignment:NSTextAlignmentRight range:NSMakeRange(0, 2)];
+        ps = [tv2.textStorage attribute:NSParagraphStyleAttributeName atIndex:4 effectiveRange:NULL];
+        CHECK(ps.alignment == NSTextAlignmentRight); /* the whole paragraph */
+        tv2.automaticQuoteSubstitutionEnabled = YES;
+        CHECK(tv2.isAutomaticQuoteSubstitutionEnabled && !tv2.isGrammarCheckingEnabled);
+        NSColor *blue = NSColor.blueColor;
+        tv2.selectedTextAttributes = @{NSForegroundColorAttributeName : blue};
+        CHECK(tv2.selectedTextAttributes[NSForegroundColorAttributeName] == blue);
         puts("appkit text ok");
     }
     return 0;
