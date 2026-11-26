@@ -1031,6 +1031,19 @@ extern NSURLResourceKey const NSURLIsUbiquitousItemKey NS_SWIFT_NAME(URLResource
 extern NSURLResourceKey const NSURLFileProtectionKey NS_SWIFT_NAME(URLResourceKey.fileProtectionKey);
 extern NSURLResourceKey const NSURLAddedToDirectoryDateKey NS_SWIFT_NAME(URLResourceKey.addedToDirectoryDateKey);
 
+NS_SWIFT_NAME(Host)
+@interface NSHost : NSObject
++ (instancetype)currentHost;
++ (nullable instancetype)hostWithName:(nullable NSString *)name;
++ (nullable instancetype)hostWithAddress:(NSString *)address;
+- (BOOL)isEqualToHost:(NSHost *)aHost;
+@property (nullable, readonly, copy) NSString *name;
+@property (readonly, copy) NSArray<NSString *> *names;
+@property (nullable, readonly, copy) NSString *address;
+@property (readonly, copy) NSArray<NSString *> *addresses;
+@property (nullable, readonly, copy) NSString *localizedName;
+@end
+
 @protocol NSLocking
 - (void)lock;
 - (void)unlock;

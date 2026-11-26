@@ -88,6 +88,10 @@ void sw_group_attach(struct sw_group *g, sw_task *child, int unconditionally) {
     sw_retain((sw_heap_object *)child); /* until consumed (or, discarding, finished) */
     pthread_mutex_lock(&g->lock);
     int cancelled = g->cancelled;
+    /* addTask sets "add pending unconditionally": the child counts as
+     * pending from here; addTaskUnlessCancelled counted it already
+     * (swift_taskGroup_addPending). */
+    if (unconditionally) g->pending++;
     pthread_mutex_unlock(&g->lock);
     if (cancelled) atomic_fetch_or(&child->status, SW_TS_CANCELLED);
 }

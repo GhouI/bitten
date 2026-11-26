@@ -135,6 +135,89 @@ func tests() async {
   check(await sleeper.value, #line)
   check(sleeper.isCancelled, #line)
   check(!Task.isCancelled, #line)
+
+  await streamsAndGroups()
+}
+
+func streamsAndGroups() async {
+  // AsyncStream: yields before and after the reader starts, then finish.
+  let (stream, cont) = AsyncStream.makeStream(of: Int.self)
+  cont.yield(1)
+  let producer = Task.detached {
+    for i in 2...5 { cont.yield(i) }
+    cont.finish()
+  }
+  var got: [Int] = []
+  for await v in stream { got.append(v) }
+  await producer.value
+  check(got == [1, 2, 3, 4, 5], #line)
+  if case .terminated = cont.yield(6) {} else { check(false, #line) }
+
+  // bufferingNewest keeps the last ones
+  let newest = AsyncStream(Int.self, bufferingPolicy: .bufferingNewest(2)) { c in
+    for i in 1...5 { c.yield(i) }
+    c.finish()
+  }
+  var kept: [Int] = []
+  for await v in newest { kept.append(v) }
+  check(kept == [4, 5], #line)
+
+  // AsyncThrowingStream ends with the error
+  let failingStream = AsyncThrowingStream<Int, Error> { c in
+    c.yield(1)
+    c.finish(throwing: Oops(code: 42))
+  }
+  var seen = 0
+  do {
+    for try await v in failingStream { seen += v }
+    check(false, #line)
+  } catch {
+    check((error as? Oops)?.code == 42 && seen == 1, #line)
+  }
+
+  // unfolding
+  var n = 0
+  let unfolded = AsyncStream<Int> { n += 1; return n <= 3 ? n : nil }
+  var total = 0
+  for await v in unfolded { total += v }
+  check(total == 6, #line)
+
+  // algorithms
+  let dropped = AsyncStream(Int.self) { c in for i in 1...4 { c.yield(i) }; c.finish() }.dropFirst(2)
+  var rest: [Int] = []
+  for await v in dropped { rest.append(v) }
+  check(rest == [3, 4], #line)
+  check(await AsyncStream(Int.self) { c in c.yield(7); c.finish() }.contains(7), #line)
+
+  // task groups
+  let sum = await withTaskGroup(of: Int.self) { group -> Int in
+    for i in 1...10 { group.addTask { await twice(i) } }
+    var s = 0
+    for await v in group { s += v }
+    return s
+  }
+  check(sum == 110, #line)
+
+  do {
+    _ = try await withThrowingTaskGroup(of: Int.self) { group -> Int in
+      group.addTask { try await failing(1) }
+      group.addTask { try await failing(-5) }
+      var s = 0
+      for try await v in group { s += v }
+      return s
+    }
+    check(false, #line)
+  } catch {
+    check((error as? Oops)?.code == -5, #line)
+  }
+
+  var discarded = 0
+  let counter = Counter()
+  await withDiscardingTaskGroup { group in
+    for _ in 0..<5 { group.addTask { _ = await counter.add(1) } }
+  }
+  discarded = await counter.count
+  check(discarded == 5, #line)
 }
 
 @_silgen_name("swl_async_start")
