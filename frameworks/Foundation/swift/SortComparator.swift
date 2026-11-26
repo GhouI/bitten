@@ -93,3 +93,13 @@ extension MutableCollection where Self: RandomAccessCollection {
     }
   }
 }
+
+/// Columns and tables that do not sort use Never.
+extension Never: SortComparator {
+  public typealias Compared = Never
+  public func compare(_ lhs: Never, _ rhs: Never) -> ComparisonResult {}
+  public var order: SortOrder {
+    get { return .forward }
+    set {}
+  }
+}

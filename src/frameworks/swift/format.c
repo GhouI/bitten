@@ -208,3 +208,17 @@ static const char *d__swift_stdlib_strtold_clocale(const char *nptr, long double
     return end == nptr ? NULL : end;
 }
 DX_EXPORT("__swift_stdlib_strtold_clocale", d__swift_stdlib_strtold_clocale);
+
+/* void swift_stdlib_random(void *buf, size_t nbytes): cryptographically
+ * random bytes, for SystemRandomNumberGenerator. */
+#include <sys/random.h>
+static void d_swift_stdlib_random(void *buf, size_t n) {
+    unsigned char *p = buf;
+    while (n) {
+        ssize_t got = getrandom(p, n, 0);
+        if (got <= 0) continue;
+        p += got;
+        n -= (size_t)got;
+    }
+}
+DX_FN(swift_stdlib_random);

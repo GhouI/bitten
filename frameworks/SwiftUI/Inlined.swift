@@ -265,14 +265,6 @@ extension Never: TableColumnContent {
   public typealias TableColumnBody = Never
   public var tableColumnBody: Never { fatalError("no body") }
 }
-extension Never: SortComparator {
-  public typealias Compared = Never
-  public func compare(_ lhs: Never, _ rhs: Never) -> ComparisonResult {}
-  public var order: SortOrder {
-    get { return .forward }
-    set {}
-  }
-}
 
 /// One column of a table: a title and a view of each row's value.
 public struct _TableColumnEntry<RowValue> {

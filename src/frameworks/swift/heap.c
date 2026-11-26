@@ -130,6 +130,7 @@ struct static_init {
  * statically initialized objects carry, so binding it hands programs the
  * immortal pattern itself. */
 DX_EXPORT("_swiftImmortalRefCount", RC_IMMORTAL);
+DX_EXPORT("__swiftImmortalRefCount", RC_IMMORTAL);
 
 static void init_static_object(void *ctx) {
     struct static_init *si = ctx;

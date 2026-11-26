@@ -15,10 +15,13 @@ public protocol SymbolEffect: Hashable, Sendable {
   var configuration: SymbolEffectConfiguration { get }
 }
 
-public protocol IndefiniteSymbolEffect: SymbolEffect {}
-public protocol DiscreteSymbolEffect: SymbolEffect {}
-public protocol TransitionSymbolEffect: SymbolEffect {}
-public protocol ContentTransitionSymbolEffect: SymbolEffect {}
+/* The kinds of effect are separate protocols (an effect conforms to
+ * SymbolEffect and to the kinds it supports), as API constrained on both
+ * `T: IndefiniteSymbolEffect, T: SymbolEffect` is mangled. */
+public protocol IndefiniteSymbolEffect {}
+public protocol DiscreteSymbolEffect {}
+public protocol TransitionSymbolEffect {}
+public protocol ContentTransitionSymbolEffect {}
 
 public struct SymbolEffectOptions: Hashable, Sendable {
   public var speed: Double?
@@ -51,7 +54,7 @@ public struct SymbolEffectOptions: Hashable, Sendable {
   }
 }
 
-public struct VariableColorSymbolEffect: IndefiniteSymbolEffect, DiscreteSymbolEffect {
+public struct VariableColorSymbolEffect: SymbolEffect, IndefiniteSymbolEffect, DiscreteSymbolEffect {
   internal var _options: [String]
   public init() { _options = [] }
   internal init(_ options: [String]) { _options = options }
@@ -66,7 +69,7 @@ public struct VariableColorSymbolEffect: IndefiniteSymbolEffect, DiscreteSymbolE
   public var dimInactiveLayers: VariableColorSymbolEffect { return VariableColorSymbolEffect(_options + ["dimInactiveLayers"]) }
 }
 
-public struct ReplaceSymbolEffect: ContentTransitionSymbolEffect {
+public struct ReplaceSymbolEffect: SymbolEffect, ContentTransitionSymbolEffect {
   internal var _options: [String]
   public init() { _options = [] }
   internal init(_ options: [String]) { _options = options }
@@ -80,17 +83,17 @@ public struct ReplaceSymbolEffect: ContentTransitionSymbolEffect {
   public var wholeSymbol: ReplaceSymbolEffect { return ReplaceSymbolEffect(_options + ["wholeSymbol"]) }
 }
 
-public struct PulseSymbolEffect: IndefiniteSymbolEffect, DiscreteSymbolEffect {
+public struct PulseSymbolEffect: SymbolEffect, IndefiniteSymbolEffect, DiscreteSymbolEffect {
   public init() {}
   public var configuration: SymbolEffectConfiguration { return SymbolEffectConfiguration(name: "pulse") }
 }
 
-public struct BounceSymbolEffect: DiscreteSymbolEffect {
+public struct BounceSymbolEffect: SymbolEffect, DiscreteSymbolEffect {
   public init() {}
   public var configuration: SymbolEffectConfiguration { return SymbolEffectConfiguration(name: "bounce") }
 }
 
-public struct ScaleSymbolEffect: IndefiniteSymbolEffect {
+public struct ScaleSymbolEffect: SymbolEffect, IndefiniteSymbolEffect {
   public init() {}
   public var configuration: SymbolEffectConfiguration { return SymbolEffectConfiguration(name: "scale") }
 }

@@ -4,6 +4,8 @@
  * the current text colour, at the symbol's size, so layouts keep their
  * shape. */
 #import <AppKit/AppKit.h>
+#include <ctype.h>
+#include <string.h>
 
 typedef struct CGImageSource *CGImageSourceRef;
 CGImageSourceRef CGImageSourceCreateWithData(CFDataRef data, CFDictionaryRef options);
@@ -184,6 +186,36 @@ static NSMutableDictionary<NSString *, NSImage *> *named_images;
 - (instancetype)initByReferencingFile:(NSString *)file { return [self initWithContentsOfFile:file]; }
 - (instancetype)initByReferencingURL:(NSURL *)url { return [self initWithContentsOfURL:url]; }
 
+/* Whether a bundle's Assets.car names an asset: the catalog stores each
+ * asset's name as plain text in its facet keys. */
+static BOOL asset_catalog_has(NSBundle *bundle, NSString *name) {
+    static NSMutableDictionary<NSString *, NSData *> *catalogs;
+    NSString *path = [bundle pathForResource:@"Assets" ofType:@"car"];
+    if (!path || !name.length) return NO;
+    NSData *car;
+    @synchronized([NSImage class]) {
+        if (!catalogs) catalogs = [NSMutableDictionary dictionary];
+        car = catalogs[path];
+        if (!car) {
+            car = [NSData dataWithContentsOfFile:path] ?: [NSData data];
+            catalogs[path] = car;
+        }
+    }
+    NSData *needle = [name dataUsingEncoding:NSUTF8StringEncoding];
+    if (!needle.length || car.length < needle.length) return NO;
+    const unsigned char *h = car.bytes, *n = needle.bytes;
+    size_t hl = car.length, nl = needle.length;
+    for (size_t i = 0; i + nl <= hl; i++) {
+        if (h[i] != n[0] || memcmp(h + i, n, nl)) continue;
+        /* A whole name: not part of a longer identifier. */
+        unsigned char after = i + nl < hl ? h[i + nl] : 0;
+        unsigned char before = i ? h[i - 1] : 0;
+        if (after > ' ' && after != '"' && after < 0x80 && (isalnum(after) || after == '.' || after == '_' || after == '-')) continue;
+        if (before && (isalnum(before) || before == '.' || before == '_' || before == '-')) continue;
+        return YES;
+    }
+    return NO;
+}
 + (NSImage *)imageNamed:(NSImageName)name {
     if (!name) return nil;
     NSImage *cached = named_images[name];
@@ -196,6 +228,12 @@ static NSMutableDictionary<NSString *, NSImage *> *named_images;
     }
     if (!path && name.pathExtension.length) path = [b pathForResource:name ofType:nil];
     NSImage *img = path ? [[NSImage alloc] initWithContentsOfFile:path] : nil;
+    if (!img && asset_catalog_has(b, name)) {
+        /* In the compiled asset catalog, which is not decoded yet: an empty
+         * image of the usual icon size stands in (callers may rely on the
+         * image existing, as it does on macOS). */
+        img = [[NSImage alloc] initWithSize:NSMakeSize(16, 16)];
+    }
     if (!img) return nil;
     img->_name = [name copy];
     if (!named_images) named_images = [NSMutableDictionary dictionary];

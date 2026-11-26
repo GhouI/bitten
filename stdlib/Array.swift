@@ -462,3 +462,12 @@ public protocol ExpressibleByArrayLiteral {
   associatedtype ArrayLiteralElement
   init(arrayLiteral elements: ArrayLiteralElement...)
 }
+
+/// What Array, ContiguousArray and ArraySlice share, for code generic over
+/// them (the standard library's own algorithms, inlined into programs).
+public protocol _ArrayProtocol: RangeReplaceableCollection, ExpressibleByArrayLiteral where Indices == Range<Int> {
+  var capacity: Int { get }
+}
+extension Array: _ArrayProtocol {}
+extension ContiguousArray: _ArrayProtocol {}
+extension ArraySlice: _ArrayProtocol {}

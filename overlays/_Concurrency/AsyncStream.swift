@@ -254,9 +254,9 @@ extension AsyncStream: AsyncSequence {
 extension AsyncStream: @unchecked Sendable where Element: Sendable {}
 extension AsyncStream.Continuation.YieldResult: Sendable where Element: Sendable {}
 
-extension AsyncStream.Continuation where Element == Void {
+extension AsyncStream.Continuation {
   @discardableResult
-  public func yield() -> AsyncStream<Element>.Continuation.YieldResult { return yield(()) }
+  public func yield() -> AsyncStream<Element>.Continuation.YieldResult where Element == Void { return yield(()) }
 }
 
 // MARK: - AsyncThrowingStream
@@ -329,21 +329,22 @@ public struct AsyncThrowingStream<Element, Failure: Error> {
   }
 }
 
-extension AsyncThrowingStream where Failure == Error {
+extension AsyncThrowingStream {
   public init(_ elementType: Element.Type = Element.self,
               bufferingPolicy limit: Continuation.BufferingPolicy = .unbounded,
-              _ build: (Continuation) -> Void) {
+              _ build: (Continuation) -> Void) where Failure == Error {
     self.init(_policy: limit, build)
   }
 
-  public init(unfolding produce: @escaping @Sendable () async throws -> Element?) {
+  public init(unfolding produce: @escaping () async throws -> Element?) where Failure == Error {
     self._storage = nil
     self._produce = produce
   }
 
   public static func makeStream(of elementType: Element.Type = Element.self, throwing failureType: Failure.Type = Failure.self,
                                 bufferingPolicy limit: Continuation.BufferingPolicy = .unbounded)
-    -> (stream: AsyncThrowingStream<Element, Failure>, continuation: AsyncThrowingStream<Element, Failure>.Continuation) {
+    -> (stream: AsyncThrowingStream<Element, Failure>, continuation: AsyncThrowingStream<Element, Failure>.Continuation)
+    where Failure == Error {
     var continuation: Continuation! = nil
     let stream = AsyncThrowingStream(elementType, bufferingPolicy: limit) { continuation = $0 }
     return (stream: stream, continuation: continuation)
