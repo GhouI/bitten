@@ -53,11 +53,54 @@ NSApplication *NSApp;
     _needsDisplay = YES;
 }
 - (void)setFrameSize:(NSSize)size {
+    NSSize old = _frame.size;
     _frame.size = size;
     _bounds.size = size;
     _needsDisplay = YES;
     id l = self.layer;
     if (l) [l setValue:[NSValue valueWithRect:_bounds] forKey:@"bounds"];
+    if (!NSEqualSizes(old, size) && self.autoresizesSubviews) [self resizeSubviewsWithOldSize:old];
+}
+
+/* Autoresizing: each subview's autoresizing mask says which of its left
+ * margin, width and right margin (and bottom margin, height, top margin)
+ * absorb a change in its superview's size. The change is shared among the
+ * flexible parts in proportion to their current lengths (equally when they
+ * are all zero). Views laid out by constraints are left alone. */
+- (void)resizeSubviewsWithOldSize:(NSSize)oldSize {
+    for (NSView *v in [_subviews copy])
+        if (v.translatesAutoresizingMaskIntoConstraints) [v resizeWithOldSuperviewSize:oldSize];
+}
+
+static void bn_autoresize_axis(CGFloat delta, BOOL flexLo, BOOL flexLen, BOOL flexHi, CGFloat lo, CGFloat len, CGFloat hi,
+                               CGFloat *origin, CGFloat *length) {
+    int n = flexLo + flexLen + flexHi;
+    if (n == 0 || delta == 0) return;
+    CGFloat total = (flexLo ? MAX(lo, 0) : 0) + (flexLen ? MAX(len, 0) : 0) + (flexHi ? MAX(hi, 0) : 0);
+    CGFloat dLo = 0, dLen = 0;
+    if (total > 0) {
+        if (flexLo) dLo = delta * MAX(lo, 0) / total;
+        if (flexLen) dLen = delta * MAX(len, 0) / total;
+    } else {
+        if (flexLo) dLo = delta / n;
+        if (flexLen) dLen = delta / n;
+    }
+    *origin += dLo;
+    *length = MAX(0, *length + dLen);
+}
+
+- (void)resizeWithOldSuperviewSize:(NSSize)oldSize {
+    NSAutoresizingMaskOptions m = _autoresizingMask;
+    if (m == NSViewNotSizable || !_superview) return;
+    NSSize now = _superview.bounds.size;
+    NSRect f = _frame;
+    bn_autoresize_axis(now.width - oldSize.width, (m & NSViewMinXMargin) != 0, (m & NSViewWidthSizable) != 0,
+                       (m & NSViewMaxXMargin) != 0, f.origin.x, f.size.width, oldSize.width - NSMaxX(f), &f.origin.x,
+                       &f.size.width);
+    bn_autoresize_axis(now.height - oldSize.height, (m & NSViewMinYMargin) != 0, (m & NSViewHeightSizable) != 0,
+                       (m & NSViewMaxYMargin) != 0, f.origin.y, f.size.height, oldSize.height - NSMaxY(f), &f.origin.y,
+                       &f.size.height);
+    if (!NSEqualRects(f, _frame)) [self setFrame:f];
 }
 - (NSRect)bounds { return _bounds; }
 - (void)setBounds:(NSRect)bounds { _bounds = bounds; }

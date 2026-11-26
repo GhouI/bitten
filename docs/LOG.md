@@ -3461,3 +3461,24 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Target app (total `^MISSING`): 11 -> 11. Color-scheme cards show their
   previews. With #157 and the other session's crash reports: no crashes in
   5 runs of 30 s.
+
+## AppKit: autoresizing masks; views draw outside their bounds
+
+- `setFrameSize:` now calls `resizeSubviewsWithOldSize:`, and each subview's
+  `resizeWithOldSuperviewSize:` applies its autoresizing mask. The size
+  change is shared among the flexible margins and length in proportion to
+  their lengths (equally when all are zero). Views laid out by constraints
+  are skipped, and `autoresizesSubviews = NO` turns it off. Masks used to
+  be stored and ignored, so the target app's preview overlays, created at
+  zero size and sized by their masks, stayed 0x0. NSSplitView no longer
+  resizes its panes a second time from its own `setFrame:`.
+- Views clip their drawing only when `clipsToBounds` is set, their layer
+  masks to bounds, or they are clip views. The default is NO for programs
+  built with the macOS 14 SDK or later, as on a Mac.
+- SwiftUI lays out AppKit views it places while drawing (after the
+  window's layout pass), as AppKit would before drawing them at that size.
+- `BITTEN_VIEW_TREE` also prints Auto Layout use, constraint counts and
+  layer geometry.
+- Test: tests/appkit/autoresize.m.
+- Target app (total `^MISSING`): 11 -> 11. The appearance page's color-scheme
+  and toolbar-layout previews show their miniature windows.
