@@ -2466,3 +2466,15 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   Codable code the compiler derives for payload-less enums calls it.
 - Test: `tests/swiftlib/simd`.
 - Target app window (total `^MISSING`): 313 -> 310.
+
+## 2026-11-26: PhotosUI (PR: photosui)
+
+- `PhotosUI.framework`, Objective-C and Swift in one framework like
+  Foundation: `PHPickerViewController` (an AppKit view controller) with
+  its Swift initialiser and delegate, `PHPickerConfiguration` (filter,
+  selection limit, representation mode, selection), `PHPickerFilter`,
+  `PHPickerResult` over NSItemProvider, `PHPickerViewControllerDelegate`.
+  There is no photo library here: a picker that appears finishes once
+  with no results, as when the user cancels.
+- Test: `tests/swiftlib/photosui`.
+- Target app window (total `^MISSING`): 310 -> 293.
