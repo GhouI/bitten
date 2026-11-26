@@ -3071,3 +3071,16 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Target app: its server helper now boots out, bootstraps and kickstarts
   its server as a LaunchAgent. The server stays up and answers
   `rex server status`.
+
+## Custom button styles
+
+- SwiftUI: a program's own `ButtonStyle` now builds the button (it was
+  ignored and the label drawn plain): its `makeBody` wraps the label and
+  the button keeps handling taps. A program's own `PrimitiveButtonStyle`
+  makes the whole button, with `Button(configuration)` (added) for the
+  usual body. The configuration's label is built where the style places
+  it, so the style's foreground and font reach it. Built-in styles set
+  further in clear a program's style.
+- Test: tests/swiftlib/swiftui.swift (`styles`).
+- Target app window (total `^MISSING`): 11 -> 11. Its "Start Again" and
+  "Open Diagnostics" buttons draw in its own capsule styles.
