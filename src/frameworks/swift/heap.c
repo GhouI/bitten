@@ -32,6 +32,8 @@
 
 #include "dx_objc.h"
 #include "swift_internal.h"
+#include <malloc.h>
+static int quarantine = -1;
 
 #define RC_UNOWNED_MASK 0xFFFFFFFFull
 #define RC_DEINITING (1ull << 32)
@@ -59,8 +61,31 @@ static inline int rc_cas(sw_heap_object *o, uint64_t *old, uint64_t new) {
 static void weak_object_deiniting(sw_heap_object *o);
 static void obj_trace(const char *what, sw_heap_object *o);
 static const char *trace_obj_name;
+/* BITTEN_HEAP_QUARANTINE=1 keeps freed objects' memory, filled with a
+ * poison pattern, so a later retain or release of one is reported (with
+ * the caller's return addresses) instead of corrupting whatever reused it. */
+#include <malloc.h>
+#define SW_POISON 0xddddddddddddddddull
+static void report_stale(const char *what, const sw_heap_object *o) {
+    char line[256];
+    int n = snprintf(line, sizeof line, "bitten: %s of freed object %p:", what, (const void *)o);
+    void **fp = __builtin_frame_address(0);
+    for (int i = 0; i < 14 && fp && n < (int)sizeof line - 20; i++) {
+        n += snprintf(line + n, sizeof line - n, " %p", fp[1]);
+        void **next = fp[0];
+        if (next <= fp || (char *)next - (char *)fp > (1 << 20)) break;
+        fp = next;
+    }
+    fprintf(stderr, "%s\n", line);
+}
 static void heap_free(sw_heap_object *o) {
     if (trace_obj_name) obj_trace("freed", o);
+    if (quarantine < 0) quarantine = getenv("BITTEN_HEAP_QUARANTINE") != NULL;
+    if (quarantine) {
+        /* the metadata word is left alone (BITTEN_WATCH_OBJ watches it) */
+        memset((char *)o + 8, 0xdd, malloc_usable_size(o) - 8);
+        return;
+    }
     free(o);
 }
 
@@ -92,7 +117,14 @@ static void *d_swift_coroFrameAlloc(size_t size, uint64_t type_id) {
     return malloc(size);
 }
 DX_FN(swift_coroFrameAlloc);
-static void d_swift_slowDealloc(void *p, size_t size, size_t align_mask) { free(p); }
+static void d_swift_slowDealloc(void *p, size_t size, size_t align_mask) {
+    if (quarantine < 0) quarantine = getenv("BITTEN_HEAP_QUARANTINE") != NULL;
+    if (quarantine && p && getenv("BITTEN_HEAP_QUARANTINE")[0] >= '2') {
+        memset(p, 0xdd, malloc_usable_size(p));
+        return;
+    }
+    free(p);
+}
 DX_FN(swift_slowDealloc);
 
 /* BITTEN_TRACE_OBJ=Name logs where Swift objects whose class name contains
@@ -121,11 +153,53 @@ static void obj_trace(const char *what, sw_heap_object *o) {
     fprintf(stderr, "%s\n", line);
 }
 
+/* BITTEN_WATCH_OBJ=Name arms a hardware write breakpoint on the first byte
+ * (the metadata pointer) of each new object whose class name contains
+ * Name, keeping the four newest: a later write to it, which nothing
+ * legitimate does, stops the writer with SIGTRAP and a crash report. */
+#include <linux/hw_breakpoint.h>
+#include <linux/perf_event.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+static const char *watch_obj_name;
+static int watch_obj_inited;
+static void obj_watch(sw_heap_object *o) {
+    static int fds[4] = {-1, -1, -1, -1};
+    static unsigned next;
+    if (!watch_obj_inited) {
+        watch_obj_name = getenv("BITTEN_WATCH_OBJ");
+        watch_obj_inited = 1;
+    }
+    if (!watch_obj_name) return;
+    uintptr_t k = sw_kind((const sw_metadata *)o->metadata);
+    if (k != SW_KIND_CLASS && k <= 0x7FF) return;
+    const char *name = sw_type_name((const sw_metadata *)o->metadata, 1);
+    if (!name || !strstr(name, watch_obj_name)) return;
+    struct perf_event_attr a;
+    memset(&a, 0, sizeof a);
+    a.type = PERF_TYPE_BREAKPOINT;
+    a.size = sizeof a;
+    a.bp_type = HW_BREAKPOINT_W;
+    a.bp_addr = (uintptr_t)o;
+    a.bp_len = HW_BREAKPOINT_LEN_1;
+    a.sample_period = 1;
+    a.sigtrap = 1;
+    a.remove_on_exec = 1;
+    a.exclude_kernel = 1;
+    a.exclude_hv = 1;
+    unsigned slot = next++ % 4;
+    if (fds[slot] >= 0) close(fds[slot]);
+    fds[slot] = (int)syscall(SYS_perf_event_open, &a, 0, -1, -1, PERF_FLAG_FD_CLOEXEC);
+    if (fds[slot] < 0) fprintf(stderr, "bitten: watch %p failed\n", (void *)o);
+    else fprintf(stderr, "bitten: watching %p (%s)\n", (void *)o, name);
+}
+
 sw_heap_object *sw_alloc_object(const sw_metadata *m, size_t size, size_t align_mask) {
     sw_heap_object *o = slow_alloc(size, align_mask);
     o->metadata = m;
     o->refcounts = RC_INITIAL;
     if (trace_obj_name || !trace_obj_inited) obj_trace("made", o);
+    if (watch_obj_name || !watch_obj_inited) obj_watch(o);
     return o;
 }
 static sw_heap_object *d_swift_allocObject(const sw_metadata *m, size_t size, size_t align_mask) {
@@ -181,6 +255,10 @@ DX_FN(swift_initStaticObject);
 
 sw_heap_object *sw_retain(sw_heap_object *o) {
     if (!valid(o)) return o;
+    if (quarantine > 0 && o->refcounts == SW_POISON) {
+        report_stale("retain", o);
+        return o;
+    }
     uint64_t w = rc_load(o);
     do {
         if (rc_immortal(w)) return o;
@@ -234,6 +312,10 @@ static void deinit_object(sw_heap_object *o, uint64_t w) {
 
 void sw_release_n(sw_heap_object *o, uint32_t n) {
     if (!valid(o) || !n) return;
+    if (quarantine > 0 && o->refcounts == SW_POISON) {
+        report_stale("release", o);
+        return;
+    }
     uint64_t w = rc_load(o), nw;
     for (;;) {
         if (rc_immortal(w)) return;

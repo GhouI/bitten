@@ -253,6 +253,13 @@ internal func _installDynamicProperties<V>(_ value: inout V, inputs: _ViewInputs
           _dbg("  field \(name.map { String(cString: $0) } ?? "?"): \(t) @\(addr - raw) size \(_openExistential(t, do: size)) installable=\(t is _GraphInstallable.Type)")
         }
         if let installable = t as? _GraphInstallable.Type {
+          // A field outside the value would be written over someone else's memory.
+          func fits<T>(_: T.Type) -> Bool { addr >= raw && addr - raw + MemoryLayout<T>.size <= MemoryLayout<V>.size }
+          guard _openExistential(t, do: fits) else {
+            _dbg("bitten: install \(V.self): field \(name.map { String(cString: $0) } ?? "\(i)") at offset \(addr - raw) is outside the value (size \(MemoryLayout<V>.size)); skipped")
+            i += 1
+            continue
+          }
           func install<T: _GraphInstallable>(_: T.Type) {
             UnsafeMutableRawPointer(mutating: addr).assumingMemoryBound(to: T.self).pointee._install(key: key, inputs: inputs)
           }
