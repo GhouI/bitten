@@ -497,6 +497,9 @@ static CGRect gravity_rect(NSString *g, CGRect b, CGSize content) {
     return CGRectMake(x, y, s.width, s.height);
 }
 
+size_t bitten_cg_gstate_depth(CGContextRef c);
+void bitten_cg_restore_to_depth(CGContextRef c, size_t depth);
+
 /* Draw this layer and its sublayers, in this layer's coordinates. */
 - (void)_bn_render:(CGContextRef)ctx {
     if (_hidden || _opacity <= 0) return;
@@ -538,9 +541,10 @@ static CGRect gravity_rect(NSString *g, CGRect b, CGSize content) {
             CGContextDrawImage(ctx, r, img);
         }
     }
+    size_t depth = bitten_cg_gstate_depth(ctx);
     CGContextSaveGState(ctx);
     [self drawInContext:ctx];
-    CGContextRestoreGState(ctx);
+    bitten_cg_restore_to_depth(ctx, depth); /* also any states the drawing left saved */
     NSArray *subs = [_sublayers sortedArrayUsingComparator:^NSComparisonResult(CALayer *a, CALayer *b) {
         return a.zPosition < b.zPosition ? NSOrderedAscending : a.zPosition > b.zPosition ? NSOrderedDescending : NSOrderedSame;
     }];

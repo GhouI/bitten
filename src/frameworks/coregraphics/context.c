@@ -238,6 +238,21 @@ static void d_CGContextRestoreGState(CGContextRef c) {
 }
 DX_FN(CGContextRestoreGState);
 
+/* For AppKit: how many states are saved, and dropping back to that many,
+ * so a view whose drawing saves more than it restores cannot leave its
+ * transform and clip behind for the views drawn after it. */
+size_t bitten_cg_gstate_depth(CGContextRef c) {
+    size_t n = 0;
+    if (c)
+        for (struct gstate *g = c->gs; g->next; g = g->next) n++;
+    return n;
+}
+DX_EXPORT("_bitten_cg_gstate_depth", bitten_cg_gstate_depth);
+void bitten_cg_restore_to_depth(CGContextRef c, size_t depth) {
+    while (c && bitten_cg_gstate_depth(c) > depth) d_CGContextRestoreGState(c);
+}
+DX_EXPORT("_bitten_cg_restore_to_depth", bitten_cg_restore_to_depth);
+
 static void d_CGContextTranslateCTM(CGContextRef c, CGFloat tx, CGFloat ty) {
     if (c) c->gs->ctm = cg_concat((CGAffineTransform){1, 0, 0, 1, tx, ty}, c->gs->ctm);
 }

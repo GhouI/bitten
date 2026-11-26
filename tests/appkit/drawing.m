@@ -41,6 +41,41 @@
 }
 @end
 
+/* Saves two graphics states more than it restores, inside a flipped view:
+ * the flip is left behind in the window's context, and the window's next
+ * frames must still come out upright. */
+@interface Leaker : NSView
+@end
+@implementation Leaker
+- (BOOL)isFlipped { return YES; }
+- (void)drawRect:(NSRect)r {
+    CGContextSaveGState([NSGraphicsContext currentContext].CGContext);
+    CGContextSaveGState([NSGraphicsContext currentContext].CGContext);
+}
+@end
+
+/* Draws into an offscreen bitmap between saving and restoring the
+ * graphics state, as image drawing does; the window's context must be
+ * current again afterwards. */
+@interface Offscreen : NSView
+@property BOOL restored;
+@end
+@implementation Offscreen
+- (void)drawRect:(NSRect)r {
+    NSGraphicsContext *mine = [NSGraphicsContext currentContext];
+    [NSGraphicsContext saveGraphicsState];
+    CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB();
+    CGContextRef bm = CGBitmapContextCreate(NULL, 4, 4, 8, 16, rgb, kCGImageAlphaPremultipliedLast);
+    [NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithCGContext:bm flipped:NO]];
+    [[NSColor blackColor] setFill];
+    NSRectFill(NSMakeRect(0, 0, 4, 4));
+    [NSGraphicsContext restoreGraphicsState];
+    CGContextRelease(bm);
+    CGColorSpaceRelease(rgb);
+    self.restored = [NSGraphicsContext currentContext] == mine;
+}
+@end
+
 /* The colour at (x, y) in AppKit coordinates (origin bottom-left). */
 static unsigned pixel(CGContextRef c, int x, int y) {
     size_t h = CGBitmapContextGetHeight(c), stride = CGBitmapContextGetBytesPerRow(c);
@@ -92,6 +127,18 @@ int main(void) {
         CHECK(button.keys == 1 && [button.typed isEqualToString:@"q"]);
         [NSApp sendEvent:mouse(NSEventTypeLeftMouseDown, NSMakePoint(95, 5))]; // empty: the content view
         CHECK(button.downs == 1);
+        Offscreen *off = [[Offscreen alloc] initWithFrame:NSMakeRect(90, 0, 5, 5)];
+        [w.contentView addSubview:off];
+        [w display];
+        CHECK(off.restored);
+        FlippedPainter *box = [[FlippedPainter alloc] initWithFrame:NSMakeRect(0, 0, 100, 80)];
+        [box addSubview:[[Leaker alloc] initWithFrame:NSMakeRect(0, 0, 100, 80)]];
+        [w.contentView addSubview:box positioned:NSWindowBelow relativeTo:nil];
+        for (int frame = 0; frame < 3; frame++) {
+            [w display];
+            c = [w _bn_backingContext];
+            CHECK(pixel(c, 12, 12) == 0xFF0000 && pixel(c, 71, 68) == 0x00FF00);
+        }
         [w close];
         printf("ok\n");
     }
