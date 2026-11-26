@@ -339,7 +339,11 @@ const char *class_name(Class cls) {
 
 Class objc_class_of(id obj) {
     if (!obj) return NULL;
-    if ((uintptr_t)obj & 1) dx_fatal("objc: tagged pointer %p used; tagged objects are not supported", (void *)obj);
+    if ((uintptr_t)obj & 1) {
+        const char *missing = dx_stub_value_name((uintptr_t)obj);
+        if (missing) dx_fatal("objc: object constant %s is not implemented in bitten yet", missing);
+        dx_fatal("objc: tagged pointer %p used; tagged objects are not supported", (void *)obj);
+    }
     return obj->isa;
 }
 
@@ -397,9 +401,12 @@ static void unrecognized_stret(void *out, id self, SEL sel) {
 
 IMP dx_objc_lookup(id *receiver_slot, SEL sel, Class cls, int stret) {
     id receiver = *receiver_slot;
-    if ((uintptr_t)receiver & 1)
+    if ((uintptr_t)receiver & 1) {
+        const char *missing = dx_stub_value_name((uintptr_t)receiver);
+        if (missing) dx_fatal("objc: message %s sent to object constant %s, which is not implemented in bitten yet", sel, missing);
         dx_fatal("objc: message %s sent to tagged pointer %p; tagged objects are not supported", sel,
                  (void *)receiver);
+    }
     pthread_mutex_lock(&dx_objc_lock);
     if (!class_realized(cls)) realize_class(cls);
     Class inst = cls;

@@ -531,6 +531,18 @@ DX_EXPORT("_optopt", &optopt);
 
 /* math (same ABI) */
 DX_PASS(sin); DX_PASS(cos); DX_PASS(tan); DX_PASS(asin); DX_PASS(acos); DX_PASS(atan);
+/* sin and cos together, returned as a struct: two doubles come back in
+ * xmm0/xmm1 and two floats packed in xmm0, under both ABIs. */
+struct sincos_d { double s, c; };
+struct sincos_f { float s, c; };
+static struct sincos_d d___sincos_stret(double x) { return (struct sincos_d){sin(x), cos(x)}; }
+static struct sincos_f d___sincosf_stret(float x) { return (struct sincos_f){sinf(x), cosf(x)}; }
+static struct sincos_d d___sincospi_stret(double x) { return (struct sincos_d){sin(M_PI * x), cos(M_PI * x)}; }
+static struct sincos_f d___sincospif_stret(float x) { return (struct sincos_f){sinf((float)M_PI * x), cosf((float)M_PI * x)}; }
+DX_FN(__sincos_stret);
+DX_FN(__sincosf_stret);
+DX_FN(__sincospi_stret);
+DX_FN(__sincospif_stret);
 DX_PASS(atan2); DX_PASS(sinh); DX_PASS(cosh); DX_PASS(tanh); DX_PASS(exp); DX_PASS(exp2);
 DX_PASS(log); DX_PASS(log2); DX_PASS(log10); DX_PASS(log1p); DX_PASS(expm1); DX_PASS(pow);
 DX_PASS(sqrt); DX_PASS(cbrt); DX_PASS(hypot); DX_PASS(floor); DX_PASS(ceil); DX_PASS(round);
