@@ -336,11 +336,8 @@ extern void bn_layout_note_rearranged(void);
     [self _bn_save];
 }
 
-- (void)setFrame:(NSRect)frame {
-    NSSize old = self.frame.size;
-    [super setFrame:frame];
-    if (!NSEqualSizes(old, frame.size)) [self resizeSubviewsWithOldSize:old];
-}
+/* Resizing the split view resizes its panes: NSView's setFrameSize: calls
+ * resizeSubviewsWithOldSize:, overridden above. */
 
 /* ---- dividers ---- */
 

@@ -502,6 +502,9 @@ internal final class _PlatformViewNode: _ViewNode {
     MainActor.assumeIsolated {
       if let host = context?.hostView, v.superview !== host { host.addSubview(v) }
       v.frame = NSMakeRect(rect._minX, rect._minY, rect._width, rect._height)
+      // Placed while the host draws, after the window's layout pass: lay the
+      // view out now, as AppKit would have before drawing it at this size.
+      v._bn_layoutSubtree()
     }
     context?.livePlatformViews.insert(ObjectIdentifier(v))
   }

@@ -3,6 +3,7 @@
  * that draw their view tree into a bitmap and hand it to the display
  * (src/frameworks/display: a browser page shows each window). */
 #import <AppKit/AppKit.h>
+#import <QuartzCore/QuartzCore.h>
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -335,7 +336,12 @@ static void bn_layer_border(BNBackingLayer *layer, CGContextRef c, CGRect b) {
     NSRect f = self.frame, b = self.bounds;
     CGContextSaveGState(c);
     CGContextTranslateCTM(c, f.origin.x, f.origin.y);
-    CGContextClipToRect(c, CGRectMake(0, 0, f.size.width, f.size.height));
+    /* Views draw outside their bounds unless they clip (clipsToBounds is
+     * NO by default for programs built with the macOS 14 SDK or later);
+     * clip views and layers that mask to bounds always clip. */
+    if (self.clipsToBounds || ((BNBackingLayer *)self.layer).masksToBounds || [self isKindOfClass:[NSClipView class]] ||
+        self.superview == nil)
+        CGContextClipToRect(c, CGRectMake(0, 0, f.size.width, f.size.height));
     BOOL flipped = self.isFlipped;
     if (flipped != parentFlipped) {
         CGContextTranslateCTM(c, 0, f.size.height);
@@ -381,8 +387,16 @@ static void bn_layer_border(BNBackingLayer *layer, CGContextRef c, CGRect b) {
 
 /* BITTEN_VIEW_TREE=1 prints each window's view hierarchy as it is drawn. */
 static void bn_dump_tree(NSView *v, int depth) {
-    fprintf(stderr, "%*s%s %s%s layer=%s\n", depth * 2, "", object_getClassName(v), NSStringFromRect(v.frame).UTF8String,
-            v.isHidden ? " hidden" : "", v.layer ? object_getClassName(v.layer) : "-");
+    fprintf(stderr, "%*s%s %s%s layer=%s%s constraints=%lu\n", depth * 2, "", object_getClassName(v),
+            NSStringFromRect(v.frame).UTF8String, v.isHidden ? " hidden" : "", v.layer ? object_getClassName(v.layer) : "-",
+            v.translatesAutoresizingMaskIntoConstraints ? "" : " AL", (unsigned long)v.constraints.count);
+    if (v.layer) {
+        CALayer *l = (CALayer *)v.layer;
+        CATransform3D t = l.transform;
+        fprintf(stderr, "%*s  layer pos=(%g,%g) bounds=%s anchor=(%g,%g) scale=(%g,%g) tx=(%g,%g) sublayers=%lu\n", depth * 2, "",
+                l.position.x, l.position.y, NSStringFromRect(l.bounds).UTF8String, l.anchorPoint.x, l.anchorPoint.y,
+                t.m11, t.m22, t.m41, t.m42, (unsigned long)l.sublayers.count);
+    }
     for (NSView *s in v.subviews) bn_dump_tree(s, depth + 1);
 }
 

@@ -49,6 +49,8 @@ typedef NS_ENUM(NSInteger, NSViewLayerContentsPlacement) {
 @property NSRect bounds;
 - (void)setFrameOrigin:(NSPoint)newOrigin;
 - (void)setFrameSize:(NSSize)newSize;
+- (void)resizeSubviewsWithOldSize:(NSSize)oldSize;
+- (void)resizeWithOldSuperviewSize:(NSSize)oldSize;
 - (void)setBoundsOrigin:(NSPoint)newOrigin;
 - (void)setBoundsSize:(NSSize)newSize;
 @property (copy) NSArray<__kindof NSView *> *subviews;
@@ -65,6 +67,7 @@ typedef NS_ENUM(NSInteger, NSViewLayerContentsPlacement) {
 @property NSViewLayerContentsPlacement layerContentsPlacement;
 @property BOOL canDrawSubviewsIntoLayer;
 @property NSAutoresizingMaskOptions autoresizingMask;
+@property BOOL autoresizesSubviews;
 @property (readonly, getter=isFlipped) BOOL flipped;
 - (void)addSubview:(NSView *)view;
 - (void)removeFromSuperview;
@@ -1096,6 +1099,9 @@ typedef NS_OPTIONS(unsigned long long, NSAlignmentOptions) {
 @property (copy) NSArray *backgroundFilters;
 @property BOOL needsLayout;
 - (void)layoutSubtreeIfNeeded;
+/* bitten: runs -layout in this subtree where needed, without solving the
+ * window's constraints (for hosts that size their subviews while drawing). */
+- (void)_bn_layoutSubtree;
 - (void)updateTrackingAreas;
 @property (readonly, copy) NSArray<NSTrackingArea *> *trackingAreas;
 - (void)addTrackingArea:(NSTrackingArea *)trackingArea;
