@@ -198,7 +198,7 @@ static struct cf_string *number_desc(const void *object) {
 static const struct cf_ops number_ops = {.equal = number_equal, .hash = number_hash, .describe = number_desc};
 CF_TYPE_ID(CFNumber, CF_NUMBER);
 
-static struct cf_number *d_CFNumberCreate(const void *allocator, CFIndex type, const void *value) {
+struct cf_number *d_CFNumberCreate(const void *allocator, CFIndex type, const void *value) {
     type = number_type(type);
     if (!value || type < 1 || type > 6) return NULL;
     long double num;
@@ -223,7 +223,7 @@ static struct cf_number *d_CFNumberCreate(const void *allocator, CFIndex type, c
 }
 DX_FN(CFNumberCreate);
 
-static Boolean d_CFNumberGetValue(const struct cf_number *n, CFIndex type, void *out) {
+Boolean d_CFNumberGetValue(const struct cf_number *n, CFIndex type, void *out) {
     if (!n || !out) return 0;
     long double value = n->value;
 #define WRITE_INT(code, c_type, min, max) \

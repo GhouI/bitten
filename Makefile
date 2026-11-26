@@ -317,19 +317,43 @@ OVERLAY_DEPS_CoreGraphics := CoreFoundation
 OVERLAY_DEPS_os := ObjectiveC
 OVERLAY_DEPS_Dispatch := ObjectiveC Darwin _errno _signal
 OVERLAY_DEPS_Synchronization := os ObjectiveC
+# An overlay can name a later deployment target: CoreGraphics' API uses
+# CGFloat, which moved into the CoreFoundation overlay in macOS 14 and is
+# hidden ($ld$hide) from older targets.
+OVERLAY_MACOS_CoreGraphics := 14.0
+overlay_macos  = $(or $(OVERLAY_MACOS_$(1)),11.0)
+overlay_target = $(if $(OVERLAY_MACOS_$(1)),-target x86_64-apple-macos$(OVERLAY_MACOS_$(1)) -runtime-compatibility-version none,$(SWIFT_TARGET))
 overlay_lib = $(FW_ROOT)/usr/lib/swift/libswift$(1).dylib
 overlay_deps = $(foreach d,$(OVERLAY_DEPS_$(1)),$(call overlay_lib,$(d)))
 
 .SECONDEXPANSION:
 $(FW_ROOT)/usr/lib/swift/libswift%.dylib: $$(wildcard overlays/%/*.swift) $$(call overlay_deps,$$*) $(LIBSWIFTCORE) $(SDKROOT)/.stamp $(SWIFTRES)/.stamp
 	@mkdir -p $(dir $@) $(BUILD)/overlays
-	$(SWIFTC) -module-name $* -module-link-name swift$* $(SWIFT_TARGET) $(SWIFT_SDKFLAGS) \
+	$(SWIFTC) -module-name $* -module-link-name swift$* $(call overlay_target,$*) $(SWIFT_SDKFLAGS) \
 	    $(shell cat overlays/$*/swiftc.flags 2>/dev/null) -enable-library-evolution -wmo -parse-as-library -O \
 	    -emit-module -emit-module-path $(SWIFT_MODDIR)/$*.swiftmodule \
 	    -c -o $(BUILD)/overlays/$*.o $(wildcard overlays/$*/*.swift)
-	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
+	$(MACHO_LD) -arch x86_64 -platform_version macos $(call overlay_macos,$*) $(call overlay_macos,$*) -dylib \
 	    -install_name /usr/lib/swift/libswift$*.dylib \
 	    -L$(BUILD)/sdk -lSystem $(LIBSWIFTCORE) $(call overlay_deps,$*) -o $@ $(BUILD)/overlays/$*.o
+
+# ---- CoreGraphics.framework ---------------------------------------------------
+# CoreGraphics' C API is in the loader's export registry; on current macOS
+# its Swift API lives in the framework too, so programs bind those symbols
+# to CoreGraphics.framework. The framework image is empty and re-exports
+# the overlay, which keeps one copy of its types in a process.
+COREGRAPHICS := $(FW_ROOT)/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics
+COREGRAPHICS_SWIFT := $(if $(and $(SWIFTC),$(HAVE_MACHO)),$(call overlay_lib,CoreGraphics))
+FRAMEWORKS += $(if $(COREGRAPHICS_SWIFT),$(COREGRAPHICS))
+all: $(if $(COREGRAPHICS_SWIFT),$(COREGRAPHICS))
+$(COREGRAPHICS): $(COREGRAPHICS_SWIFT) $(BUILD)/sdk/libSystem.tbd
+	@mkdir -p $(dir $@) $(BUILD)/fw/CoreGraphics
+	echo 'static int bitten_coregraphics_shim __attribute__((unused));' > $(BUILD)/fw/CoreGraphics/shim.c
+	$(MACHO_CC) $(MACHO_TARGET) -c -o $(BUILD)/fw/CoreGraphics/shim.o $(BUILD)/fw/CoreGraphics/shim.c
+	$(MACHO_LD) -arch x86_64 -platform_version macos 14.0 14.0 -dylib \
+	    -install_name /System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics \
+	    -compatibility_version 64 -current_version 2050 \
+	    -L$(BUILD)/sdk -lSystem -reexport_library $(COREGRAPHICS_SWIFT) -o $@ $(BUILD)/fw/CoreGraphics/shim.o
 
 # ---- Foundation's Swift overlay ---------------------------------------------
 # On macOS Foundation's Swift API lives in Foundation.framework itself, so
@@ -451,6 +475,7 @@ SWLIB_LIBS_foundation := $(FOUNDATION) $(FOUNDATION_COMBINE)
 SWLIB_LIBS_cryptokit := $(FOUNDATION) $(call swift_fw_lib,CryptoKit)
 SWLIB_LIBS_network := $(FOUNDATION) $(call swift_fw_lib,Network)
 SWLIB_MACOS_network := 14.0
+SWLIB_MACOS_coregraphics := 14.0
 SWLIB_LIBS_swiftui := $(FOUNDATION) $(APPKIT) $(call swift_fw_lib,Combine) $(call swift_fw_lib,SwiftUI)
 SWLIB_MACOS_swiftui := 14.0
 $(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTCORE) $(OVERLAY_LIBS) tests/include/darwin.h $$(SWLIB_LIBS_$$*)

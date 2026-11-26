@@ -151,3 +151,65 @@ DX_FN(CGEventSetDoubleValueField);
 static void d_CGEventPost(int tap, const struct cg_event *e) {}
 DX_FN(CGEventPost);
 CF_TYPE_ID(CGEvent, CF_CG_EVENT);
+
+/* ---- geometry as dictionaries ({X, Y, Width, Height} of CFNumbers) ------- */
+
+static const char *const RECT_KEYS[] = {"X", "Y", "Width", "Height"};
+
+static struct cf_dict *geometry_dict(const char *const *names, const double *v, int count) {
+    const void *keys[4], *vals[4];
+    for (int i = 0; i < count; i++) {
+        keys[i] = d___CFStringMakeConstantString(names[i]);
+        vals[i] = d_CFNumberCreate(NULL, 6 /* kCFNumberDoubleType */, &v[i]);
+    }
+    struct cf_dict *d = d_CFDictionaryCreate(NULL, keys, vals, count, &d_kCFTypeDictionaryKeyCallBacks,
+                                             &d_kCFTypeDictionaryValueCallBacks);
+    for (int i = 0; i < count; i++) d_CFRelease(vals[i]);
+    return d;
+}
+static bool geometry_read(const struct cf_dict *d, const char *const *names, double *out, int count) {
+    if (!d) return false;
+    for (int i = 0; i < count; i++) {
+        const void *num = d_CFDictionaryGetValue(d, d___CFStringMakeConstantString(names[i]));
+        if (!num || d_CFGetTypeID(num) != CF_NUMBER) return false;
+        d_CFNumberGetValue(num, 6, &out[i]);
+    }
+    return true;
+}
+
+static struct cf_dict *d_CGRectCreateDictionaryRepresentation(CGRect r) {
+    double v[4] = {r.origin.x, r.origin.y, r.size.width, r.size.height};
+    return geometry_dict(RECT_KEYS, v, 4);
+}
+DX_FN(CGRectCreateDictionaryRepresentation);
+static bool d_CGRectMakeWithDictionaryRepresentation(const struct cf_dict *d, CGRect *r) {
+    double v[4];
+    if (!r || !geometry_read(d, RECT_KEYS, v, 4)) return false;
+    *r = (CGRect){{v[0], v[1]}, {v[2], v[3]}};
+    return true;
+}
+DX_FN(CGRectMakeWithDictionaryRepresentation);
+static struct cf_dict *d_CGPointCreateDictionaryRepresentation(CGPoint p) {
+    double v[2] = {p.x, p.y};
+    return geometry_dict(RECT_KEYS, v, 2);
+}
+DX_FN(CGPointCreateDictionaryRepresentation);
+static bool d_CGPointMakeWithDictionaryRepresentation(const struct cf_dict *d, CGPoint *p) {
+    double v[2];
+    if (!p || !geometry_read(d, RECT_KEYS, v, 2)) return false;
+    *p = (CGPoint){v[0], v[1]};
+    return true;
+}
+DX_FN(CGPointMakeWithDictionaryRepresentation);
+static struct cf_dict *d_CGSizeCreateDictionaryRepresentation(CGSize s) {
+    double v[2] = {s.width, s.height};
+    return geometry_dict(RECT_KEYS + 2, v, 2);
+}
+DX_FN(CGSizeCreateDictionaryRepresentation);
+static bool d_CGSizeMakeWithDictionaryRepresentation(const struct cf_dict *d, CGSize *s) {
+    double v[2];
+    if (!s || !geometry_read(d, RECT_KEYS + 2, v, 2)) return false;
+    *s = (CGSize){v[0], v[1]};
+    return true;
+}
+DX_FN(CGSizeMakeWithDictionaryRepresentation);

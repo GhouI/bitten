@@ -122,6 +122,9 @@ CFTypeID d_CFGetTypeID(const void *object);
 Boolean d_CFEqual(const void *left, const void *right);
 CFHashCode d_CFHash(const void *object);
 struct cf_string *d_CFCopyDescription(const void *object);
+struct cf_number;
+struct cf_number *d_CFNumberCreate(const void *allocator, CFIndex type, const void *value);
+Boolean d_CFNumberGetValue(const struct cf_number *n, CFIndex type, void *out);
 
 enum {
     CF_MAC_ROMAN = 0, CF_UTF16 = 0x100, CF_LATIN1 = 0x201, CF_ASCII = 0x600,
