@@ -2298,3 +2298,23 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   `abs`; NSResponder's `acceptsFirstResponder` is a property.
 - Runtime: tuple elements are completed before their layout is taken.
 - Target app window (total `^MISSING`): 1,033 -> 779.
+
+## 2026-11-26: Regex: _StringProcessing and RegexBuilder (PR: regex)
+
+- `libswift_StringProcessing`: Swift's `Regex` over a parsed tree and a
+  backtracking matcher on Characters. Literals (the compiler's
+  `Regex(_regexString:version:)`, delimiters stripped), `Regex(String)`
+  (AnyRegexOutput) and `Regex(_:as:)`; escapes, `.`, classes with ranges,
+  negation and POSIX names, `\d \w \s \h \v \b \B` and capitals, anchors,
+  capturing, non-capturing and named groups, `(?i)`, alternation, greedy,
+  lazy and possessive quantifiers. Matches build the compiler's Output
+  (Substring, or the tuple of the match and its captures, optional ones
+  nil when they did not take part); `@dynamicMemberLookup` for names.
+  `firstMatch`, `wholeMatch`, `prefixMatch`, `ignoresCase`; collections'
+  `contains`, `matches(of:)`, `ranges(of:)`, `split`, `replacing`;
+  `CharacterClass`; `_RegexFactory` for RegexBuilder's inlined code.
+- `libswiftRegexBuilder`: the builder, `Capture`, `One`, `OneOrMore`,
+  `ZeroOrMore`, `Optionally`, `Repeat`, `makeFactory()`, and
+  `split(separator: String)`.
+- Test: `tests/swiftlib/regex`.
+- Target app window (total `^MISSING`): 751 -> 727.

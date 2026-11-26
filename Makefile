@@ -348,6 +348,7 @@ OVERLAY_DEPS_CoreGraphics := CoreFoundation
 OVERLAY_DEPS_os := ObjectiveC
 OVERLAY_DEPS_Dispatch := ObjectiveC Darwin _errno _signal
 OVERLAY_DEPS_Synchronization := os ObjectiveC
+OVERLAY_DEPS_RegexBuilder := _StringProcessing
 # An overlay can name a later deployment target: CoreGraphics' API uses
 # CGFloat, which moved into the CoreFoundation overlay in macOS 14 and is
 # hidden ($ld$hide) from older targets.
