@@ -1928,3 +1928,34 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - SwiftUI builds for macOS 14 (CGFloat lives in the CoreFoundation overlay
   there).
 - Target app window (total `^MISSING`): 2,526 -> 2,395.
+
+## 2026-11-26: CoreText and CFAttributedString (PR: coretext)
+
+- `src/frameworks/coretext`: a TrueType reader (head, hhea, maxp, hmtx,
+  cmap 4 and 12, loca, glyf with composite glyphs, OS/2, post, name;
+  collections; not CFF), the installed fonts (`BITTEN_FONT_PATH`, or
+  /usr/share/fonts, /usr/local/share/fonts, ~/.fonts, plus files
+  registered with CTFontManager) with Apple's names mapped to open
+  families (the system font, Helvetica, SF -> Noto Sans or DejaVu Sans;
+  Menlo, Monaco, SF Mono -> DejaVu Sans Mono; Times, New York -> DejaVu
+  Serif; weights and slants from the name), CTFont (metrics, traits,
+  names, glyphs, advances, bounding rects, outlines as CGPaths,
+  CTFontDrawGlyphs, symbolic-trait and attribute copies, fonts for
+  strings, cascade lists, tables), CTFontDescriptor, CTFontCollection,
+  CTFontManager, CTLine and CTRun (runs by font and color with fallback
+  faces for missing characters, typographic and glyph bounds, hit
+  testing, drawing through the context's text matrix and position), and
+  the attribute keys. NSFont and NSColor values work too (by -fontName,
+  -pointSize and -CGColor). No shaping beyond one glyph per character:
+  no ligatures, kerning tables or bidirectional text yet.
+- `src/frameworks/corefoundation/attributed.c`: CFAttributedString and
+  its mutable form.
+- `sdk/include/CoreText` and a `CoreText` Clang module; CFAttributedString
+  in the CoreFoundation header.
+- Dockerfile: fonts-dejavu-core (test image), fonts-dejavu-core and
+  fonts-noto-core (runtime image).
+- `tests/c/coretext`: metrics, traits, glyphs, advances, outlines, lines,
+  runs, positions, hit testing, fallback, a glyph drawn and checked
+  pixel by pixel, attributed-string ranges and editing.
+- Target app window (total `^MISSING`): 2,395 -> 2,318 (all 74 CoreText
+  imports and 3 CFAttributedString ones).

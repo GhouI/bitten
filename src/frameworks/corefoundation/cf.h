@@ -27,7 +27,11 @@ enum cf_type {
     /* CoreGraphics (src/frameworks/coregraphics) */
     CF_CG_COLORSPACE, CF_CG_COLOR, CF_CG_PATH, CF_CG_CONTEXT, CF_CG_IMAGE, CF_CG_GRADIENT,
     CF_CG_PROVIDER, CF_CG_EVENT,
+    CF_ATTRIBUTED_STRING,
+    /* CoreText (src/frameworks/coretext) */
+    CF_CT_FONT, CF_CT_DESCRIPTOR, CF_CT_LINE, CF_CT_RUN, CF_CT_COLLECTION,
 };
+_Static_assert(CF_CT_COLLECTION < 32, "CF_TYPE_MAX");
 
 struct cf_ops {
     void (*destroy)(void *);

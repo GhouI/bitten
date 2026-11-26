@@ -189,4 +189,10 @@ __attribute__((constructor(102))) static void bridge_init(void) {
     cf_class(CF_CG_GRADIENT, generic, "__NSCFCGGradient");
     cf_class(CF_CG_PROVIDER, generic, "__NSCFCGDataProvider");
     cf_class(CF_CG_EVENT, generic, "__NSCFCGEvent");
+    cf_class(CF_ATTRIBUTED_STRING, generic, "__NSCFAttributedString");
+    cf_class(CF_CT_FONT, generic, "__NSCFCTFont");
+    cf_class(CF_CT_DESCRIPTOR, generic, "__NSCFCTFontDescriptor");
+    cf_class(CF_CT_LINE, generic, "__NSCFCTLine");
+    cf_class(CF_CT_RUN, generic, "__NSCFCTRun");
+    cf_class(CF_CT_COLLECTION, generic, "__NSCFCTFontCollection");
 }

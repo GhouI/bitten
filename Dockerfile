@@ -19,7 +19,8 @@ RUN make -j"$(nproc)" BUILD=/out && test -f /out/root/System/Library/Frameworks/
 
 # Optional: build and run the test suite (docker build --target test .)
 FROM build AS test
-RUN apt-get update && apt-get install -y --no-install-recommends golang-go python3 ca-certificates \
+# fonts-dejavu-core: open TrueType fonts for CoreText (tests/c/coretext).
+RUN apt-get update && apt-get install -y --no-install-recommends golang-go python3 ca-certificates fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 COPY tests ./tests
 RUN make -j"$(nproc)" BUILD=/out check && make check-dmgx
@@ -27,6 +28,8 @@ RUN make -j"$(nproc)" BUILD=/out check && make check-dmgx
 FROM debian:trixie-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 zsh procps less ca-certificates \
+        # open fonts: CoreText maps Apple's font names to these
+        fonts-dejavu-core fonts-noto-core \
     && rm -rf /var/lib/apt/lists/* \
     # the places macOS programs expect to exist
     && mkdir -p /Applications /Users/Shared /Library /System/Library /Volumes /private /dmg \

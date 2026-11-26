@@ -85,6 +85,9 @@ struct cf_string *d_CFCopyDescription(const void *object) {
         [CF_CG_COLORSPACE] = "CGColorSpace", [CF_CG_COLOR] = "CGColor", [CF_CG_PATH] = "CGPath",
         [CF_CG_CONTEXT] = "CGContext", [CF_CG_IMAGE] = "CGImage", [CF_CG_GRADIENT] = "CGGradient",
         [CF_CG_PROVIDER] = "CGDataProvider", [CF_CG_EVENT] = "CGEvent",
+        [CF_ATTRIBUTED_STRING] = "CFAttributedString", [CF_CT_FONT] = "CTFont",
+        [CF_CT_DESCRIPTOR] = "CTFontDescriptor", [CF_CT_LINE] = "CTLine", [CF_CT_RUN] = "CTRun",
+        [CF_CT_COLLECTION] = "CTFontCollection",
     };
     char buf[64];
     if (!o) return d_CFStringCreateWithCString(NULL, "(null)", CF_UTF8);
