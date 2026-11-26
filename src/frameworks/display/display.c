@@ -48,7 +48,10 @@ struct window {
     int32_t x, y;
     uint32_t width, height;
     char title[256];
-    uint8_t *rgba;                         /* straight alpha */
+    uint32_t flags;                        /* BITTEN_DISPLAY_BORDERLESS, _TRANSPARENT */
+    int32_t level;                         /* NSWindow level: 0 normal, 3 floating, 101 pop-up menu, ... */
+    uint32_t front;                        /* bumped by each order-front */
+    uint8_t *rgba;                         /* straight alpha; NULL until the first frame */
     uint64_t version;
     bool closed;
     struct window *next;
@@ -63,6 +66,16 @@ static struct window *find(uint32_t id) {
     for (struct window *w = windows; w; w = w->next)
         if (w->id == id) return w;
     return NULL;
+}
+static struct window *find_or_add(uint32_t id) {
+    struct window *w = find(id);
+    if (w) return w;
+    w = calloc(1, sizeof *w);
+    if (!w) return NULL;
+    w->id = id;
+    w->next = windows;
+    windows = w;
+    return w;
 }
 
 /* ---- events ---------------------------------------------------------------------- */
@@ -151,7 +164,7 @@ static bool send_window(int fd, const struct window *w) {
         put32(m + 1, w->id);
         return ws_send(fd, 2, m, sizeof m);
     }
-    size_t tl = strlen(w->title), n = 1 + 4 * 5 + 2 + tl + (size_t)w->width * w->height * 4;
+    size_t tl = strlen(w->title), n = 1 + 4 * 8 + 2 + tl + (size_t)w->width * w->height * 4;
     uint8_t *m = malloc(n);
     if (!m) return false;
     m[0] = 1;
@@ -160,10 +173,13 @@ static bool send_window(int fd, const struct window *w) {
     put32(m + 9, (uint32_t)w->y);
     put32(m + 13, w->width);
     put32(m + 17, w->height);
-    m[21] = (uint8_t)tl;
-    m[22] = (uint8_t)(tl >> 8);
-    memcpy(m + 23, w->title, tl);
-    memcpy(m + 23 + tl, w->rgba, (size_t)w->width * w->height * 4);
+    put32(m + 21, w->flags);
+    put32(m + 25, (uint32_t)w->level);
+    put32(m + 29, w->front);
+    m[33] = (uint8_t)tl;
+    m[34] = (uint8_t)(tl >> 8);
+    memcpy(m + 35, w->title, tl);
+    memcpy(m + 35 + tl, w->rgba, (size_t)w->width * w->height * 4);
     bool ok = ws_send(fd, 2, m, n);
     free(m);
     return ok;
@@ -277,7 +293,7 @@ static void *client_writer(void *arg) {
             uint64_t since = seen;
             seen = version;
             for (struct window *w = windows; w; w = w->next) {
-                if (w->version <= since) continue;
+                if (w->version <= since || (!w->closed && !w->rgba)) continue;
                 /* Copy under the lock, send without it. */
                 struct window copy = *w;
                 copy.rgba = w->closed ? NULL : malloc((size_t)w->width * w->height * 4 + 1);
@@ -442,14 +458,8 @@ int bitten_display_present(uint32_t id, const void *pixels, size_t width, size_t
             for (int k = 0; k < 4; k++) d[k] = (uint8_t)(fmin(fmax(px[k], 0), 1) * 255 + 0.5);
         }
     pthread_mutex_lock(&lock);
-    struct window *w = find(id);
-    if (!w) {
-        w = calloc(1, sizeof *w);
-        if (!w) { pthread_mutex_unlock(&lock); free(rgba); return -1; }
-        w->id = id;
-        w->next = windows;
-        windows = w;
-    }
+    struct window *w = find_or_add(id);
+    if (!w) { pthread_mutex_unlock(&lock); free(rgba); return -1; }
     free(w->rgba);
     w->rgba = rgba;
     w->width = (uint32_t)width;
@@ -464,6 +474,39 @@ int bitten_display_present(uint32_t id, const void *pixels, size_t width, size_t
     return 0;
 }
 DX_EXPORT("_bitten_display_present", bitten_display_present);
+
+/* A window's look and stacking: flags 1 borderless (no title bar or
+ * frame), 2 transparent (the page shows through where alpha < 1); level is
+ * the NSWindow level, which orders windows before focus does. May come
+ * before the window's first frame. */
+int bitten_display_set_style(uint32_t id, uint32_t flags, int32_t level) {
+    bitten_display_start();
+    pthread_mutex_lock(&lock);
+    struct window *w = find_or_add(id);
+    if (w && (w->flags != flags || w->level != level)) {
+        w->flags = flags;
+        w->level = level;
+        w->version = ++version;
+        pthread_cond_broadcast(&changed);
+    }
+    pthread_mutex_unlock(&lock);
+    return w ? 0 : -1;
+}
+DX_EXPORT("_bitten_display_set_style", bitten_display_set_style);
+
+/* Brings window `id` to the front of its level without focusing it. */
+void bitten_display_order_front(uint32_t id) {
+    static uint32_t fronts;
+    pthread_mutex_lock(&lock);
+    struct window *w = find_or_add(id);
+    if (w) {
+        w->front = ++fronts;
+        w->version = ++version;
+        pthread_cond_broadcast(&changed);
+    }
+    pthread_mutex_unlock(&lock);
+}
+DX_EXPORT("_bitten_display_order_front", bitten_display_order_front);
 
 /* Take window `id` off the page. */
 void bitten_display_close(uint32_t id) {
