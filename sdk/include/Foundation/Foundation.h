@@ -1527,4 +1527,6 @@ extern NSAttributedStringKey const NSInlinePresentationIntentAttributeName;
 extern NSAttributedStringKey const NSAlternateDescriptionAttributeName;
 extern NSAttributedStringKey const NSLanguageIdentifierAttributeName;
 #pragma clang assume_nonnull end
+
+#import <Foundation/NSAppleEvent.h>
 #endif
