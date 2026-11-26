@@ -2497,3 +2497,21 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   FormatStyle, NSHostingSizingOptions and the hosting `sizingOptions`,
   `safeAreaRegions`, `sizeThatFits(in:)`; MeshGradient (SIMD2 now exists).
 - Target app window (total `^MISSING`): 310 -> 274.
+
+## 2026-11-26: AttributedString (PR: attributed)
+
+- Foundation (`swift/AttributedString.swift`, taken over from the
+  Foundation side): `AttributedString` as a String with runs of attributes
+  (adjacent equal runs merge); `AttributedStringKey`, `AttributeScope`,
+  `AttributeScopes` with `FoundationAttributes` (link, inline presentation
+  intent, language, alternate description); attributes by key, by dynamic
+  member and by scope (`s.swiftUI.foregroundColor` once SwiftUI declares
+  its scope), over the whole string or a range (`AttributedSubstring`);
+  `AttributeContainer`, `ScopedAttributeContainer`; concatenation,
+  replacing, inserting, `range(of:)`; `Index` and String index conversion;
+  the character view; localized initialisers and the attributed-string
+  interpolation of `String.LocalizationValue`.
+- Not yet: NSAttributedString and its bridging (Foundation's Objective-C
+  side), the runs view beyond `_bnRuns`.
+- Test: `tests/swiftlib/attributed`.
+- Target app window (total `^MISSING`): 274 -> 230.
