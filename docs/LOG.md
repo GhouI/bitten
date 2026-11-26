@@ -3645,3 +3645,18 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   separate window ordered in at launch, is stacked under the main window
   by the display (next: window styles and levels on the display).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## The display page: borderless and transparent windows, window levels, order-front
+
+- Display (display.c, page.html): bitten_display_set_style(window, flags,
+  level) gives a window its look and stacking: flags 1 borderless (no
+  title bar or frame), 2 transparent (the page shows through where alpha
+  is below 1); level is the NSWindow level and orders windows before focus
+  does (pop-ups and floating panels above normal windows). It may come
+  before the window's first frame; a window is not shown until it has one.
+  bitten_display_order_front(window) raises a window within its level
+  without focusing it. Window messages carry flags, level and front order
+  after the size (the title now starts at byte 35). Borderless windows do
+  not take focus or the page title on arrival.
+- Test: tests/c/display.c.
+- Target app (total `^MISSING`): 0 -> 0.

@@ -25,6 +25,8 @@ int bitten_display_present(unsigned int id, const void *pixels, unsigned long w,
                            unsigned long row_bytes, unsigned int info, double x, double y, const char *title);
 int bitten_display_next_event(struct event *out);
 void bitten_display_close(unsigned int id);
+int bitten_display_set_style(unsigned int id, unsigned int flags, int level);
+void bitten_display_order_front(unsigned int id);
 
 struct sockaddr_in_d { unsigned char len, family; unsigned short port; unsigned int addr; char zero[8]; };
 int socket(int, int, int);
@@ -59,6 +61,10 @@ int main(void) {
     CGContextSetRGBFillColor(ctx, 1, 0, 0, 1);
     CGRect all = {0, 0, 4, 3};
     CGContextFillRect(ctx, all);
+    /* a style may come before the first frame; a styled window with no
+     * frame yet is not sent */
+    CHECK(bitten_display_set_style(7, 1 | 2, 3) == 0);
+    CHECK(bitten_display_set_style(9, 1, 101) == 0);
     CHECK(bitten_display_present(7, CGBitmapContextGetData(ctx), 4, 3, CGBitmapContextGetBytesPerRow(ctx),
                                  2 | 0x2000, 40, 30, "Test") == 0);
 
@@ -91,12 +97,13 @@ int main(void) {
     unsigned char hdr[4];
     CHECK(read_some(fd, hdr, 2) == 2 && hdr[0] == 0x82);    /* a short binary message */
     long len = hdr[1];
-    CHECK(len == 23 + 4 + 4 * 3 * 4);
+    CHECK(len == 35 + 4 + 4 * 3 * 4);
     unsigned char msg[128];
     CHECK(read_some(fd, msg, len) == len);
     CHECK(msg[0] == 1 && msg[1] == 7 && msg[5] == 40 && msg[9] == 30 && msg[13] == 4 && msg[17] == 3);
-    CHECK(msg[21] == 4 && !memcmp(msg + 23, "Test", 4));
-    unsigned char *px = msg + 27;
+    CHECK(msg[21] == 3 && msg[25] == 3 && msg[29] == 0);   /* borderless|transparent, floating, never ordered front */
+    CHECK(msg[33] == 4 && !memcmp(msg + 35, "Test", 4));
+    unsigned char *px = msg + 39;
     CHECK(px[0] == 255 && px[1] == 0 && px[2] == 0 && px[3] == 255);   /* straight RGBA */
 
     /* an event from the page (clients mask their messages) */
@@ -111,6 +118,11 @@ int main(void) {
     CHECK(got && e.type == 1 && e.window == 7 && e.x == 2.5 && e.y == 1 && e.modifiers == 131072);
     CHECK(!strcmp(e.characters, "a\xc3\xa9"));
     CHECK(!bitten_display_next_event(&e));
+
+    /* ordering it front resends it, raised */
+    bitten_display_order_front(7);
+    CHECK(read_some(fd, hdr, 2) == 2 && hdr[0] == 0x82 && hdr[1] == len);
+    CHECK(read_some(fd, msg, len) == len && msg[1] == 7 && msg[29] == 1);
 
     /* closing the window sends a close message */
     bitten_display_close(7);

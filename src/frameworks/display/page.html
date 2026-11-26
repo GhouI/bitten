@@ -13,6 +13,9 @@
   .dots { position: absolute; left: 10px; top: 8px; display: flex; gap: 8px; }
   .dot { width: 12px; height: 12px; border-radius: 50%; }
   .dot.close { background: #ff5f57; } .dot.min { background: #febc2e; } .dot.max { background: #28c840; }
+  .win.borderless { border-radius: 0; box-shadow: none; }
+  .win.borderless .bar { display: none; }
+  .win.transparent { background: transparent; box-shadow: none; }
   canvas { display: block; outline: none; }
 </style></head>
 <body><div id="status">connecting...</div>
@@ -43,14 +46,18 @@ function mods(e) {  // NSEventModifierFlags
     (e.ctrlKey ? 1<<18 : 0) | (e.altKey ? 1<<19 : 0) | (e.metaKey ? 1<<20 : 0);
 }
 function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
-function focus(id) { focused = id; const w = wins.get(id); if (w) w.el.style.zIndex = ++z; }
+// Stacking: the window's level first (normal, floating, pop-up, ...), then
+// the order windows were brought forward, by a click here or by the program.
+function restack(w) { const band = Math.max(-1, Math.min(w.level, 2000)) + 2; w.el.style.zIndex = band * 1e6 + w.seq; }
+function focus(id) { focused = id; const w = wins.get(id); if (w) { w.seq = ++z; restack(w); } }
 function makeWindow(id) {
   const el = document.createElement("div"); el.className = "win";
   const bar = document.createElement("div"); bar.className = "bar";
   bar.innerHTML = '<div class="dots"><div class="dot close"></div><div class="dot min"></div><div class="dot max"></div></div><span></span>';
   const canvas = document.createElement("canvas"); canvas.tabIndex = 0;
   el.append(bar, canvas); document.body.append(el);
-  const w = {el, bar, canvas, ctx: canvas.getContext("2d"), title: bar.querySelector("span"), buttons: 0, moved: false};
+  const w = {el, bar, canvas, ctx: canvas.getContext("2d"), title: bar.querySelector("span"), buttons: 0, moved: false,
+    level: 0, seq: 0, front: 0, flags: 0};
   bar.querySelector(".close").onclick = () => send({t: "close", w: id});
   // Dragging the title bar moves the window on the page only.
   bar.onpointerdown = (e) => {
@@ -88,20 +95,29 @@ function frame(buf) {
   const v = new DataView(buf); const type = v.getUint8(0), id = v.getUint32(1, true);
   if (type === 2) { const w = wins.get(id); if (w) { w.el.remove(); wins.delete(id); } return; }
   const x = v.getInt32(5, true), y = v.getInt32(9, true), width = v.getUint32(13, true), height = v.getUint32(17, true);
-  const tl = v.getUint16(21, true), title = new TextDecoder().decode(new Uint8Array(buf, 23, tl));
+  const flags = v.getUint32(21, true), level = v.getInt32(25, true), front = v.getUint32(29, true);
+  const tl = v.getUint16(33, true), title = new TextDecoder().decode(new Uint8Array(buf, 35, tl));
   const w = wins.get(id) || makeWindow(id);
+  if (flags !== w.flags) {
+    w.flags = flags;
+    w.el.classList.toggle("borderless", !!(flags & 1));
+    w.el.classList.toggle("transparent", !!(flags & 2));
+  }
+  // Ordered front by the program: up within its level, without focus.
+  if (front !== w.front) { w.front = front; w.seq = ++z; }
+  w.level = level; restack(w);
   // Where the program put it, kept inside the page: a window placed for a
   // taller screen than this viewport still shows its title bar.
   if (!w.moved) {
-    const bar = 28;
+    const bar = (flags & 1) ? 0 : 28;
     const left = Math.max(0, Math.min(x, innerWidth - Math.min(width, innerWidth)));
     const top = Math.max(0, Math.min(y, innerHeight - Math.min(height + bar, innerHeight)));
     w.el.style.left = left + "px"; w.el.style.top = top + "px";
   }
-  w.title.textContent = title; document.title = title || "bitten";
+  w.title.textContent = title; if (!(flags & 1) && title) document.title = title;
   if (w.canvas.width !== width || w.canvas.height !== height) { w.canvas.width = width; w.canvas.height = height; }
-  if (width && height) w.ctx.putImageData(new ImageData(new Uint8ClampedArray(buf, 23 + tl, width * height * 4), width, height), 0, 0);
-  if (!focused) focus(id);
+  if (width && height) w.ctx.putImageData(new ImageData(new Uint8ClampedArray(buf, 35 + tl, width * height * 4), width, height), 0, 0);
+  if (!focused && !(flags & 1)) focus(id);
 }
 function connect() {
   ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
