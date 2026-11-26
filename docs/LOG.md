@@ -2240,3 +2240,18 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Build: `OBJC_FWS`, one rule for small Objective-C frameworks.
 - Tests: `tests/media/media`, `tests/swiftlib/smallswift`.
 - Target app window (total `^MISSING`): 1,068 -> 1,040.
+
+## 2026-11-26: WebKit (PR: webkit)
+
+- `WebKit.framework` without a browser engine, for Sparkle's release
+  notes: `WKWebView` and the legacy `WebView` (AppKit views) take HTML and
+  show its text (scripts, styles and the head dropped; blocks on their own
+  lines; list items bulleted; entities decoded), drawn with CoreText, then
+  tell their navigation or frame-load delegates the load finished. File
+  URLs load; other URLs fail (NSURLErrorUnsupportedURL). User scripts and
+  content rule lists (compiled from their JSON) are kept and do nothing;
+  `evaluateJavaScript` fails. Configurations, preferences,
+  `WebPreferences`, `WKContentRuleListStore`.
+- Build: an `OBJC_FWS` framework can link more (`OBJC_FW_EXTRA_<name>`).
+- Test: `tests/media/webkit`.
+- Target app window (total `^MISSING`): 1,040 -> 1,033.

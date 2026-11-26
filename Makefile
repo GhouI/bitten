@@ -151,30 +151,32 @@ $(BUILD)/tests/metal/%: tests/metal/%.m $(METAL) $(wildcard sdk/include/*/*.h)
 # ---- small Objective-C frameworks ----------------------------------------------
 # Each of OBJC_FWS is frameworks/NAME/*.m over Foundation, built into
 # NAME.framework/Versions/A/NAME; tests/media links them all.
-OBJC_FWS := CoreImage AVFAudio ScreenCaptureKit
+OBJC_FWS := CoreImage AVFAudio ScreenCaptureKit WebKit
+# What else one links (WebKit's views are AppKit views).
+OBJC_FW_EXTRA_WebKit = $(APPKIT)
 objc_fw_lib = $(FW_ROOT)/System/Library/Frameworks/$(1).framework/Versions/A/$(1)
 objc_fw_objs = $(patsubst frameworks/$(1)/%.m,$(BUILD)/fw/$(1)/%.o,$(wildcard frameworks/$(1)/*.m))
 OBJC_FW_LIBS := $(if $(HAVE_MACHO),$(foreach f,$(OBJC_FWS),$(call objc_fw_lib,$(f))))
 FRAMEWORKS += $(OBJC_FW_LIBS)
 all: $(OBJC_FW_LIBS)
 define objc_framework
-$(BUILD)/fw/$(1)/%.o: frameworks/$(1)/%.m $(wildcard sdk/include/$(1)/*.h sdk/include/Foundation/*.h sdk/include/CoreGraphics/*.h)
+$(BUILD)/fw/$(1)/%.o: frameworks/$(1)/%.m $(wildcard sdk/include/$(1)/*.h sdk/include/Foundation/*.h sdk/include/CoreGraphics/*.h sdk/include/AppKit/*.h)
 	@mkdir -p $$(dir $$@)
 	$(MACHO_CC) $(FW_CFLAGS) -c -o $$@ $$<
-$(call objc_fw_lib,$(1)): $(call objc_fw_objs,$(1)) $(FOUNDATION) $(BUILD)/sdk/libSystem.tbd
+$(call objc_fw_lib,$(1)): $(call objc_fw_objs,$(1)) $(FOUNDATION) $(OBJC_FW_EXTRA_$(1)) $(BUILD)/sdk/libSystem.tbd
 	@mkdir -p $$(dir $$@)
 	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
 	    -install_name /System/Library/Frameworks/$(1).framework/Versions/A/$(1) \
-	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) -o $$@ $(call objc_fw_objs,$(1))
+	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) $(OBJC_FW_EXTRA_$(1)) -o $$@ $(call objc_fw_objs,$(1))
 endef
 $(foreach f,$(OBJC_FWS),$(eval $(call objc_framework,$(f))))
 TEST_MEDIA     := $(wildcard tests/media/*.m)
 TEST_MEDIABINS := $(if $(HAVE_MACHO),$(patsubst tests/media/%.m,$(BUILD)/tests/media/%,$(TEST_MEDIA)))
-$(BUILD)/tests/media/%: tests/media/%.m $(OBJC_FW_LIBS) $(wildcard sdk/include/*/*.h)
+$(BUILD)/tests/media/%: tests/media/%.m $(OBJC_FW_LIBS) $(APPKIT) $(wildcard sdk/include/*/*.h)
 	@mkdir -p $(dir $@)
 	$(MACHO_CC) $(FW_CFLAGS) -O1 -c -o $@.o $<
 	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -e _main \
-	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) $(OBJC_FW_LIBS) -o $@ $@.o
+	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) $(APPKIT) $(OBJC_FW_LIBS) -o $@ $@.o
 
 # UserNotifications tests, like the AppKit ones.
 TEST_UN     := $(wildcard tests/usernotifications/*.m)
