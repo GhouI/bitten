@@ -29,20 +29,20 @@
 <line x1="168.3" y1="90.9" x2="180.3" y2="67.8" class="gap" stroke-width="2"/>
 <circle cx="132" cy="161" r="92" fill="none" class="s-Swift" stroke-width="26" stroke-dasharray="172.49 578.05" stroke-dashoffset="-43.97" transform="rotate(-90 132 161)"/>
 <line x1="188.1" y1="216.7" x2="206.5" y2="235.0" class="gap" stroke-width="2"/>
-<circle cx="132" cy="161" r="92" fill="none" class="s-Foundation" stroke-width="26" stroke-dasharray="61.65 578.05" stroke-dashoffset="-216.46" transform="rotate(-90 132 161)"/>
-<line x1="141.4" y1="239.4" x2="144.4" y2="265.3" class="gap" stroke-width="2"/>
-<circle cx="132" cy="161" r="92" fill="none" class="s-Graphics" stroke-width="26" stroke-dasharray="27.06 578.05" stroke-dashoffset="-278.11" transform="rotate(-90 132 161)"/>
-<line x1="118.2" y1="238.8" x2="113.7" y2="264.4" class="gap" stroke-width="2"/>
-<circle cx="132" cy="161" r="92" fill="none" class="s-AppKit" stroke-width="26" stroke-dasharray="22.71 578.05" stroke-dashoffset="-305.16" transform="rotate(-90 132 161)"/>
-<line x1="99.6" y1="233.1" x2="89.0" y2="256.8" class="gap" stroke-width="2"/>
-<circle cx="132" cy="161" r="92" fill="none" class="s-SwiftUI" stroke-width="26" stroke-dasharray="167.08 578.05" stroke-dashoffset="-327.87" transform="rotate(-90 132 161)"/>
-<line x1="70.0" y1="112.1" x2="49.5" y2="96.0" class="gap" stroke-width="2"/>
-<circle cx="132" cy="161" r="92" fill="none" class="s-Other" stroke-width="26" stroke-dasharray="61.75 578.05" stroke-dashoffset="-494.95" transform="rotate(-90 132 161)"/>
-<line x1="113.8" y1="84.1" x2="107.8" y2="58.8" class="gap" stroke-width="2"/>
+<circle cx="132" cy="161" r="92" fill="none" class="s-Foundation" stroke-width="26" stroke-dasharray="61.84 578.05" stroke-dashoffset="-216.46" transform="rotate(-90 132 161)"/>
+<line x1="141.2" y1="239.5" x2="144.2" y2="265.3" class="gap" stroke-width="2"/>
+<circle cx="132" cy="161" r="92" fill="none" class="s-Graphics" stroke-width="26" stroke-dasharray="27.06 578.05" stroke-dashoffset="-278.30" transform="rotate(-90 132 161)"/>
+<line x1="118.1" y1="238.8" x2="113.5" y2="264.4" class="gap" stroke-width="2"/>
+<circle cx="132" cy="161" r="92" fill="none" class="s-AppKit" stroke-width="26" stroke-dasharray="22.71 578.05" stroke-dashoffset="-305.36" transform="rotate(-90 132 161)"/>
+<line x1="99.5" y1="233.0" x2="88.8" y2="256.7" class="gap" stroke-width="2"/>
+<circle cx="132" cy="161" r="92" fill="none" class="s-SwiftUI" stroke-width="26" stroke-dasharray="167.08 578.05" stroke-dashoffset="-328.07" transform="rotate(-90 132 161)"/>
+<line x1="70.1" y1="112.0" x2="49.7" y2="95.8" class="gap" stroke-width="2"/>
+<circle cx="132" cy="161" r="92" fill="none" class="s-Other" stroke-width="26" stroke-dasharray="61.75 578.05" stroke-dashoffset="-495.14" transform="rotate(-90 132 161)"/>
+<line x1="114.0" y1="84.1" x2="108.1" y2="58.8" class="gap" stroke-width="2"/>
 <text x="132" y="167" text-anchor="middle" class="ink" font-size="36" font-weight="700">96%</text>
 <text x="132" y="187" text-anchor="middle" class="mute" font-size="12">implemented</text>
 <text x="286" y="56" class="ink" font-size="18" font-weight="600">Mac app support</text>
-<text x="286" y="78" class="mute" font-size="13">5,761 of 5,982 functions implemented</text>
+<text x="286" y="78" class="mute" font-size="13">5,763 of 5,982 functions implemented</text>
 <circle cx="291" cy="104" r="5" class="f-System"/>
 <text x="304" y="108" class="ink" font-size="13">System</text>
 <text x="504" y="108" class="ink" font-size="13" font-weight="600" text-anchor="end">99%</text>
@@ -55,7 +55,7 @@
 <text x="304" y="160" class="ink" font-size="13">Foundation</text>
 <circle cx="291" cy="156" r="7" class="f-Foundation" filter="url(#glow)" opacity="0.6"/>
 <text x="504" y="160" class="ink" font-size="13" font-weight="600" text-anchor="end">87%</text>
-<text x="592" y="160" class="mute" font-size="12" text-anchor="end">638/736</text>
+<text x="592" y="160" class="mute" font-size="12" text-anchor="end">640/736</text>
 <circle cx="291" cy="182" r="5" class="f-Graphics"/>
 <text x="304" y="186" class="ink" font-size="13">Graphics</text>
 <text x="504" y="186" class="ink" font-size="13" font-weight="600" text-anchor="end">100%</text>
@@ -72,5 +72,5 @@
 <text x="304" y="264" class="ink" font-size="13">Other</text>
 <text x="504" y="264" class="ink" font-size="13" font-weight="600" text-anchor="end">100%</text>
 <text x="592" y="264" class="mute" font-size="12" text-anchor="end">639/639</text>
-<text x="28" y="320" class="mute" font-size="10.5">2026-11-26 09:22 UTC</text>
+<text x="28" y="320" class="mute" font-size="10.5">2026-11-26 09:42 UTC</text>
 </svg>
