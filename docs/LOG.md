@@ -3795,3 +3795,22 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   `VerticalEdge.Set` was the only one left.
 - Target app (total `^MISSING`): 0 -> 0. Settings pages (Interface, Themes,
   Terminal) open and switch without crashing.
+
+## FocusState's real layout; availability checks see exactly macOS 15.0.0
+
+- `FocusState<Value>` is {value, location, resetValue}, and
+  `FocusState.Binding` wraps a SwiftUI `Binding<Value>` (transaction,
+  location, value), as in Apple's SDK. Programs copy focus states, read the
+  binding's words and release its references themselves. #174 had made the
+  binding wrap the whole state, so the app released a Bool as a reference
+  when opening the Shortcuts settings page. The focus box is now an
+  `AnyLocation`.
+- `__isOSVersionAtLeast`, `__isPlatformVersionAtLeast` and
+  `_availability_version_check` compare the full version against 15.0.0.
+  They compared only the major number, so `#available(macOS 15.4, *)`
+  succeeded and programs called their weak imports of API added after
+  15.0. The target app hit a null opaque-type descriptor
+  (`_TagTraitWritingModifier`, `ForEach.create` and others).
+- Test: tests/c/osversion.c.
+- Target app (total `^MISSING`): 0 -> 0. Every settings page opens
+  without crashing.

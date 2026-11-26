@@ -103,28 +103,30 @@ static uint32_t d_dyld_get_program_sdk_version(void) { return 0x000f0000; }
 DX_FN(dyld_get_program_sdk_version);
 static uint32_t d_dyld_get_active_platform(void) { return 1; }
 DX_FN(dyld_get_active_platform);
-/* `#available` checks: an array of {platform, version} with the version
- * packed as major<<16 | minor<<8 | patch. We are macOS 15, like the other
- * version checks here; claiming newer makes apps call weak imports of
- * newer API that is not there. */
+/* `#available` checks. bitten presents macOS 15.0.0 exactly: anything
+ * newer, including 15.x point releases, is "not available", or programs
+ * call their weak imports of API added later, which are not there. The
+ * check array is {platform, version} with the version packed as
+ * major<<16 | minor<<8 | patch. */
+#define BN_OS_PACKED (15u << 16)
+static int os_at_least(uint32_t major, uint32_t minor, uint32_t patch) {
+    uint32_t want = major << 16 | (minor & 0xFF) << 8 | (patch & 0xFF);
+    return want <= BN_OS_PACKED;
+}
 static int d__availability_version_check(uint32_t count, void *versions) {
     const uint32_t *v = versions;
     for (uint32_t i = 0; i < count; i++)
-        if ((v[2 * i + 1] >> 16) > 15) return 0;
+        if (v[2 * i + 1] > BN_OS_PACKED) return 0;
     return 1;
 }
 DX_FN(_availability_version_check);
 static int d___isOSVersionAtLeast(int major, int minor, int patch) {
-    (void)minor;
-    (void)patch;
-    return major <= 15;
+    return os_at_least((uint32_t)major, (uint32_t)minor, (uint32_t)patch);
 }
 DX_FN(__isOSVersionAtLeast);
 static int d___isPlatformVersionAtLeast(uint32_t platform, uint32_t major, uint32_t minor, uint32_t patch) {
     (void)platform;
-    (void)minor;
-    (void)patch;
-    return major <= 15;
+    return os_at_least(major, minor, patch);
 }
 DX_FN(__isPlatformVersionAtLeast);
 

@@ -1285,30 +1285,36 @@ final class _FocusTarget {
 
 @frozen @propertyWrapper
 public struct FocusState<Value: Hashable>: DynamicProperty {
+  // Apple's layout: the value, its location (once installed), the value it
+  // resets to.
   @usableFromInline internal var _value: Value
   @usableFromInline internal var _box: _FocusBox<Value>?
-  @usableFromInline internal let _reset: Value
+  @usableFromInline internal var _reset: Value
 
-  /// As in Apple's SDK, the binding holds the whole focus state (the app
-  /// passes it in registers when the state is small, e.g. for Bool).
+  /// As in Apple's SDK, a focus binding wraps a SwiftUI Binding (programs
+  /// read its words directly: transaction, location, value).
   @propertyWrapper @frozen
   public struct Binding {
-    @usableFromInline internal var focusState: FocusState<Value>
-    @inlinable internal init(focusState: FocusState<Value>) { self.focusState = focusState }
+    @usableFromInline internal var binding: SwiftUI.Binding<Value>
+    @inlinable internal init(binding: SwiftUI.Binding<Value>) { self.binding = binding }
     public var wrappedValue: Value {
-      get { return focusState.wrappedValue }
-      nonmutating set { focusState.wrappedValue = newValue }
+      get { return binding.wrappedValue }
+      nonmutating set { binding.wrappedValue = newValue }
     }
     public var projectedValue: Binding { return self }
-    /// The state's storage once installed (a stand-in before that).
-    internal var _box: _FocusBox<Value> { return focusState._box ?? _FocusBox(focusState._value) }
+    /// The focus state's storage (or the stand-in a binding was made with).
+    internal var _box: _FocusBox<Value> {
+      if let box = binding.location as? _FocusBox<Value> { return box }
+      return _FocusBox(binding.wrappedValue)
+    }
   }
   public var wrappedValue: Value {
     get { return _box?.value ?? _value }
     nonmutating set { _box?.value = newValue }
   }
   public var projectedValue: Binding {
-    return Binding(focusState: self)
+    let box = _box ?? _FocusBox(_value)
+    return Binding(binding: SwiftUI.Binding(location: box, transaction: Transaction()))
   }
 }
 extension FocusState {
@@ -1324,11 +1330,16 @@ extension FocusState {
   }
 }
 @usableFromInline
-final class _FocusBox<Value> {
+final class _FocusBox<Value>: AnyLocation<Value> {
   var value: Value {
     didSet { _GraphHost.invalidate() }
   }
-  init(_ v: Value) { value = v }
+  init(_ v: Value) {
+    value = v
+    super.init()
+  }
+  override func get() -> Value { return value }
+  override func set(_ newValue: Value, transaction: Transaction) { value = newValue }
 }
 extension FocusState: _GraphInstallable {
   mutating func _install(key: String, inputs: _ViewInputs) {

@@ -136,7 +136,8 @@ internal class _ViewNode {
   /// Prints the placed subtree (BITTEN_SWIFTUI_TREE=1).
   func _dumpTree(_ depth: Int = 0) {
     let f = frame
-    let name = _debugName.map { String($0.prefix(160)) } ?? ""
+    var name = _debugName.map { String($0.prefix(160)) } ?? ""
+    if let t = self as? _TextNode { name += " \"" + String(t.string.prefix(40)) + "\"" }
     _dbg(String(repeating: "  ", count: depth) + "\(type(of: self)) \(name) (\(f.origin.x),\(f.origin.y) \(f.size.width)x\(f.size.height))")
     for c in children { c._dumpTree(depth + 1) }
   }
