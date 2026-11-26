@@ -232,8 +232,10 @@ public enum PopoverAttachmentAnchor: Sendable {
   case point(UnitPoint)
 }
 public struct Anchor<Value> {
+  /// Frozen in Apple's SDK (one word): the app reads `bounds` from rax.
+  @frozen
   public struct Source: Sendable {
-    let id: Int
+    @usableFromInline let id: Int
   }
 }
 extension Anchor.Source where Value == CGRect {

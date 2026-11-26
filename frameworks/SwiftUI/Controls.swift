@@ -1686,6 +1686,7 @@ public struct Namespace: DynamicProperty {
 extension Namespace: _GraphInstallable {
   mutating func _install(key: String, inputs: _ViewInputs) { id = key.hashValue }
 }
+@frozen
 public struct MatchedGeometryProperties: OptionSet, Sendable {
   public let rawValue: UInt32
   public init(rawValue: UInt32) { self.rawValue = rawValue }
