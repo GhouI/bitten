@@ -3369,3 +3369,24 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Test: tests/appkit/deepmap2.m (a hand-made blob).
 - Target app window (total `^MISSING`): 11 -> 11. Its onboarding shows
   its artwork and previews.
+
+## Apple font names; font matching that can say no; validated 0x0c references
+
+- CoreText (font.c): a font asked for by an Apple name (.AppleSystemUIFont,
+  .SFNS, SF Mono, Menlo, Monaco, Helvetica, Courier, Times, Lucida Grande,
+  Geneva, Andale Mono, ...) reports that font's family, PostScript and full
+  names (`Menlo`, `Menlo-Regular`) rather than the stand-in's, so programs
+  that compare names see what a Mac shows. Book/Roman styles report Regular.
+  `BITTEN_CT_DEBUG=1` traces lookups.
+- `CTFontDescriptorCreateMatchingFontDescriptors` returns NULL for a family
+  or name that is neither installed nor an Apple font, as on a Mac. It used
+  to match everything, so programs that probe for an optional bundled font
+  believed they had it. Matches carry the reported name and family.
+- Swift runtime (demangle.c): symbolic reference kind 0x0c is either a
+  protocol descriptor or a relative pointer to an `__objc_protorefs` slot;
+  the target is now checked to be mapped (mincore) and to name an
+  identifier before either reading is taken.
+- Test: tests/c/coretext.c checks the reported names and matching.
+- Target app (total `^MISSING`): 11 -> 11. Its renderer now creates the
+  Metal device, compiles its 12-function library and builds all 5
+  pipelines.

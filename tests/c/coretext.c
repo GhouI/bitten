@@ -37,6 +37,10 @@ unsigned int CTFontGetSymbolicTraits(Ref);
 CGFloat CTFontGetSize(Ref), CTFontGetAscent(Ref), CTFontGetDescent(Ref);
 unsigned CTFontGetUnitsPerEm(Ref);
 Ref CTFontCopyFamilyName(Ref);
+Ref CTFontCopyPostScriptName(Ref);
+Ref CTFontDescriptorCreateWithAttributes(Ref);
+Ref CTFontDescriptorCreateMatchingFontDescriptors(Ref, Ref);
+extern Ref kCTFontFamilyNameAttribute;
 unsigned char CTFontGetGlyphsForCharacters(Ref, const unsigned short *, unsigned short *, long);
 double CTFontGetAdvancesForGlyphs(Ref, unsigned int, const unsigned short *, CGSize *, long);
 Ref CTFontCreatePathForGlyph(Ref, unsigned short, const void *);
@@ -71,6 +75,28 @@ int main(void) {
     CHECK(bold && (CTFontGetSymbolicTraits(bold) & (1 << 1)) && CTFontGetSize(bold) == 20);
     char family[64];
     CHECK(CFStringGetCString(CTFontCopyFamilyName(sans), family, sizeof family, 0x08000100) && family[0]);
+    /* Apple's fonts report their own names, whatever stands in for them */
+    CHECK(CFStringGetCString(CTFontCopyFamilyName(mono), family, sizeof family, 0x08000100) && !strcmp(family, "Menlo"));
+    CHECK(CFStringGetCString(CTFontCopyPostScriptName(mono), family, sizeof family, 0x08000100) &&
+          !strcmp(family, "Menlo-Regular"));
+    CHECK(CFStringGetCString(CTFontCopyFamilyName(sans), family, sizeof family, 0x08000100) &&
+          !strcmp(family, ".AppleSystemUIFont"));
+    /* matching: an Apple family matches, under its name; a missing family does not */
+    {
+        const void *k[] = {kCTFontFamilyNameAttribute}, *v[] = {S("menlo")};
+        Ref d = CTFontDescriptorCreateWithAttributes(CFDictionaryCreate(0, k, v, 1, kCFTypeDictionaryKeyCallBacks,
+                                                                        kCFTypeDictionaryValueCallBacks));
+        Ref m = CTFontDescriptorCreateMatchingFontDescriptors(d, 0);
+        CHECK(m && CFArrayGetCount(m) == 1);
+        v[0] = S("No Such Font Family");
+        d = CTFontDescriptorCreateWithAttributes(CFDictionaryCreate(0, k, v, 1, kCFTypeDictionaryKeyCallBacks,
+                                                                    kCFTypeDictionaryValueCallBacks));
+        CHECK(CTFontDescriptorCreateMatchingFontDescriptors(d, 0) == 0);
+        v[0] = S("DejaVu Sans");
+        d = CTFontDescriptorCreateWithAttributes(CFDictionaryCreate(0, k, v, 1, kCFTypeDictionaryKeyCallBacks,
+                                                                    kCFTypeDictionaryValueCallBacks));
+        CHECK(CTFontDescriptorCreateMatchingFontDescriptors(d, 0) != 0);
+    }
 
     /* glyphs and advances: 'W' is wider than 'i'; monospace is even */
     unsigned short chars[] = {'W', 'i'}, glyphs[2];
