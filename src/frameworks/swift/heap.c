@@ -57,7 +57,12 @@ static inline int rc_cas(sw_heap_object *o, uint64_t *old, uint64_t new) {
 }
 
 static void weak_object_deiniting(sw_heap_object *o);
-static void heap_free(sw_heap_object *o) { free(o); }
+static void obj_trace(const char *what, sw_heap_object *o);
+static const char *trace_obj_name;
+static void heap_free(sw_heap_object *o) {
+    if (trace_obj_name) obj_trace("freed", o);
+    free(o);
+}
 
 /* ---- allocation ------------------------------------------------------------ */
 
@@ -90,10 +95,37 @@ DX_FN(swift_coroFrameAlloc);
 static void d_swift_slowDealloc(void *p, size_t size, size_t align_mask) { free(p); }
 DX_FN(swift_slowDealloc);
 
+/* BITTEN_TRACE_OBJ=Name logs where Swift objects whose class name contains
+ * Name are allocated and destroyed (raw return addresses, newest first). */
+static int trace_obj_inited;
+static void obj_trace(const char *what, sw_heap_object *o) {
+    if (!trace_obj_inited) {
+        trace_obj_name = getenv("BITTEN_TRACE_OBJ");
+        trace_obj_inited = 1;
+    }
+    if (!trace_obj_name || !o || !o->metadata) return;
+    uintptr_t k = sw_kind((const sw_metadata *)o->metadata);
+    if (k != SW_KIND_CLASS && k <= 0x7FF) return;
+    const char *name = sw_type_name((const sw_metadata *)o->metadata, 1);
+    if (!name || !strstr(name, trace_obj_name)) return;
+    char line[512];
+    int n = snprintf(line, sizeof line, "bitten: object %s %p (%s):", what, (void *)o, name);
+    void **fp = __builtin_frame_address(0);
+    for (int i = 0; i < 12 && fp && n < (int)sizeof line - 20; i++) {
+        n += snprintf(line + n, sizeof line - n, " %p", fp[1]);
+        void **next = fp[0];
+        /* frames without frame pointers break the chain: stay on this stack */
+        if (next <= fp || (char *)next - (char *)fp > (1 << 20)) break;
+        fp = next;
+    }
+    fprintf(stderr, "%s\n", line);
+}
+
 sw_heap_object *sw_alloc_object(const sw_metadata *m, size_t size, size_t align_mask) {
     sw_heap_object *o = slow_alloc(size, align_mask);
     o->metadata = m;
     o->refcounts = RC_INITIAL;
+    if (trace_obj_name || !trace_obj_inited) obj_trace("made", o);
     return o;
 }
 static sw_heap_object *d_swift_allocObject(const sw_metadata *m, size_t size, size_t align_mask) {
@@ -180,6 +212,7 @@ sw_heap_object *sw_retain_n(sw_heap_object *o, uint32_t n) {
 sw_heap_object *volatile sw_last_destroyed;
 void sw_destroy(sw_heap_object *o) {
     sw_last_destroyed = o;
+    if (trace_obj_name) obj_trace("destroyed", o);
     const sw_heap_metadata_header *h = (const sw_heap_metadata_header *)o->metadata - 1;
     if (!h->destroy) {
         /* No destroyer (metadata built without one): the object leaks. */
@@ -755,9 +788,36 @@ static size_t box_size(const box_metadata *b, size_t *align_mask) {
     return b->offset + (v ? v->size : 0);
 }
 
+/* BITTEN_TRACE_BOX=TypeName logs where boxes of types whose name contains
+ * TypeName are allocated and freed (raw return addresses, newest first). */
+static const char *trace_box_name;
+static int trace_box_inited;
+static void box_trace(const char *what, sw_heap_object *o, const sw_metadata *type) {
+    if (!trace_box_inited) {
+        trace_box_name = getenv("BITTEN_TRACE_BOX");
+        trace_box_inited = 1;
+    }
+    if (!trace_box_name || !type) return;
+    const char *name = sw_type_name(type, 1);
+    if (!name || !strstr(name, trace_box_name)) return;
+    char line[512];
+    int n = snprintf(line, sizeof line, "bitten: box %s %p (%s):", what, (void *)o, name);
+    void **fp = __builtin_frame_address(0);
+    for (int i = 0; i < 10 && fp && n < (int)sizeof line - 20; i++) {
+        void *ret = fp[1];
+        n += snprintf(line + n, sizeof line - n, " %p", ret);
+        void **next = fp[0];
+        /* frames without frame pointers break the chain: stay on this stack */
+        if (next <= fp || (char *)next - (char *)fp > (1 << 20)) break;
+        fp = next;
+    }
+    fprintf(stderr, "%s\n", line);
+}
+
 static void box_destroy(void *obj) {
     sw_heap_object *o = obj;
     box_metadata *b = box_of(o);
+    box_trace("freed", o, b->boxed);
     if (b->boxed) sw_vwt_of(b->boxed)->destroy((sw_opaque *)((char *)o + b->offset), b->boxed);
     d_swift_deallocObject(o, 0, 0);
 }
@@ -791,6 +851,7 @@ static sw_box_pair d_swift_allocBox(const sw_metadata *type) {
     box_metadata *b = (box_metadata *)((char *)m - offsetof(box_metadata, kind));
     size_t am, size = box_size(b, &am);
     sw_heap_object *o = sw_alloc_object(m, size, am);
+    box_trace("made", o, type);
     return (sw_box_pair){o, (sw_opaque *)((char *)o + b->offset)};
 }
 DX_FN(swift_allocBox);
