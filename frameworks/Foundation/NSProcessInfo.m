@@ -85,6 +85,22 @@ NSString *NSHomeDirectory(void) {
     struct passwd *pw = getpwuid(getuid());
     return pw && pw->pw_dir ? [NSString stringWithUTF8String:pw->pw_dir] : @"/";
 }
+/* The full name: the GECOS field up to its first comma, or the login. */
+NSString *NSFullUserName(void) {
+    struct passwd *pw = getpwuid(getuid());
+    if (pw && pw->pw_gecos && *pw->pw_gecos) {
+        NSString *g = [NSString stringWithUTF8String:pw->pw_gecos];
+        NSRange comma = [g rangeOfString:@","];
+        if (comma.location != NSNotFound) g = [g substringToIndex:comma.location];
+        if (g.length) return g;
+    }
+    return NSUserName();
+}
+NSString *NSHomeDirectoryForUser(NSString *user) {
+    if (!user.length) return NSHomeDirectory();
+    struct passwd *pw = getpwnam(user.UTF8String);
+    return pw && pw->pw_dir ? [NSString stringWithUTF8String:pw->pw_dir] : nil;
+}
 NSString *NSTemporaryDirectory(void) {
     const char *tmp = getenv("TMPDIR");
     NSString *s = [NSString stringWithUTF8String:tmp && *tmp ? tmp : "/tmp"];

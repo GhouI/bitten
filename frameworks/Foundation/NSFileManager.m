@@ -14,6 +14,9 @@ NSString *const NSFileTypeRegular = @"NSFileTypeRegular";
 NSString *const NSFileTypeDirectory = @"NSFileTypeDirectory";
 NSString *const NSFileTypeSymbolicLink = @"NSFileTypeSymbolicLink";
 NSString *const NSFileTypeUnknown = @"NSFileTypeUnknown";
+NSString *const NSFileTypeSocket = @"NSFileTypeSocket";
+NSString *const NSFileTypeCharacterSpecial = @"NSFileTypeCharacterSpecial";
+NSString *const NSFileTypeBlockSpecial = @"NSFileTypeBlockSpecial";
 
 void BNSetPOSIXError(NSError **error, NSString *path, BOOL reading) {
     if (!error) return;
@@ -193,7 +196,9 @@ static const char *FS(NSString *path) { return path.fileSystemRepresentation; }
         return nil;
     }
     NSString *type = S_ISDIR(st.st_mode) ? NSFileTypeDirectory : S_ISREG(st.st_mode) ? NSFileTypeRegular
-                   : S_ISLNK(st.st_mode) ? NSFileTypeSymbolicLink : NSFileTypeUnknown;
+                   : S_ISLNK(st.st_mode) ? NSFileTypeSymbolicLink : S_ISSOCK(st.st_mode) ? NSFileTypeSocket
+                   : S_ISCHR(st.st_mode) ? NSFileTypeCharacterSpecial : S_ISBLK(st.st_mode) ? NSFileTypeBlockSpecial
+                   : NSFileTypeUnknown;
     NSTimeInterval m = (NSTimeInterval)st.st_mtimespec.tv_sec + (NSTimeInterval)st.st_mtimespec.tv_nsec / 1e9;
     NSTimeInterval b = (NSTimeInterval)st.st_birthtimespec.tv_sec + (NSTimeInterval)st.st_birthtimespec.tv_nsec / 1e9;
     return @{NSFileSize: @((unsigned long long)st.st_size), NSFileType: type,
