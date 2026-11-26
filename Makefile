@@ -151,9 +151,10 @@ $(BUILD)/tests/metal/%: tests/metal/%.m $(METAL) $(wildcard sdk/include/*/*.h)
 # ---- small Objective-C frameworks ----------------------------------------------
 # Each of OBJC_FWS is frameworks/NAME/*.m over Foundation, built into
 # NAME.framework/Versions/A/NAME; tests/media links them all.
-OBJC_FWS := CoreImage AVFAudio ScreenCaptureKit WebKit
+OBJC_FWS := CoreImage AVFAudio ScreenCaptureKit WebKit QuickLookUI
 # What else one links (WebKit's views are AppKit views).
 OBJC_FW_EXTRA_WebKit = $(APPKIT)
+OBJC_FW_EXTRA_QuickLookUI = $(APPKIT)
 objc_fw_lib = $(FW_ROOT)/System/Library/Frameworks/$(1).framework/Versions/A/$(1)
 objc_fw_objs = $(patsubst frameworks/$(1)/%.m,$(BUILD)/fw/$(1)/%.o,$(wildcard frameworks/$(1)/*.m))
 OBJC_FW_LIBS := $(if $(HAVE_MACHO),$(foreach f,$(OBJC_FWS),$(call objc_fw_lib,$(f))))
@@ -529,7 +530,7 @@ SWLIB_LIBS_localized := $(FOUNDATION) $(FOUNDATION_COMBINE)
 SWLIB_MACOS_localized := 14.0
 SWLIB_LIBS_appintents := $(FOUNDATION) $(FOUNDATION_COMBINE) $(APPKIT) $(call late_swift_lib,UniformTypeIdentifiers) $(call swift_fw_lib,AppIntents) $(LIBCONCURRENCY)
 SWLIB_MACOS_appintents := 14.0
-SWLIB_LIBS_smallswift := $(FOUNDATION) $(call swift_fw_lib,CryptoKit) $(call swift_fw_lib,Accessibility)
+SWLIB_LIBS_smallswift := $(FOUNDATION) $(call swift_fw_lib,CryptoKit) $(call swift_fw_lib,Accessibility) $(call swift_fw_lib,Symbols)
 SWLIB_LIBS_swiftui := $(FOUNDATION) $(APPKIT) $(call swift_fw_lib,Combine) $(call swift_fw_lib,SwiftUI)
 SWLIB_MACOS_swiftui := 14.0
 $(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTCORE) $(OVERLAY_LIBS) tests/include/darwin.h $$(SWLIB_LIBS_$$*)

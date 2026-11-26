@@ -135,6 +135,11 @@ module WebKit [system] {
   export *
 }
 
+module QuickLookUI [system] {
+  header "QuickLookUI/QuickLookUI.h"
+  export *
+}
+
 module Metal [system] {
   header "Metal/Metal.h"
   export *
