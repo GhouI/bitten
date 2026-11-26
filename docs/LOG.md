@@ -3045,3 +3045,29 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   are knocked out; `SYMBOLS_PPM=path` writes the grid).
 - Target app window (total `^MISSING`): 11 -> 11. Its status title shows
   its warning triangle instead of a grey block.
+## launchctl without launchd
+
+- There is no launchd. Running `/bin/launchctl` or `/usr/bin/launchctl`
+  (through exec, posix_spawn or a PATH search, or after stat or access)
+  runs mrun's own launchctl (src/loader/launchctl.c); the path maps to
+  mrun when the host has no such file. Supported subcommands:
+  - **Jobs:** bootstrap, bootout, kickstart [-k] [-p], print and list,
+    plus the legacy load, unload, start, stop and remove.
+  - **Accepted, no effect:** enable, disable, setenv and config.
+  - **Information:** version, managerpid, manageruid and managername.
+- Jobs live in a table under `$HOME/Library/bitten/launchd`, holding a
+  copy of each job's plist (launchd keeps its own; callers delete theirs)
+  and the job's pid.
+  - **Starting:** bootstrapping starts the program if RunAtLoad or
+    KeepAlive is set, detached in its own session. It gets the plist's
+    arguments, environment, working directory and standard paths; Mach-O
+    programs run under mrun.
+  - **Stopping:** bootout sends TERM, then KILL if needed.
+  - **Exit codes** follow launchctl's: 3 when there is nothing to boot
+    out, 5 when bootstrapping a job that is already running, 113 when a
+    service is unknown.
+- Plists are XML (a small reader here); binary plists are refused.
+  Test: tests/foundation/launchctl.
+- Target app: its server helper now boots out, bootstraps and kickstarts
+  its server as a LaunchAgent. The server stays up and answers
+  `rex server status`.

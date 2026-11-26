@@ -246,9 +246,23 @@ static int count_args(char *const argv[]) {
 
 /* execve that understands Mach-O targets: they are re-entered through the
  * loader, everything else (ELF programs, scripts) is run by the kernel. */
+static int is_launchctl(const char *p) {
+    return (!strcmp(p, "/bin/launchctl") || !strcmp(p, "/usr/bin/launchctl")) && access(p, X_OK) != 0;
+}
 static int exec_any(const char *path, char *const argv[], char *const envp[]) {
     char pbuf[PATH_MAX];
     const char *p = dx_path(path, pbuf, sizeof pbuf);
+    if (is_launchctl(path) || is_launchctl(p)) {
+        /* there is no launchd: mrun stands in for launchctl */
+        int n = count_args(argv);
+        char **nargv = alloca((n + 3) * sizeof(char *));
+        int k = 0;
+        nargv[k++] = (char *)dx_loader_path();
+        nargv[k++] = (char *)"--launchctl";
+        for (int i = 1; i < n; i++) nargv[k++] = argv[i];
+        nargv[k] = NULL;
+        return execve(dx_loader_path(), nargv, envp);
+    }
     if (!dx_is_macho_file(p)) return execve(p, argv, envp);
     int n = count_args(argv);
     char **nargv = alloca((n + 6) * sizeof(char *));
@@ -285,6 +299,8 @@ static int search_path(const char *file, char *out) {
         if (len == 0) snprintf(out, PATH_MAX, "./%s", file);
         else snprintf(out, PATH_MAX, "%.*s/%s", len, path, file);
         if (access(out, X_OK) == 0) return 0;
+        if (!strcmp(file, "launchctl") && (!strcmp(out, "/bin/launchctl") || !strcmp(out, "/usr/bin/launchctl")))
+            return 0;
         path = *colon ? colon + 1 : colon;
     }
     errno = ENOENT;

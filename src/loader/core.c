@@ -112,6 +112,9 @@ const char *dx_path(const char *path, char *buf, size_t buflen) {
         }
         root_checked = 1;
     }
+    /* There is no launchd: launchctl is mrun itself (see launchctl.c). */
+    if ((!strcmp(path, "/bin/launchctl") || !strcmp(path, "/usr/bin/launchctl")) && access(path, F_OK) != 0)
+        return dx_loader_path();
     if (!root || path[0] != '/') return path;
     /* Only bitten's own read-only system files are redirected, and only
      * when the file really is in the framework root. Anything else,
@@ -183,6 +186,10 @@ int main(int argc, char **argv, char **envp) {
     const char *stubs = getenv("BITTEN_STUBS");
     if (stubs && !strcmp(stubs, "zero")) dx_stub_mode = 1;
 
+    extern int dx_launchctl_main(int argc, char **argv);
+    if (argc > 1 && !strcmp(argv[1], "--launchctl")) return dx_launchctl_main(argc - 2, argv + 2);
+    const char *base = strrchr(argv[0], '/');
+    if (!strcmp(base ? base + 1 : argv[0], "launchctl")) return dx_launchctl_main(argc - 1, argv + 1);
     int check = 0, i = 1;
     const char *argv0 = NULL;
     for (; i < argc; i++) {
