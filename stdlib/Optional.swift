@@ -33,6 +33,17 @@ public func ?? <T>(optional: T?, defaultValue: @autoclosure () throws -> T) reth
   }
 }
 
+/// `optional ?? otherOptional`: without this overload the expression would
+/// pick the one above with T = U?, wrap a nil left side as .some(nil), and
+/// return nil without looking at the right side.
+@_transparent
+public func ?? <T>(optional: T?, defaultValue: @autoclosure () throws -> T?) rethrows -> T? {
+  switch optional {
+  case .some(let value): return value
+  case .none: return try defaultValue()
+  }
+}
+
 extension Optional {
   @inlinable
   public func map<U>(_ transform: (Wrapped) throws -> U) rethrows -> U? {

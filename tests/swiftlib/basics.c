@@ -5,6 +5,7 @@ long swl_arith(long, long);
 long swl_compare(long, long);
 unsigned char swl_unsigned(unsigned char);
 long swl_optional(long);
+long swl_coalesce(void);
 
 int main(void) {
     CHECK(swl_arith(5, 7) == (25 / 2 + 25 % 5));
@@ -14,6 +15,7 @@ int main(void) {
     CHECK(swl_unsigned(100) == (unsigned char)(300 - 256) >> 1);
     CHECK(swl_optional(42) == 42);
     CHECK(swl_optional(3) == 999);
+    CHECK(swl_coalesce() == 0);
     puts("swift stdlib basics ok");
     return 0;
 }
