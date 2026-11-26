@@ -115,6 +115,11 @@ module Foundation [system] {
   export *
 }
 
+module QuartzCore [system] {
+  header "QuartzCore/QuartzCore.h"
+  export *
+}
+
 module AppKit [system] {
   header "AppKit/AppKit.h"
   export *
