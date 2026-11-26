@@ -625,3 +625,14 @@ extension RangeReplaceableCollection {
     return lhs
   }
 }
+
+// Collections that are their own slices (ArraySlice, Substring, Slice...):
+// taking the first element shrinks the collection.
+extension Collection where SubSequence == Self {
+  @inlinable public mutating func popFirst() -> Element? {
+    guard !isEmpty else { return nil }
+    let element = first!
+    self = self[index(after: startIndex)..<endIndex]
+    return element
+  }
+}
