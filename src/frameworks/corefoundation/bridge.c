@@ -181,4 +181,12 @@ __attribute__((constructor(102))) static void bridge_init(void) {
     cf_class(CF_SEC_CERTIFICATE, generic, "__NSCFSecCertificate");
     cf_class(CF_SEC_POLICY, generic, "__NSCFSecPolicy");
     cf_class(CF_SEC_TRUST, generic, "__NSCFSecTrust");
+    cf_class(CF_CG_COLORSPACE, generic, "__NSCFCGColorSpace");
+    cf_class(CF_CG_COLOR, generic, "__NSCFCGColor");
+    cf_class(CF_CG_PATH, generic, "__NSCFCGPath");
+    cf_class(CF_CG_CONTEXT, generic, "__NSCFCGContext");
+    cf_class(CF_CG_IMAGE, generic, "__NSCFCGImage");
+    cf_class(CF_CG_GRADIENT, generic, "__NSCFCGGradient");
+    cf_class(CF_CG_PROVIDER, generic, "__NSCFCGDataProvider");
+    cf_class(CF_CG_EVENT, generic, "__NSCFCGEvent");
 }
