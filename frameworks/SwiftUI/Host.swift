@@ -171,7 +171,15 @@ open class _HostingViewBase: NSView {
 
   func _makeRoot() -> _ViewNode { fatalError("abstract") }
 
+  /// An invalidation that arrived while the tree was being placed: the
+  /// tree is dropped once placing is done, not under the nodes running.
+  var _invalidatedWhilePlacing = false
+
   func _bn_invalidate() {
+    if _placing {
+      _invalidatedWhilePlacing = true
+      return
+    }
     _root = nil
     needsDisplay = true
   }
@@ -189,7 +197,14 @@ open class _HostingViewBase: NSView {
     let r = _root ?? _makeRoot()
     _root = r
     _placing = true
-    defer { _placing = false }
+    defer {
+      _placing = false
+      if _invalidatedWhilePlacing {
+        _invalidatedWhilePlacing = false
+        // Rebuild on the next pass; this one returns the tree it placed.
+        DispatchQueue.main.async { [weak self] in self?._bn_invalidate() }
+      }
+    }
     // The root takes the size it wants of the bounds, centred in them.
     let want = r.sizeThatFits(ProposedViewSize(bounds.size))
     let size = CGSize(width: min(want.width, bounds.size.width), height: min(want.height, bounds.size.height))

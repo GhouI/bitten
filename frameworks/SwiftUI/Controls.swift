@@ -1426,6 +1426,7 @@ public struct GeometryReader<Content: View>: View {
   public var body: Never { return fatalError("GeometryReader has no body") }
   nonisolated public static func _makeView(view: _GraphValue<GeometryReader>, inputs: _ViewInputs) -> _ViewOutputs {
     let v = view.value
+    if _debugGraph { _dbg("bitten: geometry reader of \(Content.self)") }
     return _ViewOutputs(_GeometryNode(inputs: inputs.named("geometry"), environment: inputs.environment) { proxy, i in
       _makeNode(v.content(proxy), inputs: i)
     })

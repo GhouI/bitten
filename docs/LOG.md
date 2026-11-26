@@ -3192,3 +3192,20 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   again), and GeometryReader keeps its old content alive while placing
   the new.
 - Target app window (total `^MISSING`): 11 -> 11.
+
+## SwiftUI: no rebuild under a tree being placed
+
+- SwiftUI: an invalidation that arrives while a hosting view's tree is
+  being placed (program code run during placement sets state or the root
+  view) is deferred until placement ends, instead of dropping the tree
+  under the nodes still running. `BITTEN_SWIFTUI_DEBUG` output goes to
+  stderr unbuffered (it often comes just before a crash) and names each
+  modifier's body type and each GeometryReader's content.
+- Investigation notes for the next crash: under valgrind the target app
+  shows an over-released bridged object (64 bytes, allocated by the app
+  in a concurrency job, freed by one app release and retained again by
+  another). The CoreUI deepmap2 bitmaps (compression 11, which hold
+  almost all of the catalog's images) decode with LZFSE to about 7 bytes
+  per ARGB pixel: an alpha plane first, then predicted residual planes,
+  still to be worked out.
+- Target app window (total `^MISSING`): 11 -> 11.
