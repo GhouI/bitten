@@ -2478,3 +2478,22 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   with no results, as when the user cancels.
 - Test: `tests/swiftlib/photosui`.
 - Target app window (total `^MISSING`): 310 -> 293.
+
+## Colour spaces, dynamic colours, layers, animation contexts, NSView state, NSProgress
+
+- AppKit: NSColorSpace (sRGB, extended sRGB, Display P3 with real
+  P3/sRGB conversion, gray spaces) and NSColor's colour-space methods;
+  dynamic colours (`colorWithName:dynamicProvider:`, resolved against the
+  current drawing appearance on each read) and the system colours built
+  on them; NSView backing layers (CALayer looked up at run time, so AppKit
+  does not link QuartzCore) and layer policies; NSVisualEffectView;
+  NSAnimationContext groups (changes apply at once, completions run on the
+  next main-loop turn) and animator proxies; NSView alpha, tooltips,
+  tracking areas, safe area, layout requests, rect and backing
+  conversion; NSShadow; NSTrackingArea.
+- Foundation: NSProgress (unit counts, children reporting to parents,
+  cancel/pause/resume handlers); NSItemProvider loaders return one.
+- SwiftUI: `Text(LocalizedStringResource)`, `Text(_:format:)` on the new
+  FormatStyle, NSHostingSizingOptions and the hosting `sizingOptions`,
+  `safeAreaRegions`, `sizeThatFits(in:)`; MeshGradient (SIMD2 now exists).
+- Target app window (total `^MISSING`): 310 -> 274.

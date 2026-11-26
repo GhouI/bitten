@@ -20,6 +20,20 @@
 - (void)flagsChanged:(NSEvent *)event NS_SWIFT_NAME(flagsChanged(with:));
 @end
 
+@class CALayer;
+typedef NS_ENUM(NSInteger, NSViewLayerContentsRedrawPolicy) {
+    NSViewLayerContentsRedrawNever = 0, NSViewLayerContentsRedrawOnSetNeedsDisplay = 1,
+    NSViewLayerContentsRedrawDuringViewResize = 2, NSViewLayerContentsRedrawBeforeViewResize = 3,
+    NSViewLayerContentsRedrawCrossfade = 4
+};
+typedef NS_ENUM(NSInteger, NSViewLayerContentsPlacement) {
+    NSViewLayerContentsPlacementScaleAxesIndependently = 0, NSViewLayerContentsPlacementScaleProportionallyToFit = 1,
+    NSViewLayerContentsPlacementScaleProportionallyToFill = 2, NSViewLayerContentsPlacementCenter = 3,
+    NSViewLayerContentsPlacementTop = 4, NSViewLayerContentsPlacementTopRight = 5,
+    NSViewLayerContentsPlacementRight = 6, NSViewLayerContentsPlacementBottomRight = 7,
+    NSViewLayerContentsPlacementBottom = 8, NSViewLayerContentsPlacementBottomLeft = 9,
+    NSViewLayerContentsPlacementLeft = 10, NSViewLayerContentsPlacementTopLeft = 11
+};
 @interface NSView : NSResponder {
 @protected
     NSRect _frame;
@@ -39,6 +53,13 @@
 @property BOOL needsDisplay;
 @property (getter=isHidden) BOOL hidden;
 @property BOOL wantsLayer;
+@property (nullable, strong) CALayer *layer;
+- (CALayer *)makeBackingLayer;
+@property (readonly) BOOL wantsUpdateLayer;
+- (void)updateLayer;
+@property NSViewLayerContentsRedrawPolicy layerContentsRedrawPolicy;
+@property NSViewLayerContentsPlacement layerContentsPlacement;
+@property BOOL canDrawSubviewsIntoLayer;
 @property NSAutoresizingMaskOptions autoresizingMask;
 @property (readonly, getter=isFlipped) BOOL flipped;
 - (void)addSubview:(NSView *)view;
@@ -265,6 +286,7 @@ APPKIT_EXTERN int NSApplicationMain(int argc, const char *argv[]);
 - (nullable NSString *)charactersByApplyingModifiers:(NSEventModifierFlags)modifiers;
 @end
 
+@class NSColorSpace, NSAppearance;
 @interface NSColor : NSObject <NSCopying>
 + (NSColor *)colorWithSRGBRed:(CGFloat)r green:(CGFloat)g blue:(CGFloat)b alpha:(CGFloat)a;
 + (NSColor *)colorWithRed:(CGFloat)r green:(CGFloat)g blue:(CGFloat)b alpha:(CGFloat)a;
@@ -281,6 +303,48 @@ APPKIT_EXTERN int NSApplicationMain(int argc, const char *argv[]);
 - (void)set;
 - (void)setFill;
 - (void)setStroke;
++ (NSColor *)colorWithDisplayP3Red:(CGFloat)r green:(CGFloat)g blue:(CGFloat)b alpha:(CGFloat)a;
++ (NSColor *)colorWithColorSpace:(NSColorSpace *)space components:(const CGFloat *)components count:(NSInteger)n;
++ (NSColor *)colorWithDeviceRed:(CGFloat)r green:(CGFloat)g blue:(CGFloat)b alpha:(CGFloat)a;
++ (NSColor *)colorWithDeviceWhite:(CGFloat)w alpha:(CGFloat)a;
++ (NSColor *)colorWithCalibratedWhite:(CGFloat)w alpha:(CGFloat)a;
+@property (readonly, strong) NSColorSpace *colorSpace;
+- (nullable NSColor *)colorUsingColorSpace:(NSColorSpace *)space;
+@property (readonly) NSInteger numberOfComponents;
+- (void)getComponents:(CGFloat *)components;
+- (void)getRed:(nullable CGFloat *)r green:(nullable CGFloat *)g blue:(nullable CGFloat *)b alpha:(nullable CGFloat *)a;
+@property (readonly) CGFloat whiteComponent;
++ (NSColor *)colorWithName:(nullable NSColorName)name dynamicProvider:(NSColor * (^)(NSAppearance *appearance))provider;
+- (nullable NSColor *)blendedColorWithFraction:(CGFloat)fraction ofColor:(NSColor *)color;
+- (nullable NSColor *)highlightWithLevel:(CGFloat)level;
+- (nullable NSColor *)shadowWithLevel:(CGFloat)level;
+@property (class, strong, readonly) NSColor *systemRedColor, *systemOrangeColor, *systemYellowColor, *systemGreenColor,
+    *systemMintColor, *systemTealColor, *systemCyanColor, *systemBlueColor, *systemIndigoColor, *systemPurpleColor,
+    *systemPinkColor, *systemBrownColor, *systemGrayColor, *tertiaryLabelColor, *quaternaryLabelColor,
+    *placeholderTextColor, *controlColor, *controlTextColor, *disabledControlTextColor, *selectedControlColor,
+    *selectedControlTextColor, *alternateSelectedControlTextColor, *selectedMenuItemTextColor,
+    *selectedTextBackgroundColor, *selectedTextColor, *unemphasizedSelectedContentBackgroundColor,
+    *unemphasizedSelectedTextBackgroundColor, *underPageBackgroundColor, *tertiarySystemFillColor,
+    *quaternarySystemFillColor, *secondarySystemFillColor, *systemFillColor, *linkColor,
+    *keyboardFocusIndicatorColor, *gridColor, *headerTextColor, *findHighlightColor, *shadowColor, *highlightColor,
+    *windowFrameTextColor, *scrubberTexturedBackgroundColor;
+@end
+
+typedef NS_ENUM(NSInteger, NSColorSpaceModel) {
+    NSColorSpaceModelUnknown = -1, NSColorSpaceModelGray, NSColorSpaceModelRGB, NSColorSpaceModelCMYK,
+    NSColorSpaceModelLAB, NSColorSpaceModelDeviceN, NSColorSpaceModelIndexed, NSColorSpaceModelPatterned
+};
+
+@interface NSColorSpace : NSObject <NSCopying>
+@property (class, strong, readonly) NSColorSpace *sRGBColorSpace, *extendedSRGBColorSpace, *displayP3ColorSpace,
+    *genericRGBColorSpace, *deviceRGBColorSpace, *genericGamma22GrayColorSpace,
+    *extendedGenericGamma22GrayColorSpace, *deviceGrayColorSpace;
+- (nullable instancetype)initWithCGColorSpace:(CGColorSpaceRef)cgColorSpace;
+@property (nullable, readonly) CGColorSpaceRef CGColorSpace NS_SWIFT_NAME(cgColorSpace);
+@property (readonly) NSColorSpaceModel colorSpaceModel;
+@property (readonly) NSInteger numberOfColorComponents;
+@property (nullable, readonly, copy) NSString *localizedName;
+- (BOOL)isP3;
 @end
 
 @interface NSFont : NSObject <NSCopying>
@@ -819,3 +883,149 @@ typedef NSString *NSPasteboardReadingOptionKey NS_TYPED_EXTENSIBLE_ENUM NS_SWIFT
 @end
 
 #pragma clang assume_nonnull end
+
+typedef NS_ENUM(NSInteger, NSBackgroundStyle) {
+    NSBackgroundStyleNormal = 0, NSBackgroundStyleEmphasized = 1, NSBackgroundStyleRaised = 2,
+    NSBackgroundStyleLowered = 3
+};
+typedef NS_ENUM(NSInteger, NSVisualEffectMaterial) {
+    NSVisualEffectMaterialAppearanceBased = 0, NSVisualEffectMaterialLight = 1, NSVisualEffectMaterialDark = 2,
+    NSVisualEffectMaterialTitlebar = 3, NSVisualEffectMaterialSelection = 4, NSVisualEffectMaterialMenu = 5,
+    NSVisualEffectMaterialPopover = 6, NSVisualEffectMaterialSidebar = 7, NSVisualEffectMaterialMediumLight = 8,
+    NSVisualEffectMaterialUltraDark = 9, NSVisualEffectMaterialHeaderView = 10, NSVisualEffectMaterialSheet = 11,
+    NSVisualEffectMaterialWindowBackground = 12, NSVisualEffectMaterialHUDWindow = 13,
+    NSVisualEffectMaterialFullScreenUI = 15, NSVisualEffectMaterialToolTip = 17,
+    NSVisualEffectMaterialContentBackground = 18, NSVisualEffectMaterialUnderWindowBackground = 21,
+    NSVisualEffectMaterialUnderPageBackground = 22
+};
+typedef NS_ENUM(NSInteger, NSVisualEffectBlendingMode) {
+    NSVisualEffectBlendingModeBehindWindow = 0, NSVisualEffectBlendingModeWithinWindow = 1
+};
+typedef NS_ENUM(NSInteger, NSVisualEffectState) {
+    NSVisualEffectStateFollowsWindowActiveState = 0, NSVisualEffectStateActive = 1, NSVisualEffectStateInactive = 2
+};
+@interface NSVisualEffectView : NSView
+@property NSVisualEffectMaterial material;
+@property NSVisualEffectBlendingMode blendingMode;
+@property NSVisualEffectState state;
+@property (getter=isEmphasized) BOOL emphasized;
+@property (nullable, strong) NSImage *maskImage;
+@property (readonly) NSBackgroundStyle interiorBackgroundStyle;
+@end
+
+@interface NSAnimationContext : NSObject
++ (NSAnimationContext *)currentContext;
++ (void)beginGrouping;
++ (void)endGrouping;
++ (void)runAnimationGroup:(void (^)(NSAnimationContext *context))changes
+        completionHandler:(nullable void (^)(void))completionHandler;
++ (void)runAnimationGroup:(void (^)(NSAnimationContext *context))changes;
+@property NSTimeInterval duration;
+@property (nullable, strong) id timingFunction;
+@property BOOL allowsImplicitAnimation;
+@property (nullable, copy) void (^completionHandler)(void);
+@end
+
+@protocol NSAnimatablePropertyContainer
+- (instancetype)animator;
+@property (copy) NSDictionary<NSString *, id> *animations;
+- (nullable id)animationForKey:(NSString *)key;
++ (nullable id)defaultAnimationForKey:(NSString *)key;
+@end
+@interface NSView (NSAnimatablePropertyContainer) <NSAnimatablePropertyContainer>
+@end
+@interface NSWindow (NSAnimatablePropertyContainer) <NSAnimatablePropertyContainer>
+@end
+
+typedef NS_ENUM(NSUInteger, NSFocusRingType) {
+    NSFocusRingTypeDefault = 0, NSFocusRingTypeNone = 1, NSFocusRingTypeExterior = 2
+};
+typedef NS_OPTIONS(NSUInteger, NSTrackingAreaOptions) {
+    NSTrackingMouseEnteredAndExited = 0x01, NSTrackingMouseMoved = 0x02, NSTrackingCursorUpdate = 0x04,
+    NSTrackingActiveWhenFirstResponder = 0x10, NSTrackingActiveInKeyWindow = 0x20,
+    NSTrackingActiveInActiveApp = 0x40, NSTrackingActiveAlways = 0x80, NSTrackingAssumeInside = 0x100,
+    NSTrackingInVisibleRect = 0x200, NSTrackingEnabledDuringMouseDrag = 0x400
+};
+typedef NS_OPTIONS(unsigned long long, NSAlignmentOptions) {
+    NSAlignMinXInward = 1ULL << 0, NSAlignMinYInward = 1ULL << 1, NSAlignMaxXInward = 1ULL << 2,
+    NSAlignMaxYInward = 1ULL << 3, NSAlignWidthInward = 1ULL << 4, NSAlignHeightInward = 1ULL << 5,
+    NSAlignMinXOutward = 1ULL << 8, NSAlignMinYOutward = 1ULL << 9, NSAlignMaxXOutward = 1ULL << 10,
+    NSAlignMaxYOutward = 1ULL << 11, NSAlignWidthOutward = 1ULL << 12, NSAlignHeightOutward = 1ULL << 13,
+    NSAlignMinXNearest = 1ULL << 16, NSAlignMinYNearest = 1ULL << 17, NSAlignMaxXNearest = 1ULL << 18,
+    NSAlignMaxYNearest = 1ULL << 19, NSAlignWidthNearest = 1ULL << 20, NSAlignHeightNearest = 1ULL << 21,
+    NSAlignRectFlipped = 1ULL << 63,
+    NSAlignAllEdgesInward = NSAlignMinXInward | NSAlignMaxXInward | NSAlignMinYInward | NSAlignMaxYInward,
+    NSAlignAllEdgesOutward = NSAlignMinXOutward | NSAlignMaxXOutward | NSAlignMinYOutward | NSAlignMaxYOutward,
+    NSAlignAllEdgesNearest = NSAlignMinXNearest | NSAlignMaxXNearest | NSAlignMinYNearest | NSAlignMaxYNearest
+};
+
+@interface NSShadow : NSObject <NSCopying>
+@property NSSize shadowOffset;
+@property CGFloat shadowBlurRadius;
+@property (nullable, copy) NSColor *shadowColor;
+- (void)set;
+@end
+
+@interface NSTrackingArea : NSObject <NSCopying>
+- (instancetype)initWithRect:(NSRect)rect options:(NSTrackingAreaOptions)options owner:(nullable id)owner
+                    userInfo:(nullable NSDictionary *)userInfo;
+@property (readonly) NSRect rect;
+@property (readonly) NSTrackingAreaOptions options;
+@property (nullable, readonly, weak) id owner;
+@property (nullable, readonly) NSDictionary *userInfo;
+@end
+
+@class NSScrollView, NSCursor, NSMenu;
+@interface NSView (BittenExtras)
+@property CGFloat alphaValue;
+@property (nullable, copy) NSString *toolTip;
+@property (nullable, copy) NSUserInterfaceItemIdentifier identifier;
+@property (nullable, copy) NSShadow *shadow;
+@property NSFocusRingType focusRingType;
+@property BOOL translatesAutoresizingMaskIntoConstraints;
+@property (readonly) NSSize intrinsicContentSize;
+- (void)invalidateIntrinsicContentSize;
+@property (readonly) NSSize fittingSize;
+@property NSEdgeInsets additionalSafeAreaInsets;
+@property (readonly) NSEdgeInsets safeAreaInsets;
+@property (readonly) NSRect safeAreaRect;
+@property BOOL postsFrameChangedNotifications;
+@property BOOL postsBoundsChangedNotifications;
+@property BOOL clipsToBounds;
+@property (nullable, strong) id compositingFilter;
+@property (copy) NSArray *contentFilters;
+@property (copy) NSArray *backgroundFilters;
+@property BOOL needsLayout;
+- (void)layoutSubtreeIfNeeded;
+- (void)updateTrackingAreas;
+@property (readonly, copy) NSArray<NSTrackingArea *> *trackingAreas;
+- (void)addTrackingArea:(NSTrackingArea *)trackingArea;
+- (void)removeTrackingArea:(NSTrackingArea *)trackingArea;
+- (void)addCursorRect:(NSRect)rect cursor:(NSCursor *)object;
+- (void)removeCursorRect:(NSRect)rect cursor:(NSCursor *)object;
+- (void)resetCursorRects;
+- (void)discardCursorRects;
+- (void)registerForDraggedTypes:(NSArray<NSPasteboardType> *)newTypes;
+- (void)unregisterDraggedTypes;
+@property (readonly, copy) NSArray<NSPasteboardType> *registeredDraggedTypes;
+@property (nullable, readonly) NSScrollView *enclosingScrollView;
+@property (readonly) NSRect visibleRect;
+- (BOOL)isDescendantOf:(NSView *)view;
+@property (readonly, getter=isHiddenOrHasHiddenAncestor) BOOL hiddenOrHasHiddenAncestor;
+@property (readonly) NSInteger tag;
+- (nullable __kindof NSView *)viewWithTag:(NSInteger)tag;
+- (BOOL)acceptsFirstMouse:(nullable NSEvent *)event;
+@property (readonly) BOOL wantsDefaultClipping;
+@property (readonly) BOOL inLiveResize;
+- (void)viewDidChangeBackingProperties;
+@property (nullable, strong) NSMenu *menu;
+- (NSRect)convertRect:(NSRect)rect fromView:(nullable NSView *)view;
+- (NSRect)convertRect:(NSRect)rect toView:(nullable NSView *)view;
+- (NSPoint)convertPointToBacking:(NSPoint)point;
+- (NSPoint)convertPointFromBacking:(NSPoint)point;
+- (NSSize)convertSizeToBacking:(NSSize)size;
+- (NSSize)convertSizeFromBacking:(NSSize)size;
+- (NSRect)convertRectToBacking:(NSRect)rect;
+- (NSRect)convertRectFromBacking:(NSRect)rect;
+- (NSRect)backingAlignedRect:(NSRect)rect options:(NSAlignmentOptions)options;
+@end

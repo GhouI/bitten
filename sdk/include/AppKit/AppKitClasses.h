@@ -25,8 +25,6 @@
 @end
 @interface NSScrollView : NSView
 @end
-@interface NSVisualEffectView : NSView
-@end
 @interface NSProgressIndicator : NSView
 @end
 @interface NSPanel : NSWindow
@@ -49,23 +47,15 @@
 @end
 @interface NSTextFieldCell : NSActionCell
 @end
-@interface NSColorSpace : NSObject
-@end
 @interface NSFontManager : NSObject
 @end
 @interface NSParagraphStyle : NSObject
 @end
 @interface NSMutableParagraphStyle : NSParagraphStyle
 @end
-@interface NSShadow : NSObject
-@end
 @interface NSGradient : NSObject
 @end
-@interface NSAnimationContext : NSObject
-@end
 @interface NSCursor : NSObject
-@end
-@interface NSTrackingArea : NSObject
 @end
 @interface NSAlert : NSObject
 @end

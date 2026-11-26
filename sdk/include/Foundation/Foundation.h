@@ -1089,7 +1089,38 @@ typedef NS_ENUM(NSInteger, NSItemProviderRepresentationVisibility) {
     NSItemProviderRepresentationVisibilityGroup = 2, NSItemProviderRepresentationVisibilityOwnProcess = 3
 };
 typedef NS_OPTIONS(NSInteger, NSItemProviderFileOptions) { NSItemProviderFileOptionOpenInPlace = 1 };
-@class NSProgress;
+@interface NSProgress : NSObject
++ (nullable NSProgress *)currentProgress;
++ (NSProgress *)progressWithTotalUnitCount:(int64_t)unitCount;
++ (NSProgress *)discreteProgressWithTotalUnitCount:(int64_t)unitCount;
++ (NSProgress *)progressWithTotalUnitCount:(int64_t)unitCount parent:(NSProgress *)parent
+                          pendingUnitCount:(int64_t)portionOfParentTotalUnitCount;
+- (instancetype)initWithParent:(nullable NSProgress *)parentProgressOrNil
+                      userInfo:(nullable NSDictionary *)userInfoOrNil;
+- (void)addChild:(NSProgress *)child withPendingUnitCount:(int64_t)inUnitCount;
+- (void)becomeCurrentWithPendingUnitCount:(int64_t)unitCount;
+- (void)resignCurrent;
+@property int64_t totalUnitCount;
+@property int64_t completedUnitCount;
+@property (readonly) double fractionCompleted;
+@property (readonly, getter=isFinished) BOOL finished;
+@property (readonly, getter=isIndeterminate) BOOL indeterminate;
+@property (getter=isCancellable) BOOL cancellable;
+@property (getter=isPausable) BOOL pausable;
+@property (readonly, getter=isCancelled) BOOL cancelled;
+@property (readonly, getter=isPaused) BOOL paused;
+@property (nullable, copy) void (^cancellationHandler)(void);
+@property (nullable, copy) void (^pausingHandler)(void);
+@property (nullable, copy) void (^resumingHandler)(void);
+- (void)cancel;
+- (void)pause;
+- (void)resume;
+@property (readonly, copy) NSDictionary *userInfo;
+- (void)setUserInfoObject:(nullable id)objectOrNil forKey:(NSString *)key;
+@property (nullable, copy) NSString *kind;
+@property (null_resettable, copy) NSString *localizedDescription;
+@property (null_resettable, copy) NSString *localizedAdditionalDescription;
+@end
 @protocol NSItemProviderWriting <NSObject>
 @property (class, readonly, copy) NSArray<NSString *> *writableTypeIdentifiersForItemProvider;
 - (nullable NSProgress *)loadDataWithTypeIdentifier:(NSString *)typeIdentifier

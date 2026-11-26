@@ -452,6 +452,64 @@ public struct LinearGradient: ShapeStyle, View, Sendable {
   public var body: _ShapeView<Rectangle, LinearGradient> { return _ShapeView(shape: Rectangle(), style: self) }
 }
 
+/// A two-dimensional grid of colours.
+public struct MeshGradient: ShapeStyle, View, Sendable {
+  public enum Locations: Equatable, Sendable {
+    case points([SIMD2<Float>])
+    case bezierPoints([BezierPoint])
+  }
+  public enum Colors: Equatable, Sendable {
+    case colors([Color])
+    case resolvedColors([Color.Resolved])
+  }
+  @frozen
+  public struct BezierPoint: Equatable, Sendable {
+    public var position: SIMD2<Float>
+    public var leadingControlPoint: SIMD2<Float>
+    public var topControlPoint: SIMD2<Float>
+    public var trailingControlPoint: SIMD2<Float>
+    public var bottomControlPoint: SIMD2<Float>
+  }
+  public var width: Int
+  public var height: Int
+  public var locations: Locations
+  public var colors: Colors
+  public var background: Color
+  public var smoothsColors: Bool
+  public var colorSpace: Gradient.ColorSpace
+  public init(width: Int, height: Int, locations: Locations, colors: Colors, background: Color = .clear,
+              smoothsColors: Bool = true, colorSpace: Gradient.ColorSpace = .device) {
+    self.width = width
+    self.height = height
+    self.locations = locations
+    self.colors = colors
+    self.background = background
+    self.smoothsColors = smoothsColors
+    self.colorSpace = colorSpace
+  }
+  public init(width: Int, height: Int, points: [SIMD2<Float>], colors: [Color], background: Color = .clear,
+              smoothsColors: Bool = true, colorSpace: Gradient.ColorSpace = .device) {
+    self.init(width: width, height: height, locations: .points(points), colors: .colors(colors), background: background,
+              smoothsColors: smoothsColors, colorSpace: colorSpace)
+  }
+  /// Flat shapes get the average of the mesh's colours.
+  public func _apply(to shape: inout _ShapeStyle_Shape) {
+    guard case .colors(let cs) = colors, !cs.isEmpty else {
+      background._apply(to: &shape)
+      return
+    }
+    var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+    for c in cs {
+      let p = c._paint(in: shape.environment)
+      r += p.r; g += p.g; b += p.b; a += p.a
+    }
+    let n = CGFloat(cs.count)
+    shape.paint = _Paint(r: r / n, g: g / n, b: b / n, a: a / n)
+  }
+  public typealias Body = _ShapeView<Rectangle, MeshGradient>
+  public var body: _ShapeView<Rectangle, MeshGradient> { return _ShapeView(shape: Rectangle(), style: self) }
+}
+
 /// Translucent backgrounds; drawn as a tinted window background.
 public struct Material: ShapeStyle, Sendable {
   internal let opacity: CGFloat

@@ -3,6 +3,7 @@
  * (CoreGraphics, the display); this file keeps the object model and the
  * application life cycle. */
 #import <AppKit/AppKit.h>
+#import <objc/runtime.h>
 #import <objc/message.h>
 #include <dispatch/dispatch.h>
 #include <stdlib.h>
@@ -45,6 +46,8 @@ NSApplication *NSApp;
     _frame = frame;
     _bounds.size = frame.size;
     _needsDisplay = YES;
+    id l = self.layer;
+    if (l) [l setValue:[NSValue valueWithRect:_bounds] forKey:@"bounds"];
 }
 - (NSRect)bounds { return _bounds; }
 - (void)setBounds:(NSRect)bounds { _bounds = bounds; }
@@ -63,7 +66,42 @@ NSApplication *NSApp;
 - (BOOL)isHidden { return _hidden; }
 - (void)setHidden:(BOOL)hidden { _hidden = hidden; }
 - (BOOL)wantsLayer { return _wantsLayer; }
-- (void)setWantsLayer:(BOOL)flag { _wantsLayer = flag; }
+- (void)setWantsLayer:(BOOL)flag {
+    _wantsLayer = flag;
+    if (flag && !self.layer) self.layer = [self makeBackingLayer];
+}
+/* Backing layers come from QuartzCore, looked up at run time so AppKit
+ * does not link it. */
+- (CALayer *)makeBackingLayer {
+    Class cls = objc_getClass("CALayer");
+    id l = cls ? [cls new] : nil;
+    if (l) {
+        [l setValue:[NSValue valueWithRect:self.bounds] forKey:@"bounds"];
+        [l setValue:@(self.window ? self.window.backingScaleFactor : 1.0) forKey:@"contentsScale"];
+    }
+    return l;
+}
+- (CALayer *)layer { return objc_getAssociatedObject(self, @selector(layer)); }
+- (void)setLayer:(CALayer *)layer {
+    objc_setAssociatedObject(self, @selector(layer), layer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    if (layer) [(id)layer setValue:self forKey:@"delegate"];
+}
+- (BOOL)wantsUpdateLayer { return NO; }
+- (void)updateLayer {}
+- (NSViewLayerContentsRedrawPolicy)layerContentsRedrawPolicy {
+    return [objc_getAssociatedObject(self, @selector(layerContentsRedrawPolicy)) integerValue];
+}
+- (void)setLayerContentsRedrawPolicy:(NSViewLayerContentsRedrawPolicy)p {
+    objc_setAssociatedObject(self, @selector(layerContentsRedrawPolicy), @(p), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+- (NSViewLayerContentsPlacement)layerContentsPlacement {
+    return [objc_getAssociatedObject(self, @selector(layerContentsPlacement)) integerValue];
+}
+- (void)setLayerContentsPlacement:(NSViewLayerContentsPlacement)p {
+    objc_setAssociatedObject(self, @selector(layerContentsPlacement), @(p), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+- (BOOL)canDrawSubviewsIntoLayer { return NO; }
+- (void)setCanDrawSubviewsIntoLayer:(BOOL)flag {}
 - (NSAutoresizingMaskOptions)autoresizingMask { return _autoresizingMask; }
 - (void)setAutoresizingMask:(NSAutoresizingMaskOptions)m { _autoresizingMask = m; }
 - (BOOL)isFlipped { return NO; }

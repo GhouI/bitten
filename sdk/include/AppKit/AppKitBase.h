@@ -21,6 +21,7 @@ typedef NSString *NSFontTextStyle;
 typedef NSString *NSFontDescriptorAttributeName;
 typedef NSString *NSImageHintKey;
 typedef NSString *NSColorSpaceName;
+typedef NSString *NSColorName NS_SWIFT_NAME(NSColor.Name);
 typedef NSString *NSWorkspaceNotificationKey_;
 typedef CGFloat NSFontWeight;
 

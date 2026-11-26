@@ -254,6 +254,9 @@ open class NSHostingView<Content: View>: _HostingViewBase {
   public var rootView: Content {
     didSet { _bn_invalidate() }
   }
+  /// Which content sizes become the view's intrinsic size and constraints.
+  public var sizingOptions: NSHostingSizingOptions = .standardBounds
+  public var safeAreaRegions: SafeAreaRegions = .all
   public required init(rootView: Content) {
     self.rootView = rootView
     super.init(frame: NSMakeRect(0, 0, 100, 100))
@@ -277,6 +280,31 @@ open class NSHostingController<Content: View>: NSViewController {
     super.init(nibName: nil, bundle: nil)
   }
   override open func loadView() {
-    view = NSHostingView(rootView: rootView)
+    let v = NSHostingView(rootView: rootView)
+    v.sizingOptions = sizingOptions
+    v.safeAreaRegions = safeAreaRegions
+    view = v
   }
+  public var sizingOptions: NSHostingSizingOptions = .standardBounds {
+    didSet { (viewIfLoaded as? NSHostingView<Content>)?.sizingOptions = sizingOptions }
+  }
+  public var safeAreaRegions: SafeAreaRegions = .all {
+    didSet { (viewIfLoaded as? NSHostingView<Content>)?.safeAreaRegions = safeAreaRegions }
+  }
+  /// The size the content wants within `size`.
+  public func sizeThatFits(in size: CGSize) -> CGSize {
+    let host = (viewIfLoaded as? NSHostingView<Content>) ?? NSHostingView(rootView: rootView)
+    return host._makeRoot().sizeThatFits(ProposedViewSize(width: size.width, height: size.height))
+  }
+}
+
+/// The sizes of a hosting view's content it turns into constraints.
+public struct NSHostingSizingOptions: OptionSet, Sendable {
+  public let rawValue: Int
+  public init(rawValue: Int) { self.rawValue = rawValue }
+  public static let minSize = NSHostingSizingOptions(rawValue: 1 << 0)
+  public static let intrinsicContentSize = NSHostingSizingOptions(rawValue: 1 << 1)
+  public static let maxSize = NSHostingSizingOptions(rawValue: 1 << 2)
+  public static let preferredContentSize = NSHostingSizingOptions(rawValue: 1 << 3)
+  public static let standardBounds: NSHostingSizingOptions = [.minSize, .intrinsicContentSize, .maxSize]
 }
