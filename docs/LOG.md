@@ -2157,3 +2157,25 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   interpolation (Foundation has no AttributedString).
 - Test: `tests/swiftlib/localized`.
 - Target app window (total `^MISSING`): 1,582 -> 1,557.
+
+## 2026-11-26: AppIntents (PR: appintents-fw)
+
+- `AppIntents.framework` (Swift, macOS 14, over Foundation and
+  UniformTypeIdentifiers) with Apple's shapes, so the program's intents,
+  entities, queries and shortcuts bind: `AppIntent` (title, description,
+  `openAppWhenRun`, `isDiscoverable`, `authenticationPolicy`, parameter
+  summary, `perform()`), `AppEntity`/`AppValue`, `EntityQuery`,
+  `EnumerableEntityQuery`, `EntityStringQuery`, `DynamicOptionsProvider`
+  with the defaults Apple supplies; `@Parameter` (`IntentParameter`, with
+  Bool, String, file and entity initialisers) and `@Property`
+  (`EntityProperty`) holding values; display and type representations,
+  descriptions, dialogs; results (`.result()`, `.result(value:)`);
+  parameter summaries with key paths and `When` conditions; app shortcuts,
+  phrases and their builders; String, Bool, Int, Double, Date, URL,
+  Optional, Array and `IntentFile` as intent values.
+- Nothing runs intents: there is no Shortcuts or intent service here.
+- Build: a Swift framework can link the late Swift libraries
+  (`SWIFT_FW_EXTRA_<name>`).
+- Test: `tests/swiftlib/appintents` (an entity and its queries, an intent
+  with defaults and a summary, performed; shortcuts).
+- Target app window (total `^MISSING`): 1,557 -> 1,384.
