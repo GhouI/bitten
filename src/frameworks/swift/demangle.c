@@ -390,6 +390,16 @@ static int symbolic(struct parser *P, int kind) {
          * the runtime's protocol of that name stands for it. */
         RT(const void *(*)(const char *), getproto, "_objc_getProtocol");
         const char *name = ((const char *const *)target)[1];
+        if ((uintptr_t)name < 4096 || (uintptr_t)name >= (1ULL << 47)) {
+            /* Not a protocol_t: a relative pointer to the image's protocol
+             * reference (in __objc_protorefs), which points at it. */
+            const char *at = (const char *)target;
+            const void *const *ref = (const void *const *)(at + *(const int32_t *)at);
+            const void *rec = *ref;
+            name = (uintptr_t)rec >= 4096 && (uintptr_t)rec < (1ULL << 47) ? ((const char *const *)rec)[1] : NULL;
+            if ((uintptr_t)name < 4096 || (uintptr_t)name >= (1ULL << 47)) name = NULL;
+            else target = rec;
+        }
         const void *proto = getproto && name ? getproto(name) : NULL;
         struct node *n = mk(P, NK_OBJC_PROTO);
         n->ptr = proto ? proto : target;
@@ -2053,7 +2063,12 @@ static void print_proto_ref(struct sbuf *b, proto_ref p, int qualified) {
     }
     if (p & PROTO_OBJC) {
         RT(const char *(*)(const void *), getname, "_protocol_getName");
-        sb_puts(b, getname ? getname((const void *)(p & ~(proto_ref)1)) : "?");
+        const void *proto = (const void *)(p & ~(proto_ref)1);
+        const char *n = getname ? getname(proto) : NULL;
+        /* a protocol_t the runtime has not registered: its name is the
+         * field after isa */
+        if (!n) n = ((const char *const *)proto)[1];
+        sb_puts(b, n ? n : "?");
     } else {
         print_desc_name(b, (const sw_context_descriptor *)p, qualified);
     }

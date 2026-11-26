@@ -337,6 +337,40 @@ void sw_schedule_call(void (*fn)(void *), void *arg, uint64_t delay_ns) {
     else sw_enqueue_global(&c->job);
 }
 
+static int is_current(sw_executor e);
+
+/* An isolated deinit: runs on the actor's executor, now if already
+ * there, else as a job there. The work function takes the object (Swift
+ * calling convention; one pointer argument, as in C). */
+struct deinit_job {
+    sw_job job;
+    void (*work)(void *);
+    void *object;
+};
+static void run_deinit_job(sw_job *job) {
+    struct deinit_job *d = (struct deinit_job *)job;
+    void (*work)(void *) = d->work;
+    void *object = d->object;
+    free(d);
+    work(object);
+}
+static void d_swift_task_deinitOnExecutor(void *object, void (*work)(void *), void *identity, uintptr_t impl,
+                                          size_t flags) {
+    sw_executor e = {identity, impl};
+    if (!identity || is_current(e)) {
+        work(object);
+        return;
+    }
+    struct deinit_job *d = calloc(1, sizeof *d);
+    d->job.metadata = (const sw_metadata *)&job_metadata.kind;
+    d->job.flags = SW_JOB_KIND_PRIVATE | (0x15u << 8);
+    d->job.run = (void *)run_deinit_job;
+    d->work = work;
+    d->object = object;
+    sw_enqueue(&d->job, e);
+}
+DX_FN(swift_task_deinitOnExecutor);
+
 /* ---- the async main entry ------------------------------------------------------------------------ */
 static void d_swift_task_asyncMainDrainQueue(void) {
     need_dispatch();

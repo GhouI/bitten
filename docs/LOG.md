@@ -2921,3 +2921,20 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   helper) are no longer reported as unreadable.
 - Target app window (total `^MISSING`): 37 -> 30. The app now gets past
   `+[NSXPCConnection alloc]` and its helper check.
+
+## Isolated deinit, Objective-C protocols in mangled names
+
+- Concurrency: `swift_task_deinitOnExecutor`, used by isolated deinits
+  (`@MainActor` classes on current OS versions). The deinit runs now when
+  already on the actor's executor, and is enqueued there otherwise. The
+  target app imports it weakly, so it was bound to NULL and its
+  Workspace.Model deinit jumped to address 0.
+- Swift runtime: symbolic references to Objective-C protocols (kind 0x0c)
+  can point at a relative pointer to the image's `__objc_protorefs` slot
+  instead of at the protocol_t. Both forms are now followed. Type names
+  fall back to the protocol_t's own name when the runtime has not
+  registered the protocol.
+- A heap object whose metadata has no destroyer is reported and leaked
+  instead of called through a null pointer.
+- Target app window: it now runs past its first window and the model
+  teardown, to `+[NSMutableURLRequest requestWithURL:]` (networking, next).

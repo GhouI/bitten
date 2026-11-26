@@ -177,8 +177,19 @@ sw_heap_object *sw_retain_n(sw_heap_object *o, uint32_t n) {
 /* Runs the object's destroyer (class deinit + ivar destruction, or the
  * box/context destroyer), which ends with swift_deallocClassInstance or
  * swift_deallocObject. */
+sw_heap_object *volatile sw_last_destroyed;
 void sw_destroy(sw_heap_object *o) {
+    sw_last_destroyed = o;
     const sw_heap_metadata_header *h = (const sw_heap_metadata_header *)o->metadata - 1;
+    if (!h->destroy) {
+        /* No destroyer (metadata built without one): the object leaks. */
+        static int told;
+        if (!told++) {
+            dx_log(0, "swift: object %p of %s has no destroyer; leaking it", (void *)o,
+                   sw_type_name((const sw_metadata *)o->metadata, 1));
+        }
+        return;
+    }
     sw_call_with_self(h->destroy, o);
 }
 /* The strong count reached zero and the object is marked: cut its weak
