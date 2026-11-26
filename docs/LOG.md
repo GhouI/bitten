@@ -1727,3 +1727,32 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   dispatch's root classes, before any image loads.
 - `tests/swiftlib/dispatch` asks for the class names before any source or
   data object exists.
+
+## 2026-11-26: CoreGraphics, the C core (PR: coregraphics)
+
+- A software rasterizer and the CG object types, in mrun
+  (`src/frameworks/coregraphics`): color spaces (device and named RGB and
+  gray), colors and gradients; paths (every construction call, arcs,
+  rounded rects, bounding boxes, hit testing, apply, stroked copies);
+  data providers and images (any 8-bit RGB, gray or alpha-only layout in
+  either byte order, masks, sub-images); bitmap contexts over the same
+  layouts; the graphics state stack, CTM, colors, line style and dashes;
+  fill, even-odd fill, stroke (caps, joins, miter limit), clear, clipping
+  to paths, rects and image masks; images (bilinear or nearest, tiled);
+  linear and radial gradients; transparency layers. Text state is kept
+  for CoreText. Window lists are empty and CGEvents hold values (no window
+  server).
+- The rasterizer: polygons scanned row by row at four sample heights with
+  exact horizontal coverage, the nonzero or even-odd rule, a coverage clip
+  mask, premultiplied blending (normal, copy, clear; other blend modes and
+  shadows are not drawn yet). Strokes are outlined in user space (so a
+  scaled CTM scales the pen) and filled.
+- CG types are CF objects (new CF type ids, bridged as `__NSCFCG...`).
+- `sdk/include/CoreGraphics`: CGBase, CGColorSpace (with CGColor and
+  CGGradient), CGPath, CGImage, CGContext, CGWindow, for Objective-C and
+  Swift.
+- `tests/c/cg`: pixels after fills, antialiased edges, blending, clips,
+  strokes, dashes, even-odd, ellipses, the CTM, gradients, images and
+  their round trip, transparency layers, BGRA and gray contexts, paths.
+- Target app window (total `^MISSING`): 2,906 -> 2,814 (92 of 113
+  CoreGraphics imports; the rest are Swift overlay methods).
