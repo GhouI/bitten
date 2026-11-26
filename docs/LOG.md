@@ -2450,3 +2450,19 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   instead of "everything is available", which sent the app down
   `#available` branches into NULL weak imports.
 - Target app window (total `^MISSING`): 394 -> 313.
+
+## 2026-11-26: SIMD; Collection.popFirst (PR: simd)
+
+- Standard library (`tools/gen-simd.py`, taken over from the stdlib side):
+  `SIMDStorage`, `SIMDScalar`, `SIMD`, `SIMD2`...`SIMD64` and `SIMDMask`
+  with Apple's frozen layouts: each scalar's `SIMDnStorage` is a
+  `Builtin.Vec<n>x<T>` with Apple's alignment (the vector's size, at most
+  16), SIMD3 stores in SIMD4's storage. So SIMD2<Float> is 8 bytes,
+  aligned 8, and passes in registers as Apple's does. Element access,
+  x/y/z/w, halves, arithmetic for floating point and integers, masks from
+  `.==` `.<`..., `any`/`all`, sums, minimum and maximum, Codable,
+  Hashable, descriptions.
+- `Collection.popFirst()` where the collection is its own slice: the
+  Codable code the compiler derives for payload-less enums calls it.
+- Test: `tests/swiftlib/simd`.
+- Target app window (total `^MISSING`): 313 -> 310.
