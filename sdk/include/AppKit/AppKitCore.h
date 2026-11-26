@@ -749,6 +749,7 @@ typedef NS_ENUM(NSUInteger, NSLineJoinStyle) { NSLineJoinStyleMiter = 0, NSLineJ
 @property (readonly, getter=isEmpty) BOOL empty;
 @property (readonly) NSRect bounds;
 @property (readonly) CGPathRef CGPath;
+- (BOOL)containsPoint:(NSPoint)point;
 @end
 
 @interface NSMenu : NSObject

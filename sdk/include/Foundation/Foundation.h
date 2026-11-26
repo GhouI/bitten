@@ -625,7 +625,12 @@ NS_SWIFT_NAME(ProcessInfo)
 @property (readonly) NSTimeInterval systemUptime;
 @property (readonly, copy) NSString *globallyUniqueString;
 @property (readonly, copy) NSString *userName;
+@property BOOL automaticTerminationSupportEnabled;
 - (BOOL)isOperatingSystemAtLeastVersion:(NSOperatingSystemVersion)version;
+- (void)disableAutomaticTermination:(NSString *)reason;
+- (void)enableAutomaticTermination:(NSString *)reason;
+- (void)disableSuddenTermination;
+- (void)enableSuddenTermination;
 @end
 
 typedef NSString *NSFileAttributeKey;

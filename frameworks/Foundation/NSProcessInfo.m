@@ -73,6 +73,12 @@ int sysctlbyname(const char *, void *, size_t *, void *, size_t);
     return [NSString stringWithFormat:@"%@-%d-%016llX", [NSUUID UUID].UUIDString, getpid(), (unsigned long long)(self.systemUptime * 1e9)];
 }
 - (NSString *)userName { return NSUserName(); }
+- (void)disableAutomaticTermination:(NSString *)reason {}
+- (void)enableAutomaticTermination:(NSString *)reason {}
+- (void)disableSuddenTermination {}
+- (void)enableSuddenTermination {}
+- (BOOL)automaticTerminationSupportEnabled { return NO; }
+- (void)setAutomaticTerminationSupportEnabled:(BOOL)enabled {}
 @end
 
 NSString *NSUserName(void) {
