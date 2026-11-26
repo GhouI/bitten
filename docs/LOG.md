@@ -2564,3 +2564,15 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   language identifier keys.
 - Test: `tests/swiftlib/attributed` (a round trip).
 - Target app window (total `^MISSING`): 222 -> 221.
+
+## 2026-11-26: Display: windows kept on the page (PR: display-fit)
+
+- An AppKit program's window, drawn by NSView/CoreGraphics/CoreText,
+  reaches the browser end to end (checked with a window and text,
+  screenshot through headless Chromium).
+- The page keeps a window inside the viewport where it is placed: AppKit
+  places windows on a 900-point-high screen, so on a shorter page they
+  landed below the fold.
+- Build: display.o depends on page.h (edits to page.html did not reach
+  mrun).
+- Target app window (total `^MISSING`): 221 -> 221.
