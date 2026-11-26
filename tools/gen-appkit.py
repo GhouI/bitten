@@ -104,7 +104,7 @@ HANDWRITTEN = {"NSResponder", "NSView", "NSWindow", "NSApplication", "NSEvent",
                "NSColor", "NSFont", "NSScreen", "NSGraphicsContext", "NSMenu",
                "NSMenuItem", "NSControl", "NSAppearance", "NSBezierPath", "NSWorkspace", "NSRunningApplication", "NSWorkspaceOpenConfiguration",
                "NSViewController", "NSWindowController", "NSImage", "NSImageRep", "NSBitmapImageRep",
-               "NSImageSymbolConfiguration"}
+               "NSImageSymbolConfiguration", "NSPasteboard", "NSPasteboardItem"}
 
 NOTIFICATIONS = """
 NSApplicationDidBecomeActiveNotification NSApplicationDidChangeScreenParametersNotification
@@ -148,8 +148,7 @@ NSMaxValueBinding NSHiddenBinding
 NSParagraphStyleAttributeName NSForegroundColorAttributeName NSFontAttributeName
 NSUnderlineStyleAttributeName NSBaselineOffsetAttributeName NSBackgroundColorAttributeName
 NSToolbarSidebarTrackingSeparatorItemIdentifier NSToolbarFlexibleSpaceItemIdentifier
-NSPasteboardURLReadingFileURLsOnlyKey NSPasteboardTypeTIFF NSPasteboardTypeString
-NSPasteboardTypePNG NSPasteboardTypeFileURL
+NSPasteboardURLReadingFileURLsOnlyKey
 NSImageHintInterpolation NSImageHintCTM NSImageNameApplicationIcon
 NSFontTextStyleTitle3 NSFontTextStyleTitle2 NSFontTextStyleSubheadline NSFontTextStyleFootnote
 NSFontTextStyleCaption1 NSFontTextStyleBody NSFontTextStyleHeadline NSFontTextStyleTitle1
@@ -165,10 +164,6 @@ NSAccessibilityButtonRole NSAccessibilityAnnouncementKey
 
 # Documented values that are not simply the constant's name.
 STRING_VALUES = {
-    "NSPasteboardTypeString": "public.utf8-plain-text",
-    "NSPasteboardTypePNG": "public.png",
-    "NSPasteboardTypeTIFF": "public.tiff",
-    "NSPasteboardTypeFileURL": "public.file-url",
     "NSAppearanceNameAqua": "NSAppearanceNameAqua",
     "NSAppearanceNameDarkAqua": "NSAppearanceNameDarkAqua",
     "NSValueBinding": "value",

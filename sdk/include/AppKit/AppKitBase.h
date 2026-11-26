@@ -9,7 +9,8 @@
 typedef NSString *NSNotificationName;
 typedef NSString *NSAppearanceName;
 typedef NSString *NSAttributedStringKey;
-typedef NSString *NSPasteboardType;
+typedef NSString *NSPasteboardType NS_TYPED_EXTENSIBLE_ENUM NS_SWIFT_NAME(NSPasteboard.PasteboardType);
+typedef NSString *NSPasteboardName NS_TYPED_EXTENSIBLE_ENUM NS_SWIFT_NAME(NSPasteboard.Name);
 typedef NSString *NSImageName;
 typedef NSString *NSToolbarItemIdentifier;
 typedef NSString *NSAccessibilityRole;

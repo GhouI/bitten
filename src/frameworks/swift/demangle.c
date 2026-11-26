@@ -1802,7 +1802,28 @@ static const sw_metadata *resolve(struct resolver *R, const struct node *n) {
         /* An accessor function stands for types the mangling cannot name
          * (e.g. ones involving local declarations); it takes the context's
          * generic arguments. */
-        return ((const sw_metadata *(*)(const void *const *))n->ptr)(R->env->args);
+    {
+        const void *const *args = R->env->args;
+        if (!args && R->env->flat) {
+            /* Arguments given flat (an opaque type's underlying type): lay
+             * them out the way accessors take them, key arguments then
+             * witness tables. */
+            const struct sw_env *e = R->env;
+            const void **key = alloca((e->nparams + e->nreqs + 1) * sizeof *key);
+            unsigned nk = 0;
+            for (unsigned i = 0; i < e->nparams && e->flat[i]; i++)
+                if (e->params[i] & SW_GP_HAS_KEY_ARGUMENT) key[nk++] = e->flat[i];
+            /* The opaque result types' own requirements come last and have
+             * no values here; the accessor takes only the outer ones. */
+            int quiet = dx_verbose;
+            dx_verbose = 0;
+            for (unsigned i = 0; i < e->nreqs; i++)
+                if (sw_check_requirements(e->reqs + i, 1, (struct sw_env *)e, key, &nk)) break;
+            dx_verbose = quiet;
+            args = key;
+        }
+        return ((const sw_metadata *(*)(const void *const *))n->ptr)(args);
+    }
     case NK_TUPLE: return resolve_tuple(R, n);
     case NK_PACK: {
         const void **el = alloca((n->nkids + 1) * sizeof *el);

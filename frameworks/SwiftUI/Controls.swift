@@ -595,8 +595,10 @@ extension View {
   public func labeledContentStyle<S: LabeledContentStyle>(_ style: S) -> some View { return self }
 }
 
-public struct LabeledContent<Label: View, Content: View>: View {
+public struct LabeledContent<Label, Content> {
   let label: Label, content: Content
+}
+extension LabeledContent: View where Label: View, Content: View {
   public typealias Body = Never
   public var body: Never { return fatalError("LabeledContent has no body") }
   nonisolated public static func _makeView(view: _GraphValue<LabeledContent>, inputs: _ViewInputs) -> _ViewOutputs {
@@ -853,6 +855,12 @@ public struct Slider<Label: View, ValueLabel: View>: View {
 }
 extension Slider {
   public init<V: BinaryFloatingPoint>(value: Binding<V>, in bounds: ClosedRange<V> = 0...1, step: V.Stride = 1,
+                                      onEditingChanged: @escaping (Bool) -> Void = { _ in },
+                                      minimumValueLabel: ValueLabel, maximumValueLabel: ValueLabel,
+                                      @ViewBuilder label: () -> Label) where V.Stride: BinaryFloatingPoint {
+    self.init(value: value, in: bounds, step: step, onEditingChanged: onEditingChanged)
+  }
+  public init<V: BinaryFloatingPoint>(value: Binding<V>, in bounds: ClosedRange<V> = 0...1, step: V.Stride = 1,
                                       onEditingChanged: @escaping (Bool) -> Void = { _ in }) where V.Stride: BinaryFloatingPoint {
     let lo = Double(bounds.lowerBound), hi = Double(bounds.upperBound), st = Double(step)
     fraction = hi > lo ? (Double(value.wrappedValue) - lo) / (hi - lo) : 0
@@ -865,6 +873,16 @@ extension Slider {
   }
 }
 extension Slider where ValueLabel == EmptyView {
+  public init<V: BinaryFloatingPoint>(value: Binding<V>, in bounds: ClosedRange<V> = 0...1, step: V.Stride = 1,
+                                      onEditingChanged: @escaping (Bool) -> Void = { _ in },
+                                      @ViewBuilder label: () -> Label) where V.Stride: BinaryFloatingPoint {
+    self.init(value: value, in: bounds, step: step, onEditingChanged: onEditingChanged)
+  }
+  public init<V: BinaryFloatingPoint>(value: Binding<V>, in bounds: ClosedRange<V> = 0...1,
+                                      onEditingChanged: @escaping (Bool) -> Void = { _ in },
+                                      @ViewBuilder label: () -> Label) where V.Stride: BinaryFloatingPoint {
+    self.init(value: value, in: bounds, onEditingChanged: onEditingChanged)
+  }
   public init<V: BinaryFloatingPoint>(value: Binding<V>, in bounds: ClosedRange<V> = 0...1,
                                       onEditingChanged: @escaping (Bool) -> Void = { _ in }) where V.Stride: BinaryFloatingPoint {
     let lo = Double(bounds.lowerBound), hi = Double(bounds.upperBound)
@@ -1236,14 +1254,12 @@ public struct FocusState<Value: Hashable>: DynamicProperty {
     return Binding(_box: _box ?? _FocusBox(_value))
   }
 }
-extension FocusState where Value == Bool {
-  public init() {
+extension FocusState {
+  public init() where Value == Bool {
     _value = false
     _box = nil
     _reset = false
   }
-}
-extension FocusState {
   public init<T: Hashable>() where Value == T? {
     _value = nil
     _box = nil
@@ -1351,14 +1367,12 @@ public struct NavigationSplitView<Sidebar: View, Content: View, Detail: View>: V
                                    children: children))
   }
 }
-extension NavigationSplitView where Content == EmptyView {
-  public init(@ViewBuilder sidebar: () -> Sidebar, @ViewBuilder detail: () -> Detail) {
+extension NavigationSplitView {
+  public init(@ViewBuilder sidebar: () -> Sidebar, @ViewBuilder detail: () -> Detail) where Content == EmptyView {
     self.sidebar = sidebar()
     content = EmptyView()
     self.detail = detail()
   }
-}
-extension NavigationSplitView {
   public init(@ViewBuilder sidebar: () -> Sidebar, @ViewBuilder content: () -> Content, @ViewBuilder detail: () -> Detail) {
     self.sidebar = sidebar()
     self.content = content()

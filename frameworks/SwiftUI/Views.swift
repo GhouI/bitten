@@ -567,6 +567,7 @@ extension View {
   }
   public func preferredColorScheme(_ colorScheme: ColorScheme?) -> some View {
     return transformEnvironment(\.colorScheme) { c in if let s = colorScheme { c = s } }
+      .preference(key: PreferredColorSchemeKey.self, value: colorScheme)
   }
   public func disabled(_ disabled: Bool) -> some View {
     return transformEnvironment(\.isEnabled) { e in if disabled { e = false } }
@@ -922,6 +923,35 @@ extension Text: View {
     return _ViewOutputs(_TextNode(string: t._string, font: font, paint: p, environment: inputs.environment))
   }
 }
+
+/// The color scheme a view asks its window to use; the innermost non-nil wins.
+public struct PreferredColorSchemeKey: PreferenceKey {
+  public typealias Value = ColorScheme?
+  public static var defaultValue: ColorScheme? { return nil }
+  public static func reduce(value: inout ColorScheme?, nextValue: () -> ColorScheme?) {
+    if let v = nextValue() { value = v }
+  }
+}
+
+/// Values `Text("\(x)")` formats with a printf specifier (SwiftUI's own,
+/// beside Foundation's for String.LocalizationValue).
+public protocol _FormatSpecifiable: Equatable {
+  associatedtype _Arg: CVarArg
+  var _arg: _Arg { get }
+  var _specifier: String { get }
+}
+extension Int: SwiftUI._FormatSpecifiable {}
+extension Int8: SwiftUI._FormatSpecifiable {}
+extension Int16: SwiftUI._FormatSpecifiable {}
+extension Int32: SwiftUI._FormatSpecifiable {}
+extension Int64: SwiftUI._FormatSpecifiable {}
+extension UInt: SwiftUI._FormatSpecifiable {}
+extension UInt8: SwiftUI._FormatSpecifiable {}
+extension UInt16: SwiftUI._FormatSpecifiable {}
+extension UInt32: SwiftUI._FormatSpecifiable {}
+extension UInt64: SwiftUI._FormatSpecifiable {}
+extension Float: SwiftUI._FormatSpecifiable {}
+extension Double: SwiftUI._FormatSpecifiable {}
 
 @frozen
 public struct LocalizedStringKey: Equatable, ExpressibleByStringInterpolation, Sendable {
@@ -1496,7 +1526,14 @@ public protocol ButtonStyle {
   typealias Configuration = ButtonStyleConfiguration
 }
 public struct ButtonStyleConfiguration {
-  public typealias Label = PrimitiveButtonStyleConfiguration.Label
+  public struct Label: View {
+    let node: _ViewNode
+    public typealias Body = Never
+    public var body: Never { fatalError("no body") }
+    public static func _makeView(view: _GraphValue<Label>, inputs: _ViewInputs) -> _ViewOutputs {
+      return _ViewOutputs(view.value.node)
+    }
+  }
   public let role: ButtonRole?
   public let label: Label
   public let isPressed: Bool

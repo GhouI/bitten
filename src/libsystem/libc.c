@@ -103,9 +103,14 @@ static uint32_t d_dyld_get_program_sdk_version(void) { return 0x000f0000; }
 DX_FN(dyld_get_program_sdk_version);
 static uint32_t d_dyld_get_active_platform(void) { return 1; }
 DX_FN(dyld_get_active_platform);
+/* `#available` checks: an array of {platform, version} with the version
+ * packed as major<<16 | minor<<8 | patch. We are macOS 15, like the other
+ * version checks here; claiming newer makes apps call weak imports of
+ * newer API that is not there. */
 static int d__availability_version_check(uint32_t count, void *versions) {
-    (void)count;
-    (void)versions;
+    const uint32_t *v = versions;
+    for (uint32_t i = 0; i < count; i++)
+        if ((v[2 * i + 1] >> 16) > 15) return 0;
     return 1;
 }
 DX_FN(_availability_version_check);
