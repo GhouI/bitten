@@ -3482,3 +3482,35 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Test: tests/appkit/autoresize.m.
 - Target app (total `^MISSING`): 11 -> 11. The appearance page's color-scheme
   and toolbar-layout previews show their miniature windows.
+## Formatters and regular expressions
+
+- Foundation (NSDateFormatter.m): NSDateFormatter with Unicode TR35
+  patterns (eras, years, quarters, months, weeks, days, weekdays, periods,
+  hours, minutes, seconds, fractions, zones as z/Z/O/X/x/V) both ways;
+  parsing needs the whole string, narrows adjacent numeric fields to their
+  width, reads zones as Z, offsets, GMT forms or abbreviations, and pivots
+  two-digit years on twoDigitStartDate. The en_US date and time styles
+  (with U+202F before AM/PM, as current macOS), relative "Today"/"Yesterday",
+  dateFormatFromTemplate:, symbol arrays. NSByteCountFormatter (file and
+  memory styles, adaptive digits, unit sets, "Zero KB", actual byte counts),
+  NSDateComponentsFormatter (positional, abbreviated, short, full,
+  spelled-out and brief; zero dropping and padding; maximum unit count;
+  "About"/"remaining" phrases), NSRelativeDateTimeFormatter (numeric and
+  named, four unit styles).
+- Foundation (NSRegularExpression.m): NSRegularExpression on a backtracking
+  engine over UTF-16 written here for ICU's syntax: sets with ranges,
+  nesting and [:posix:] classes, \d \w \s \h \R \p{..}, anchors and word
+  boundaries, captures named and numbered, back references, look-ahead and
+  look-behind, atomic groups, lazy and possessive quantifiers, inline flags,
+  \Q..\E, and the pattern options; a per-position step budget stops
+  catastrophic backtracking. Enumeration, matches, first match,
+  replacement templates ($n, ${name}, escapes), escaping.
+  NSTextCheckingResult; NSDataDetector finds links (URLs, www. hosts,
+  e-mail addresses as mailto:) and phone numbers.
+- SDK: these classes and their option types under Apple's Swift names
+  (DateFormatter.Style, NSRegularExpression.Options, ...); Formatter,
+  ISO8601DateFormatter and ListFormatter named too. NSLocale and NSTimeZone
+  bridge to Locale and TimeZone.
+- Tests: tests/foundation/regex.m, tests/foundation/formatters.m,
+  tests/swiftlib/formatters.
+- Target app (total `^MISSING`): 11 -> 2 (NSXMLParser, NSXMLDocument).

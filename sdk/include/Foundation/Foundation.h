@@ -697,6 +697,7 @@ NSString *NSFullUserName(void);
 NSString *_Nullable NSHomeDirectoryForUser(NSString *_Nullable userName);
 
 /* Toll-free bridged to CFLocale; here a locale is its identifier. */
+__attribute__((swift_bridge("Foundation.Locale")))
 @interface NSLocale : NSObject <NSCopying>
 + (instancetype)localeWithLocaleIdentifier:(NSString *)ident;
 - (instancetype)initWithLocaleIdentifier:(NSString *)string;
@@ -1645,6 +1646,7 @@ Class NSClassFromString(NSString *name);
 SEL NSSelectorFromString(NSString *name);
 
 /* ---- time zones and formatters (NSFormatters.m) ---- */
+__attribute__((swift_bridge("Foundation.TimeZone")))
 @interface NSTimeZone : NSObject <NSCopying>
 + (nullable instancetype)timeZoneWithName:(NSString *)tzName;
 + (nullable instancetype)timeZoneWithAbbreviation:(NSString *)abbreviation;
@@ -1661,6 +1663,7 @@ SEL NSSelectorFromString(NSString *name);
 - (BOOL)isDaylightSavingTimeForDate:(NSDate *)aDate;
 @end
 
+NS_SWIFT_NAME(Formatter)
 @interface NSFormatter : NSObject <NSCopying>
 - (nullable NSString *)stringForObjectValue:(nullable id)obj;
 @end
@@ -1681,8 +1684,9 @@ typedef NS_OPTIONS(NSUInteger, NSISO8601DateFormatOptions) {
     NSISO8601DateFormatWithFullTime = (1UL << 5) | (1UL << 6) | (1UL << 9) | (1UL << 10),
     NSISO8601DateFormatWithInternetDateTime = (1UL << 0) | (1UL << 1) | (1UL << 4) | (1UL << 8) | (1UL << 5) |
                                               (1UL << 6) | (1UL << 9) | (1UL << 10),
-};
+} NS_SWIFT_NAME(ISO8601DateFormatter.Options);
 
+NS_SWIFT_NAME(ISO8601DateFormatter)
 @interface NSISO8601DateFormatter : NSFormatter
 @property (null_resettable, copy) NSTimeZone *timeZone;
 @property NSISO8601DateFormatOptions formatOptions;
@@ -1691,10 +1695,216 @@ typedef NS_OPTIONS(NSUInteger, NSISO8601DateFormatOptions) {
 + (NSString *)stringFromDate:(NSDate *)date timeZone:(NSTimeZone *)timeZone formatOptions:(NSISO8601DateFormatOptions)formatOptions;
 @end
 
+NS_SWIFT_NAME(ListFormatter)
 @interface NSListFormatter : NSFormatter
 + (NSString *)localizedStringByJoiningStrings:(NSArray<NSString *> *)strings;
 - (nullable NSString *)stringFromItems:(NSArray *)items;
 @property (nullable, copy) NSFormatter *itemFormatter;
+@end
+
+/* ---- date, byte-count, components and relative formatters (NSDateFormatter.m) ---- */
+typedef NS_ENUM(NSInteger, NSFormattingContext) {
+    NSFormattingContextUnknown = 0, NSFormattingContextDynamic = 1, NSFormattingContextStandalone = 2,
+    NSFormattingContextListItem = 3, NSFormattingContextBeginningOfSentence = 4, NSFormattingContextMiddleOfSentence = 5,
+} NS_SWIFT_NAME(Formatter.Context);
+typedef NS_ENUM(NSUInteger, NSDateFormatterStyle) {
+    NSDateFormatterNoStyle = 0, NSDateFormatterShortStyle = 1, NSDateFormatterMediumStyle = 2,
+    NSDateFormatterLongStyle = 3, NSDateFormatterFullStyle = 4,
+} NS_SWIFT_NAME(DateFormatter.Style);
+typedef NS_ENUM(NSUInteger, NSDateFormatterBehavior) {
+    NSDateFormatterBehaviorDefault = 0, NSDateFormatterBehavior10_0 = 1000, NSDateFormatterBehavior10_4 = 1040,
+} NS_SWIFT_NAME(DateFormatter.Behavior);
+typedef NS_OPTIONS(NSUInteger, NSCalendarUnit) {
+    NSCalendarUnitEra = 1UL << 1, NSCalendarUnitYear = 1UL << 2, NSCalendarUnitMonth = 1UL << 3,
+    NSCalendarUnitDay = 1UL << 4, NSCalendarUnitHour = 1UL << 5, NSCalendarUnitMinute = 1UL << 6,
+    NSCalendarUnitSecond = 1UL << 7, NSCalendarUnitWeekday = 1UL << 9, NSCalendarUnitWeekdayOrdinal = 1UL << 10,
+    NSCalendarUnitQuarter = 1UL << 11, NSCalendarUnitWeekOfMonth = 1UL << 12, NSCalendarUnitWeekOfYear = 1UL << 13,
+    NSCalendarUnitYearForWeekOfYear = 1UL << 14, NSCalendarUnitNanosecond = 1UL << 15,
+    NSCalendarUnitCalendar = 1UL << 20, NSCalendarUnitTimeZone = 1UL << 21,
+};
+
+NS_SWIFT_NAME(DateFormatter)
+@interface NSDateFormatter : NSFormatter
+@property (null_resettable, copy) NSString *dateFormat;
+@property NSDateFormatterStyle dateStyle;
+@property NSDateFormatterStyle timeStyle;
+@property (null_resettable, copy) NSLocale *locale;
+@property (null_resettable, copy) NSTimeZone *timeZone;
+@property (nullable, copy) id calendar;
+@property (getter=isLenient) BOOL lenient;
+@property BOOL doesRelativeDateFormatting;
+@property (nullable, copy) NSDate *defaultDate;
+@property (nullable, copy) NSDate *twoDigitStartDate;
+@property (null_resettable, copy) NSString *AMSymbol;
+@property (null_resettable, copy) NSString *PMSymbol;
+@property NSFormattingContext formattingContext;
+@property NSDateFormatterBehavior formatterBehavior;
+@property BOOL generatesCalendarDates;
+@property (null_resettable, copy) NSArray<NSString *> *monthSymbols;
+@property (null_resettable, copy) NSArray<NSString *> *shortMonthSymbols;
+@property (null_resettable, copy) NSArray<NSString *> *veryShortMonthSymbols;
+@property (null_resettable, copy) NSArray<NSString *> *standaloneMonthSymbols;
+@property (null_resettable, copy) NSArray<NSString *> *shortStandaloneMonthSymbols;
+@property (null_resettable, copy) NSArray<NSString *> *weekdaySymbols;
+@property (null_resettable, copy) NSArray<NSString *> *shortWeekdaySymbols;
+@property (null_resettable, copy) NSArray<NSString *> *veryShortWeekdaySymbols;
+@property (null_resettable, copy) NSArray<NSString *> *standaloneWeekdaySymbols;
+@property (null_resettable, copy) NSArray<NSString *> *shortStandaloneWeekdaySymbols;
+@property (null_resettable, copy) NSArray<NSString *> *eraSymbols;
+@property (null_resettable, copy) NSArray<NSString *> *longEraSymbols;
+@property (null_resettable, copy) NSArray<NSString *> *quarterSymbols;
+@property (null_resettable, copy) NSArray<NSString *> *shortQuarterSymbols;
+- (NSString *)stringFromDate:(NSDate *)date;
+- (nullable NSDate *)dateFromString:(NSString *)string;
+- (BOOL)getObjectValue:(out id _Nullable *_Nullable)obj forString:(NSString *)string range:(inout nullable NSRange *)rangep error:(NSError **)error;
++ (NSString *)localizedStringFromDate:(NSDate *)date dateStyle:(NSDateFormatterStyle)dstyle timeStyle:(NSDateFormatterStyle)tstyle;
++ (nullable NSString *)dateFormatFromTemplate:(NSString *)tmplate options:(NSUInteger)opts locale:(nullable NSLocale *)locale;
+- (void)setLocalizedDateFormatFromTemplate:(NSString *)dateFormatTemplate;
+@end
+
+typedef NS_OPTIONS(NSUInteger, NSByteCountFormatterUnits) {
+    NSByteCountFormatterUseDefault = 0, NSByteCountFormatterUseBytes = 1UL << 0, NSByteCountFormatterUseKB = 1UL << 1,
+    NSByteCountFormatterUseMB = 1UL << 2, NSByteCountFormatterUseGB = 1UL << 3, NSByteCountFormatterUseTB = 1UL << 4,
+    NSByteCountFormatterUsePB = 1UL << 5, NSByteCountFormatterUseEB = 1UL << 6, NSByteCountFormatterUseZB = 1UL << 7,
+    NSByteCountFormatterUseYBOrHigher = 0x0FFUL << 8, NSByteCountFormatterUseAll = 0x0FFFFUL,
+} NS_SWIFT_NAME(ByteCountFormatter.Units);
+typedef NS_ENUM(NSInteger, NSByteCountFormatterCountStyle) {
+    NSByteCountFormatterCountStyleFile = 0, NSByteCountFormatterCountStyleMemory = 1,
+    NSByteCountFormatterCountStyleDecimal = 2, NSByteCountFormatterCountStyleBinary = 3,
+} NS_SWIFT_NAME(ByteCountFormatter.CountStyle);
+NS_SWIFT_NAME(ByteCountFormatter)
+@interface NSByteCountFormatter : NSFormatter
++ (NSString *)stringFromByteCount:(long long)byteCount countStyle:(NSByteCountFormatterCountStyle)countStyle;
+- (NSString *)stringFromByteCount:(long long)byteCount;
+@property NSByteCountFormatterUnits allowedUnits;
+@property NSByteCountFormatterCountStyle countStyle;
+@property BOOL allowsNonnumericFormatting;
+@property BOOL includesUnit;
+@property BOOL includesCount;
+@property BOOL includesActualByteCount;
+@property (getter=isAdaptive) BOOL adaptive;
+@property BOOL zeroPadsFractionDigits;
+@property NSFormattingContext formattingContext;
+@end
+
+typedef NS_ENUM(NSInteger, NSDateComponentsFormatterUnitsStyle) {
+    NSDateComponentsFormatterUnitsStylePositional = 0, NSDateComponentsFormatterUnitsStyleAbbreviated,
+    NSDateComponentsFormatterUnitsStyleShort, NSDateComponentsFormatterUnitsStyleFull,
+    NSDateComponentsFormatterUnitsStyleSpellOut, NSDateComponentsFormatterUnitsStyleBrief,
+} NS_SWIFT_NAME(DateComponentsFormatter.UnitsStyle);
+typedef NS_OPTIONS(NSUInteger, NSDateComponentsFormatterZeroFormattingBehavior) {
+    NSDateComponentsFormatterZeroFormattingBehaviorNone = 0, NSDateComponentsFormatterZeroFormattingBehaviorDefault = 1 << 0,
+    NSDateComponentsFormatterZeroFormattingBehaviorDropLeading = 1 << 1,
+    NSDateComponentsFormatterZeroFormattingBehaviorDropMiddle = 1 << 2,
+    NSDateComponentsFormatterZeroFormattingBehaviorDropTrailing = 1 << 3,
+    NSDateComponentsFormatterZeroFormattingBehaviorDropAll = (1 << 1) | (1 << 2) | (1 << 3),
+    NSDateComponentsFormatterZeroFormattingBehaviorPad = 1 << 16,
+} NS_SWIFT_NAME(DateComponentsFormatter.ZeroFormattingBehavior);
+NS_SWIFT_NAME(DateComponentsFormatter)
+@interface NSDateComponentsFormatter : NSFormatter
+- (nullable NSString *)stringFromTimeInterval:(NSTimeInterval)ti NS_SWIFT_NAME(string(from:));
+- (nullable NSString *)stringFromDate:(NSDate *)startDate toDate:(NSDate *)endDate;
++ (nullable NSString *)localizedStringFromTimeInterval:(NSTimeInterval)ti unitsStyle:(NSDateComponentsFormatterUnitsStyle)unitsStyle;
+@property NSDateComponentsFormatterUnitsStyle unitsStyle;
+@property NSCalendarUnit allowedUnits;
+@property NSDateComponentsFormatterZeroFormattingBehavior zeroFormattingBehavior;
+@property (nullable, copy) id calendar;
+@property (nullable, copy) NSDate *referenceDate;
+@property BOOL allowsFractionalUnits;
+@property NSInteger maximumUnitCount;
+@property BOOL collapsesLargestUnit;
+@property BOOL includesApproximationPhrase;
+@property BOOL includesTimeRemainingPhrase;
+@property NSFormattingContext formattingContext;
+@end
+
+typedef NS_ENUM(NSInteger, NSRelativeDateTimeFormatterStyle) {
+    NSRelativeDateTimeFormatterStyleNumeric = 0, NSRelativeDateTimeFormatterStyleNamed,
+} NS_SWIFT_NAME(RelativeDateTimeFormatter.DateTimeStyle);
+typedef NS_ENUM(NSInteger, NSRelativeDateTimeFormatterUnitsStyle) {
+    NSRelativeDateTimeFormatterUnitsStyleFull = 0, NSRelativeDateTimeFormatterUnitsStyleSpellOut,
+    NSRelativeDateTimeFormatterUnitsStyleShort, NSRelativeDateTimeFormatterUnitsStyleAbbreviated,
+} NS_SWIFT_NAME(RelativeDateTimeFormatter.UnitsStyle);
+NS_SWIFT_NAME(RelativeDateTimeFormatter)
+@interface NSRelativeDateTimeFormatter : NSFormatter
+@property NSRelativeDateTimeFormatterStyle dateTimeStyle;
+@property NSRelativeDateTimeFormatterUnitsStyle unitsStyle;
+@property NSFormattingContext formattingContext;
+@property (null_resettable, copy) id calendar;
+@property (null_resettable, copy) NSLocale *locale;
+- (NSString *)localizedStringFromTimeInterval:(NSTimeInterval)timeInterval;
+- (NSString *)localizedStringForDate:(NSDate *)date relativeToDate:(NSDate *)referenceDate;
+@end
+
+/* ---- regular expressions and text checking (NSRegularExpression.m) ---- */
+typedef NS_OPTIONS(uint64_t, NSTextCheckingType) {
+    NSTextCheckingTypeOrthography = 1ULL << 0, NSTextCheckingTypeSpelling = 1ULL << 1,
+    NSTextCheckingTypeGrammar = 1ULL << 2, NSTextCheckingTypeDate = 1ULL << 3, NSTextCheckingTypeAddress = 1ULL << 4,
+    NSTextCheckingTypeLink = 1ULL << 5, NSTextCheckingTypeQuote = 1ULL << 6, NSTextCheckingTypeDash = 1ULL << 7,
+    NSTextCheckingTypeReplacement = 1ULL << 8, NSTextCheckingTypeCorrection = 1ULL << 9,
+    NSTextCheckingTypeRegularExpression = 1ULL << 10, NSTextCheckingTypePhoneNumber = 1ULL << 11,
+    NSTextCheckingTypeTransitInformation = 1ULL << 12,
+} NS_SWIFT_NAME(NSTextCheckingResult.CheckingType);
+typedef uint64_t NSTextCheckingTypes;
+typedef NS_OPTIONS(NSUInteger, NSRegularExpressionOptions) {
+    NSRegularExpressionCaseInsensitive = 1 << 0, NSRegularExpressionAllowCommentsAndWhitespace = 1 << 1,
+    NSRegularExpressionIgnoreMetacharacters = 1 << 2, NSRegularExpressionDotMatchesLineSeparators = 1 << 3,
+    NSRegularExpressionAnchorsMatchLines = 1 << 4, NSRegularExpressionUseUnixLineSeparators = 1 << 5,
+    NSRegularExpressionUseUnicodeWordBoundaries = 1 << 6,
+} NS_SWIFT_NAME(NSRegularExpression.Options);
+typedef NS_OPTIONS(NSUInteger, NSMatchingOptions) {
+    NSMatchingReportProgress = 1 << 0, NSMatchingReportCompletion = 1 << 1, NSMatchingAnchored = 1 << 2,
+    NSMatchingWithTransparentBounds = 1 << 3, NSMatchingWithoutAnchoringBounds = 1 << 4,
+} NS_SWIFT_NAME(NSRegularExpression.MatchingOptions);
+typedef NS_OPTIONS(NSUInteger, NSMatchingFlags) {
+    NSMatchingProgress = 1 << 0, NSMatchingCompleted = 1 << 1, NSMatchingHitEnd = 1 << 2,
+    NSMatchingRequiredEnd = 1 << 3, NSMatchingInternalError = 1 << 4,
+} NS_SWIFT_NAME(NSRegularExpression.MatchingFlags);
+@class NSRegularExpression;
+@interface NSTextCheckingResult : NSObject <NSCopying>
+@property (readonly) NSTextCheckingType resultType;
+@property (readonly) NSRange range;
+@property (readonly) NSUInteger numberOfRanges;
+- (NSRange)rangeAtIndex:(NSUInteger)idx;
+- (NSRange)rangeWithName:(NSString *)name;
+- (NSTextCheckingResult *)resultByAdjustingRangesWithOffset:(NSInteger)offset;
+@property (nullable, readonly, copy) NSRegularExpression *regularExpression;
+@property (nullable, readonly, copy) NSURL *URL;
+@property (nullable, readonly, copy) NSString *phoneNumber;
+@property (nullable, readonly, copy) NSDate *date;
+@property (nullable, readonly, copy) NSTimeZone *timeZone;
+@property (readonly) NSTimeInterval duration;
+@property (nullable, readonly, copy) NSString *replacementString;
+@property (nullable, readonly, copy) NSArray<NSString *> *alternativeStrings;
+@property (nullable, readonly, copy) NSDictionary<NSString *, NSString *> *addressComponents;
+@property (nullable, readonly, copy) NSDictionary<NSString *, NSString *> *components;
++ (NSTextCheckingResult *)regularExpressionCheckingResultWithRanges:(NSRangePointer)ranges count:(NSUInteger)count regularExpression:(NSRegularExpression *)regularExpression;
++ (NSTextCheckingResult *)linkCheckingResultWithRange:(NSRange)range URL:(NSURL *)url;
++ (NSTextCheckingResult *)phoneNumberCheckingResultWithRange:(NSRange)range phoneNumber:(NSString *)phoneNumber;
+@end
+
+@interface NSRegularExpression : NSObject <NSCopying>
++ (nullable instancetype)regularExpressionWithPattern:(NSString *)pattern options:(NSRegularExpressionOptions)options error:(NSError **)error;
+- (nullable instancetype)initWithPattern:(NSString *)pattern options:(NSRegularExpressionOptions)options error:(NSError **)error;
+@property (readonly, copy) NSString *pattern;
+@property (readonly) NSRegularExpressionOptions options;
+@property (readonly) NSUInteger numberOfCaptureGroups;
++ (NSString *)escapedPatternForString:(NSString *)string;
++ (NSString *)escapedTemplateForString:(NSString *)string;
+- (void)enumerateMatchesInString:(NSString *)string options:(NSMatchingOptions)options range:(NSRange)range usingBlock:(void (__attribute__((noescape)) ^)(NSTextCheckingResult *_Nullable result, NSMatchingFlags flags, BOOL *stop))block;
+- (NSArray<NSTextCheckingResult *> *)matchesInString:(NSString *)string options:(NSMatchingOptions)options range:(NSRange)range;
+- (NSUInteger)numberOfMatchesInString:(NSString *)string options:(NSMatchingOptions)options range:(NSRange)range;
+- (nullable NSTextCheckingResult *)firstMatchInString:(NSString *)string options:(NSMatchingOptions)options range:(NSRange)range;
+- (NSRange)rangeOfFirstMatchInString:(NSString *)string options:(NSMatchingOptions)options range:(NSRange)range;
+- (NSString *)stringByReplacingMatchesInString:(NSString *)string options:(NSMatchingOptions)options range:(NSRange)range withTemplate:(NSString *)templ;
+- (NSUInteger)replaceMatchesInString:(NSMutableString *)string options:(NSMatchingOptions)options range:(NSRange)range withTemplate:(NSString *)templ;
+- (NSString *)replacementStringForResult:(NSTextCheckingResult *)result inString:(NSString *)string offset:(NSInteger)offset template:(NSString *)templ;
+@end
+
+@interface NSDataDetector : NSRegularExpression
++ (nullable instancetype)dataDetectorWithTypes:(NSTextCheckingTypes)checkingTypes error:(NSError **)error;
+- (nullable instancetype)initWithTypes:(NSTextCheckingTypes)checkingTypes error:(NSError **)error;
+@property (readonly) NSTextCheckingTypes checkingTypes;
 @end
 
 /* Foundation's attributed string keys (NSAttributedStringKeys.m). */
