@@ -35,14 +35,14 @@
 <line x1="118.1" y1="238.8" x2="113.5" y2="264.4" class="gap" stroke-width="2"/>
 <circle cx="132" cy="161" r="92" fill="none" class="s-AppKit" stroke-width="26" stroke-dasharray="24.35 578.05" stroke-dashoffset="-305.36" transform="rotate(-90 132 161)"/>
 <line x1="98.2" y1="232.4" x2="87.1" y2="255.9" class="gap" stroke-width="2"/>
-<circle cx="132" cy="161" r="92" fill="none" class="s-SwiftUI" stroke-width="26" stroke-dasharray="167.08 578.05" stroke-dashoffset="-329.71" transform="rotate(-90 132 161)"/>
-<line x1="70.9" y1="110.9" x2="50.8" y2="94.4" class="gap" stroke-width="2"/>
-<circle cx="132" cy="161" r="92" fill="none" class="s-Other" stroke-width="26" stroke-dasharray="61.75 578.05" stroke-dashoffset="-496.79" transform="rotate(-90 132 161)"/>
-<line x1="115.4" y1="83.8" x2="109.9" y2="58.4" class="gap" stroke-width="2"/>
-<text x="132" y="167" text-anchor="middle" class="ink" font-size="36" font-weight="700">97%</text>
+<circle cx="132" cy="161" r="92" fill="none" class="s-SwiftUI" stroke-width="26" stroke-dasharray="175.68 578.05" stroke-dashoffset="-329.71" transform="rotate(-90 132 161)"/>
+<line x1="75.9" y1="105.4" x2="57.4" y2="87.1" class="gap" stroke-width="2"/>
+<circle cx="132" cy="161" r="92" fill="none" class="s-Other" stroke-width="26" stroke-dasharray="61.75 578.05" stroke-dashoffset="-505.39" transform="rotate(-90 132 161)"/>
+<line x1="122.6" y1="82.6" x2="119.6" y2="56.7" class="gap" stroke-width="2"/>
+<text x="132" y="167" text-anchor="middle" class="ink" font-size="36" font-weight="700">98%</text>
 <text x="132" y="187" text-anchor="middle" class="mute" font-size="12">implemented</text>
 <text x="286" y="56" class="ink" font-size="18" font-weight="600">Mac app support</text>
-<text x="286" y="78" class="mute" font-size="13">5,780 of 5,982 functions implemented</text>
+<text x="286" y="78" class="mute" font-size="13">5,869 of 5,982 functions implemented</text>
 <circle cx="291" cy="104" r="5" class="f-System"/>
 <text x="304" y="108" class="ink" font-size="13">System</text>
 <text x="504" y="108" class="ink" font-size="13" font-weight="600" text-anchor="end">99%</text>
@@ -61,16 +61,16 @@
 <text x="592" y="186" class="mute" font-size="12" text-anchor="end">280/280</text>
 <circle cx="291" cy="208" r="5" class="f-AppKit"/>
 <text x="304" y="212" class="ink" font-size="13">AppKit</text>
-<circle cx="291" cy="208" r="7" class="f-AppKit" filter="url(#glow)" opacity="0.6"/>
 <text x="504" y="212" class="ink" font-size="13" font-weight="600" text-anchor="end">100%</text>
 <text x="592" y="212" class="mute" font-size="12" text-anchor="end">252/252</text>
 <circle cx="291" cy="234" r="5" class="f-SwiftUI"/>
 <text x="304" y="238" class="ink" font-size="13">SwiftUI</text>
-<text x="504" y="238" class="ink" font-size="13" font-weight="600" text-anchor="end">95%</text>
-<text x="592" y="238" class="mute" font-size="12" text-anchor="end">1,729/1,821</text>
+<circle cx="291" cy="234" r="7" class="f-SwiftUI" filter="url(#glow)" opacity="0.6"/>
+<text x="504" y="238" class="ink" font-size="13" font-weight="600" text-anchor="end">100%</text>
+<text x="592" y="238" class="mute" font-size="12" text-anchor="end">1,818/1,821</text>
 <circle cx="291" cy="260" r="5" class="f-Other"/>
 <text x="304" y="264" class="ink" font-size="13">Other</text>
 <text x="504" y="264" class="ink" font-size="13" font-weight="600" text-anchor="end">100%</text>
 <text x="592" y="264" class="mute" font-size="12" text-anchor="end">639/639</text>
-<text x="28" y="320" class="mute" font-size="10.5">2026-11-26 10:03 UTC</text>
+<text x="28" y="320" class="mute" font-size="10.5">2026-11-26 10:23 UTC</text>
 </svg>
