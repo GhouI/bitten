@@ -28,3 +28,18 @@
   guard case .some(let inner) = p else { return -100 }
   return (inner ?? -1) + pick(o == nil, 1000, 0)
 }
+
+/// `optional ?? otherOptional` falls through to the right side when the
+/// left is nil (it needs its own overload: the plain one would take the left
+/// side as a present .some(nil)).
+final class Node {}
+@_silgen_name("swl_coalesce") public func coalesce() -> Int {
+  let none: Node? = nil, some: Node? = Node()
+  var bad = 0
+  if (none ?? some) == nil { bad |= 1 }
+  if (some ?? none) !== some { bad |= 2 }
+  let n1: Int? = nil, n2: Int? = 5
+  if (n1 ?? n2) != 5 { bad |= 4 }
+  if (n1 ?? n1 ?? 7) != 7 { bad |= 8 }
+  return bad
+}

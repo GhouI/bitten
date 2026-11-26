@@ -3721,3 +3721,18 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Test: tests/swiftlib/swiftui.swift `inset`.
 - Target app (total `^MISSING`): 0 -> 0. Its Settings sidebar shows the
   search field above full-width sections.
+
+## stdlib: `optional ?? optional`
+
+- Added the `??<T>(T?, @autoclosure () -> T?) -> T?` overload. Without it,
+  `a ?? b` on two Optionals picked the plain overload with T = U?. A nil
+  left side became `.some(nil)` and was returned, so `b` was never
+  consulted. Our frameworks are built against this stdlib and use the
+  pattern. SwiftUI's overlays never passed hit tests to their content
+  (`layer.hit ?? content.hit`), so buttons under any `.overlay` ignored
+  clicks; the target app's settings sidebar was one. The app's own code
+  inlines Apple's `??` and was not affected.
+- `BITTEN_HIT_DEBUG` logs SwiftUI hosting views' hit tests.
+- Test: tests/swiftlib/basics.swift `coalesce`.
+- Target app (total `^MISSING`): 0 -> 0. Its settings sidebar items now
+  respond to clicks.
