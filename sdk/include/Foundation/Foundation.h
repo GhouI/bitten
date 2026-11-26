@@ -1630,7 +1630,28 @@ NS_SWIFT_NAME(Thread)
 @property (readonly, strong) NSMutableDictionary *threadDictionary;
 @property (copy) NSString *name;
 @property (readonly) BOOL isMainThread;
++ (BOOL)isMultiThreaded;
++ (void)exit;
++ (double)threadPriority;
++ (BOOL)setThreadPriority:(double)p;
+@property (class, readonly, copy) NSArray<NSNumber *> *callStackReturnAddresses;
+@property (class, readonly, copy) NSArray<NSString *> *callStackSymbols;
+- (instancetype)init;
+- (instancetype)initWithBlock:(void (^)(void))block;
+- (instancetype)initWithTarget:(id)target selector:(SEL)selector object:(id)argument;
+- (void)main;
+- (void)start;
+- (void)cancel;
+@property (readonly, getter=isCancelled) BOOL cancelled;
+@property (readonly, getter=isExecuting) BOOL executing;
+@property (readonly, getter=isFinished) BOOL finished;
+@property NSQualityOfService qualityOfService;
+@property double threadPriority;
+@property NSUInteger stackSize;
 @end
+extern NSNotificationName const NSThreadWillExitNotification;
+extern NSNotificationName const NSWillBecomeMultiThreadedNotification;
+extern NSNotificationName const NSDidBecomeSingleThreadedNotification;
 
 @interface NSUUID : NSObject <NSCopying>
 + (instancetype)UUID;

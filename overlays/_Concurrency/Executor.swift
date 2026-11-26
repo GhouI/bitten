@@ -179,19 +179,20 @@ internal func _getGenericSerialExecutor() -> Builtin.Executor {
 internal func _bitten_genericExecutor() -> Builtin.Executor
 
 // The runtime calls these to reach executors implemented in Swift; it
-// finds them by name when a job is first enqueued on such an executor.
+// finds them by name when a job is first enqueued on such an executor, so
+// they must be exported (@usableFromInline gives them public linkage).
 @_silgen_name("_swift_task_enqueueOnExecutor")
-internal func _enqueueOnExecutor<E: SerialExecutor>(job unownedJob: UnownedJob, executor: E) {
+@usableFromInline internal func _enqueueOnExecutor<E: SerialExecutor>(job unownedJob: UnownedJob, executor: E) {
   executor.enqueue(ExecutorJob(unownedJob))
 }
 
 @_silgen_name("_task_serialExecutor_checkIsolated")
-internal func _task_serialExecutor_checkIsolated<E: SerialExecutor>(executor: E) {
+@usableFromInline internal func _task_serialExecutor_checkIsolated<E: SerialExecutor>(executor: E) {
   executor.checkIsolated()
 }
 
 @_silgen_name("_task_serialExecutor_isSameExclusiveExecutionContext")
-internal func _task_serialExecutor_isSameExclusiveExecutionContext<E: SerialExecutor>(
+@usableFromInline internal func _task_serialExecutor_isSameExclusiveExecutionContext<E: SerialExecutor>(
   current currentExecutor: E, executor: E
 ) -> Bool {
   return currentExecutor.isSameExclusiveExecutionContext(other: executor)

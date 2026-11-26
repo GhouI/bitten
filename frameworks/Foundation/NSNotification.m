@@ -175,32 +175,59 @@
 - (void)broadcast { pthread_cond_broadcast(&_cond); }
 @end
 
-/* ---- threads ---- */
+/* ---- threads ----
+ * An NSThread runs -main on a new pthread once started; -main calls the
+ * block or target/selector it was created with (subclasses override it).
+ * The thread object is retained for the thread's life and is
+ * +currentThread there. */
+NSNotificationName const NSThreadWillExitNotification = @"NSThreadWillExitNotification";
+NSNotificationName const NSWillBecomeMultiThreadedNotification = @"NSWillBecomeMultiThreadedNotification";
+NSNotificationName const NSDidBecomeSingleThreadedNotification = @"NSDidBecomeSingleThreadedNotification";
+
 static pthread_key_t thread_key;
 static NSThread *main_thread_object;
+static int became_multithreaded;
 
 @interface NSThread () {
   @public
     NSMutableDictionary *_dictionary;
     BOOL _main;
     void (^_block)(void);
+    id _target;
+    SEL _selector;
+    id _argument;
+    _Atomic int _state; /* 0 new, 1 executing, 2 finished */
+    _Atomic BOOL _cancelled;
+    NSQualityOfService _qos;
+    double _priority;
+    NSUInteger _stackSize;
 }
 @end
 
 static void thread_key_destroy(void *value) { CFRelease(value); }
 
+static void thread_will_exit(NSThread *t) {
+    [[NSNotificationCenter defaultCenter] postNotificationName:NSThreadWillExitNotification object:t];
+    t->_state = 2;
+}
+
 static void *thread_entry(void *arg) {
-    NSThread *t = (__bridge_transfer NSThread *)arg;
-    pthread_setspecific(thread_key, (__bridge_retained void *)t);
+    NSThread *t = (__bridge NSThread *)arg; /* +1, released by thread_key_destroy */
+    pthread_setspecific(thread_key, arg);
     @autoreleasepool {
         if (t.name) pthread_setname_np(t.name.UTF8String);
-        t->_block();
+        t->_state = 1;
+        [t main];
+        thread_will_exit(t);
         t->_block = nil;
+        t->_target = nil;
+        t->_argument = nil;
     }
     return NULL;
 }
 
 @implementation NSThread
+@synthesize name = _name;
 + (void)initialize {
     if (self != [NSThread class]) return;
     pthread_key_create(&thread_key, thread_key_destroy);
@@ -208,6 +235,28 @@ static void *thread_entry(void *arg) {
      * that is the process's initial thread is the main thread. */
     main_thread_object = [NSThread new];
     main_thread_object->_main = YES;
+    main_thread_object->_state = 1;
+    main_thread_object->_qos = NSQualityOfServiceUserInteractive;
+}
+- (instancetype)init {
+    if ((self = [super init])) {
+        _qos = NSQualityOfServiceDefault;
+        _priority = 0.5;
+        _stackSize = 512 * 1024;
+    }
+    return self;
+}
+- (instancetype)initWithBlock:(void (^)(void))block {
+    if ((self = [self init])) _block = [block copy];
+    return self;
+}
+- (instancetype)initWithTarget:(id)target selector:(SEL)selector object:(id)argument {
+    if ((self = [self init])) {
+        _target = target;
+        _selector = selector;
+        _argument = argument;
+    }
+    return self;
 }
 + (NSThread *)mainThread { return main_thread_object; }
 + (NSThread *)currentThread {
@@ -215,11 +264,13 @@ static void *thread_entry(void *arg) {
     NSThread *t = (__bridge NSThread *)pthread_getspecific(thread_key);
     if (!t) {
         t = [NSThread new];
+        t->_state = 1;
         pthread_setspecific(thread_key, (__bridge_retained void *)t);
     }
     return t;
 }
 + (BOOL)isMainThread { return pthread_main_np() != 0; }
++ (BOOL)isMultiThreaded { return became_multithreaded != 0; }
 + (void)sleepForTimeInterval:(NSTimeInterval)seconds {
     if (seconds <= 0) return;
     struct timespec ts = {(time_t)seconds, (long)((seconds - (double)(time_t)seconds) * 1e9)};
@@ -227,16 +278,57 @@ static void *thread_entry(void *arg) {
     while (nanosleep(&ts, &ts) != 0 && errno == 4) {}
 }
 + (void)sleepUntilDate:(NSDate *)date { [self sleepForTimeInterval:date.timeIntervalSinceNow]; }
-+ (void)detachNewThreadWithBlock:(void (^)(void))block {
-    NSThread *t = [NSThread new];
-    t->_block = [block copy];
-    pthread_t handle;
-    if (pthread_create(&handle, NULL, thread_entry, (__bridge_retained void *)t) == 0) pthread_detach(handle);
-    else CFRelease((__bridge CFTypeRef)t);
++ (void)exit {
+    NSThread *t = [self currentThread];
+    if (t->_main) exit(0);
+    thread_will_exit(t);
+    pthread_exit(NULL);
 }
++ (double)threadPriority { return [self currentThread].threadPriority; }
++ (BOOL)setThreadPriority:(double)p {
+    [self currentThread].threadPriority = p;
+    return YES;
+}
++ (NSArray<NSNumber *> *)callStackReturnAddresses { return @[]; }
++ (NSArray<NSString *> *)callStackSymbols { return @[]; }
++ (void)detachNewThreadWithBlock:(void (^)(void))block { [[[NSThread alloc] initWithBlock:block] start]; }
 + (void)detachNewThreadSelector:(SEL)selector toTarget:(id)target withObject:(id)argument {
-    [self detachNewThreadWithBlock:^{ ((void (*)(id, SEL, id))objc_msgSend)(target, selector, argument); }];
+    [[[NSThread alloc] initWithTarget:target selector:selector object:argument] start];
 }
+- (void)main {
+    if (_block) _block();
+    else if (_target && _selector) ((void (*)(id, SEL, id))objc_msgSend)(_target, _selector, _argument);
+}
+- (void)start {
+    int expected = 0;
+    if (!__atomic_compare_exchange_n((int *)&_state, &expected, 1, 0, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+        [NSException raise:NSInvalidArgumentException format:@"*** -[NSThread start]: attempt to start the thread again"];
+        return;
+    }
+    if (!__atomic_exchange_n(&became_multithreaded, 1, __ATOMIC_ACQ_REL))
+        [[NSNotificationCenter defaultCenter] postNotificationName:NSWillBecomeMultiThreadedNotification object:nil];
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    if (_stackSize >= 16384) pthread_attr_setstacksize(&attr, _stackSize);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    pthread_t handle;
+    void *arg = (__bridge_retained void *)self;
+    if (pthread_create(&handle, &attr, thread_entry, arg) != 0) {
+        CFRelease(arg);
+        _state = 2;
+    }
+    pthread_attr_destroy(&attr);
+}
+- (void)cancel { _cancelled = YES; }
+- (BOOL)isCancelled { return _cancelled; }
+- (BOOL)isExecuting { return _state == 1; }
+- (BOOL)isFinished { return _state == 2; }
+- (NSQualityOfService)qualityOfService { return _qos; }
+- (void)setQualityOfService:(NSQualityOfService)q { _qos = q; }
+- (double)threadPriority { return _priority; }
+- (void)setThreadPriority:(double)p { _priority = p; }
+- (NSUInteger)stackSize { return _stackSize; }
+- (void)setStackSize:(NSUInteger)s { _stackSize = s; }
 - (NSMutableDictionary *)threadDictionary {
     if (!_dictionary) _dictionary = [NSMutableDictionary dictionary];
     return _dictionary;
