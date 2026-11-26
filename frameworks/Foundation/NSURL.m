@@ -148,3 +148,39 @@ static BNURLParts *parse(NSString *url) {
 - (id)copyWithZone:(NSZone *)zone { return self; }
 - (NSString *)description { return self.absoluteString; }
 @end
+
+/* URL resource keys: their values are their names. */
+NSString *const NSURLNameKey = @"NSURLNameKey";
+NSString *const NSURLLocalizedNameKey = @"NSURLLocalizedNameKey";
+NSString *const NSURLIsRegularFileKey = @"NSURLIsRegularFileKey";
+NSString *const NSURLIsDirectoryKey = @"NSURLIsDirectoryKey";
+NSString *const NSURLIsSymbolicLinkKey = @"NSURLIsSymbolicLinkKey";
+NSString *const NSURLIsVolumeKey = @"NSURLIsVolumeKey";
+NSString *const NSURLIsPackageKey = @"NSURLIsPackageKey";
+NSString *const NSURLIsApplicationKey = @"NSURLIsApplicationKey";
+NSString *const NSURLIsHiddenKey = @"NSURLIsHiddenKey";
+NSString *const NSURLIsReadableKey = @"NSURLIsReadableKey";
+NSString *const NSURLIsWritableKey = @"NSURLIsWritableKey";
+NSString *const NSURLIsExecutableKey = @"NSURLIsExecutableKey";
+NSString *const NSURLCreationDateKey = @"NSURLCreationDateKey";
+NSString *const NSURLContentAccessDateKey = @"NSURLContentAccessDateKey";
+NSString *const NSURLContentModificationDateKey = @"NSURLContentModificationDateKey";
+NSString *const NSURLAttributeModificationDateKey = @"NSURLAttributeModificationDateKey";
+NSString *const NSURLFileSizeKey = @"NSURLFileSizeKey";
+NSString *const NSURLFileAllocatedSizeKey = @"NSURLFileAllocatedSizeKey";
+NSString *const NSURLTotalFileSizeKey = @"NSURLTotalFileSizeKey";
+NSString *const NSURLTotalFileAllocatedSizeKey = @"NSURLTotalFileAllocatedSizeKey";
+NSString *const NSURLContentTypeKey = @"NSURLContentTypeKey";
+NSString *const NSURLIsExcludedFromBackupKey = @"NSURLIsExcludedFromBackupKey";
+NSString *const NSURLPathKey = @"NSURLPathKey";
+NSString *const NSURLParentDirectoryURLKey = @"NSURLParentDirectoryURLKey";
+NSString *const NSURLFileResourceTypeKey = @"NSURLFileResourceTypeKey";
+NSString *const NSURLTypeIdentifierKey = @"NSURLTypeIdentifierKey";
+NSString *const NSURLLinkCountKey = @"NSURLLinkCountKey";
+NSString *const NSURLFileSecurityKey = @"NSURLFileSecurityKey";
+NSString *const NSURLQuarantinePropertiesKey = @"NSURLQuarantinePropertiesKey";
+NSString *const NSURLVolumeAvailableCapacityKey = @"NSURLVolumeAvailableCapacityKey";
+NSString *const NSURLVolumeTotalCapacityKey = @"NSURLVolumeTotalCapacityKey";
+NSString *const NSURLIsUbiquitousItemKey = @"NSURLIsUbiquitousItemKey";
+NSString *const NSURLFileProtectionKey = @"NSURLFileProtectionKey";
+NSString *const NSURLAddedToDirectoryDateKey = @"NSURLAddedToDirectoryDateKey";
