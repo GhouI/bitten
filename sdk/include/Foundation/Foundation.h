@@ -1259,6 +1259,146 @@ typedef struct {
 - (NSDecimalNumber *)decimalNumberByRaisingToPower:(NSUInteger)power;
 @end
 
+@class NSCoder;
+@protocol NSCoding
+- (void)encodeWithCoder:(NSCoder *)coder;
+- (nullable instancetype)initWithCoder:(NSCoder *)coder;
+@end
+@protocol NSSecureCoding <NSCoding>
+@property (class, readonly) BOOL supportsSecureCoding;
+@end
+typedef NS_ENUM(NSInteger, NSDecodingFailurePolicy) {
+    NSDecodingFailurePolicyRaiseException, NSDecodingFailurePolicySetErrorAndReturn
+};
+@interface NSCoder : NSObject
+@property (readonly) BOOL allowsKeyedCoding;
+@property (readonly) BOOL requiresSecureCoding;
+- (void)encodeObject:(nullable id)object;
+- (nullable id)decodeObject;
+- (void)encodeObject:(nullable id)object forKey:(NSString *)key;
+- (void)encodeConditionalObject:(nullable id)object forKey:(NSString *)key;
+- (void)encodeBool:(BOOL)value forKey:(NSString *)key;
+- (void)encodeInt:(int)value forKey:(NSString *)key;
+- (void)encodeInt32:(int32_t)value forKey:(NSString *)key;
+- (void)encodeInt64:(int64_t)value forKey:(NSString *)key;
+- (void)encodeInteger:(NSInteger)value forKey:(NSString *)key;
+- (void)encodeFloat:(float)value forKey:(NSString *)key;
+- (void)encodeDouble:(double)value forKey:(NSString *)key;
+- (void)encodeBytes:(nullable const uint8_t *)bytes length:(NSUInteger)length forKey:(NSString *)key;
+- (BOOL)containsValueForKey:(NSString *)key;
+- (nullable id)decodeObjectForKey:(NSString *)key;
+- (nullable id)decodeObjectOfClass:(Class)aClass forKey:(NSString *)key;
+- (nullable id)decodeObjectOfClasses:(nullable NSSet<Class> *)classes forKey:(NSString *)key;
+- (nullable NSArray *)decodeArrayOfObjectsOfClass:(Class)cls forKey:(NSString *)key;
+- (nullable NSDictionary *)decodeDictionaryWithKeysOfClass:(Class)keyCls objectsOfClass:(Class)objectCls forKey:(NSString *)key;
+- (BOOL)decodeBoolForKey:(NSString *)key;
+- (int)decodeIntForKey:(NSString *)key;
+- (int32_t)decodeInt32ForKey:(NSString *)key;
+- (int64_t)decodeInt64ForKey:(NSString *)key;
+- (NSInteger)decodeIntegerForKey:(NSString *)key;
+- (float)decodeFloatForKey:(NSString *)key;
+- (double)decodeDoubleForKey:(NSString *)key;
+- (nullable const uint8_t *)decodeBytesForKey:(NSString *)key returnedLength:(nullable NSUInteger *)lengthp;
+- (void)failWithError:(NSError *)error;
+@property (nullable, readonly, copy) NSError *error;
+@property (readonly) NSDecodingFailurePolicy decodingFailurePolicy;
+@end
+@interface NSObject (NSCoderMethods)
+@property (readonly) Class classForCoder;
+- (nullable id)awakeAfterUsingCoder:(NSCoder *)coder;
+@end
+
+extern NSString *const NSKeyedArchiveRootObjectKey;
+extern NSExceptionName const NSInvalidArchiveOperationException, NSInvalidUnarchiveOperationException;
+@class NSKeyedArchiver, NSKeyedUnarchiver;
+@protocol NSKeyedArchiverDelegate <NSObject>
+@optional
+- (nullable id)archiver:(NSKeyedArchiver *)archiver willEncodeObject:(id)object;
+- (void)archiverDidFinish:(NSKeyedArchiver *)archiver;
+@end
+@protocol NSKeyedUnarchiverDelegate <NSObject>
+@optional
+- (nullable Class)unarchiver:(NSKeyedUnarchiver *)unarchiver cannotDecodeObjectOfClassName:(NSString *)name
+             originalClasses:(NSArray<NSString *> *)classNames;
+- (nullable id)unarchiver:(NSKeyedUnarchiver *)unarchiver didDecodeObject:(nullable id)object;
+@end
+@interface NSKeyedArchiver : NSCoder
++ (nullable NSData *)archivedDataWithRootObject:(id)object requiringSecureCoding:(BOOL)requiresSecureCoding
+                                         error:(NSError **)error;
++ (NSData *)archivedDataWithRootObject:(id)rootObject;
++ (BOOL)archiveRootObject:(id)rootObject toFile:(NSString *)path;
+- (instancetype)initRequiringSecureCoding:(BOOL)requiresSecureCoding;
+@property (nullable, weak) id<NSKeyedArchiverDelegate> delegate;
+@property NSPropertyListFormat outputFormat;
+@property (readwrite) BOOL requiresSecureCoding;
+@property (readonly, strong) NSData *encodedData;
+- (void)finishEncoding;
+@end
+@interface NSKeyedUnarchiver : NSCoder
++ (nullable id)unarchivedObjectOfClass:(Class)cls fromData:(NSData *)data error:(NSError **)error;
++ (nullable id)unarchivedObjectOfClasses:(nullable NSSet<Class> *)classes fromData:(NSData *)data error:(NSError **)error;
++ (nullable id)unarchivedArrayOfObjectsOfClass:(Class)cls fromData:(NSData *)data error:(NSError **)error;
++ (nullable id)unarchiveObjectWithData:(NSData *)data;
++ (nullable id)unarchiveTopLevelObjectWithData:(NSData *)data error:(NSError **)error;
++ (nullable id)unarchiveObjectWithFile:(NSString *)path;
+- (nullable instancetype)initForReadingFromData:(NSData *)data error:(NSError **)error;
+- (instancetype)initForReadingWithData:(NSData *)data;
+@property (nullable, weak) id<NSKeyedUnarchiverDelegate> delegate;
+@property (readwrite) BOOL requiresSecureCoding;
+@property (readwrite) NSDecodingFailurePolicy decodingFailurePolicy;
+- (void)finishDecoding;
+@end
+
+typedef NSString *NSStreamPropertyKey NS_TYPED_EXTENSIBLE_ENUM;
+typedef NS_ENUM(NSUInteger, NSStreamStatus) {
+    NSStreamStatusNotOpen = 0, NSStreamStatusOpening, NSStreamStatusOpen, NSStreamStatusReading,
+    NSStreamStatusWriting, NSStreamStatusAtEnd, NSStreamStatusClosed, NSStreamStatusError
+};
+typedef NS_OPTIONS(NSUInteger, NSStreamEvent) {
+    NSStreamEventNone = 0, NSStreamEventOpenCompleted = 1UL << 0, NSStreamEventHasBytesAvailable = 1UL << 1,
+    NSStreamEventHasSpaceAvailable = 1UL << 2, NSStreamEventErrorOccurred = 1UL << 3, NSStreamEventEndEncountered = 1UL << 4
+};
+extern NSStreamPropertyKey const NSStreamDataWrittenToMemoryStreamKey, NSStreamFileCurrentOffsetKey;
+@class NSStream, NSRunLoop;
+@protocol NSStreamDelegate <NSObject>
+@optional
+- (void)stream:(NSStream *)aStream handleEvent:(NSStreamEvent)eventCode;
+@end
+@interface NSStream : NSObject
+- (void)open;
+- (void)close;
+@property (nullable, weak) id<NSStreamDelegate> delegate;
+- (nullable id)propertyForKey:(NSStreamPropertyKey)key;
+- (BOOL)setProperty:(nullable id)property forKey:(NSStreamPropertyKey)key;
+- (void)scheduleInRunLoop:(NSRunLoop *)aRunLoop forMode:(NSString *)mode;
+- (void)removeFromRunLoop:(NSRunLoop *)aRunLoop forMode:(NSString *)mode;
+@property (readonly) NSStreamStatus streamStatus;
+@property (nullable, readonly, copy) NSError *streamError;
+@end
+@interface NSInputStream : NSStream
++ (nullable instancetype)inputStreamWithData:(NSData *)data;
++ (nullable instancetype)inputStreamWithFileAtPath:(NSString *)path;
++ (nullable instancetype)inputStreamWithURL:(NSURL *)url;
+- (instancetype)initWithData:(NSData *)data;
+- (nullable instancetype)initWithFileAtPath:(NSString *)path;
+- (nullable instancetype)initWithURL:(NSURL *)url;
+- (NSInteger)read:(uint8_t *)buffer maxLength:(NSUInteger)len;
+- (BOOL)getBuffer:(uint8_t *_Nullable *_Nonnull)buffer length:(NSUInteger *)len;
+@property (readonly) BOOL hasBytesAvailable;
+@end
+@interface NSOutputStream : NSStream
++ (instancetype)outputStreamToMemory;
++ (instancetype)outputStreamToBuffer:(uint8_t *)buffer capacity:(NSUInteger)capacity;
++ (nullable instancetype)outputStreamToFileAtPath:(NSString *)path append:(BOOL)shouldAppend;
++ (nullable instancetype)outputStreamWithURL:(NSURL *)url append:(BOOL)shouldAppend;
+- (instancetype)initToMemory;
+- (instancetype)initToBuffer:(uint8_t *)buffer capacity:(NSUInteger)capacity;
+- (nullable instancetype)initToFileAtPath:(NSString *)path append:(BOOL)shouldAppend;
+- (nullable instancetype)initWithURL:(NSURL *)url append:(BOOL)shouldAppend;
+- (NSInteger)write:(const uint8_t *)buffer maxLength:(NSUInteger)len;
+@property (readonly) BOOL hasSpaceAvailable;
+@end
+
 @interface NSProgress : NSObject
 + (nullable NSProgress *)currentProgress;
 + (NSProgress *)progressWithTotalUnitCount:(int64_t)unitCount;

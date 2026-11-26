@@ -2854,3 +2854,18 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   keeps both requirements.
 - The target application now runs until NSXPCConnection.
 - Target app window (total `^MISSING`): 62 -> 41.
+
+## Keyed archiving, streams, Objective-C protocols in mangled names
+
+- Foundation: NSCoder, NSCoding/NSSecureCoding, NSKeyedArchiver and
+  NSKeyedUnarchiver in the NSKeyedArchiver format ($objects/$top with UIDs;
+  collections, dates, URLs, data, custom NSCoding classes, shared and
+  cyclic references, delegates, secure class checks), NSStream,
+  NSInputStream and NSOutputStream over memory, buffers and files.
+  Test: tests/foundation/archive.m.
+- Runtime: an Objective-C protocol in a mangled name (symbolic reference
+  0x0c) points at the image's protocol record, not at a reference slot;
+  it was dereferenced, giving existentials like `any NSObjectProtocol` a
+  garbage protocol. It now resolves to the runtime's protocol of that
+  name.
+- Target app window (total `^MISSING`): 41 -> 38.

@@ -385,9 +385,14 @@ static int symbolic(struct parser *P, int kind) {
         return 0;
     }
     case 0x0c: {
-        /* Relative reference to an Objective-C protocol reference slot. */
+        /* Relative reference to an Objective-C protocol record (protocol_t:
+         * isa, then the name) in the image. Its isa may not be bound, so
+         * the runtime's protocol of that name stands for it. */
+        RT(const void *(*)(const char *), getproto, "_objc_getProtocol");
+        const char *name = ((const char *const *)target)[1];
+        const void *proto = getproto && name ? getproto(name) : NULL;
         struct node *n = mk(P, NK_OBJC_PROTO);
-        n->ptr = *(const void *const *)target;
+        n->ptr = proto ? proto : target;
         push(P, n);
         return 0;
     }
@@ -2206,6 +2211,7 @@ static void print_metadata(struct sbuf *b, const sw_metadata *m, int qualified) 
             count++;
         }
         const proto_ref *ps = (const proto_ref *)(tail + has_super);
+
         for (uint32_t i = 0; i < e->num_protocols; i++, count++) {
             if (count) sb_puts(b, " & ");
             print_proto_ref(b, ps[i], qualified);
