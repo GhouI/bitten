@@ -39,5 +39,19 @@ import UniformTypeIdentifiers
   v.name = file.lastPathComponent
   if v.contentType != .json { bad |= 0x10 }
   if dir.appendingPathComponent("notes", conformingTo: .plainText).lastPathComponent != "notes.txt" { bad |= 0x20 }
+  // An item provider's file, by type.
+  let path = "/tmp/bitten-uttype-\(getpid()).txt"
+  FileManager.default.createFile(atPath: path, contents: Data("hi".utf8), attributes: [:])
+  if let provider = NSItemProvider(contentsOf: URL(fileURLWithPath: path)) {
+    final class Box: @unchecked Sendable { var url: URL?; var done = false }
+    let box = Box()
+    let progress = provider.loadFileRepresentation(for: .plainText, openInPlace: true) { url, _, _ in
+      box.url = url
+      box.done = true
+    }
+    for _ in 0..<100 where !box.done { RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.01)) }
+    if !box.done || box.url == nil { bad |= 0x40 }
+    _ = progress.fractionCompleted
+  } else { bad |= 0x80 }
   return bad
 }
