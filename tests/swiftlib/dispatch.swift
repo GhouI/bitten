@@ -1,11 +1,15 @@
 // The Dispatch overlay: queues, groups, semaphores, timer sources, times,
 // queue-specific values and DispatchData, run against bitten's libdispatch.
 import Dispatch
+import ObjectiveC
 
 struct Failure: Error {}
 
 @_silgen_name("swl_dispatch_queues") public func queues() -> Int {
   var bad = 0
+  // The classes exist before any object of their kind does.
+  if String(cString: class_getName(DispatchSource.self)) != "OS_dispatch_source" ||
+     String(cString: class_getName(__DispatchData.self)) != "OS_dispatch_data" { bad |= 0x100 }
   let q = DispatchQueue(label: "test.serial")
   if q.label != "test.serial" { bad |= 1 }
   // sync returns values and rethrows errors

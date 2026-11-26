@@ -1716,3 +1716,14 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   `__NSCFString` now pass `as NSCopying`).
 - Target app window (total `^MISSING`): 2,935 -> 2,906. It now stops at the
   standard library's sort helper `_minimumMergeRunLength`.
+
+## 2026-11-26: dispatch classes built at start-up (PR: dispatch-eager)
+
+- The six dispatch classes Swift code names by symbol
+  (`swift_classes.c`) were built lazily, with the first object of their
+  kind; a program that messaged `OS_dispatch_source` (or read its metadata)
+  before creating a source read zeroed storage and crashed. They are now
+  built in a constructor (priority 110), after the Objective-C runtime and
+  dispatch's root classes, before any image loads.
+- `tests/swiftlib/dispatch` asks for the class names before any source or
+  data object exists.
