@@ -2953,3 +2953,53 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   (its server start fails next: it runs `/bin/launchctl`).
 - Target app window (total `^MISSING`): 30 -> 30.
 
+
+## Networking: URLSession, URLRequest, WebSockets
+
+- Foundation: NSURLRequest and NSMutableURLRequest (headers matched
+  without regard to case, `addValue` folding), NSURLResponse,
+  NSHTTPURLResponse (MIME type, charset, length, suggested filename,
+  `localizedStringForStatusCode:`), NSCachedURLResponse, NSURLCache
+  (in memory), NSHTTPCookie (Set-Cookie parsing, `Expires` and `Max-Age`,
+  matching by domain, path and `secure`), NSHTTPCookieStorage,
+  NSURLCredential, NSURLProtectionSpace, and NSURLSessionConfiguration
+  (default, ephemeral, background).
+- NSURLSession with data, upload, download and WebSocket tasks, by
+  completion handler or by delegate (response disposition, data, redirects,
+  sent body data, download progress and location, metrics, completion,
+  invalidation). Everything the app sees runs on the delegate queue, in
+  order.
+  - **Transfers:** HTTP, HTTPS, file: and FTP go through the host's
+    libcurl, loaded at run time (src/frameworks/urlsession/http.c). That
+    gives HTTP/2, TLS through OpenSSL, proxies from the environment, and
+    compressed bodies decoded.
+  - **Redirects:** followed here, one hop at a time: 303, and 301/302
+    after POST, become GET. The delegate may change or refuse each one,
+    and there are at most 16 hops.
+  - **Requests:** cookies are sent and stored; there is a default user
+    agent; `data:` URLs are decoded here.
+  - **Errors** are NSURLErrorDomain codes, with the failing URL.
+  - **Metrics:** per transaction, with timings, addresses, ports, the
+    protocol name, and the negotiated TLS version and cipher suite.
+  - **WebSockets:** libcurl connects (and does TLS for wss); the opening
+    handshake (with Sec-WebSocket-Accept checked) and RFC 6455 framing are
+    here. That covers subprotocols, fragmented messages, pings and pongs,
+    close codes and reasons, the maximum message size, and a reader that
+    queues messages for `receive`.
+- Swift:
+  - **URLRequest:** a copy-on-write value bridged to NSURLRequest.
+  - **WebSockets:** `URLSessionWebSocketTask.Message` with
+    `send(_:completionHandler:)` and `receive(completionHandler:)`, plus
+    async versions.
+  - **Metrics:** `URLSessionTaskTransactionMetrics.negotiatedTLSProtocolVersion`
+    (Security's `tls_protocol_version_t`, new in the SDK), cipher suite
+    and ports.
+  - **Async:** URLSession's `data`, `upload` and `download` methods, with
+    task cancellation.
+- Tests:
+  - tests/foundation/urlsession runs against a local Python server
+    (tests/foundation/urlserver.py) for HTTP and WebSockets.
+  - tests/swiftlib/urlrequest covers the Swift side.
+- Target app window (total `^MISSING`): 30 -> 11. The app now gets past
+  `+[NSMutableURLRequest requestWithURL:]` and stays up (no crash in 40
+  seconds).

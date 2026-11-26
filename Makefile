@@ -571,6 +571,7 @@ SWLIB_MACOS_calendar := 14.0
 swlib_macos = $(or $(SWLIB_MACOS_$(1)),11.0)
 # Frameworks a test links besides the overlays.
 SWLIB_LIBS_foundation := $(FOUNDATION) $(FOUNDATION_COMBINE)
+SWLIB_LIBS_urlrequest := $(FOUNDATION) $(FOUNDATION_COMBINE)
 SWLIB_LIBS_cryptokit := $(FOUNDATION) $(call swift_fw_lib,CryptoKit)
 SWLIB_LIBS_network := $(FOUNDATION) $(call swift_fw_lib,Network)
 SWLIB_MACOS_network := 14.0
