@@ -169,18 +169,18 @@ open class JSONEncoder {
     public static let withoutEscapingSlashes = OutputFormatting(rawValue: 1 << 3)
   }
 
-  public enum DateEncodingStrategy: Sendable {
+  public enum DateEncodingStrategy: @unchecked Sendable {
     case deferredToDate
     case secondsSince1970
     case millisecondsSince1970
     case iso8601
-    case custom(@Sendable (Date, any Encoder) throws -> Void)
+    case custom((Date, any Encoder) throws -> Void)
   }
 
-  public enum DataEncodingStrategy: Sendable {
+  public enum DataEncodingStrategy: @unchecked Sendable {
     case deferredToData
     case base64
-    case custom(@Sendable (Data, any Encoder) throws -> Void)
+    case custom((Data, any Encoder) throws -> Void)
   }
 
   public enum NonConformingFloatEncodingStrategy: Sendable {
@@ -188,10 +188,10 @@ open class JSONEncoder {
     case convertToString(positiveInfinity: String, negativeInfinity: String, nan: String)
   }
 
-  public enum KeyEncodingStrategy: Sendable {
+  public enum KeyEncodingStrategy: @unchecked Sendable {
     case useDefaultKeys
     case convertToSnakeCase
-    case custom(@Sendable (_ codingPath: [any CodingKey]) -> any CodingKey)
+    case custom((_ codingPath: [any CodingKey]) -> any CodingKey)
   }
 
   open var outputFormatting: OutputFormatting = []
@@ -721,18 +721,18 @@ internal struct _JSONParser {
 // MARK: - JSONDecoder
 
 open class JSONDecoder {
-  public enum DateDecodingStrategy: Sendable {
+  public enum DateDecodingStrategy: @unchecked Sendable {
     case deferredToDate
     case secondsSince1970
     case millisecondsSince1970
     case iso8601
-    case custom(@Sendable (_ decoder: any Decoder) throws -> Date)
+    case custom((_ decoder: any Decoder) throws -> Date)
   }
 
-  public enum DataDecodingStrategy: Sendable {
+  public enum DataDecodingStrategy: @unchecked Sendable {
     case deferredToData
     case base64
-    case custom(@Sendable (_ decoder: any Decoder) throws -> Data)
+    case custom((_ decoder: any Decoder) throws -> Data)
   }
 
   public enum NonConformingFloatDecodingStrategy: Sendable {
@@ -740,10 +740,10 @@ open class JSONDecoder {
     case convertFromString(positiveInfinity: String, negativeInfinity: String, nan: String)
   }
 
-  public enum KeyDecodingStrategy: Sendable {
+  public enum KeyDecodingStrategy: @unchecked Sendable {
     case useDefaultKeys
     case convertFromSnakeCase
-    case custom(@Sendable (_ codingPath: [any CodingKey]) -> any CodingKey)
+    case custom((_ codingPath: [any CodingKey]) -> any CodingKey)
   }
 
   open var dateDecodingStrategy: DateDecodingStrategy = .deferredToDate

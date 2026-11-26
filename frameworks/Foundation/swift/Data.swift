@@ -594,12 +594,12 @@ public struct Data: Equatable, Hashable, RandomAccessCollection, MutableCollecti
     _representation = bytes.withUnsafeBytes { _Representation($0) }
   }
 
-  public enum Deallocator: Sendable {
+  public enum Deallocator: @unchecked Sendable {
     case virtualMemory
     case unmap
     case free
     case none
-    case custom(@Sendable (UnsafeMutableRawPointer, Int) -> Void)
+    case custom((UnsafeMutableRawPointer, Int) -> Void)
 
     @usableFromInline
     internal var _deallocator: (UnsafeMutableRawPointer, Int) -> Void {
@@ -1034,7 +1034,13 @@ extension NSError: Error {}
 
 // MARK: - String and Data
 
+extension String {
+  public func data(using encoding: String.Encoding, allowLossyConversion: Bool = false) -> Data? {
+    return Substring(self).data(using: encoding, allowLossyConversion: allowLossyConversion)
+  }
+}
 extension StringProtocol {
+  @_disfavoredOverload
   public func data(using encoding: String.Encoding, allowLossyConversion: Bool = false) -> Data? {
     switch encoding {
     case .utf8: return Data(String(self).utf8)

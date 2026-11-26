@@ -626,7 +626,7 @@ typedef NSString *NSFileAttributeKey;
 extern NSFileAttributeKey const NSFileSize, NSFileType, NSFileModificationDate, NSFileCreationDate,
     NSFilePosixPermissions, NSFileOwnerAccountID, NSFileGroupOwnerAccountID;
 extern NSString *const NSFileTypeRegular, *const NSFileTypeDirectory, *const NSFileTypeSymbolicLink,
-    *const NSFileTypeUnknown;
+    *const NSFileTypeUnknown, *const NSFileTypeSocket, *const NSFileTypeCharacterSpecial, *const NSFileTypeBlockSpecial;
 typedef NS_ENUM(NSUInteger, NSSearchPathDirectory) {
     NSApplicationDirectory = 1, NSDemoApplicationDirectory, NSDeveloperApplicationDirectory, NSAdminApplicationDirectory,
     NSLibraryDirectory, NSDeveloperDirectory, NSUserDirectory, NSDocumentationDirectory, NSDocumentDirectory,
@@ -644,6 +644,10 @@ typedef NS_OPTIONS(NSUInteger, NSDirectoryEnumerationOptions) {
     NSDirectoryEnumerationSkipsSubdirectoryDescendants = 1, NSDirectoryEnumerationSkipsPackageDescendants = 2,
     NSDirectoryEnumerationSkipsHiddenFiles = 4
 };
+typedef NS_OPTIONS(NSUInteger, NSFileManagerItemReplacementOptions) {
+    NSFileManagerItemReplacementUsingNewMetadataOnly = 1UL << 0,
+    NSFileManagerItemReplacementWithoutDeletingBackupItem = 1UL << 1
+} NS_SWIFT_NAME(FileManager.ItemReplacementOptions);
 NS_SWIFT_NAME(FileManager)
 @interface NSFileManager : NSObject
 - (NSArray<NSURL *> *)URLsForDirectory:(NSSearchPathDirectory)directory inDomains:(NSSearchPathDomainMask)domainMask;
@@ -681,6 +685,23 @@ NS_SWIFT_NAME(FileManager)
 NSString *NSTemporaryDirectory(void);
 NSString *NSHomeDirectory(void);
 NSString *NSUserName(void);
+NSString *NSFullUserName(void);
+NSString *_Nullable NSHomeDirectoryForUser(NSString *_Nullable userName);
+
+/* Toll-free bridged to CFLocale; here a locale is its identifier. */
+@interface NSLocale : NSObject <NSCopying>
++ (instancetype)localeWithLocaleIdentifier:(NSString *)ident;
+- (instancetype)initWithLocaleIdentifier:(NSString *)string;
+@property (readonly, copy) NSString *localeIdentifier;
+@property (class, readonly, copy) NSLocale *currentLocale;
+@property (class, readonly, copy) NSLocale *autoupdatingCurrentLocale;
+@property (class, readonly, copy) NSLocale *systemLocale;
+@property (class, readonly, copy) NSArray<NSString *> *availableLocaleIdentifiers;
+@property (class, readonly, copy) NSArray<NSString *> *preferredLanguages;
+@property (nullable, readonly, copy) NSString *languageCode;
+@property (nullable, readonly, copy) NSString *countryCode;
+- (nullable NSString *)localizedStringForLocaleIdentifier:(NSString *)localeIdentifier;
+@end
 
 __attribute__((swift_bridge("Foundation.URL")))
 @interface NSURL : NSObject <NSCopying>
@@ -718,17 +739,17 @@ NS_SWIFT_NAME(JSONSerialization)
 @end
 
 typedef NS_OPTIONS(NSUInteger, NSPropertyListMutabilityOptions) {
-    NSPropertyListImmutable = 0,
-    NSPropertyListMutableContainers = 1,
-    NSPropertyListMutableContainersAndLeaves = 2
-};
-typedef NSPropertyListMutabilityOptions NSPropertyListReadOptions;
-typedef NSUInteger NSPropertyListWriteOptions;
+    NSPropertyListImmutable NS_SWIFT_NAME(immutable) = 0,
+    NSPropertyListMutableContainers NS_SWIFT_NAME(mutableContainers) = 1,
+    NSPropertyListMutableContainersAndLeaves NS_SWIFT_NAME(mutableContainersAndLeaves) = 2
+} NS_SWIFT_NAME(PropertyListSerialization.MutabilityOptions);
+typedef NSPropertyListMutabilityOptions NSPropertyListReadOptions NS_SWIFT_NAME(PropertyListSerialization.ReadOptions);
+typedef NSUInteger NSPropertyListWriteOptions NS_SWIFT_NAME(PropertyListSerialization.WriteOptions);
 typedef NS_ENUM(NSUInteger, NSPropertyListFormat) {
-    NSPropertyListOpenStepFormat = 1,
-    NSPropertyListXMLFormat_v1_0 = 100,
-    NSPropertyListBinaryFormat_v1_0 = 200
-};
+    NSPropertyListOpenStepFormat NS_SWIFT_NAME(openStep) = 1,
+    NSPropertyListXMLFormat_v1_0 NS_SWIFT_NAME(xml) = 100,
+    NSPropertyListBinaryFormat_v1_0 NS_SWIFT_NAME(binary) = 200
+} NS_SWIFT_NAME(PropertyListSerialization.PropertyListFormat);
 NS_SWIFT_NAME(PropertyListSerialization)
 @interface NSPropertyListSerialization : NSObject
 + (BOOL)propertyList:(id)plist isValidForFormat:(NSPropertyListFormat)format;
@@ -1143,6 +1164,99 @@ typedef NS_OPTIONS(NSUInteger, NSAttributedStringEnumerationOptions) {
 - (void)setAttributedString:(NSAttributedString *)attrString;
 - (void)beginEditing;
 - (void)endEditing;
+@end
+
+@class NSCache;
+@protocol NSCacheDelegate <NSObject>
+@optional
+- (void)cache:(NSCache *)cache willEvictObject:(id)obj;
+@end
+@interface NSCache<KeyType, ObjectType> : NSObject
+@property (copy) NSString *name;
+@property (nullable, weak) id<NSCacheDelegate> delegate;
+- (nullable ObjectType)objectForKey:(KeyType)key;
+- (void)setObject:(ObjectType)obj forKey:(KeyType)key;
+- (void)setObject:(ObjectType)obj forKey:(KeyType)key cost:(NSUInteger)g;
+- (void)removeObjectForKey:(KeyType)key;
+- (void)removeAllObjects;
+@property NSUInteger totalCostLimit;
+@property NSUInteger countLimit;
+@property BOOL evictsObjectsWithDiscardedContent;
+@end
+
+@interface NSAssertionHandler : NSObject
+@property (class, readonly, strong) NSAssertionHandler *currentHandler;
+- (void)handleFailureInMethod:(SEL)selector object:(id)object file:(NSString *)fileName
+                   lineNumber:(NSInteger)line description:(nullable NSString *)format, ...;
+- (void)handleFailureInFunction:(NSString *)functionName file:(NSString *)fileName
+                     lineNumber:(NSInteger)line description:(nullable NSString *)format, ...;
+@end
+
+typedef NSString *NSValueTransformerName NS_TYPED_EXTENSIBLE_ENUM;
+extern NSValueTransformerName const NSNegateBooleanTransformerName, NSIsNilTransformerName,
+    NSIsNotNilTransformerName, NSUnarchiveFromDataTransformerName, NSKeyedUnarchiveFromDataTransformerName,
+    NSSecureUnarchiveFromDataTransformerName;
+
+@class NSUserActivity;
+@protocol NSUserActivityDelegate <NSObject>
+@optional
+- (void)userActivityWillSave:(NSUserActivity *)userActivity;
+@end
+@interface NSUserActivity : NSObject
+- (instancetype)initWithActivityType:(NSString *)activityType;
+@property (readonly, copy) NSString *activityType;
+@property (nullable, copy) NSString *title;
+@property (nullable, copy) NSDictionary *userInfo;
+- (void)addUserInfoEntriesFromDictionary:(NSDictionary *)otherDictionary;
+@property (nullable, copy) NSSet<NSString *> *requiredUserInfoKeys;
+@property (copy) NSSet<NSString *> *keywords;
+@property (nullable, copy) NSURL *webpageURL;
+@property (nullable, copy) NSString *persistentIdentifier;
+@property (getter=isEligibleForHandoff) BOOL eligibleForHandoff;
+@property (getter=isEligibleForSearch) BOOL eligibleForSearch;
+@property (getter=isEligibleForPublicIndexing) BOOL eligibleForPublicIndexing;
+@property BOOL needsSave;
+@property (nullable, weak) id<NSUserActivityDelegate> delegate;
+- (void)becomeCurrent;
+- (void)resignCurrent;
+- (void)invalidate;
+@end
+
+typedef struct {
+    CGFloat m11, m12, m21, m22;
+    CGFloat tX, tY;
+} NSAffineTransformStruct;
+@interface NSAffineTransform : NSObject <NSCopying>
++ (NSAffineTransform *)transform;
+- (instancetype)initWithTransform:(NSAffineTransform *)transform;
+@property NSAffineTransformStruct transformStruct;
+- (void)translateXBy:(CGFloat)deltaX yBy:(CGFloat)deltaY;
+- (void)rotateByDegrees:(CGFloat)angle;
+- (void)rotateByRadians:(CGFloat)angle;
+- (void)scaleBy:(CGFloat)scale;
+- (void)scaleXBy:(CGFloat)scaleX yBy:(CGFloat)scaleY;
+- (void)invert;
+- (void)appendTransform:(NSAffineTransform *)transform;
+- (void)prependTransform:(NSAffineTransform *)transform;
+- (NSPoint)transformPoint:(NSPoint)aPoint;
+- (NSSize)transformSize:(NSSize)aSize;
+@end
+
+/* Decimal numbers, with double precision here. */
+@interface NSDecimalNumber : NSNumber
++ (NSDecimalNumber *)decimalNumberWithString:(nullable NSString *)numberValue;
++ (NSDecimalNumber *)decimalNumberWithMantissa:(unsigned long long)mantissa exponent:(short)exponent isNegative:(BOOL)flag;
+@property (class, readonly, copy) NSDecimalNumber *zero;
+@property (class, readonly, copy) NSDecimalNumber *one;
+@property (class, readonly, copy) NSDecimalNumber *notANumber;
+- (instancetype)initWithDouble:(double)value;
+- (instancetype)initWithString:(nullable NSString *)numberValue;
+- (instancetype)initWithMantissa:(unsigned long long)mantissa exponent:(short)exponent isNegative:(BOOL)flag;
+- (NSDecimalNumber *)decimalNumberByAdding:(NSDecimalNumber *)decimalNumber;
+- (NSDecimalNumber *)decimalNumberBySubtracting:(NSDecimalNumber *)decimalNumber;
+- (NSDecimalNumber *)decimalNumberByMultiplyingBy:(NSDecimalNumber *)decimalNumber;
+- (NSDecimalNumber *)decimalNumberByDividingBy:(NSDecimalNumber *)decimalNumber;
+- (NSDecimalNumber *)decimalNumberByRaisingToPower:(NSUInteger)power;
 @end
 
 @interface NSProgress : NSObject

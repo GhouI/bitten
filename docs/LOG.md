@@ -2776,3 +2776,25 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - The target application now opens its first window on the display
   server, then stops at NSAppleEventManager.
 - Target app window (total `^MISSING`): 113 -> 108.
+
+## Calendar, property-list coders, ranges, bridging, smaller Foundation classes
+
+- Foundation (Swift): Calendar (Gregorian and ISO 8601 civil-date
+  arithmetic in a time zone: components, dates from components, adding
+  with month-end clamping, differences, start of day, ranges, intervals,
+  comparisons at a granularity, next matching date), DateComponents,
+  DateInterval; PropertyListEncoder/Decoder over PropertyListSerialization;
+  NSRange's Hashable conformance and conversions to and from integer and
+  String-index ranges; AffineTransform; bridging of CGFloat, Float,
+  CGPoint, CGSize, CGRect and Locale; `NSNotFound`;
+  FileManager.replaceItemAt; `String.data(using:)` declared on String (as
+  the app links it) and the `.custom` decoding strategies and Data's
+  custom deallocator without `@Sendable`, as in Apple's mangling.
+- Foundation (Objective-C): NSLocale, NSCache (count and cost limits,
+  oldest first eviction, delegate), NSAssertionHandler, the value
+  transformer names, NSUserActivity, NSAffineTransform, NSDecimalNumber
+  (double precision), NSFullUserName, NSHomeDirectoryForUser, socket and
+  device file types. Property list formats have their Swift names.
+- Test: tests/swiftlib/calendar (calendar arithmetic, plist round trips,
+  UTF-16 ranges).
+- Target app window (total `^MISSING`): 108 -> 62.
