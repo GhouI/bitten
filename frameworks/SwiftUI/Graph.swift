@@ -130,6 +130,16 @@ internal class _ViewNode {
   var frame: CGRect = ._zero
   var children: [_ViewNode] = []
   var environment: EnvironmentValues
+  /// The view type that made this node (set only with BITTEN_SWIFTUI_TREE).
+  var _debugName: String?
+
+  /// Prints the placed subtree (BITTEN_SWIFTUI_TREE=1).
+  func _dumpTree(_ depth: Int = 0) {
+    let f = frame
+    let name = _debugName.map { String($0.prefix(160)) } ?? ""
+    _dbg(String(repeating: "  ", count: depth) + "\(type(of: self)) \(name) (\(f.origin.x),\(f.origin.y) \(f.size.width)x\(f.size.height))")
+    for c in children { c._dumpTree(depth + 1) }
+  }
 
   init(environment: EnvironmentValues, children: [_ViewNode] = []) {
     self.environment = environment
@@ -220,6 +230,7 @@ internal func _sw_field(_ value: UnsafeRawPointer, _ type: Any.Type, _ index: In
                         _ childType: UnsafeMutablePointer<Any.Type?>) -> UnsafeRawPointer?
 
 nonisolated(unsafe) let _debugGraph = getenv("BITTEN_SWIFTUI_DEBUG") != nil
+nonisolated(unsafe) let _debugTree = getenv("BITTEN_SWIFTUI_TREE") != nil
 /// Debug output, unbuffered (it often comes just before a crash).
 internal func _dbg(_ s: String) { fputs(s + "\n", stderr) }
 
@@ -255,7 +266,17 @@ internal func _installDynamicProperties<V>(_ value: inout V, inputs: _ViewInputs
 
 /// Builds the node for a view value, through its type's _makeView.
 internal func _makeNode<V: View>(_ view: V, inputs: _ViewInputs) -> _ViewNode {
-  return V._makeView(view: _GraphValue({ view }), inputs: inputs).node
+  let node = V._makeView(view: _GraphValue({ view }), inputs: inputs).node
+  if _debugTree { _debugLabel(node, V.self) }
+  return node
+}
+
+/// Prepends a view type's name to a node's debug label.
+internal func _debugLabel(_ node: _ViewNode, _ type: Any.Type) {
+  let full = "\(type)"
+  let short = full.split(separator: "<").first.map(String.init) ?? full
+  if node._debugName?.hasPrefix(short + "/") == true || node._debugName == short { return }
+  node._debugName = node._debugName.map { short + "/" + $0 } ?? short
 }
 
 /// Builds the list of nodes a view contributes to a stack.
@@ -273,7 +294,9 @@ extension View {
     }
     let body = _withObservation(inputs) { value.body }
     if _debugGraph && "\(Body.self)".hasPrefix("GeometryReader") { _dbg("bitten: body of \(Self.self) is \(Body.self)") }
-    return Body._makeView(view: _GraphValue({ body }), inputs: inputs.child(0))
+    let out = Body._makeView(view: _GraphValue({ body }), inputs: inputs.child(0))
+    if _debugTree { _debugLabel(out.node, Self.self) }
+    return out
   }
 
   public static func _makeViewList(view: _GraphValue<Self>, inputs: _ViewListInputs) -> _ViewListOutputs {
@@ -289,7 +312,9 @@ extension View where Self: Animatable {
     _installDynamicProperties(&value, inputs: inputs)
     let body = _withObservation(inputs) { value.body }
     if _debugGraph && "\(Body.self)".hasPrefix("GeometryReader") { _dbg("bitten: body of \(Self.self) is \(Body.self)") }
-    return Body._makeView(view: _GraphValue({ body }), inputs: inputs.child(0))
+    let out = Body._makeView(view: _GraphValue({ body }), inputs: inputs.child(0))
+    if _debugTree { _debugLabel(out.node, Self.self) }
+    return out
   }
   public static func _makeViewList(view: _GraphValue<Self>, inputs: _ViewListInputs) -> _ViewListOutputs {
     return _ViewListOutputs([_makeView(view: view, inputs: inputs.base).node])

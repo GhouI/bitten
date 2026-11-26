@@ -212,6 +212,7 @@ open class _HostingViewBase: NSView {
                          y: ((bounds.size.height - size.height) / 2).rounded(.down))
     r.place(in: CGRect(origin: origin, size: size))
     _placedIn = bounds.size
+    if _debugTree { _dbg("bitten: swiftui tree in \(bounds.size)"); r._dumpTree() }
     _orderPlatformViews(r)
     return r
   }

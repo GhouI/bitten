@@ -3410,3 +3410,19 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   functions for but whose metadata accessor (`Ma`/`Mn`) it never imports is
   frozen in Apple's SDK.
 - Target app (total `^MISSING`): 11 -> 11. 0 crashes in 8 runs (was about 1 in 4).
+
+## SwiftUI: scroll content at its ideal size; node tree dump
+
+- Stacks placed at exactly their ideal length (as scroll views place their
+  content) now give every child its ideal size. Before, a section with a
+  `maxWidth: .infinity` header inside a horizontal ScrollView swallowed the
+  extra width. The content overflowed and was centred, so the target app's
+  theme carousel showed only empty space.
+- Flexible stack children now get their shares one at a time, largest first
+  and spacers last, each from what the others left. A child that cannot
+  shrink to its share no longer pushes the stack past its bounds.
+- `BITTEN_SWIFTUI_TREE=1` prints every laid-out SwiftUI node: its class,
+  the chain of view types that built it, and its frame.
+- Test: tests/swiftlib/swiftui.swift `scrollstack`.
+- Target app (total `^MISSING`): 11 -> 11. The appearance page now shows the
+  "Default theme" and "Built-in themes" cards.
