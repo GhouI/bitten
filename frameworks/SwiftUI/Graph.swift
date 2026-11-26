@@ -149,6 +149,10 @@ internal class _ViewNode {
   func draw(_ context: CGContext) {
     for c in children { c.draw(context) }
   }
+  /// The AppKit views (representables) in this subtree, back to front.
+  func collectPlatformViews(_ into: inout [NSView]) {
+    for c in children { c.collectPlatformViews(&into) }
+  }
   /// The deepest node under `point` that handles taps.
   func hit(_ point: CGPoint) -> _ViewNode? {
     guard frame._contains(point) else { return nil }

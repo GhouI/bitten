@@ -188,10 +188,26 @@ open class _HostingViewBase: NSView {
                          y: ((bounds.size.height - size.height) / 2).rounded(.down))
     r.place(in: CGRect(origin: origin, size: size))
     _placedIn = bounds.size
+    _orderPlatformViews(r)
     return r
   }
 
+  /// Stacks the representables' AppKit views the way SwiftUI draws them
+  /// (a background's below the content, an overlay's above), whatever
+  /// order layout added them in.
+  func _orderPlatformViews(_ root: _ViewNode) {
+    var order: [NSView] = []
+    root.collectPlatformViews(&order)
+    let current = subviews
+    let placed = current.filter { v in order.contains { $0 === v } }
+    let wanted = order.filter { v in placed.contains { $0 === v } }
+    if placed.count < 2 || zip(placed, wanted).allSatisfy({ $0 === $1 }) { return }
+    var next = wanted.makeIterator()
+    subviews = current.map { v in placed.contains { $0 === v } ? next.next()! : v }
+  }
+
   override open var isFlipped: Bool { return true }
+  @objc func _bn_drawsOwnSubviews() -> Bool { return true }
 
   override open func draw(_ dirtyRect: NSRect) {
     guard let cg = NSGraphicsContext.current?.cgContext else { return }

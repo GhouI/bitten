@@ -488,6 +488,10 @@ extension View {
   public func background<Background: View>(_ background: Background, alignment: Alignment = .center) -> some View {
     return modifier(_BackgroundModifier(background: background, alignment: alignment))
   }
+  @_disfavoredOverload
+  public func overlay<Overlay: View>(_ overlay: Overlay, alignment: Alignment = .center) -> some View {
+    return modifier(_OverlayModifier(overlay: overlay, alignment: alignment))
+  }
 }
 
 extension CoordinateSpaceProtocol where Self == NamedCoordinateSpace {

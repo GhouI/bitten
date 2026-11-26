@@ -317,6 +317,10 @@ DX_FN(CGContextSetStrokeColor);
 
 static void d_CGContextSetAlpha(CGContextRef c, CGFloat a) { if (c) c->gs->alpha = a < 0 ? 0 : a > 1 ? 1 : a; }
 DX_FN(CGContextSetAlpha);
+/* Apple's private getter (CoreGraphics SPI); SwiftUI's opacity multiplies
+ * into the alpha already set by enclosing views. */
+static CGFloat d_CGContextGetAlpha(CGContextRef c) { return c ? c->gs->alpha : 1; }
+DX_FN(CGContextGetAlpha);
 static void d_CGContextSetBlendMode(CGContextRef c, int mode) { if (c) c->gs->blend = mode; }
 DX_FN(CGContextSetBlendMode);
 static void d_CGContextSetLineWidth(CGContextRef c, CGFloat w) { if (c && w >= 0) c->gs->line_width = w; }

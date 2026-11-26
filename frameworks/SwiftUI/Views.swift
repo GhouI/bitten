@@ -516,6 +516,15 @@ internal final class _LayeredNode: _ViewNode {
       children[1].draw(context)
     }
   }
+  override func collectPlatformViews(_ into: inout [NSView]) {
+    if behind {
+      children[1].collectPlatformViews(&into)
+      children[0].collectPlatformViews(&into)
+    } else {
+      children[0].collectPlatformViews(&into)
+      children[1].collectPlatformViews(&into)
+    }
+  }
   override func hit(_ point: CGPoint) -> _ViewNode? {
     guard frame._contains(point) else { return nil }
     if behind { return children[0].hit(point) ?? children[1].hit(point) }
@@ -1071,8 +1080,16 @@ internal final class _TextNode: _ViewNode {
   }
   override func draw(_ context: CGContext) {
     var y = frame._minY
-    for line in lines(in: frame._width + 0.5) {
-      _TextRenderer.draw(String(line), font: font, paint: paint, at: CGPoint(x: frame._minX, y: y),
+    let ls = lines(in: frame._width + 0.5)
+    let alignment = ls.count > 1 ? environment.multilineTextAlignment : .leading
+    for line in ls {
+      // Lines of wrapped text line up as multilineTextAlignment says.
+      var x = frame._minX
+      if alignment != .leading {
+        let slack = Swift.max(0, frame._width - width(of: line))
+        x += alignment == .center ? (slack / 2).rounded(.down) : slack
+      }
+      _TextRenderer.draw(String(line), font: font, paint: paint, at: CGPoint(x: x, y: y),
                          lineHeight: lineHeight, in: context)
       y += lineHeight
     }
