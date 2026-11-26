@@ -3426,3 +3426,26 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Test: tests/swiftlib/swiftui.swift `scrollstack`.
 - Target app (total `^MISSING`): 11 -> 11. The appearance page now shows the
   "Default theme" and "Built-in themes" cards.
+
+## Casts to CoreFoundation types; crash reports
+
+- Swift runtime (casts.c): a cast to a CoreFoundation type (a foreign
+  class: CTFontDescriptor, CGColor, ...) from any object succeeds, as in
+  Apple's runtime, where the compiler warns that such casts always do.
+  `as? [CTFontDescriptor]` on a CFArray used to fail element by element,
+  so the target app believed its bundled Symbols Nerd Font was missing
+  ("Could not find the bundled Symbols Nerd Font for titles" is gone).
+- Crash reports (signal.c): a fault the program does not handle (SIGSEGV,
+  SIGBUS, SIGILL, SIGFPE, SIGTRAP) writes the signal, faulting address,
+  registers and a frame-pointer backtrace, each address placed in its
+  Mach-O image and nearest symbol (or in bitten itself via dladdr), to
+  ~/Library/Logs/DiagnosticReports/<program>-<pid>.crash, then dies as
+  before. Nothing goes to stderr, as on a Mac; BITTEN_CRASH_REPORT=stderr
+  prints there instead, =0 turns it off. The main thread gets an alternate
+  signal stack so stack overflows report too.
+- CoreText: BITTEN_CT_DEBUG also traces fonts read from files.
+- Test: tests/swiftlib/coretext (descriptors from a font file, cast to
+  [CTFontDescriptor], their attributes and type).
+- Target app (total `^MISSING`): 11 -> 11. The intermittent crash is now
+  readable: swift_getAtKeyPath on a corrupt key path under SwiftUI's
+  Environment._install during view graph building.

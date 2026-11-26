@@ -2038,7 +2038,6 @@ static const sw_metadata *resolve_opaque(struct resolver *R, const struct node *
     return m ? m : rfail(R, n, "underlying type of an opaque type could not be resolved");
 }
 
-const char *dx_symbol_for_address(const void *addr, uintptr_t *sym_addr);
 static void report(const char *name, size_t len, const struct node *root, struct resolver *R,
                    const char *parse_err) {
     if (!dx_verbose) return;
