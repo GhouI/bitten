@@ -3390,3 +3390,23 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Target app (total `^MISSING`): 11 -> 11. Its renderer now creates the
   Metal device, compiles its 12-function library and builds all 5
   pipelines.
+
+## SwiftUI: frozen MatchedGeometryProperties and Anchor.Source (heap corruption)
+
+- The intermittent crash (about 1 run in 4: bad key paths in
+  `Environment._install`, or glibc "unaligned tcache chunk") was heap
+  corruption. `MatchedGeometryProperties` and `Anchor<Value>.Source` are
+  `@frozen` in Apple's SDK, and ours were not. Their static getters
+  (`.frame`, `.position`, `.bounds`) therefore returned through an indirect
+  buffer at whatever address was in rax, while the app reads the value from
+  eax/rax. One call site has a hash value in rax, so 4 bytes landed at a
+  random heap address. Both are now frozen.
+- The valgrind use-after-free reports chased earlier were an artifact.
+  Valgrind puts the heap below 4 GiB, and x86-64 macOS Swift treats
+  pointers below that as extra inhabitants (so an Optional holding one
+  reads as nil and is copied without a retain). Run valgrind with
+  `--aspace-minaddr=0x200000000 --main-stacksize=268435456`.
+- Check for this class of bug: an SDK struct or enum that the app imports
+  functions for but whose metadata accessor (`Ma`/`Mn`) it never imports is
+  frozen in Apple's SDK.
+- Target app (total `^MISSING`): 11 -> 11. 0 crashes in 8 runs (was about 1 in 4).
