@@ -251,3 +251,28 @@ struct Forwarding: PrimitiveButtonStyle {
     return bad
   }
 }
+
+/// Scroll content is placed at its ideal size: a stack of two sections that
+/// both have a full-width header gives each section its ideal width (the
+/// header used to swallow the extra and push the rest out of view).
+@_silgen_name("swl_swiftui_scrollstack") public func scrollStack() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    func section(_ c: Color, _ w: CGFloat) -> some View {
+      VStack(alignment: .leading, spacing: 0) {
+        Color.clear.frame(maxWidth: .infinity, minHeight: 1, maxHeight: 1)
+        c.frame(width: w, height: 10)
+      }
+    }
+    let view = ScrollView(.horizontal) {
+      HStack(spacing: 0) {
+        section(Color(.sRGB, red: 1, green: 0, blue: 0), 10)
+        section(Color(.sRGB, red: 0, green: 0, blue: 1), 30)
+      }
+    }.frame(width: 30, height: 11)
+    let px = render(view, 30, 11)
+    if px(1, 5) != red || px(8, 5) != red { bad |= 1 }
+    if px(12, 5) != blue || px(28, 5) != blue { bad |= 2 }
+    return bad
+  }
+}

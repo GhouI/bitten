@@ -575,15 +575,38 @@ internal final class _StackNode: _ViewNode {
       }
     }
     if !flexible.isEmpty {
-      let share = max(0, remaining) / CGFloat(flexible.count)
-      for i in flexible {
+      // One at a time, the largest first (spacers last), each from what the others
+      // left (a child that cannot shrink to its share takes more, and the
+      // rest share less), as SwiftUI's stacks do.
+      let order = flexible.sorted { a, b in
+        let fa = children[a].isSpacer ? -CGFloat.infinity : main(ideal[a])
+        let fb = children[b].isSpacer ? -CGFloat.infinity : main(ideal[b])
+        return fa > fb
+      }
+      var left = order.count
+      for i in order {
+        let share = max(0, remaining) / CGFloat(left)
         let p = axis == .vertical ? ProposedViewSize(width: crossProposal, height: share)
                                   : ProposedViewSize(width: share, height: crossProposal)
         result[i] = children[i].sizeThatFits(p)
         if children[i].isSpacer { result[i] = size(main: max(share, main(result[i])), cross: 0) }
+        remaining -= main(result[i])
+        left -= 1
       }
     }
     return result
+  }
+
+  /// The children's sizes for a placement in `size`. Offered exactly its
+  /// ideal length (as scroll views place their content), a stack gives every
+  /// child its ideal size.
+  private func placementSizes(_ size: CGSize) -> [CGSize] {
+    let idealProposal = axis == .vertical ? ProposedViewSize(width: size.width, height: nil)
+                                          : ProposedViewSize(width: nil, height: size.height)
+    let ideal = layout(idealProposal)
+    let idealMain = ideal.reduce(0) { $0 + main($1) } + spacing * CGFloat(max(0, ideal.count - 1))
+    if abs(idealMain - main(size)) < 0.5 { return ideal }
+    return layout(ProposedViewSize(size))
   }
 
   override func sizeThatFits(_ proposal: ProposedViewSize) -> CGSize {
@@ -595,7 +618,7 @@ internal final class _StackNode: _ViewNode {
 
   override func place(in rect: CGRect) {
     frame = rect
-    let s = layout(ProposedViewSize(rect.size))
+    let s = placementSizes(rect.size)
     var pos = axis == .vertical ? rect._minY : rect._minX
     for (i, child) in children.enumerated() {
       let cs = s[i]
