@@ -76,3 +76,13 @@ public func _stdlib_isOSVersionAtLeast(_ major: Builtin.Word, _ minor: Builtin.W
                                       Int32(truncatingIfNeeded: Int(patch))) != 0
   return ok._value
 }
+
+/// `#available` with a variant (Mac Catalyst) version: the macOS version
+/// decides here.
+@_semantics("availability.osversion")
+public func _stdlib_isOSVersionAtLeastOrVariantVersionAtLeast(
+  _ major: Builtin.Word, _ minor: Builtin.Word, _ patch: Builtin.Word,
+  _ variantMajor: Builtin.Word, _ variantMinor: Builtin.Word, _ variantPatch: Builtin.Word
+) -> Builtin.Int1 {
+  return _stdlib_isOSVersionAtLeast(major, minor, patch)
+}

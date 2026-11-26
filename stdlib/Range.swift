@@ -108,7 +108,7 @@ extension Range {
   @inlinable public var isEmpty: Bool { return false }
 }
 
-extension ClosedRange: RangeExpression where Bound: Strideable, Bound.Stride: SignedInteger {
+extension ClosedRange: RangeExpression {
   @inlinable public func relative<C: Collection>(to collection: C) -> Range<Bound> where C.Index == Bound {
     return Range(_uncheckedBounds: (lower: lowerBound, upper: collection.index(after: upperBound)))
   }
@@ -420,3 +420,22 @@ extension EmptyCollection: RandomAccessCollection, MutableCollection {
 // Swift.max/min for two values, used above and by programs.
 @inlinable public func min<T: Comparable>(_ x: T, _ y: T) -> T { return y < x ? y : x }
 @inlinable public func max<T: Comparable>(_ x: T, _ y: T) -> T { return y >= x ? y : x }
+
+// A slice of a range-replaceable collection can itself be edited: the edit
+// goes into its own copy of the base, and the slice's bounds follow.
+extension Slice: RangeReplaceableCollection where Base: RangeReplaceableCollection {
+  @inlinable public init() {
+    self._base = Base()
+    self._startIndex = _base.startIndex
+    self._endIndex = _base.endIndex
+  }
+  @inlinable public mutating func replaceSubrange<C: Collection>(_ subRange: Range<Index>, with newElements: C)
+  where C.Element == Base.Element {
+    let startOffset = _base.distance(from: _base.startIndex, to: _startIndex)
+    let newCount = _base.distance(from: _startIndex, to: _endIndex)
+      - _base.distance(from: subRange.lowerBound, to: subRange.upperBound) + newElements.count
+    _base.replaceSubrange(subRange, with: newElements)
+    _startIndex = _base.index(_base.startIndex, offsetBy: startOffset)
+    _endIndex = _base.index(_startIndex, offsetBy: newCount)
+  }
+}

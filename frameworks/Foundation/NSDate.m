@@ -39,6 +39,9 @@ static id make_date(NSTimeInterval reference) { return (__bridge_transfer id)CFD
 @end
 
 NSString *const NSCocoaErrorDomain = @"NSCocoaErrorDomain";
+NSString *const NSURLErrorDomain = @"NSURLErrorDomain";
+NSString *const NSURLErrorFailingURLErrorKey = @"NSErrorFailingURLKey";
+NSString *const NSURLErrorFailingURLStringErrorKey = @"NSErrorFailingURLStringKey";
 NSString *const NSPOSIXErrorDomain = @"NSPOSIXErrorDomain";
 NSString *const NSOSStatusErrorDomain = @"NSOSStatusErrorDomain";
 NSString *const NSLocalizedDescriptionKey = @"NSLocalizedDescription";

@@ -177,6 +177,8 @@ int sw_check_requirements(const sw_generic_requirement *reqs, unsigned n, const 
 const sw_generic_context_header *sw_generic_header(const sw_context_descriptor *c);
 /* Nominal type descriptor and key generic arguments of type metadata. */
 const sw_type_context_descriptor *sw_type_descriptor(const sw_metadata *m);
+/* Word offset of a class's field offset vector in its metadata. */
+size_t sw_class_field_offsets_word(const sw_class_descriptor *d);
 const void *const *sw_generic_args(const sw_metadata *m);
 /* Class object behind class metadata (Swift class, ObjC wrapper), else NULL. */
 const void *sw_class_of_metadata(const sw_metadata *m);

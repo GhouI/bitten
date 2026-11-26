@@ -368,6 +368,38 @@ static int cast_to_optional(sw_opaque *dest, sw_opaque *src, const sw_metadata *
     return 1;
 }
 
+/* ---- AnyHashable and Objective-C bridging ------------------------------------------------- */
+/* The standard library does these in Swift (stdlib/AnyHashable.swift,
+ * Bridging.swift); the arguments go the same way under both conventions. */
+static const sw_metadata *anyhashable_type(void) {
+    static const sw_metadata *m;
+    if (!m) m = dx_global_lookup("_$ss11AnyHashableVN");
+    return m;
+}
+static int cast_to_anyhashable(sw_opaque *dest, sw_opaque *src, const sw_metadata *type) {
+    static const sw_protocol_descriptor *hashable;
+    static void (*convert)(sw_opaque *, sw_opaque *, const sw_metadata *, const sw_witness_table *);
+    if (!hashable) hashable = dx_global_lookup("_$sSHMp");
+    if (!convert) convert = dx_global_lookup("__swift_convertToAnyHashableIndirect");
+    const sw_witness_table *wt = hashable ? sw_conforms_to(type, hashable) : NULL;
+    if (!wt || !convert) return 0;
+    convert(src, dest, type, wt);
+    return 1;
+}
+static int cast_from_anyhashable(sw_opaque *dest, sw_opaque *src, const sw_metadata *target) {
+    static _Bool (*down)(sw_opaque *, sw_opaque *, const sw_metadata *);
+    if (!down) down = dx_global_lookup("__swift_anyHashableDownCastConditionalIndirect");
+    return down ? down(src, dest, target) : 0;
+}
+static int cast_bridging_from_objc(sw_opaque *dest, void *object, const sw_metadata *target) {
+    static const sw_protocol_descriptor *bridgeable;
+    static _Bool (*bridge)(void *, sw_opaque *, const sw_metadata *);
+    if (!bridgeable) bridgeable = dx_global_lookup("_$ss21_ObjectiveCBridgeableMp");
+    if (!bridge) bridge = dx_global_lookup("__bitten_bridgeFromObjectiveCConditional");
+    if (!bridgeable || !bridge || !sw_conforms_to(target, bridgeable)) return 0;
+    return bridge(object, dest, target);
+}
+
 /* ---- the general cast --------------------------------------------------------------------- */
 static int cast(sw_opaque *dest, sw_opaque *src, const sw_metadata *type, const sw_metadata *target) {
     if (type == target) {
@@ -375,6 +407,13 @@ static int cast(sw_opaque *dest, sw_opaque *src, const sw_metadata *type, const 
         return 1;
     }
     uintptr_t sk = sw_kind(type);
+    const sw_metadata *ah = anyhashable_type();
+    if (ah && type == ah && sw_kind(target) != SW_KIND_EXISTENTIAL) return cast_from_anyhashable(dest, src, target);
+    /* Anything Hashable becomes an AnyHashable; anything else (an Optional
+     * holding a Hashable value, say) goes on to the general rules below. */
+    if (ah && target == ah && sk != SW_KIND_EXISTENTIAL && sk != SW_KIND_EXISTENTIAL_METATYPE &&
+        cast_to_anyhashable(dest, src, type))
+        return 1;
     if (sk == SW_KIND_EXISTENTIAL || sk == SW_KIND_EXISTENTIAL_METATYPE) {
         sw_opaque *inner;
         const sw_metadata *dyn;
@@ -407,6 +446,9 @@ static int cast(sw_opaque *dest, sw_opaque *src, const sw_metadata *type, const 
         }
         break;
     }
+    /* An Objective-C object to a Swift value that bridges from it. */
+    if (is_class_like(type) && sw_kind(target) != SW_KIND_CLASS && cast_bridging_from_objc(dest, *(void **)src, target))
+        return 1;
     if (sk == SW_KIND_OPTIONAL) {
         /* Unwrap a non-nil Optional and try its payload. */
         const sw_metadata *sp = optional_payload(type);

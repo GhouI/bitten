@@ -67,6 +67,10 @@ MACHO_TARGET := -target x86_64-apple-macos11
 FW_CFLAGS := $(MACHO_TARGET) -x objective-c -fobjc-arc -fblocks -O2 -ffreestanding -nostdlibinc \
              -Isdk/include -fno-stack-protector -Wall -Wno-unused-parameter \
              -Wno-objc-protocol-method-implementation -Wno-nullability-completeness
+# Foundation is built for macOS 14, as Apple builds it for its own release:
+# its Swift overlay uses POSIXErrorCode, which moved to the _errno overlay in
+# macOS 14 and is hidden from older targets.
+FOUNDATION_MACOS := 14.0
 FOUNDATION_SRCS := $(wildcard frameworks/Foundation/*.m)
 FOUNDATION_OBJS := $(patsubst frameworks/Foundation/%.m,$(BUILD)/fw/Foundation/%.o,$(FOUNDATION_SRCS))
 $(BUILD)/fw/Foundation/%.o: frameworks/Foundation/%.m $(wildcard frameworks/Foundation/*.h sdk/include/*/*.h sdk/include/*.h)
@@ -74,7 +78,7 @@ $(BUILD)/fw/Foundation/%.o: frameworks/Foundation/%.m $(wildcard frameworks/Foun
 	$(MACHO_CC) $(FW_CFLAGS) -c -o $@ $<
 $(FOUNDATION): $(FOUNDATION_OBJS) $(BUILD)/sdk/libSystem.tbd
 	@mkdir -p $(dir $@)
-	$(MACHO_LD) -arch x86_64 -platform_version macos 11.0 11.0 -dylib \
+	$(MACHO_LD) -arch x86_64 -platform_version macos $(FOUNDATION_MACOS) $(FOUNDATION_MACOS) -dylib \
 	    -install_name /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation \
 	    -L$(BUILD)/sdk -lSystem -o $@ $(FOUNDATION_OBJS) $(FOUNDATION_SWIFT_LINK)
 
@@ -289,7 +293,7 @@ FOUNDATION_SWIFT_LINK  = $(if $(FOUNDATION_SWIFT_OBJ),$(FOUNDATION_SWIFT_OBJ) $(
 $(FOUNDATION): $(FOUNDATION_SWIFT_OBJ)
 $(BUILD)/fw/Foundation/FoundationSwift.o: $(FOUNDATION_SWIFT_SRCS) $(OVERLAY_LIBS) $(FOUNDATION_COMBINE) $(SDKROOT)/.stamp $(SWIFTRES)/.stamp
 	@mkdir -p $(dir $@)
-	$(SWIFTC) -module-name Foundation $(SWIFT_TARGET) $(SWIFT_SDKFLAGS) \
+	$(SWIFTC) -module-name Foundation -target x86_64-apple-macos$(FOUNDATION_MACOS) -runtime-compatibility-version none $(SWIFT_SDKFLAGS) \
 	    -enable-library-evolution -wmo -parse-as-library -O \
 	    -emit-module -emit-module-path $(SWIFT_MODDIR)/Foundation.swiftmodule \
 	    -c -o $@ $(FOUNDATION_SWIFT_SRCS)

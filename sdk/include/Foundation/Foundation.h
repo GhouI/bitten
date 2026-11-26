@@ -419,6 +419,8 @@ __attribute__((swift_bridge("Foundation.Date")))
 
 typedef NSString *NSErrorDomain;
 extern NSString *const NSCocoaErrorDomain, *const NSPOSIXErrorDomain, *const NSOSStatusErrorDomain;
+extern NSErrorDomain const NSURLErrorDomain;
+extern NSString *const NSURLErrorFailingURLErrorKey, *const NSURLErrorFailingURLStringErrorKey;
 extern NSString *const NSLocalizedDescriptionKey, *const NSLocalizedFailureReasonErrorKey,
     *const NSUnderlyingErrorKey, *const NSFilePathErrorKey;
 enum {

@@ -1128,9 +1128,24 @@ extension String {
 // MARK: - Error <-> NSError (the compiler calls these for `as NSError`)
 
 public func _convertErrorToNSError(_ error: Error) -> NSError {
-  if let ns = error as? NSError { return ns }
-  return NSError._bn_error(withDomain: String(reflecting: type(of: error)), code: error._code,
-                           filePath: nil, underlyingPOSIX: 0)
+  if let embedded = error._getEmbeddedNSError() as? NSError { return embedded }
+  if type(of: error) is NSError.Type, let ns = error as? NSError { return ns }
+  let domain: String
+  let code: Int
+  var info: [String: Any] = [:]
+  if let custom = error as? CustomNSError {
+    domain = type(of: custom).errorDomain
+    code = custom.errorCode
+    info = custom.errorUserInfo
+  } else {
+    domain = error._domain
+    code = error._code
+  }
+  if let localized = error as? LocalizedError {
+    if let d = localized.errorDescription { info[NSLocalizedDescriptionKey] = d }
+    if let r = localized.failureReason { info[NSLocalizedFailureReasonErrorKey] = r }
+  }
+  return NSError(domain: domain, code: code, userInfo: info.isEmpty ? nil : info)
 }
 
 public func _convertNSErrorToError(_ error: NSError?) -> Error {

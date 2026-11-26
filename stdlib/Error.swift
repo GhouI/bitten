@@ -4,16 +4,26 @@
 // by the runtime (swift_allocError, src/frameworks/swift/errors.c), which
 // the compiler knows by this protocol. The requirements spelled in String
 // (`_domain`) come with String; the remaining ones have defaults, as on
-// macOS, so conforming types write nothing.
+// macOS, so conforming types write nothing. The requirements are Apple's,
+// in Apple's order: programs send their witnesses keyed by them.
 
 public protocol Error: Sendable {
+  var _domain: String { get }
   var _code: Int { get }
   var _userInfo: AnyObject? { get }
+  func _getEmbeddedNSError() -> AnyObject?
 }
 
 extension Error {
+  public var _domain: String { return String(reflecting: type(of: self)) }
   public var _code: Int { return 1 }
   public var _userInfo: AnyObject? { return nil }
+  public func _getEmbeddedNSError() -> AnyObject? { return nil }
+}
+
+/// The NSError an error wraps, if it is one (Foundation's errors are).
+public func _getErrorEmbeddedNSError<T: Error>(_ x: T) -> AnyObject? {
+  return x._getEmbeddedNSError()
 }
 
 // Entry points the compiler calls: `try!` on an error, and an error thrown

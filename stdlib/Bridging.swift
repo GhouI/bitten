@@ -48,3 +48,41 @@ public func _bridgeAnyObjectToAny(_ possiblyNullObject: AnyObject?) -> Any {
   if let boxed = object as? __SwiftValue { return boxed.value }
   return object
 }
+
+/// Like _bridgeAnythingToObjectiveC, for values known not to be classes.
+public func _bridgeAnythingNonVerbatimToObjectiveC<T>(_ x: __owned T) -> AnyObject {
+  return _bridgeAnythingToObjectiveC(x)
+}
+
+/// An Objective-C object bridged to T (trapping when it cannot be).
+public func _forceBridgeFromObjectiveC<T>(_ x: AnyObject, _: T.Type) -> T {
+  if let b = T.self as? any _ObjectiveCBridgeable.Type {
+    func open<B: _ObjectiveCBridgeable>(_ type: B.Type) -> T {
+      return B._unconditionallyBridgeFromObjectiveC(x as? B._ObjectiveCType) as! T
+    }
+    return open(b)
+  }
+  if let boxed = x as? __SwiftValue { return boxed.value as! T }
+  return x as! T
+}
+
+/// An NSArray as [T].
+public func _bridgeCocoaArray<T>(_ value: AnyObject) -> [T] {
+  return _forceBridgeFromObjectiveC(value, [T].self)
+}
+
+/// Called by the runtime's dynamic casts (casts.c) for `object as? T` when
+/// T bridges from Objective-C (`nsString as? String`).
+@_silgen_name("_bitten_bridgeFromObjectiveCConditional")
+public func _bitten_bridgeFromObjectiveCConditional<T>(_ object: AnyObject, _ target: UnsafeMutablePointer<T>) -> Bool {
+  guard let b = T.self as? any _ObjectiveCBridgeable.Type else { return false }
+  func open<B: _ObjectiveCBridgeable>(_ type: B.Type) -> T? {
+    guard let source = object as? B._ObjectiveCType else { return nil }
+    var result: B?
+    B._conditionallyBridgeFromObjectiveC(source, result: &result)
+    return result.map { $0 as! T }
+  }
+  guard let value = open(b) else { return false }
+  target.initialize(to: value)
+  return true
+}
