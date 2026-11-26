@@ -516,6 +516,7 @@ enum {
     NSFileWriteUnknownError = 512, NSFileWriteNoPermissionError = 513, NSFileWriteFileExistsError = 516,
     NSPropertyListReadCorruptError = 3840
 };
+__attribute__((swift_bridge("Swift.Error")))
 @interface NSError : NSObject <NSCopying>
 + (instancetype)errorWithDomain:(NSErrorDomain)domain code:(NSInteger)code userInfo:(nullable NSDictionary *)userInfo;
 - (instancetype)initWithDomain:(NSErrorDomain)domain code:(NSInteger)code userInfo:(nullable NSDictionary *)userInfo;
@@ -1926,6 +1927,215 @@ typedef NS_OPTIONS(NSUInteger, NSMatchingFlags) {
 + (nullable instancetype)dataDetectorWithTypes:(NSTextCheckingTypes)checkingTypes error:(NSError **)error;
 - (nullable instancetype)initWithTypes:(NSTextCheckingTypes)checkingTypes error:(NSError **)error;
 @property (readonly) NSTextCheckingTypes checkingTypes;
+@end
+
+/* ---- XML: the event-driven parser and the node tree (NSXML.m) ---- */
+extern NSString *const NSXMLParserErrorDomain NS_SWIFT_NAME(XMLParser.errorDomain);
+typedef NS_ENUM(NSInteger, NSXMLParserError) {
+    NSXMLParserInternalError = 1, NSXMLParserOutOfMemoryError = 2, NSXMLParserDocumentStartError = 3,
+    NSXMLParserEmptyDocumentError = 4, NSXMLParserPrematureDocumentEndError = 5,
+    NSXMLParserInvalidHexCharacterRefError = 6, NSXMLParserInvalidDecimalCharacterRefError = 7,
+    NSXMLParserInvalidCharacterRefError = 8, NSXMLParserInvalidCharacterError = 9,
+    NSXMLParserCharacterRefAtEOFError = 10, NSXMLParserEntityRefAtEOFError = 14,
+    NSXMLParserEntityRefLoopError = 89, NSXMLParserUndeclaredEntityError = 26,
+    NSXMLParserLessThanSymbolInAttributeError = 38, NSXMLParserAttributeNotStartedError = 39,
+    NSXMLParserAttributeNotFinishedError = 40, NSXMLParserAttributeWithoutValueError = 41,
+    NSXMLParserAttributeRedefinedError = 42, NSXMLParserLiteralNotStartedError = 43,
+    NSXMLParserLiteralNotFinishedError = 44, NSXMLParserCommentNotFinishedError = 45,
+    NSXMLParserProcessingInstructionNotStartedError = 46, NSXMLParserProcessingInstructionNotFinishedError = 47,
+    NSXMLParserXMLDeclNotStartedError = 56, NSXMLParserXMLDeclNotFinishedError = 57,
+    NSXMLParserDOCTYPEDeclNotFinishedError = 61, NSXMLParserMisplacedCDATAEndStringError = 62,
+    NSXMLParserCDATANotFinishedError = 63, NSXMLParserMisplacedXMLDeclarationError = 64,
+    NSXMLParserSpaceRequiredError = 65, NSXMLParserNameRequiredError = 68, NSXMLParserGTRequiredError = 73,
+    NSXMLParserLTSlashRequiredError = 74, NSXMLParserEqualExpectedError = 75, NSXMLParserTagNameMismatchError = 76,
+    NSXMLParserUnfinishedTagError = 77, NSXMLParserNotWellBalancedError = 85, NSXMLParserDelegateAbortedParseError = 512,
+} NS_SWIFT_NAME(XMLParser.ErrorCode);
+typedef NS_ENUM(NSUInteger, NSXMLParserExternalEntityResolvingPolicy) {
+    NSXMLParserResolveExternalEntitiesNever = 0, NSXMLParserResolveExternalEntitiesNoNetwork,
+    NSXMLParserResolveExternalEntitiesSameOriginOnly, NSXMLParserResolveExternalEntitiesAlways,
+} NS_SWIFT_NAME(XMLParser.ExternalEntityResolvingPolicy);
+
+@protocol NSXMLParserDelegate;
+NS_SWIFT_NAME(XMLParser)
+@interface NSXMLParser : NSObject
+- (nullable instancetype)initWithContentsOfURL:(NSURL *)url;
+- (instancetype)initWithData:(NSData *)data;
+- (instancetype)initWithStream:(NSInputStream *)stream;
+@property (nullable, weak) id<NSXMLParserDelegate> delegate;
+@property BOOL shouldProcessNamespaces;
+@property BOOL shouldReportNamespacePrefixes;
+@property BOOL shouldResolveExternalEntities;
+@property NSXMLParserExternalEntityResolvingPolicy externalEntityResolvingPolicy;
+@property (nullable, copy) NSSet<NSURL *> *allowedExternalEntityURLs;
+- (BOOL)parse;
+- (void)abortParsing;
+@property (nullable, readonly, copy) NSError *parserError;
+@property (nullable, readonly, copy) NSString *publicID;
+@property (nullable, readonly, copy) NSString *systemID;
+@property (readonly) NSInteger lineNumber;
+@property (readonly) NSInteger columnNumber;
+@end
+
+NS_SWIFT_NAME(XMLParserDelegate)
+@protocol NSXMLParserDelegate <NSObject>
+@optional
+- (void)parserDidStartDocument:(NSXMLParser *)parser;
+- (void)parserDidEndDocument:(NSXMLParser *)parser;
+- (void)parser:(NSXMLParser *)parser foundNotationDeclarationWithName:(NSString *)name publicID:(nullable NSString *)publicID systemID:(nullable NSString *)systemID;
+- (void)parser:(NSXMLParser *)parser foundUnparsedEntityDeclarationWithName:(NSString *)name publicID:(nullable NSString *)publicID systemID:(nullable NSString *)systemID notationName:(nullable NSString *)notationName;
+- (void)parser:(NSXMLParser *)parser foundAttributeDeclarationWithName:(NSString *)attributeName forElement:(NSString *)elementName type:(nullable NSString *)type defaultValue:(nullable NSString *)defaultValue;
+- (void)parser:(NSXMLParser *)parser foundElementDeclarationWithName:(NSString *)elementName model:(NSString *)model;
+- (void)parser:(NSXMLParser *)parser foundInternalEntityDeclarationWithName:(NSString *)name value:(nullable NSString *)value;
+- (void)parser:(NSXMLParser *)parser foundExternalEntityDeclarationWithName:(NSString *)name publicID:(nullable NSString *)publicID systemID:(nullable NSString *)systemID;
+- (void)parser:(NSXMLParser *)parser didStartElement:(NSString *)elementName namespaceURI:(nullable NSString *)namespaceURI qualifiedName:(nullable NSString *)qName attributes:(NSDictionary<NSString *, NSString *> *)attributeDict;
+- (void)parser:(NSXMLParser *)parser didEndElement:(NSString *)elementName namespaceURI:(nullable NSString *)namespaceURI qualifiedName:(nullable NSString *)qName;
+- (void)parser:(NSXMLParser *)parser didStartMappingPrefix:(NSString *)prefix toURI:(NSString *)namespaceURI;
+- (void)parser:(NSXMLParser *)parser didEndMappingPrefix:(NSString *)prefix;
+- (void)parser:(NSXMLParser *)parser foundCharacters:(NSString *)string;
+- (void)parser:(NSXMLParser *)parser foundIgnorableWhitespace:(NSString *)whitespaceString;
+- (void)parser:(NSXMLParser *)parser foundProcessingInstructionWithTarget:(NSString *)target data:(nullable NSString *)data;
+- (void)parser:(NSXMLParser *)parser foundComment:(NSString *)comment;
+- (void)parser:(NSXMLParser *)parser foundCDATA:(NSData *)CDATABlock;
+- (nullable NSData *)parser:(NSXMLParser *)parser resolveExternalEntityName:(NSString *)name systemID:(nullable NSString *)systemID;
+- (void)parser:(NSXMLParser *)parser parseErrorOccurred:(NSError *)parseError;
+- (void)parser:(NSXMLParser *)parser validationErrorOccurred:(NSError *)validationError;
+@end
+
+typedef NS_ENUM(NSUInteger, NSXMLNodeKind) {
+    NSXMLInvalidKind NS_SWIFT_NAME(invalid) = 0, NSXMLDocumentKind NS_SWIFT_NAME(document),
+    NSXMLElementKind NS_SWIFT_NAME(element), NSXMLAttributeKind NS_SWIFT_NAME(attribute),
+    NSXMLNamespaceKind NS_SWIFT_NAME(namespace), NSXMLProcessingInstructionKind NS_SWIFT_NAME(processingInstruction),
+    NSXMLCommentKind NS_SWIFT_NAME(comment), NSXMLTextKind NS_SWIFT_NAME(text), NSXMLDTDKind NS_SWIFT_NAME(DTDKind),
+    NSXMLEntityDeclarationKind NS_SWIFT_NAME(entityDeclaration), NSXMLAttributeDeclarationKind NS_SWIFT_NAME(attributeDeclaration),
+    NSXMLElementDeclarationKind NS_SWIFT_NAME(elementDeclaration), NSXMLNotationDeclarationKind NS_SWIFT_NAME(notationDeclaration),
+} NS_SWIFT_NAME(XMLNode.Kind);
+typedef NS_OPTIONS(NSUInteger, NSXMLNodeOptions) {
+    NSXMLNodeOptionsNone = 0, NSXMLNodeIsCDATA = 1UL << 0, NSXMLNodeExpandEmptyElement = 1UL << 1,
+    NSXMLNodeCompactEmptyElement = 1UL << 2, NSXMLNodeUseSingleQuotes = 1UL << 3, NSXMLNodeUseDoubleQuotes = 1UL << 4,
+    NSXMLNodeNeverEscapeContents = 1UL << 5, NSXMLDocumentTidyHTML = 1UL << 9, NSXMLDocumentTidyXML = 1UL << 10,
+    NSXMLDocumentValidate = 1UL << 13, NSXMLNodeLoadExternalEntitiesAlways = 1UL << 14,
+    NSXMLNodeLoadExternalEntitiesSameOriginOnly = 1UL << 15, NSXMLNodeLoadExternalEntitiesNever = 1UL << 19,
+    NSXMLDocumentXInclude = 1UL << 16, NSXMLNodePrettyPrint = 1UL << 17, NSXMLDocumentIncludeContentTypeDeclaration = 1UL << 18,
+    NSXMLNodePreserveNamespaceOrder = 1UL << 20, NSXMLNodePreserveAttributeOrder = 1UL << 21,
+    NSXMLNodePreserveEntities = 1UL << 22, NSXMLNodePreservePrefixes = 1UL << 23, NSXMLNodePreserveCDATA = 1UL << 24,
+    NSXMLNodePreserveWhitespace = 1UL << 25, NSXMLNodePreserveDTD = 1UL << 26,
+    NSXMLNodePreserveCharacterReferences = 1UL << 27, NSXMLNodePromoteSignificantWhitespace = 1UL << 28,
+    NSXMLNodePreserveEmptyElements = (1UL << 1) | (1UL << 2), NSXMLNodePreserveQuotes = (1UL << 3) | (1UL << 4),
+    NSXMLNodePreserveAll = 0xFFF00000UL | (1UL << 1) | (1UL << 2) | (1UL << 3) | (1UL << 4),
+} NS_SWIFT_NAME(XMLNode.Options);
+typedef NS_ENUM(NSUInteger, NSXMLDocumentContentKind) {
+    NSXMLDocumentXMLKind NS_SWIFT_NAME(xml) = 0, NSXMLDocumentXHTMLKind NS_SWIFT_NAME(xhtml),
+    NSXMLDocumentHTMLKind NS_SWIFT_NAME(html), NSXMLDocumentTextKind NS_SWIFT_NAME(text),
+} NS_SWIFT_NAME(XMLDocument.ContentKind);
+
+@class NSXMLElement, NSXMLDocument;
+NS_SWIFT_NAME(XMLNode)
+@interface NSXMLNode : NSObject <NSCopying>
+- (instancetype)initWithKind:(NSXMLNodeKind)kind;
+- (instancetype)initWithKind:(NSXMLNodeKind)kind options:(NSXMLNodeOptions)options;
++ (id)document;
++ (id)documentWithRootElement:(NSXMLElement *)element;
++ (id)elementWithName:(NSString *)name;
++ (id)elementWithName:(NSString *)name URI:(NSString *)URI;
++ (id)elementWithName:(NSString *)name stringValue:(NSString *)string;
++ (id)elementWithName:(NSString *)name children:(nullable NSArray<NSXMLNode *> *)children attributes:(nullable NSArray<NSXMLNode *> *)attributes;
++ (id)attributeWithName:(NSString *)name stringValue:(NSString *)stringValue;
++ (id)attributeWithName:(NSString *)name URI:(NSString *)URI stringValue:(NSString *)stringValue;
++ (id)namespaceWithName:(NSString *)name stringValue:(NSString *)stringValue;
++ (id)processingInstructionWithName:(NSString *)name stringValue:(NSString *)stringValue;
++ (id)commentWithStringValue:(NSString *)stringValue;
++ (id)textWithStringValue:(NSString *)stringValue;
++ (NSString *)localNameForName:(NSString *)name;
++ (nullable NSString *)prefixForName:(NSString *)name;
++ (nullable NSXMLNode *)predefinedNamespaceForPrefix:(NSString *)name;
+@property (readonly) NSXMLNodeKind kind;
+@property (nullable, copy) NSString *name;
+@property (nullable, strong) id objectValue;
+@property (nullable, copy) NSString *stringValue;
+- (void)setStringValue:(NSString *)string resolvingEntities:(BOOL)resolve;
+@property (readonly) NSUInteger index;
+@property (readonly) NSUInteger level;
+@property (nullable, readonly, strong) NSXMLDocument *rootDocument;
+@property (nullable, readonly, copy) NSXMLNode *parent;
+@property (readonly) NSUInteger childCount;
+@property (nullable, readonly, copy) NSArray<NSXMLNode *> *children;
+- (nullable NSXMLNode *)childAtIndex:(NSUInteger)index;
+@property (nullable, readonly, copy) NSXMLNode *previousSibling;
+@property (nullable, readonly, copy) NSXMLNode *nextSibling;
+@property (nullable, readonly, copy) NSXMLNode *previousNode;
+@property (nullable, readonly, copy) NSXMLNode *nextNode;
+- (void)detach;
+@property (nullable, readonly, copy) NSString *XPath;
+@property (nullable, readonly, copy) NSString *localName;
+@property (nullable, readonly, copy) NSString *prefix;
+@property (nullable, copy) NSString *URI;
+@property (readonly, copy) NSString *XMLString;
+- (NSString *)XMLStringWithOptions:(NSXMLNodeOptions)options;
+- (NSString *)canonicalXMLStringPreservingComments:(BOOL)comments;
+- (nullable NSArray<__kindof NSXMLNode *> *)nodesForXPath:(NSString *)xpath error:(NSError **)error;
+- (nullable NSArray *)objectsForXQuery:(NSString *)xquery error:(NSError **)error;
+@end
+
+NS_SWIFT_NAME(XMLElement)
+@interface NSXMLElement : NSXMLNode
+- (instancetype)initWithName:(NSString *)name;
+- (instancetype)initWithName:(NSString *)name URI:(nullable NSString *)URI;
+- (instancetype)initWithName:(NSString *)name stringValue:(nullable NSString *)string;
+- (nullable instancetype)initWithXMLString:(NSString *)string error:(NSError **)error;
+- (NSArray<NSXMLElement *> *)elementsForName:(NSString *)name;
+- (NSArray<NSXMLElement *> *)elementsForLocalName:(NSString *)localName URI:(nullable NSString *)URI;
+- (void)addAttribute:(NSXMLNode *)attribute;
+- (void)removeAttributeForName:(NSString *)name;
+@property (nullable, copy) NSArray<NSXMLNode *> *attributes;
+- (void)setAttributesWithDictionary:(NSDictionary<NSString *, NSString *> *)attributes;
+- (nullable NSXMLNode *)attributeForName:(NSString *)name;
+- (nullable NSXMLNode *)attributeForLocalName:(NSString *)localName URI:(nullable NSString *)URI;
+- (void)addNamespace:(NSXMLNode *)aNamespace;
+- (void)removeNamespaceForPrefix:(NSString *)name;
+@property (nullable, copy) NSArray<NSXMLNode *> *namespaces;
+- (nullable NSXMLNode *)namespaceForPrefix:(NSString *)name;
+- (nullable NSXMLNode *)resolveNamespaceForName:(NSString *)name;
+- (nullable NSString *)resolvePrefixForNamespaceURI:(NSString *)namespaceURI;
+- (void)insertChild:(NSXMLNode *)child atIndex:(NSUInteger)index;
+- (void)insertChildren:(NSArray<NSXMLNode *> *)children atIndex:(NSUInteger)index;
+- (void)removeChildAtIndex:(NSUInteger)index;
+- (void)setChildren:(nullable NSArray<NSXMLNode *> *)children;
+- (void)addChild:(NSXMLNode *)child;
+- (void)replaceChildAtIndex:(NSUInteger)index withNode:(NSXMLNode *)node;
+- (void)normalizeAdjacentTextNodesPreservingCDATA:(BOOL)preserve;
+@end
+
+NS_SWIFT_NAME(XMLDTD)
+@interface NSXMLDTD : NSXMLNode
+@property (nullable, copy) NSString *publicID;
+@property (nullable, copy) NSString *systemID;
+@end
+
+NS_SWIFT_NAME(XMLDocument)
+@interface NSXMLDocument : NSXMLNode
+- (instancetype)init;
+- (nullable instancetype)initWithXMLString:(NSString *)string options:(NSXMLNodeOptions)mask error:(NSError **)error;
+- (nullable instancetype)initWithContentsOfURL:(NSURL *)url options:(NSXMLNodeOptions)mask error:(NSError **)error;
+- (nullable instancetype)initWithData:(NSData *)data options:(NSXMLNodeOptions)mask error:(NSError **)error;
+- (instancetype)initWithRootElement:(nullable NSXMLElement *)element;
++ (Class)replacementClassForClass:(Class)cls;
+@property (nullable, copy) NSString *characterEncoding;
+@property (nullable, copy) NSString *version;
+@property (getter=isStandalone) BOOL standalone;
+@property NSXMLDocumentContentKind documentContentKind;
+@property (nullable, copy) NSString *MIMEType;
+@property (nullable, copy) NSXMLDTD *DTD;
+- (void)setRootElement:(NSXMLElement *)root;
+- (nullable NSXMLElement *)rootElement;
+- (void)insertChild:(NSXMLNode *)child atIndex:(NSUInteger)index;
+- (void)insertChildren:(NSArray<NSXMLNode *> *)children atIndex:(NSUInteger)index;
+- (void)removeChildAtIndex:(NSUInteger)index;
+- (void)setChildren:(nullable NSArray<NSXMLNode *> *)children;
+- (void)addChild:(NSXMLNode *)child;
+- (void)replaceChildAtIndex:(NSUInteger)index withNode:(NSXMLNode *)node;
+@property (readonly, copy) NSData *XMLData;
+- (NSData *)XMLDataWithOptions:(NSXMLNodeOptions)options;
+- (BOOL)validateAndReturnError:(NSError **)error;
 @end
 
 /* Foundation's attributed string keys (NSAttributedStringKeys.m). */

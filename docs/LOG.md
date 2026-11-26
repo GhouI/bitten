@@ -2953,7 +2953,6 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   (its server start fails next: it runs `/bin/launchctl`).
 - Target app window (total `^MISSING`): 30 -> 30.
 
-
 ## Networking: URLSession, URLRequest, WebSockets
 
 - Foundation: NSURLRequest and NSMutableURLRequest (headers matched
@@ -3566,18 +3565,46 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Target app (total `^MISSING`): 2 -> 2. The workspace's shell pane now
   runs bash.
 
-## Intel macOS jq: file queries and extended libm
+## XML: NSXMLParser, NSXMLDocument and XPath; NSError bridges to Error
 
-- The upstream jq 1.8.1 Mach-O reported its version but aborted before
-  evaluating even a basic expression, at the unimplemented `pathconf`.
-  `pathconf` and `fpathconf` translate Darwin POSIX selector values,
-  preserve guest errno for indeterminate results, and report unsupported
-  Darwin-only selectors with EINVAL.
-- `fdopen$DARWIN_EXTSN` shares the stdio implementation, with translated
-  errno on failure. Additional x86-64 libm exports include the gamma,
-  Bessel, error, inverse hyperbolic, and floating-point helper functions
-  imported by jq.
-- Tests: `tests/c/files.c`, `tests/c/libm_ext.c`, and opt-in
-  `tests/e2e/jq-macho.sh` with the unmodified upstream executable.
-  jq imports: 22 missing -> 0. JSON stdin, file input, regular expression
-  captures, and extended math run without stubs.
+- Foundation (NSXML.m): one XML 1.0 reader (the declaration and its
+  encoding, UTF-8/UTF-16 BOMs and Latin-1, comments, processing
+  instructions, CDATA, DOCTYPE with internal entity declarations, character
+  and entity references, namespaces, line-end and attribute-value
+  normalization) feeding NSXMLParser and the node tree. NSXMLParser calls
+  its delegate as documented (namespace processing on or off, prefix
+  mappings, CDATA, comments, abort) and reports well-formedness errors in
+  NSXMLParserErrorDomain with libxml2's codes and the line and column.
+  NSXMLNode, NSXMLElement, NSXMLDocument and NSXMLDTD: building, walking,
+  attributes and namespaces, prefix resolution, string values, XMLString
+  and XMLData (escaping, compact or expanded empty elements, pretty
+  printing), XPath paths for nodes, whitespace-only text dropped unless
+  NSXMLNodePreserveWhitespace. nodesForXPath: evaluates XPath 1.0 location
+  paths with the main axes, node tests, predicates, comparisons, and/or/not
+  and the common functions; prefixes resolve as declared in the document.
+- SDK: XMLParser, XMLParserDelegate, XMLNode (Kind, Options), XMLElement,
+  XMLDocument under Apple's Swift names. NSError now bridges to Error in
+  Swift (as Apple's API notes make it), so delegate methods written with
+  `Error` parameters match their protocols. CGRect's geometry functions
+  are CGRect members in Swift (minX, maxY, width, insetBy, intersects,
+  applying, ...), as in Apple's SDK.
+- Tests: tests/foundation/xml.m, tests/swiftlib/xml, more of
+  tests/swiftlib/coregraphics.
+- Target app (total `^MISSING`): 2 -> 0. Every import resolves.
+
+## AppKit: key events carry Mac characters for special keys
+
+- Keys that type no text of their own now carry the characters a Mac
+  reports. Return is "\r", Tab "\t", Delete 0x7F, Escape 0x1B, and keypad
+  Enter 0x03. The arrows, Home/End, Page Up/Down, forward delete and
+  F1-F12 use the function-key range (NSUpArrowFunctionKey...). With Control
+  held, a letter (or @[\]^_) gives its control character in `characters`,
+  while `charactersIgnoringModifiers` keeps the key's own. Before, Return
+  arrived with no characters, so terminal views never sent a newline.
+- `BITTEN_EVENT_DEBUG` logs each key down and the responder it goes to.
+  `BITTEN_VIEW_TREE` marks flipped views.
+- Checked in the target app: typing `touch <file>` and Return into its
+  terminal pane creates the file (keys reach the shell through the
+  terminal view, its server and the pty).
+- Target app (total `^MISSING`): 2 -> 2.
+

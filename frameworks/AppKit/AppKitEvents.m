@@ -112,7 +112,12 @@ extern BOOL bn_dragging_route(NSWindow *w, NSEvent *e);
         [hit ?: self.contentView scrollWheel:event];
         break;
     }
-    case NSEventTypeKeyDown: [self.firstResponder keyDown:event]; break;
+    case NSEventTypeKeyDown:
+        if (getenv("BITTEN_EVENT_DEBUG"))
+            fprintf(stderr, "bitten: key down '%s' (code %u) to %s\n", event.characters.UTF8String ?: "",
+                    (unsigned)event.keyCode, self.firstResponder ? object_getClassName(self.firstResponder) : "nothing");
+        [self.firstResponder keyDown:event];
+        break;
     case NSEventTypeKeyUp: [self.firstResponder keyUp:event]; break;
     case NSEventTypeFlagsChanged: [self.firstResponder flagsChanged:event]; break;
     default: break;
@@ -172,6 +177,21 @@ static NSInteger click_count(NSPoint p, NSTimeInterval t) {
 }
 
 /* Delivers what the display has queued. */
+/* The characters a Mac reports for keys that type no text of their own:
+ * control characters and the function-key range (NSUpArrowFunctionKey...). */
+static NSString *bn_key_characters(unsigned short code) {
+    static const struct { unsigned short code; unichar c; } keys[] = {
+        {36, '\r'}, {76, 0x03}, {48, '\t'}, {51, 0x7F}, {53, 0x1B}, {117, 0xF728},
+        {123, 0xF702}, {124, 0xF703}, {125, 0xF701}, {126, 0xF700},
+        {115, 0xF729}, {119, 0xF72B}, {116, 0xF72C}, {121, 0xF72D},
+        {122, 0xF704}, {120, 0xF705}, {99, 0xF706}, {118, 0xF707}, {96, 0xF708}, {97, 0xF709},
+        {98, 0xF70A}, {100, 0xF70B}, {101, 0xF70C}, {109, 0xF70D}, {103, 0xF70E}, {111, 0xF70F},
+    };
+    for (size_t i = 0; i < sizeof keys / sizeof keys[0]; i++)
+        if (keys[i].code == code) return [NSString stringWithFormat:@"%C", keys[i].c];
+    return @"";
+}
+
 + (void)_bn_pumpDisplayEvents {
     struct bitten_display_event e;
     while (bitten_display_next_event(&e) == 1) {
@@ -208,10 +228,18 @@ static NSInteger click_count(NSPoint p, NSTimeInterval t) {
             [event _bn_setScrollDeltaX:e.dx y:e.dy];
             break;
         case 6: case 7: {
-            NSString *chars = [NSString stringWithUTF8String:e.characters] ?: @"";
+            NSString *ignoring = [NSString stringWithUTF8String:e.characters] ?: @"";
+            if (!ignoring.length) ignoring = bn_key_characters((unsigned short)e.key_code);
+            NSString *chars = ignoring;
+            /* Control turns a letter (and @[\]^_) into its control character */
+            if ((flags & NSEventModifierFlagControl) && ignoring.length == 1) {
+                unichar c = [ignoring characterAtIndex:0];
+                if (c >= 'a' && c <= 'z') c -= 'a' - 'A';
+                if (c >= '@' && c <= '_') chars = [NSString stringWithFormat:@"%C", (unichar)(c - '@')];
+            }
             event = [NSEvent keyEventWithType:e.type == 6 ? NSEventTypeKeyDown : NSEventTypeKeyUp location:loc
                                 modifierFlags:flags timestamp:t windowNumber:window.windowNumber context:nil
-                                   characters:chars charactersIgnoringModifiers:chars isARepeat:NO
+                                   characters:chars charactersIgnoringModifiers:ignoring isARepeat:NO
                                       keyCode:(unsigned short)e.key_code];
             break;
         }
