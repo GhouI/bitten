@@ -1787,3 +1787,13 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Tests: `tests/swiftlib/reflection`, KVO in `tests/foundation/operations`.
 - Target app window (total `^MISSING`): 2,814 -> 2692. It now stops at
   SystemConfiguration's `SCDynamicStoreCopyComputerName`.
+
+## 2026-11-26: SystemConfiguration names (PR: sysconfig)
+
+- `src/frameworks/systemconfiguration`: `SCDynamicStoreCopyComputerName`
+  (the host's name), `SCDynamicStoreCopyLocalHostName` (up to the first
+  dot) and `SCDynamicStoreCopyConsoleUser` (the user the program runs as).
+  The target app's run stopped at the first of these; it now goes on to
+  `URLResourceValues` (Foundation).
+- `tests/c/sysconfig`.
+- Target app window (total `^MISSING`): 2,692 -> 2,690.
