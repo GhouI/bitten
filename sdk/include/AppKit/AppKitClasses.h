@@ -19,10 +19,6 @@
 @end
 @interface NSSplitViewController : NSViewController
 @end
-@interface NSTitlebarAccessoryViewController : NSViewController
-@end
-@interface NSPopover : NSResponder
-@end
 @interface NSCell : NSObject
 @end
 @interface NSActionCell : NSCell
@@ -33,19 +29,7 @@
 @end
 @interface NSFontManager : NSObject
 @end
-@interface NSAlert : NSObject
-@end
-@interface NSStatusBar : NSObject
-@end
 @interface NSDraggingItem : NSObject
-@end
-@interface NSToolbar : NSObject
-@end
-@interface NSToolbarItem : NSObject
-@end
-@interface NSToolbarItemGroup : NSToolbarItem
-@end
-@interface NSMenuToolbarItem : NSToolbarItem
 @end
 @interface NSSplitViewItem : NSObject
 @end
@@ -72,6 +56,10 @@
 @interface NSTextInputContext : NSObject
 @end
 
+APPKIT_EXTERN NSNotificationName const NSToolbarWillAddItemNotification;
+APPKIT_EXTERN NSNotificationName const NSToolbarDidRemoveItemNotification;
+APPKIT_EXTERN NSNotificationName const NSPopoverWillShowNotification;
+APPKIT_EXTERN NSNotificationName const NSPopoverDidCloseNotification;
 APPKIT_EXTERN NSNotificationName const NSApplicationDidBecomeActiveNotification;
 APPKIT_EXTERN NSNotificationName const NSApplicationDidChangeScreenParametersNotification;
 APPKIT_EXTERN NSNotificationName const NSApplicationDidHideNotification;
@@ -149,6 +137,14 @@ APPKIT_EXTERN NSString *const NSBaselineOffsetAttributeName;
 APPKIT_EXTERN NSString *const NSBackgroundColorAttributeName;
 APPKIT_EXTERN NSString *const NSToolbarSidebarTrackingSeparatorItemIdentifier;
 APPKIT_EXTERN NSString *const NSToolbarFlexibleSpaceItemIdentifier;
+APPKIT_EXTERN NSString *const NSToolbarSpaceItemIdentifier;
+APPKIT_EXTERN NSString *const NSToolbarToggleSidebarItemIdentifier;
+APPKIT_EXTERN NSString *const NSToolbarShowColorsItemIdentifier;
+APPKIT_EXTERN NSString *const NSToolbarShowFontsItemIdentifier;
+APPKIT_EXTERN NSString *const NSToolbarPrintItemIdentifier;
+APPKIT_EXTERN NSString *const NSToolbarCloudSharingItemIdentifier;
+APPKIT_EXTERN NSString *const NSToolbarInspectorTrackingSeparatorItemIdentifier;
+APPKIT_EXTERN NSString *const NSToolbarToggleInspectorItemIdentifier;
 APPKIT_EXTERN NSString *const NSPasteboardURLReadingFileURLsOnlyKey;
 APPKIT_EXTERN NSString *const NSImageHintInterpolation;
 APPKIT_EXTERN NSString *const NSImageHintCTM;

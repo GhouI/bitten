@@ -1600,3 +1600,210 @@ typedef NS_ENUM(NSInteger, NSGestureRecognizerState) {
 - (void)addGestureRecognizer:(NSGestureRecognizer *)gestureRecognizer;
 - (void)removeGestureRecognizer:(NSGestureRecognizer *)gestureRecognizer;
 @end
+
+typedef NS_ENUM(NSInteger, NSLayoutAttribute) {
+    NSLayoutAttributeLeft = 1, NSLayoutAttributeRight, NSLayoutAttributeTop, NSLayoutAttributeBottom,
+    NSLayoutAttributeLeading, NSLayoutAttributeTrailing, NSLayoutAttributeWidth, NSLayoutAttributeHeight,
+    NSLayoutAttributeCenterX, NSLayoutAttributeCenterY, NSLayoutAttributeLastBaseline,
+    NSLayoutAttributeBaseline = NSLayoutAttributeLastBaseline, NSLayoutAttributeFirstBaseline,
+    NSLayoutAttributeNotAnAttribute = 0
+};
+typedef NSString *NSToolbarIdentifier NS_SWIFT_NAME(NSToolbar.Identifier);
+typedef NS_ENUM(NSUInteger, NSToolbarDisplayMode) {
+    NSToolbarDisplayModeDefault, NSToolbarDisplayModeIconAndLabel, NSToolbarDisplayModeIconOnly,
+    NSToolbarDisplayModeLabelOnly
+};
+typedef NSInteger NSToolbarItemVisibilityPriority NS_TYPED_EXTENSIBLE_ENUM;
+static const NSToolbarItemVisibilityPriority NSToolbarItemVisibilityPriorityStandard = 0;
+static const NSToolbarItemVisibilityPriority NSToolbarItemVisibilityPriorityLow = -1000;
+static const NSToolbarItemVisibilityPriority NSToolbarItemVisibilityPriorityHigh = 1000;
+static const NSToolbarItemVisibilityPriority NSToolbarItemVisibilityPriorityUser = 2000;
+typedef NS_ENUM(NSInteger, NSToolbarItemStyle) {
+    NSToolbarItemStylePlain = 0, NSToolbarItemStyleProminent = 1
+};
+typedef NS_ENUM(NSInteger, NSToolbarItemGroupSelectionMode) {
+    NSToolbarItemGroupSelectionModeSelectOne = 0, NSToolbarItemGroupSelectionModeSelectAny = 1,
+    NSToolbarItemGroupSelectionModeMomentary = 2
+};
+typedef NS_ENUM(NSInteger, NSToolbarItemGroupControlRepresentation) {
+    NSToolbarItemGroupControlRepresentationAutomatic, NSToolbarItemGroupControlRepresentationExpanded,
+    NSToolbarItemGroupControlRepresentationCollapsed
+};
+
+@class NSToolbar, NSToolbarItem;
+@protocol NSToolbarItemValidation <NSObject>
+- (BOOL)validateToolbarItem:(NSToolbarItem *)item;
+@end
+@protocol NSToolbarDelegate <NSObject>
+@optional
+- (nullable NSToolbarItem *)toolbar:(NSToolbar *)toolbar itemForItemIdentifier:(NSToolbarItemIdentifier)itemIdentifier
+          willBeInsertedIntoToolbar:(BOOL)flag;
+- (NSArray<NSToolbarItemIdentifier> *)toolbarDefaultItemIdentifiers:(NSToolbar *)toolbar;
+- (NSArray<NSToolbarItemIdentifier> *)toolbarAllowedItemIdentifiers:(NSToolbar *)toolbar;
+- (NSArray<NSToolbarItemIdentifier> *)toolbarSelectableItemIdentifiers:(NSToolbar *)toolbar;
+- (void)toolbarWillAddItem:(NSNotification *)notification;
+- (void)toolbarDidRemoveItem:(NSNotification *)notification;
+@end
+
+@interface NSToolbarItem : NSObject <NSCopying>
+- (instancetype)initWithItemIdentifier:(NSToolbarItemIdentifier)itemIdentifier;
+@property (readonly, copy) NSToolbarItemIdentifier itemIdentifier;
+@property (nullable, readonly, weak) NSToolbar *toolbar;
+- (void)_bn_setToolbar:(nullable NSToolbar *)toolbar;
+@property (copy) NSString *label;
+@property (copy) NSString *paletteLabel;
+@property (copy) NSString *title;
+@property (nullable, copy) NSString *toolTip;
+@property (nullable, strong) NSImage *image;
+@property (nullable, strong) NSView *view;
+@property (nullable, weak) id target;
+@property (nullable) SEL action;
+@property (getter=isEnabled) BOOL enabled;
+@property (getter=isBordered) BOOL bordered;
+@property (getter=isNavigational) BOOL navigational;
+@property (getter=isVisible) BOOL visible;
+@property (getter=isHidden) BOOL hidden;
+@property BOOL autovalidates;
+@property NSInteger tag;
+@property NSToolbarItemVisibilityPriority visibilityPriority;
+@property NSSize minSize;
+@property NSSize maxSize;
+@property (nullable, strong) NSMenuItem *menuFormRepresentation;
+@property (nullable, copy) NSColor *backgroundTintColor;
+@property NSToolbarItemStyle style;
+- (void)validate;
+@end
+@interface NSToolbarItemGroup : NSToolbarItem
++ (instancetype)groupWithItemIdentifier:(NSToolbarItemIdentifier)itemIdentifier titles:(NSArray<NSString *> *)titles
+                          selectionMode:(NSToolbarItemGroupSelectionMode)selectionMode
+                                 labels:(nullable NSArray<NSString *> *)labels target:(nullable id)target
+                                 action:(nullable SEL)action;
++ (instancetype)groupWithItemIdentifier:(NSToolbarItemIdentifier)itemIdentifier images:(NSArray<NSImage *> *)images
+                          selectionMode:(NSToolbarItemGroupSelectionMode)selectionMode
+                                 labels:(nullable NSArray<NSString *> *)labels target:(nullable id)target
+                                 action:(nullable SEL)action;
+@property (copy) NSArray<NSToolbarItem *> *subitems;
+@property NSToolbarItemGroupSelectionMode selectionMode;
+@property NSToolbarItemGroupControlRepresentation controlRepresentation;
+@property NSInteger selectedIndex;
+- (void)setSelected:(BOOL)selected atIndex:(NSInteger)index;
+- (BOOL)isSelectedAtIndex:(NSInteger)index;
+@end
+@interface NSMenuToolbarItem : NSToolbarItem
+@property (strong) NSMenu *menu;
+@property BOOL showsIndicator;
+@end
+@interface NSToolbar : NSObject
+- (instancetype)initWithIdentifier:(NSToolbarIdentifier)identifier;
+@property (readonly, copy) NSToolbarIdentifier identifier;
+@property (nullable, weak) id<NSToolbarDelegate> delegate;
+@property (readonly, copy) NSArray<NSToolbarItem *> *items;
+@property (nullable, readonly, copy) NSArray<NSToolbarItem *> *visibleItems;
+- (void)insertItemWithItemIdentifier:(NSToolbarItemIdentifier)itemIdentifier atIndex:(NSInteger)index;
+- (void)removeItemAtIndex:(NSInteger)index;
+- (void)removeItemWithItemIdentifier:(NSToolbarItemIdentifier)itemIdentifier;
+@property (getter=isVisible) BOOL visible;
+@property NSToolbarDisplayMode displayMode;
+@property BOOL allowsUserCustomization;
+@property BOOL allowsExtensionItems;
+@property BOOL autosavesConfiguration;
+@property BOOL showsBaselineSeparator;
+@property (nullable, copy) NSToolbarItemIdentifier selectedItemIdentifier;
+@property (copy) NSSet<NSToolbarItemIdentifier> *centeredItemIdentifiers;
+@property (nullable, copy) NSToolbarItemIdentifier centeredItemIdentifier;
+- (void)validateVisibleItems;
+- (void)runCustomizationPalette:(nullable id)sender;
+@property (readonly) BOOL customizationPaletteIsRunning;
+@end
+
+@interface NSTitlebarAccessoryViewController : NSViewController
+@property NSLayoutAttribute layoutAttribute;
+@property CGFloat fullScreenMinHeight;
+@property (getter=isHidden) BOOL hidden;
+@property BOOL automaticallyAdjustsSize;
+@end
+
+typedef NS_ENUM(NSInteger, NSPopoverBehavior) {
+    NSPopoverBehaviorApplicationDefined = 0, NSPopoverBehaviorTransient = 1, NSPopoverBehaviorSemitransient = 2
+};
+@class NSPopover;
+@protocol NSPopoverDelegate <NSObject>
+@optional
+- (BOOL)popoverShouldClose:(NSPopover *)popover;
+- (void)popoverDidShow:(NSNotification *)notification;
+- (void)popoverDidClose:(NSNotification *)notification;
+@end
+@interface NSPopover : NSResponder
+@property (nullable, strong) NSViewController *contentViewController;
+@property NSSize contentSize;
+@property NSPopoverBehavior behavior;
+@property BOOL animates;
+@property (nullable, strong) NSAppearance *appearance;
+@property (readonly, strong) NSAppearance *effectiveAppearance;
+@property (nullable, weak) id<NSPopoverDelegate> delegate;
+@property (readonly, getter=isShown) BOOL shown;
+@property (readonly, getter=isDetached) BOOL detached;
+@property NSRect positioningRect;
+@property BOOL hidesDetachedWindowOnDeactivate;
+- (void)showRelativeToRect:(NSRect)positioningRect ofView:(NSView *)positioningView preferredEdge:(NSRectEdge)preferredEdge;
+- (void)performClose:(nullable id)sender;
+- (void)close;
+@end
+
+typedef NS_ENUM(NSUInteger, NSAlertStyle) {
+    NSAlertStyleWarning = 0, NSAlertStyleInformational = 1, NSAlertStyleCritical = 2
+};
+static const NSModalResponse NSAlertFirstButtonReturn = 1000;
+static const NSModalResponse NSAlertSecondButtonReturn = 1001;
+static const NSModalResponse NSAlertThirdButtonReturn = 1002;
+@class NSAlert;
+@protocol NSAlertDelegate <NSObject>
+@optional
+- (BOOL)alertShowHelp:(NSAlert *)alert;
+@end
+@interface NSAlert : NSObject
++ (NSAlert *)alertWithError:(NSError *)error;
+@property (copy) NSString *messageText;
+@property (copy) NSString *informativeText;
+@property NSAlertStyle alertStyle;
+@property (null_resettable, strong) NSImage *icon;
+@property (readonly, copy) NSArray<NSButton *> *buttons;
+- (NSButton *)addButtonWithTitle:(NSString *)title;
+@property (nullable, strong) NSView *accessoryView;
+@property BOOL showsSuppressionButton;
+@property (nullable, readonly, strong) NSButton *suppressionButton;
+@property BOOL showsHelp;
+@property (nullable, copy) NSString *helpAnchor;
+@property (nullable, weak) id<NSAlertDelegate> delegate;
+@property (readonly, strong) NSWindow *window;
+- (void)layout;
+- (NSModalResponse)runModal;
+- (void)beginSheetModalForWindow:(NSWindow *)sheetWindow
+               completionHandler:(void (^_Nullable)(NSModalResponse returnCode))handler;
+@end
+
+typedef NSString *NSStatusItemAutosaveName NS_SWIFT_NAME(NSStatusItem.AutosaveName);
+typedef NS_OPTIONS(NSUInteger, NSStatusItemBehavior) {
+    NSStatusItemBehaviorRemovalAllowed = 1 << 1, NSStatusItemBehaviorTerminationOnRemoval = 1 << 2
+};
+static const CGFloat NSVariableStatusItemLength = -1;
+static const CGFloat NSSquareStatusItemLength = -2;
+@class NSStatusBar;
+@interface NSStatusBarButton : NSButton
+@end
+@interface NSStatusItem : NSObject
+@property (readonly, weak) NSStatusBar *statusBar;
+@property CGFloat length;
+@property (nullable, readonly, strong) NSStatusBarButton *button;
+@property (nullable, strong) NSMenu *menu;
+@property (getter=isVisible) BOOL visible;
+@property NSStatusItemBehavior behavior;
+@property (null_resettable, copy) NSStatusItemAutosaveName autosaveName;
+@end
+@interface NSStatusBar : NSObject
+@property (class, readonly, strong) NSStatusBar *systemStatusBar;
+- (NSStatusItem *)statusItemWithLength:(CGFloat)length;
+- (void)removeStatusItem:(NSStatusItem *)item;
+@property (readonly, getter=isVertical) BOOL vertical;
+@property (readonly) CGFloat thickness;
+@end

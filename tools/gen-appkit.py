@@ -104,9 +104,11 @@ HANDWRITTEN = {"NSResponder", "NSView", "NSWindow", "NSApplication", "NSEvent",
                "NSColor", "NSFont", "NSScreen", "NSGraphicsContext", "NSMenu",
                "NSMenuItem", "NSControl", "NSAppearance", "NSBezierPath", "NSWorkspace", "NSRunningApplication", "NSWorkspaceOpenConfiguration",
                "NSViewController", "NSWindowController", "NSImage", "NSImageRep", "NSBitmapImageRep",
-               "NSImageSymbolConfiguration", "NSPasteboard", "NSPasteboardItem", "NSColorSpace", "NSVisualEffectView", "NSAnimationContext", "NSShadow", "NSTrackingArea", "NSScroller", "NSClipView", "NSScrollView", "NSTextField", "NSImageView", "NSButton", "NSProgressIndicator", "NSSegmentedControl", "NSCursor", "NSParagraphStyle", "NSMutableParagraphStyle", "NSGradient", "NSSound", "NSHapticFeedbackManager", "NSAccessibilityCustomAction", "NSGestureRecognizer", "NSClickGestureRecognizer", "NSPressGestureRecognizer"}
+               "NSImageSymbolConfiguration", "NSPasteboard", "NSPasteboardItem", "NSColorSpace", "NSVisualEffectView", "NSAnimationContext", "NSShadow", "NSTrackingArea", "NSScroller", "NSClipView", "NSScrollView", "NSTextField", "NSImageView", "NSButton", "NSProgressIndicator", "NSSegmentedControl", "NSCursor", "NSParagraphStyle", "NSMutableParagraphStyle", "NSGradient", "NSSound", "NSHapticFeedbackManager", "NSAccessibilityCustomAction", "NSGestureRecognizer", "NSClickGestureRecognizer", "NSPressGestureRecognizer", "NSToolbar", "NSToolbarItem", "NSToolbarItemGroup", "NSMenuToolbarItem", "NSTitlebarAccessoryViewController", "NSPopover", "NSAlert", "NSStatusBar"}
 
 NOTIFICATIONS = """
+NSToolbarWillAddItemNotification NSToolbarDidRemoveItemNotification NSPopoverWillShowNotification
+NSPopoverDidCloseNotification
 NSApplicationDidBecomeActiveNotification NSApplicationDidChangeScreenParametersNotification
 NSApplicationDidHideNotification NSApplicationDidResignActiveNotification NSApplicationWillHideNotification
 NSApplicationWillUnhideNotification
@@ -148,6 +150,9 @@ NSMaxValueBinding NSHiddenBinding
 NSParagraphStyleAttributeName NSForegroundColorAttributeName NSFontAttributeName
 NSUnderlineStyleAttributeName NSBaselineOffsetAttributeName NSBackgroundColorAttributeName
 NSToolbarSidebarTrackingSeparatorItemIdentifier NSToolbarFlexibleSpaceItemIdentifier
+NSToolbarSpaceItemIdentifier NSToolbarToggleSidebarItemIdentifier NSToolbarShowColorsItemIdentifier
+NSToolbarShowFontsItemIdentifier NSToolbarPrintItemIdentifier NSToolbarCloudSharingItemIdentifier
+NSToolbarInspectorTrackingSeparatorItemIdentifier NSToolbarToggleInspectorItemIdentifier
 NSPasteboardURLReadingFileURLsOnlyKey
 NSImageHintInterpolation NSImageHintCTM NSImageNameApplicationIcon
 NSFontTextStyleTitle3 NSFontTextStyleTitle2 NSFontTextStyleSubheadline NSFontTextStyleFootnote
