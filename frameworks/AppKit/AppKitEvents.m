@@ -58,7 +58,11 @@ static const char kFirstResponderKey, kTrackingKey;
     [self close];
 }
 
+/* Drag and drop (AppKitDragging.m) takes the mouse during a drag. */
+extern BOOL bn_dragging_route(NSWindow *w, NSEvent *e);
+
 - (void)sendEvent:(NSEvent *)event {
+    if (bn_dragging_route(self, event)) return;
     switch (event.type) {
     case NSEventTypeLeftMouseDown:
     case NSEventTypeRightMouseDown: {
