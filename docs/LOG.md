@@ -2687,3 +2687,21 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   CFGetRetainCount declared.
 - Tests: tests/appkit/text.m, tests/foundation/weakcf.m.
 - Target app window (total `^MISSING`): 219 -> 202.
+
+## Drag and drop
+
+- AppKit: NSDraggingSession, NSDraggingItem, NSDraggingImageComponent,
+  the NSDraggingSource, NSDraggingDestination and NSDraggingInfo
+  protocols, `-[NSView beginDraggingSessionWithItems:event:source:]`, and
+  `-[NSWindow registerForDraggedTypes:]`. A session writes its items to
+  the drag pasteboard. Until the mouse goes up, the window hands its mouse
+  events to the session. The session finds the innermost view under the
+  pointer registered for one of the pasteboard's types (or a registered
+  window, or that window's delegate), in any of the app's windows. It then
+  runs entered, updated and exited, and on a drop runs prepare, perform
+  and conclude with the operation the source's mask allows, then the
+  source's ended and the destination's `draggingEnded:`. Destinations can
+  enumerate the dragged items by class. NSString and NSURL conform to
+  NSPasteboardWriting and NSPasteboardReading. Test: tests/appkit/dragging.
+- Target app window (total `^MISSING`): 202 -> 202 (NSDraggingItem was a
+  stub).

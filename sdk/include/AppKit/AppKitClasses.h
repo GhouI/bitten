@@ -21,8 +21,6 @@
 @end
 @interface NSTextFieldCell : NSActionCell
 @end
-@interface NSDraggingItem : NSObject
-@end
 @interface NSTouchBar : NSObject
 @end
 @interface NSTouchBarItem : NSObject

@@ -6,4 +6,5 @@
 #import <AppKit/AppKitClasses.h>
 #import <AppKit/AppKitLayout.h>
 #import <AppKit/AppKitSplit.h>
+#import <AppKit/AppKitDragging.h>
 #endif
