@@ -8,6 +8,7 @@
 @implementation BNDynamicColor {
     NSColorName _name;
     NSColor * (^_provider)(NSAppearance *);
+    NSColor *_lastResolved;
 }
 - (instancetype)initWithName:(NSColorName)name provider:(NSColor * (^)(NSAppearance *))provider {
     self = [super init];
@@ -25,8 +26,12 @@
 - (CGFloat)blueComponent { return self.resolved.blueComponent; }
 - (CGFloat)alphaComponent { return self.resolved.alphaComponent; }
 - (NSColorSpace *)colorSpace { return self.resolved.colorSpace; }
-/* Not cached: the appearance may change. */
-- (CGColorRef)CGColor { return self.resolved.CGColor; }
+/* Resolved afresh (the appearance may change), but the colour resolved is
+ * kept until the next call: the CGColor returned belongs to it. */
+- (CGColorRef)CGColor {
+    _lastResolved = self.resolved;
+    return _lastResolved.CGColor;
+}
 - (NSColor *)colorWithAlphaComponent:(CGFloat)a {
     NSColor * (^p)(NSAppearance *) = _provider;
     return [NSColor colorWithName:_name dynamicProvider:^NSColor *(NSAppearance *ap) {
