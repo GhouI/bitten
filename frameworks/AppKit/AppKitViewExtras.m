@@ -130,12 +130,20 @@ static const char k_alpha, k_tooltip, k_identifier, k_shadow, k_focus, k_tamic, 
     set(self, &k_needsLayout, @(b));
     if (b) self.needsDisplay = YES;
 }
+/* Solves the tree's constraints (AppKitLayout.m), then lets views lay out. */
+extern void bn_layout_tree(NSView *root);
 - (void)layoutSubtreeIfNeeded {
+    NSView *root = self;
+    while (root.superview) root = root.superview;
+    bn_layout_tree(root);
+    [self _bn_layoutSubtree];
+}
+- (void)_bn_layoutSubtree {
     if (self.needsLayout) {
         self.needsLayout = NO;
         [self layout];
     }
-    for (NSView *v in self.subviews) [v layoutSubtreeIfNeeded];
+    for (NSView *v in self.subviews) [v _bn_layoutSubtree];
 }
 - (void)updateTrackingAreas {}
 - (NSArray<NSTrackingArea *> *)trackingAreas { return [get(self, &k_tracking) copy] ?: @[]; }
