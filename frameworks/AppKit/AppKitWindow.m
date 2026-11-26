@@ -7,6 +7,7 @@
 #import <objc/runtime.h>
 #include <float.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 static BOOL allows_tabbing = YES;
 static const char props_key;
@@ -78,7 +79,14 @@ BOOL_PROP(hasShadow, setHasShadow, "hasShadow", YES)
     NSNumber *n = get(self, @"alphaValue");
     return n ? n.doubleValue : 1.0;
 }
-- (void)setAlphaValue:(CGFloat)v { set(self, @"alphaValue", @(v)); }
+- (void)setAlphaValue:(CGFloat)v {
+    CGFloat old = self.alphaValue;
+    set(self, @"alphaValue", @(v));
+    if (getenv("BITTEN_EVENT_DEBUG") && old != v)
+        fprintf(stderr, "bitten: window %s alpha %g -> %g\n", object_getClassName(self), old, v);
+    /* a window that became (in)visible this way is shown or taken away */
+    if ((old <= 0) != (v <= 0) && self.isVisible) [self _bn_scheduleDisplay];
+}
 BOOL_PROP(isMovable, setMovable, "movable", YES)
 BOOL_PROP(isMovableByWindowBackground, setMovableByWindowBackground, "movableByWindowBackground", NO)
 BOOL_PROP(isReleasedWhenClosed, setReleasedWhenClosed, "releasedWhenClosed", YES)

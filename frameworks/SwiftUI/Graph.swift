@@ -325,5 +325,8 @@ extension View where Self: Animatable {
 /// when one changes, the host rebuilds.
 internal func _withObservation<T>(_ inputs: _ViewInputs, _ body: () -> T) -> T {
   let context = inputs.base.context
-  return withObservationTracking(body, onChange: { context.invalidate() })
+  return withObservationTracking(body, onChange: {
+    if _debugGraph || _debugTree { _dbg("bitten: observed change: rebuilding") }
+    context.invalidate()
+  })
 }
