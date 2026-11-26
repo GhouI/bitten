@@ -1706,7 +1706,10 @@ extension View {
       // A program's own primitive style: its body is the button.
       let custom = _CustomButtonStyle(primitive: true) { label, role, action, inputs in
         let configuration = PrimitiveButtonStyleConfiguration(role: role, label: .init(make: label), action: action)
-        let body = MainActor.assumeIsolated { style.makeBody(configuration: configuration) }
+        // The style's own @Environment and @State properties, as for views.
+        var installed = style
+        _installDynamicProperties(&installed, inputs: inputs)
+        let body = MainActor.assumeIsolated { installed.makeBody(configuration: configuration) }
         return _makeNode(body, inputs: inputs)
       }
       return transformEnvironment(\.self) { $0._customButtonStyle = custom }
@@ -1720,7 +1723,9 @@ extension View {
     // The style draws the button around its label; taps stay the button's.
     let custom = _CustomButtonStyle(primitive: false) { label, role, _, inputs in
       let configuration = ButtonStyleConfiguration(role: role, label: .init(make: label), isPressed: false)
-      let body = MainActor.assumeIsolated { style.makeBody(configuration: configuration) }
+      var installed = style
+      _installDynamicProperties(&installed, inputs: inputs)
+      let body = MainActor.assumeIsolated { installed.makeBody(configuration: configuration) }
       return _makeNode(body, inputs: inputs)
     }
     return transformEnvironment(\.self) { $0._customButtonStyle = custom }

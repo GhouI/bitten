@@ -3514,3 +3514,20 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Tests: tests/foundation/regex.m, tests/foundation/formatters.m,
   tests/swiftlib/formatters.
 - Target app (total `^MISSING`): 11 -> 2 (NSXMLParser, NSXMLDocument).
+
+## AppKit: .icns images and the application icon; SwiftUI button styles get their environment
+
+- `NSImage initWithData:` reads icon files (.icns). Each PNG entry becomes a
+  bitmap representation sized in points (ic11-ic14 and ic10 are @2x),
+  largest first. The image takes the largest point size.
+- `NSApp.applicationIconImage` returns the bundle's icon. A leftover
+  property stub (always nil) had replaced the real getter, and the target
+  app force-unwraps the icon on its last onboarding page, so it trapped.
+- SwiftUI installs a button style's dynamic properties (`@Environment`,
+  `@State`) before calling its `makeBody`, as it does for views. The app's
+  styles read `controlSize`, `isEnabled` and theme values; Apple's inlined
+  `Environment.wrappedValue` logged a runtime-issue fault for every read
+  of an uninstalled one (about 2400 per run).
+- Test: tests/appkit/icns.m.
+- Target app (total `^MISSING`): 2 -> 2. All four onboarding pages render
+  and Continue goes through to "You're all set".
