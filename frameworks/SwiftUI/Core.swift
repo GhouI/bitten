@@ -11,8 +11,13 @@
 
 // ---- View ---------------------------------------------------------------------
 
+/// Apple's requirements: the three static graph entry points (whose
+/// default implementations programs reference by symbol), then the body.
 @MainActor @preconcurrency
 public protocol View {
+  nonisolated static func _makeView(view: _GraphValue<Self>, inputs: _ViewInputs) -> _ViewOutputs
+  nonisolated static func _makeViewList(view: _GraphValue<Self>, inputs: _ViewListInputs) -> _ViewListOutputs
+  nonisolated static func _viewListCount(inputs: _ViewListCountInputs) -> Int?
   associatedtype Body: View
   @ViewBuilder @MainActor @preconcurrency var body: Self.Body { get }
 }
@@ -30,6 +35,13 @@ protocol _PrimitiveView: View where Body == Never {}
   @inlinable public init() {}
   public typealias Body = Never
   public var body: Never { fatalError("EmptyView has no body") }
+  public static func _makeView(view: _GraphValue<EmptyView>, inputs: _ViewInputs) -> _ViewOutputs {
+    return _ViewOutputs(_EmptyNode(environment: inputs.environment))
+  }
+  public static func _makeViewList(view: _GraphValue<EmptyView>, inputs: _ViewListInputs) -> _ViewListOutputs {
+    return _ViewListOutputs([])
+  }
+  public static func _viewListCount(inputs: _ViewListCountInputs) -> Int? { return 0 }
 }
 
 @frozen public struct TupleView<T>: View {
@@ -37,6 +49,32 @@ protocol _PrimitiveView: View where Body == Never {}
   @inlinable public init(_ value: T) { self.value = value }
   public typealias Body = Never
   public var body: Never { fatalError("TupleView has no body") }
+
+  /// Each element contributes its own list (so stacks see them all).
+  public static func _makeViewList(view: _GraphValue<TupleView<T>>, inputs: _ViewListInputs) -> _ViewListOutputs {
+    var nodes: [_ViewNode] = []
+    var index = 0
+    _forEachTupleElement(view.value.value) { element in
+      if let v = element as? any View { nodes += _makeNodesOpened(v, inputs: inputs.base.child(index)) }
+      index += 1
+    }
+    return _ViewListOutputs(nodes)
+  }
+  public static func _makeView(view: _GraphValue<TupleView<T>>, inputs: _ViewInputs) -> _ViewOutputs {
+    let nodes = _makeViewList(view: view, inputs: _ViewListInputs(inputs)).nodes
+    return _ViewOutputs(_StackNode(axis: .vertical, alignment: .center, spacing: nil,
+                                   environment: inputs.environment, children: nodes))
+  }
+  public static func _viewListCount(inputs: _ViewListCountInputs) -> Int? { return nil }
+}
+
+internal func _makeNodesOpened(_ v: any View, inputs: _ViewInputs) -> [_ViewNode] {
+  func open<V: View>(_ v: V) -> [_ViewNode] { return _makeNodes(v, inputs: inputs) }
+  return open(v)
+}
+internal func _makeNodeOpened(_ v: any View, inputs: _ViewInputs) -> _ViewNode {
+  func open<V: View>(_ v: V) -> _ViewNode { return _makeNode(v, inputs: inputs) }
+  return open(v)
 }
 
 @frozen public struct _ConditionalContent<TrueContent, FalseContent> {
@@ -50,6 +88,18 @@ protocol _PrimitiveView: View where Body == Never {}
 extension _ConditionalContent: View where TrueContent: View, FalseContent: View {
   public typealias Body = Never
   public var body: Never { fatalError("_ConditionalContent has no body") }
+  public static func _makeView(view: _GraphValue<_ConditionalContent>, inputs: _ViewInputs) -> _ViewOutputs {
+    switch view.value.storage {
+    case .trueContent(let t): return TrueContent._makeView(view: _GraphValue({ t }), inputs: inputs.named("T"))
+    case .falseContent(let f): return FalseContent._makeView(view: _GraphValue({ f }), inputs: inputs.named("F"))
+    }
+  }
+  public static func _makeViewList(view: _GraphValue<_ConditionalContent>, inputs: _ViewListInputs) -> _ViewListOutputs {
+    switch view.value.storage {
+    case .trueContent(let t): return _ViewListOutputs(_makeNodes(t, inputs: inputs.base.named("T")))
+    case .falseContent(let f): return _ViewListOutputs(_makeNodes(f, inputs: inputs.base.named("F")))
+    }
+  }
 }
 
 @resultBuilder
@@ -80,6 +130,14 @@ public struct ViewBuilder {
 extension Optional: View where Wrapped: View {
   public typealias Body = Never
   public var body: Never { fatalError("Optional has no body") }
+  public static func _makeView(view: _GraphValue<Optional>, inputs: _ViewInputs) -> _ViewOutputs {
+    guard let w = view.value else { return _ViewOutputs(_EmptyNode(environment: inputs.environment)) }
+    return Wrapped._makeView(view: _GraphValue({ w }), inputs: inputs)
+  }
+  public static func _makeViewList(view: _GraphValue<Optional>, inputs: _ViewListInputs) -> _ViewListOutputs {
+    guard let w = view.value else { return _ViewListOutputs([]) }
+    return Wrapped._makeViewList(view: _GraphValue({ w }), inputs: inputs)
+  }
 }
 
 /// A type-erased view.
@@ -89,14 +147,29 @@ extension Optional: View where Wrapped: View {
   public init<V: View>(erasing view: V) { self.init(view) }
   public typealias Body = Never
   public var body: Never { fatalError("AnyView has no body") }
+  public static func _makeView(view: _GraphValue<AnyView>, inputs: _ViewInputs) -> _ViewOutputs {
+    return _ViewOutputs(view.value.storage.makeNode(inputs))
+  }
+  public static func _makeViewList(view: _GraphValue<AnyView>, inputs: _ViewListInputs) -> _ViewListOutputs {
+    return _ViewListOutputs(view.value.storage.makeNodes(inputs.base))
+  }
 }
 @usableFromInline internal class AnyViewStorageBase {
   var anyValue: Any { fatalError("abstract") }
+  func makeNode(_ inputs: _ViewInputs) -> _ViewNode { fatalError("abstract") }
+  func makeNodes(_ inputs: _ViewInputs) -> [_ViewNode] { fatalError("abstract") }
 }
 final class AnyViewStorage<V: View>: AnyViewStorageBase {
   let view: V
   init(_ view: V) { self.view = view }
   override var anyValue: Any { return view }
+  /// The view's type is part of its identity: a different type is a new view.
+  override func makeNode(_ inputs: _ViewInputs) -> _ViewNode {
+    return _makeNode(view, inputs: inputs.named(String(describing: V.self)))
+  }
+  override func makeNodes(_ inputs: _ViewInputs) -> [_ViewNode] {
+    return _makeNodes(view, inputs: inputs.named(String(describing: V.self)))
+  }
 }
 
 // ---- Scene and App ------------------------------------------------------------------

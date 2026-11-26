@@ -98,6 +98,12 @@ static NSArray *sorted(NSArray *self, NSComparator comparator, SEL selector, BOO
     return NSNotFound;
 }
 - (BOOL)containsObject:(id)object { return [self indexOfObject:object] != NSNotFound; }
+- (NSUInteger)indexOfObjectIdenticalTo:(id)object {
+    NSUInteger n = self.count;
+    for (NSUInteger i = 0; i < n; i++)
+        if ([self objectAtIndex:i] == object) return i;
+    return NSNotFound;
+}
 - (NSArray *)arrayByAddingObject:(id)object {
     NSMutableArray *m = [self mutableCopy];
     [m addObject:object];
@@ -194,6 +200,10 @@ static NSArray *sorted(NSArray *self, NSComparator comparator, SEL selector, BOO
         id o = [self objectAtIndex:i];
         if (o == object || [o isEqual:object]) CFArrayRemoveValueAtIndex(CFMA(self), (CFIndex)i);
     }
+}
+- (void)removeObjectIdenticalTo:(id)object {
+    for (NSUInteger i = self.count; i-- > 0;)
+        if ([self objectAtIndex:i] == object) CFArrayRemoveValueAtIndex(CFMA(self), (CFIndex)i);
 }
 - (void)removeAllObjects { CFArrayRemoveAllValues(CFMA(self)); }
 - (void)replaceObjectAtIndex:(NSUInteger)index withObject:(id)object {

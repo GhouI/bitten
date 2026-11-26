@@ -75,7 +75,8 @@ typedef NS_ENUM(NSInteger, NSCursorFrameResizePosition) {
 };
 
 @class NSApplication, NSWindow, NSView, NSEvent, NSColor, NSFont, NSScreen, NSMenu, NSMenuItem,
-    NSGraphicsContext, NSImage, NSResponder, NSAppearance, NSCursor, NSPasteboard, NSNotification;
+    NSGraphicsContext, NSImage, NSResponder, NSAppearance, NSCursor, NSPasteboard, NSNotification, NSViewController,
+    NSWindowController;
 
 APPKIT_EXTERN void NSAccessibilityPostNotification(id element, NSAccessibilityNotificationName notification);
 APPKIT_EXTERN void NSAccessibilityPostNotificationWithUserInfo(id element, NSAccessibilityNotificationName notification,
