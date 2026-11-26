@@ -189,3 +189,22 @@ public struct TimeZone: Hashable, Sendable, CustomStringConvertible, CustomDebug
     try c.encode(identifier)
   }
 }
+
+extension TimeZone: _ObjectiveCBridgeable {
+  public func _bridgeToObjectiveC() -> NSTimeZone {
+    return NSTimeZone(name: identifier) ?? NSTimeZone(forSecondsFromGMT: secondsFromGMT())
+  }
+  public static func _forceBridgeFromObjectiveC(_ source: NSTimeZone, result: inout TimeZone?) {
+    result = TimeZone(identifier: source.name) ?? TimeZone(secondsFromGMT: source.secondsFromGMT)
+  }
+  @discardableResult
+  public static func _conditionallyBridgeFromObjectiveC(_ source: NSTimeZone, result: inout TimeZone?) -> Bool {
+    _forceBridgeFromObjectiveC(source, result: &result)
+    return result != nil
+  }
+  public static func _unconditionallyBridgeFromObjectiveC(_ source: NSTimeZone?) -> TimeZone {
+    var r: TimeZone? = nil
+    if let s = source { _forceBridgeFromObjectiveC(s, result: &r) }
+    return r ?? .gmt
+  }
+}

@@ -56,5 +56,7 @@ import _StringProcessing
     if !ny.isDaylightSavingTime(for: summer) || ny.abbreviation(for: winter) != "EST" { bad |= 0x10000 }
   }
   if TimeZone(identifier: "Not/AZone") != nil { bad |= 0x20000 }
+  let bridged = TimeZone(secondsFromGMT: 3600)! as NSTimeZone
+  if bridged.secondsFromGMT != 3600 || (bridged as TimeZone).secondsFromGMT() != 3600 { bad |= 0x40000 }
   return bad
 }

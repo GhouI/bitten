@@ -1345,5 +1345,58 @@ NSString *NSStringFromClass(Class cls);
 NSString *NSStringFromSelector(SEL sel);
 Class NSClassFromString(NSString *name);
 SEL NSSelectorFromString(NSString *name);
+
+/* ---- time zones and formatters (NSFormatters.m) ---- */
+@interface NSTimeZone : NSObject <NSCopying>
++ (nullable instancetype)timeZoneWithName:(NSString *)tzName;
++ (nullable instancetype)timeZoneWithAbbreviation:(NSString *)abbreviation;
++ (instancetype)timeZoneForSecondsFromGMT:(NSInteger)seconds;
+- (nullable instancetype)initWithName:(NSString *)tzName;
+@property (class, readonly, copy) NSTimeZone *systemTimeZone;
+@property (class, copy) NSTimeZone *defaultTimeZone;
+@property (class, readonly, copy) NSTimeZone *localTimeZone;
+@property (readonly, copy) NSString *name;
+@property (readonly) NSInteger secondsFromGMT;
+@property (nullable, readonly, copy) NSString *abbreviation;
+- (NSInteger)secondsFromGMTForDate:(NSDate *)aDate;
+- (nullable NSString *)abbreviationForDate:(NSDate *)aDate;
+- (BOOL)isDaylightSavingTimeForDate:(NSDate *)aDate;
+@end
+
+@interface NSFormatter : NSObject <NSCopying>
+- (nullable NSString *)stringForObjectValue:(nullable id)obj;
+@end
+
+typedef NS_OPTIONS(NSUInteger, NSISO8601DateFormatOptions) {
+    NSISO8601DateFormatWithYear = 1UL << 0,
+    NSISO8601DateFormatWithMonth = 1UL << 1,
+    NSISO8601DateFormatWithWeekOfYear = 1UL << 2,
+    NSISO8601DateFormatWithDay = 1UL << 4,
+    NSISO8601DateFormatWithTime = 1UL << 5,
+    NSISO8601DateFormatWithTimeZone = 1UL << 6,
+    NSISO8601DateFormatWithSpaceBetweenDateAndTime = 1UL << 7,
+    NSISO8601DateFormatWithDashSeparatorInDate = 1UL << 8,
+    NSISO8601DateFormatWithColonSeparatorInTime = 1UL << 9,
+    NSISO8601DateFormatWithColonSeparatorInTimeZone = 1UL << 10,
+    NSISO8601DateFormatWithFractionalSeconds = 1UL << 11,
+    NSISO8601DateFormatWithFullDate = (1UL << 0) | (1UL << 1) | (1UL << 4) | (1UL << 8),
+    NSISO8601DateFormatWithFullTime = (1UL << 5) | (1UL << 6) | (1UL << 9) | (1UL << 10),
+    NSISO8601DateFormatWithInternetDateTime = (1UL << 0) | (1UL << 1) | (1UL << 4) | (1UL << 8) | (1UL << 5) |
+                                              (1UL << 6) | (1UL << 9) | (1UL << 10),
+};
+
+@interface NSISO8601DateFormatter : NSFormatter
+@property (null_resettable, copy) NSTimeZone *timeZone;
+@property NSISO8601DateFormatOptions formatOptions;
+- (NSString *)stringFromDate:(NSDate *)date;
+- (nullable NSDate *)dateFromString:(NSString *)string;
++ (NSString *)stringFromDate:(NSDate *)date timeZone:(NSTimeZone *)timeZone formatOptions:(NSISO8601DateFormatOptions)formatOptions;
+@end
+
+@interface NSListFormatter : NSFormatter
++ (NSString *)localizedStringByJoiningStrings:(NSArray<NSString *> *)strings;
+- (nullable NSString *)stringFromItems:(NSArray *)items;
+@property (nullable, copy) NSFormatter *itemFormatter;
+@end
 #pragma clang assume_nonnull end
 #endif
