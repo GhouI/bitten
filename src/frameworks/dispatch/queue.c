@@ -122,6 +122,7 @@ static void invoke_and_release(void *block) {
     dx_block_release(block);
 }
 
+int dispatch_exported_class_storage(const char *name, void **storage, void **meta);
 void *dispatch_object_class(const char *name, const char *super) {
     if (!dx_os_object_class) return NULL;
     static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
@@ -133,7 +134,10 @@ void *dispatch_object_class(const char *name, const char *super) {
     if (slot == sizeof cache / sizeof *cache) dx_fatal("dispatch: too many object classes");
     if (!cache[slot].name) {
         cache[slot].name = name;
-        cache[slot].isa = dx_os_object_class(name, super, retain_for_objc, d_dispatch_release);
+        void *storage, *meta;                       /* see swift_classes.c */
+        cache[slot].isa = dispatch_exported_class_storage(name, &storage, &meta) && dx_os_object_class_in_super
+            ? dx_os_object_class_in_super(storage, meta, name, super, retain_for_objc, d_dispatch_release)
+            : dx_os_object_class(name, super, retain_for_objc, d_dispatch_release);
     }
     void *isa = cache[slot].isa;
     pthread_mutex_unlock(&lock);

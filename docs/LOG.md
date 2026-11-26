@@ -1594,3 +1594,33 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - libSystem: `__sincos_stret`, `__sincosf_stret` and the `pi` variants.
 - Target app window (total `^MISSING`): 3,304 -> 3,301. It now runs into
   AppKit: `-[NSApplication effectiveAppearance]`.
+
+## 2026-11-26: the Dispatch overlay (PR: dispatch-overlay)
+
+- `overlays/Dispatch` (libswiftDispatch): `DispatchQueue` (`main`,
+  `global(qos:)`, the labelled initializer with attributes, QoS,
+  autorelease frequency and target; `async`/`asyncAfter`/`sync` with
+  results and errors, barriers, `concurrentPerform`, queue-specific
+  values), `DispatchGroup`, `DispatchSemaphore`, sources (`makeTimerSource`,
+  read/write, file-system, signal and user-data sources, with
+  `DispatchSourceProtocol`'s handlers and `DispatchSourceTimer.schedule`),
+  `DispatchTime`/`DispatchWallTime`/`DispatchTimeInterval` and their
+  arithmetic, `DispatchQoS`, `DispatchWorkItemFlags`, `DispatchPredicate`
+  and `dispatchPrecondition`, `DispatchSpecificKey`, and `DispatchData`
+  (holding its bytes directly). It calls libdispatch by symbol.
+- `sdk/include/dispatch/swift.h` and a `Dispatch` Clang module: the
+  dispatch objects as Objective-C classes (`OS_dispatch_queue`...), the
+  source protocols, and the factory initializers Swift calls
+  (`DispatchQueue(__label:attr:queue:)`, `DispatchGroup()`,
+  `DispatchSemaphore(value:)`, `enter`/`leave`), bound to the C symbols by
+  asm labels so they never meet `<dispatch/dispatch.h>`, which C and
+  Objective-C code keeps using unchanged.
+- `src/frameworks/dispatch/swift_classes.c`: exported storage for
+  `_OBJC_CLASS_$_OS_dispatch_{object,queue,group,semaphore,source,data}`.
+  `dispatch_object_class()` builds those classes in it (a four-line hook)
+  through the new `dx_os_object_class_in_super` in the Objective-C runtime,
+  so dispatch objects and Swift code share one class each.
+- `tests/swiftlib/dispatch`: queues, groups, semaphores and timeouts,
+  timers, user-data sources, times, specific values, data.
+- Target app window (total `^MISSING`): 3,301 -> 3,215 (all 84 Dispatch
+  overlay imports and the two dispatch classes it binds from libSystem).

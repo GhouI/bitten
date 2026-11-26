@@ -260,6 +260,7 @@ $(SWIFTRES)/.stamp:
 OVERLAY_DEPS_Darwin     := _errno _signal
 OVERLAY_DEPS_CoreGraphics := CoreFoundation
 OVERLAY_DEPS_os := ObjectiveC
+OVERLAY_DEPS_Dispatch := ObjectiveC Darwin _errno _signal
 OVERLAY_DEPS_Synchronization := os ObjectiveC
 overlay_lib = $(FW_ROOT)/usr/lib/swift/libswift$(1).dylib
 overlay_deps = $(foreach d,$(OVERLAY_DEPS_$(1)),$(call overlay_lib,$(d)))

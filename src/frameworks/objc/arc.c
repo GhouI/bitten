@@ -876,6 +876,21 @@ void *dx_os_object_class_in(void *storage, void *meta_storage, const char *name,
     return c;
 }
 
+/* As dx_os_object_class_in, under a named superclass (which must exist).
+ * For the dispatch classes Swift refers to by symbol (src/frameworks/
+ * dispatch/swift_classes.c), whose hierarchy is OS_dispatch_object ->
+ * OS_dispatch_queue... */
+void *dx_os_object_class_in_super(void *storage, void *meta_storage, const char *name,
+                                  const char *super_name, void *(*retain)(void *),
+                                  void (*release)(void *)) {
+    Class super = super_name ? (Class)dx_objc_lookup_class(super_name) : NULL;
+    Class c = make_class((Class)storage, (Class)meta_storage, super ? super : os_object_class, name, 0);
+    dx_objc_register_class(c);
+    RW(c)->os_retain = retain;
+    RW(c)->os_release = release;
+    return c;
+}
+
 void *dx_os_object_class(const char *name, const char *super_name, void *(*retain)(void *),
                          void (*release)(void *)) {
     Class c = (Class)dx_objc_lookup_class(name);

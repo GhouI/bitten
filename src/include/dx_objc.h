@@ -29,6 +29,9 @@ void *dx_os_object_class(const char *name, const char *super_name, void *(*retai
                          void (*release)(void *)) __attribute__((weak));
 void *dx_os_object_class_in(void *storage, void *meta_storage, const char *name, void *(*retain)(void *),
                             void (*release)(void *)) __attribute__((weak));
+void *dx_os_object_class_in_super(void *storage, void *meta_storage, const char *name,
+                                  const char *super_name, void *(*retain)(void *),
+                                  void (*release)(void *)) __attribute__((weak));
 
 /* ---- runtime entry points used by other C code -------------------------- */
 typedef struct dx_objc_class *dx_class;
