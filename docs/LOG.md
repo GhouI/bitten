@@ -3531,3 +3531,21 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Test: tests/appkit/icns.m.
 - Target app (total `^MISSING`): 2 -> 2. All four onboarding pages render
   and Continue goes through to "You're all set".
+
+## Foundation: NSThread lifecycle; _Concurrency: custom executors reachable
+
+- NSThread now has a full lifecycle: `init`, `initWithBlock:`,
+  `initWithTarget:selector:object:`, `start`, an overridable `main`,
+  `cancel`, `isExecuting`, `isFinished`, `qualityOfService`,
+  `threadPriority`, `stackSize`, `+exit` and `+isMultiThreaded`, plus the
+  will-exit and will-become-multithreaded notifications. It used to offer
+  only detached blocks. The target app subclasses NSThread for a worker
+  and sets its QoS.
+- `_swift_task_enqueueOnExecutor` and the `checkIsolated` /
+  `isSameExclusiveExecutionContext` helpers are exported from
+  `_Concurrency` (they were local symbols). The runtime looks them up by
+  name to reach executors written in Swift. Actors with custom executors
+  stopped with "not found" the first time a job was enqueued.
+- Tests: tests/foundation/threads.m, tests/swiftlib/executors.swift.
+- Target app (total `^MISSING`): 2 -> 2. "Start Using" now opens the main
+  workspace window with a shell pane, whose process exits at once (next).
