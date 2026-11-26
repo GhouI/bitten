@@ -50,7 +50,7 @@ internal func _nanoseconds(_ d: Duration) -> UInt64 {
 }
 
 public struct ContinuousClock: Clock, Sendable {
-  @frozen public struct Instant: Sendable {
+  public struct Instant: Sendable {
     internal var _value: Swift.Duration
     internal init(_value: Swift.Duration) { self._value = _value }
   }
@@ -82,7 +82,7 @@ extension ContinuousClock.Instant: InstantProtocol {
 }
 
 public struct SuspendingClock: Clock, Sendable {
-  @frozen public struct Instant: Sendable {
+  public struct Instant: Sendable {
     internal var _value: Swift.Duration
     internal init(_value: Swift.Duration) { self._value = _value }
   }

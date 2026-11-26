@@ -923,18 +923,22 @@ extension Text: View {
   }
 }
 
+@frozen
 public struct LocalizedStringKey: Equatable, ExpressibleByStringInterpolation, Sendable {
-  internal var key: String
-  internal var hasFormatting: Bool = false
-  internal var arguments: [String] = []
+  @usableFromInline internal var key: String
+  @usableFromInline internal var hasFormatting: Bool = false
+  @usableFromInline internal var arguments: [String] = []
 
   public init(_ value: String) { key = value }
   public init(stringLiteral value: String) { key = value }
 
   public struct StringInterpolation: StringInterpolationProtocol {
-    var key = ""
-    var arguments: [String] = []
-    public init(literalCapacity: Int, interpolationCount: Int) {}
+    var key: String
+    var arguments: [String]
+    public init(literalCapacity: Int, interpolationCount: Int) {
+      key = ""
+      arguments = []
+    }
     public mutating func appendLiteral(_ literal: String) { key += literal.replacingOccurrences(of: "%", with: "%%") }
     public mutating func appendInterpolation(_ string: String) {
       key += "%@"

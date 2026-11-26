@@ -6,6 +6,7 @@
 
 @_exported import Foundation
 @_exported import Darwin
+@_exported import Dispatch
 
 /// An Objective-C object converted to `T`: by bridging when T is
 /// bridgeable, by a cast otherwise.

@@ -165,8 +165,10 @@ static const sw_witness_table *d_swift_getWitnessTable(const sw_conformance_desc
     const char *missing_proto = proto ? dx_stub_name(proto) : NULL;
     if (missing_proto) dx_fatal("swift: protocol %s (needed by a conformance) is not implemented in bitten yet", missing_proto);
     unsigned pattern_words = t.gwt ? t.gwt->size_in_words : 1;
+    /* The table holds the conformance and one word per requirement of the
+     * protocol, whatever the pattern copies in (it can be empty). */
     unsigned size = pattern_words;
-    if (t.resilient && size < 1 + proto->num_requirements) size = 1 + proto->num_requirements;
+    if (size < 1 + proto->num_requirements) size = 1 + proto->num_requirements;
     unsigned priv = t.gwt ? t.gwt->private_and_flag >> 1 : 0;
     void **mem = calloc(priv + size, sizeof *mem), **table = mem + priv;
     if (pattern) memcpy(table, pattern, pattern_words * sizeof *table);

@@ -16,6 +16,8 @@ void _bn_runloop_notify(CFRunLoopActivity activity);
 
 NSRunLoopMode const NSDefaultRunLoopMode = @"kCFRunLoopDefaultMode";
 NSRunLoopMode const NSRunLoopCommonModes = @"kCFRunLoopCommonModes";
+NSRunLoopMode const NSModalPanelRunLoopMode = @"NSModalPanelRunLoopMode";
+NSRunLoopMode const NSEventTrackingRunLoopMode = @"NSEventTrackingRunLoopMode";
 
 static pthread_key_t loop_key;
 static pthread_once_t loop_once = PTHREAD_ONCE_INIT;

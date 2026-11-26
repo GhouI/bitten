@@ -28,3 +28,13 @@ typedef unsigned long NSUInteger;
 #define NS_EXTENSIBLE_STRING_ENUM NS_TYPED_EXTENSIBLE_ENUM
 #define NS_REFINED_FOR_SWIFT __attribute__((swift_private))
 #endif
+
+#if !defined(MIN)
+#define MIN(A, B) ({ __typeof__(A) __a = (A); __typeof__(B) __b = (B); __a < __b ? __a : __b; })
+#endif
+#if !defined(MAX)
+#define MAX(A, B) ({ __typeof__(A) __a = (A); __typeof__(B) __b = (B); __a < __b ? __b : __a; })
+#endif
+#if !defined(ABS)
+#define ABS(A) ({ __typeof__(A) __a = (A); __a < 0 ? -__a : __a; })
+#endif

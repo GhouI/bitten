@@ -155,6 +155,9 @@ APPKIT_EXTERN NSAppearanceName const NSAppearanceNameVibrantDark, NSAppearanceNa
 @property (nullable, readonly, assign) NSWindow *keyWindow;
 @property (nullable, readonly, assign) NSWindow *mainWindow;
 @property (nullable, strong) NSMenu *mainMenu;
+- (BOOL)sendAction:(SEL)action to:(nullable id)target from:(nullable id)sender;
+- (nullable id)targetForAction:(SEL)action;
+- (nullable id)targetForAction:(SEL)action to:(nullable id)target from:(nullable id)sender;
 @property (readonly, getter=isRunning) BOOL running;
 @property (readonly, getter=isActive) BOOL active;
 @property (nullable, strong) NSAppearance *appearance;
@@ -169,6 +172,63 @@ APPKIT_EXTERN NSAppearanceName const NSAppearanceNameVibrantDark, NSAppearanceNa
 - (nullable NSEvent *)nextEventMatchingMask:(NSEventMask)mask untilDate:(nullable NSDate *)expiration
                             inMode:(NSRunLoopMode)mode dequeue:(BOOL)deqFlag;
 - (void)sendEvent:(NSEvent *)event;
+@end
+
+typedef NS_OPTIONS(NSUInteger, NSApplicationPresentationOptions) {
+    NSApplicationPresentationDefault = 0, NSApplicationPresentationAutoHideDock = 1 << 0,
+    NSApplicationPresentationHideDock = 1 << 1, NSApplicationPresentationAutoHideMenuBar = 1 << 2,
+    NSApplicationPresentationHideMenuBar = 1 << 3, NSApplicationPresentationFullScreen = 1 << 10,
+    NSApplicationPresentationAutoHideToolbar = 1 << 11
+} NS_SWIFT_NAME(NSApplication.PresentationOptions);
+typedef NS_ENUM(NSUInteger, NSRequestUserAttentionType) { NSCriticalRequest = 0, NSInformationalRequest = 10 } NS_SWIFT_NAME(NSApplication.RequestUserAttentionType);
+typedef NS_OPTIONS(NSUInteger, NSApplicationOcclusionState) { NSApplicationOcclusionStateVisible = 1UL << 1 } NS_SWIFT_NAME(NSApplication.OcclusionState);
+typedef NSString *NSAboutPanelOptionKey NS_TYPED_ENUM NS_SWIFT_NAME(NSApplication.AboutPanelOptionKey);
+@class NSDockTile;
+
+@interface NSApplication (BittenApplicationState)
+@property (readonly) NSApplicationActivationPolicy activationPolicy;
+@property (readonly, getter=isHidden) BOOL hidden;
+- (void)hide:(nullable id)sender;
+- (void)unhide:(nullable id)sender;
+- (void)unhideWithoutActivation;
+- (void)hideOtherApplications:(nullable id)sender;
+- (void)unhideAllApplications:(nullable id)sender;
+- (void)deactivate;
+- (void)yieldActivationToApplication:(id)application;
+- (void)orderFrontStandardAboutPanel:(nullable id)sender;
+- (void)orderFrontStandardAboutPanelWithOptions:(NSDictionary<NSAboutPanelOptionKey, id> *)optionsDictionary;
+- (void)orderFrontCharacterPalette:(nullable id)sender;
+@property (nullable, strong) NSImage *applicationIconImage;
+@property (nullable, strong) NSMenu *windowsMenu;
+@property (nullable, strong) NSMenu *servicesMenu;
+@property (nullable, strong) NSMenu *helpMenu;
+@property (nullable, readonly, strong) NSEvent *currentEvent;
+- (void)postEvent:(NSEvent *)event atStart:(BOOL)flag;
+- (void)discardEventsMatchingMask:(NSEventMask)mask beforeEvent:(nullable NSEvent *)lastEvent;
+- (NSInteger)requestUserAttention:(NSRequestUserAttentionType)requestType;
+- (void)cancelUserAttentionRequest:(NSInteger)request;
+- (NSModalResponse)runModalForWindow:(NSWindow *)window;
+- (void)stopModal;
+- (void)stopModalWithCode:(NSModalResponse)returnCode;
+- (void)abortModal;
+@property (nullable, readonly, strong) NSWindow *modalWindow;
+@property NSApplicationPresentationOptions presentationOptions;
+@property (readonly) NSApplicationPresentationOptions currentSystemPresentationOptions;
+@property (readonly) NSApplicationOcclusionState occlusionState;
+@property (readonly) NSUserInterfaceLayoutDirection userInterfaceLayoutDirection;
+@property (getter=isAutomaticCustomizeTouchBarMenuItemEnabled) BOOL automaticCustomizeTouchBarMenuItemEnabled;
+- (void)replyToApplicationShouldTerminate:(BOOL)shouldTerminate;
+- (void)updateWindows;
+- (void)setWindowsNeedUpdate:(BOOL)needUpdate;
+- (void)arrangeInFront:(nullable id)sender;
+- (void)miniaturizeAll:(nullable id)sender;
+- (void)registerForRemoteNotifications;
+- (void)unregisterForRemoteNotifications;
+@property (readonly, getter=isRegisteredForRemoteNotifications) BOOL registeredForRemoteNotifications;
+- (void)registerServicesMenuSendTypes:(NSArray<NSString *> *)sendTypes returnTypes:(NSArray<NSString *> *)returnTypes;
+- (nullable NSWindow *)windowWithWindowNumber:(NSInteger)windowNum;
+- (void)enumerateWindowsWithOptions:(NSUInteger)options usingBlock:(void (^)(NSWindow *window, BOOL *stop))block;
+- (void)setActivationPolicyAndActivate:(NSApplicationActivationPolicy)policy;
 @end
 APPKIT_EXTERN NSApplication *NSApp;
 APPKIT_EXTERN int NSApplicationMain(int argc, const char *argv[]);
@@ -245,13 +305,13 @@ APPKIT_EXTERN int NSApplicationMain(int argc, const char *argv[]);
 @end
 
 
-typedef NS_ENUM(NSInteger, NSWindowTitleVisibility) { NSWindowTitleVisible = 0, NSWindowTitleHidden = 1 };
+typedef NS_ENUM(NSInteger, NSWindowTitleVisibility) { NSWindowTitleVisible = 0, NSWindowTitleHidden = 1 } NS_SWIFT_NAME(NSWindow.TitleVisibility);
 typedef NS_ENUM(NSInteger, NSWindowTabbingMode) {
     NSWindowTabbingModeAutomatic, NSWindowTabbingModePreferred, NSWindowTabbingModeDisallowed
-};
+} NS_SWIFT_NAME(NSWindow.TabbingMode);
 typedef NS_ENUM(NSInteger, NSWindowUserTabbingPreference) {
     NSWindowUserTabbingPreferenceManual, NSWindowUserTabbingPreferenceAlways, NSWindowUserTabbingPreferenceInFullScreen
-};
+} NS_SWIFT_NAME(NSWindow.UserTabbingPreference);
 typedef NS_OPTIONS(NSUInteger, NSWindowCollectionBehavior) {
     NSWindowCollectionBehaviorDefault = 0, NSWindowCollectionBehaviorCanJoinAllSpaces = 1 << 0,
     NSWindowCollectionBehaviorMoveToActiveSpace = 1 << 1, NSWindowCollectionBehaviorManaged = 1 << 2,
@@ -261,8 +321,8 @@ typedef NS_OPTIONS(NSUInteger, NSWindowCollectionBehavior) {
     NSWindowCollectionBehaviorFullScreenNone = 1 << 9, NSWindowCollectionBehaviorFullScreenAllowsTiling = 1 << 11,
     NSWindowCollectionBehaviorFullScreenDisallowsTiling = 1 << 12, NSWindowCollectionBehaviorPrimary = 1 << 16,
     NSWindowCollectionBehaviorAuxiliary = 1 << 17, NSWindowCollectionBehaviorCanJoinAllApplications = 1 << 18
-};
-typedef NSInteger NSWindowLevel NS_TYPED_EXTENSIBLE_ENUM;
+} NS_SWIFT_NAME(NSWindow.CollectionBehavior);
+typedef NSInteger NSWindowLevel NS_TYPED_EXTENSIBLE_ENUM NS_SWIFT_NAME(NSWindow.Level);
 static const NSWindowLevel NSNormalWindowLevel = 0;
 static const NSWindowLevel NSFloatingWindowLevel = 3;
 static const NSWindowLevel NSSubmenuWindowLevel = 3;
@@ -275,11 +335,11 @@ static const NSWindowLevel NSScreenSaverWindowLevel = 1000;
 typedef NS_ENUM(NSUInteger, NSWindowButton) {
     NSWindowCloseButton, NSWindowMiniaturizeButton, NSWindowZoomButton, NSWindowToolbarButton,
     NSWindowDocumentIconButton, NSWindowDocumentVersionsButton = 6
-};
+} NS_SWIFT_NAME(NSWindow.ButtonType);
 typedef NS_ENUM(NSInteger, NSWindowToolbarStyle) {
     NSWindowToolbarStyleAutomatic, NSWindowToolbarStyleExpanded, NSWindowToolbarStylePreference,
     NSWindowToolbarStyleUnified, NSWindowToolbarStyleUnifiedCompact
-};
+} NS_SWIFT_NAME(NSWindow.ToolbarStyle);
 typedef NS_ENUM(NSInteger, NSTitlebarSeparatorStyle) {
     NSTitlebarSeparatorStyleAutomatic, NSTitlebarSeparatorStyleNone, NSTitlebarSeparatorStyleLine,
     NSTitlebarSeparatorStyleShadow
@@ -287,17 +347,13 @@ typedef NS_ENUM(NSInteger, NSTitlebarSeparatorStyle) {
 typedef NS_ENUM(NSInteger, NSWindowAnimationBehavior) {
     NSWindowAnimationBehaviorDefault = 0, NSWindowAnimationBehaviorNone = 2, NSWindowAnimationBehaviorDocumentWindow,
     NSWindowAnimationBehaviorUtilityWindow, NSWindowAnimationBehaviorAlertPanel
-};
+} NS_SWIFT_NAME(NSWindow.AnimationBehavior);
 typedef NS_ENUM(NSUInteger, NSWindowSharingType) {
     NSWindowSharingNone, NSWindowSharingReadOnly, NSWindowSharingReadWrite
-};
-typedef NS_ENUM(NSInteger, NSWindowOrderingMode) { NSWindowAbove = 1, NSWindowBelow = -1, NSWindowOut = 0 };
-typedef NS_ENUM(NSInteger, NSModalResponse) {
-    NSModalResponseStop = -1000, NSModalResponseAbort = -1001, NSModalResponseContinue = -1002,
-    NSModalResponseOK = 1, NSModalResponseCancel = 0
-};
-typedef NSString *NSWindowFrameAutosaveName;
-typedef NSString *NSWindowTabbingIdentifier;
+} NS_SWIFT_NAME(NSWindow.SharingType);
+typedef NS_ENUM(NSInteger, NSWindowOrderingMode) { NSWindowAbove = 1, NSWindowBelow = -1, NSWindowOut = 0 } NS_SWIFT_NAME(NSWindow.OrderingMode);
+typedef NSString *NSWindowFrameAutosaveName NS_SWIFT_NAME(NSWindow.FrameAutosaveName);
+typedef NSString *NSWindowTabbingIdentifier NS_SWIFT_NAME(NSWindow.TabbingIdentifier);
 typedef NSString *NSUserInterfaceItemIdentifier NS_TYPED_EXTENSIBLE_ENUM;
 @class NSButton, NSToolbar, NSWindowTab, NSWindowTabGroup, NSTitlebarAccessoryViewController;
 
@@ -541,6 +597,21 @@ typedef NS_ENUM(NSUInteger, NSLineJoinStyle) { NSLineJoinStyleMiter = 0, NSLineJ
 - (void)addItem:(NSMenuItem *)item;
 - (NSMenuItem *)addItemWithTitle:(NSString *)title action:(nullable SEL)action keyEquivalent:(NSString *)key;
 - (void)removeAllItems;
+- (void)insertItem:(NSMenuItem *)newItem atIndex:(NSInteger)index;
+- (void)removeItem:(NSMenuItem *)item;
+- (void)removeItemAtIndex:(NSInteger)index;
+- (nullable NSMenuItem *)itemAtIndex:(NSInteger)index;
+- (nullable NSMenuItem *)itemWithTitle:(NSString *)title;
+- (nullable NSMenuItem *)itemWithTag:(NSInteger)tag;
+- (NSInteger)indexOfItem:(NSMenuItem *)item;
+@property (copy) NSArray<NSMenuItem *> *items;
+@property (nullable, assign) NSMenu *supermenu;
+@property BOOL autoenablesItems;
+/* Finds an enabled item whose key equivalent matches a key event, and sends
+ * its action. */
+- (BOOL)performKeyEquivalent:(NSEvent *)event;
+- (void)performActionForItemAtIndex:(NSInteger)index;
+- (void)update;
 @end
 
 @interface NSMenuItem : NSObject
@@ -551,6 +622,14 @@ typedef NS_ENUM(NSUInteger, NSLineJoinStyle) { NSLineJoinStyleMiter = 0, NSLineJ
 @property (nullable, weak) id target;
 @property (copy) NSString *keyEquivalent;
 @property (nullable, strong) NSMenu *submenu;
+@property (nullable, readonly, assign) NSMenu *menu;
+@property NSEventModifierFlags keyEquivalentModifierMask;
+@property (readonly) BOOL hasSubmenu;
+@property (readonly, getter=isSeparatorItem) BOOL separatorItem;
+@property NSInteger state;
+@property (getter=isHidden) BOOL hidden;
+@property (nullable, strong) NSImage *image;
+@property (nullable, copy) NSString *toolTip;
 @property (getter=isEnabled) BOOL enabled;
 @property NSInteger tag;
 @property (nullable, strong) id representedObject;

@@ -2179,3 +2179,41 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Test: `tests/swiftlib/appintents` (an entity and its queries, an intent
   with defaults and a summary, performed; shortcuts).
 - Target app window (total `^MISSING`): 1,557 -> 1,384.
+
+## 2026-11-26: SwiftUI scenes, modifiers, environment; runtime fixes that get the target app into its views
+
+- SwiftUI scenes: `commands`, `defaultSize`, `windowResizability`,
+  `windowStyle` and the other scene modifiers, applied when the host opens
+  windows; `openWindow`, `dismissWindow`, `openSettings`; window groups for
+  presented values; the main menu built from the app's commands (standard
+  menus with the command groups placed in them, `CommandMenu`s before
+  Window).
+- SwiftUI modifiers with Apple's frozen modifier types (`Effects.swift`):
+  offset, opacity, scale, rotation, shadow, blur, clip, fixed size, aspect
+  ratio, position, alignment guides, hit testing, appear/disappear (tracked
+  per rebuild), tasks, traits (layout priority, z index, tags), `id`,
+  `onChange`, animation and transaction (changes land at once), transitions,
+  insettable shapes, trim and stroke shapes.
+- Environment: `@Observable` objects (`.environment(object)`,
+  `@Environment(Model.self)`), and the values programs read (control size,
+  locale, layout direction, display scale, dismiss, openURL, undo manager,
+  ...). `LazyState` and `LocalizedStringKey` keep Apple's frozen layouts
+  (programs write `LazyState`'s storage and receive the key in registers);
+  `TupleToolbarContent`/`TupleCommandContent` under Apple's names.
+- AppKit: menus with key equivalents (`performKeyEquivalent:`, command
+  shortcuts through the main menu), `sendAction:to:from:` along the
+  responder chain, the rest of NSApplication (hide/unhide, modal sessions,
+  presentation options, about panel to stderr), Swift names for the window
+  and application enums (`NSWindow.StyleMask`, ...), `MIN`/`MAX`.
+- Foundation: `NSUndoManager` (groups, undo/redo, target and block
+  registration) and `UndoManager.registerUndo(withTarget:handler:)`;
+  modal and event-tracking run loop modes; Foundation re-exports Dispatch.
+- Runtime: the `A_` substitution (number 26) in mangled names; witness
+  tables always hold every requirement of the protocol (the app's patterns
+  can be empty: the table was a zero-byte allocation); a demangle dump of
+  failing names (`BITTEN_DEMANGLE_DUMP`).
+- `_Concurrency`: clock instants are resilient, as Apple's (programs pass
+  them indirectly; a frozen one overflowed `Duration` arithmetic).
+- The target app now starts, builds its scenes and gets into its views
+  (`FocusState`).
+- Target app window (total `^MISSING`): 1,384 -> 1,068.

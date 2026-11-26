@@ -121,3 +121,23 @@ struct Tapper: View {
     return bad
   }
 }
+
+final class LazyModel {
+  var a = 1, b = 2, c = 3
+}
+struct Big { var a = 1, b = 2, c = 3, d = 4, e = 5, f = 6, g = 7 }
+
+@_silgen_name("swl_swiftui_lazy") public func lazyState() -> Int {
+  var bad = 0
+  // Copies through generic code (an Any box, an array) exercise the
+  // storage enum's value witnesses.
+  let s = LazyState(wrappedValue: LazyModel())
+  let boxed: Any = s
+  var copies = [s, s, s]
+  copies.append(boxed as! LazyState<LazyModel>)
+  if copies[3].wrappedValue.c != 3 { bad |= 1 }
+  let big = LazyState(wrappedValue: Big())
+  let anyBig: [Any] = [big, big]
+  if (anyBig[1] as! LazyState<Big>).wrappedValue.g != 7 { bad |= 2 }
+  return bad
+}

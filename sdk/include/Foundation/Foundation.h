@@ -980,6 +980,8 @@ typedef NSPointerFunctionsOptions NSMapTableOptions;
 typedef NSString *NSRunLoopMode NS_TYPED_EXTENSIBLE_ENUM NS_SWIFT_NAME(RunLoop.Mode);
 extern NSRunLoopMode const NSDefaultRunLoopMode NS_SWIFT_NAME(RunLoop.Mode.default);
 extern NSRunLoopMode const NSRunLoopCommonModes NS_SWIFT_NAME(RunLoop.Mode.common);
+extern NSRunLoopMode const NSModalPanelRunLoopMode NS_SWIFT_NAME(RunLoop.Mode.modalPanel);
+extern NSRunLoopMode const NSEventTrackingRunLoopMode NS_SWIFT_NAME(RunLoop.Mode.eventTracking);
 @class NSTimer;
 NS_SWIFT_NAME(RunLoop)
 @interface NSRunLoop : NSObject
@@ -1047,6 +1049,40 @@ typedef NS_ENUM(NSUInteger, NSKeyValueChange) {
     NSKeyValueChangeSetting = 1, NSKeyValueChangeInsertion = 2, NSKeyValueChangeRemoval = 3,
     NSKeyValueChangeReplacement = 4
 };
+
+extern NSNotificationName const NSUndoManagerCheckpointNotification, NSUndoManagerWillUndoChangeNotification,
+    NSUndoManagerWillRedoChangeNotification, NSUndoManagerDidUndoChangeNotification,
+    NSUndoManagerDidRedoChangeNotification, NSUndoManagerDidOpenUndoGroupNotification,
+    NSUndoManagerWillCloseUndoGroupNotification, NSUndoManagerDidCloseUndoGroupNotification;
+NS_SWIFT_NAME(UndoManager)
+@interface NSUndoManager : NSObject
+- (void)beginUndoGrouping;
+- (void)endUndoGrouping;
+@property (readonly) NSInteger groupingLevel;
+- (void)disableUndoRegistration;
+- (void)enableUndoRegistration;
+@property (readonly, getter=isUndoRegistrationEnabled) BOOL undoRegistrationEnabled;
+@property BOOL groupsByEvent;
+@property NSUInteger levelsOfUndo;
+@property (copy) NSArray<NSRunLoopMode> *runLoopModes;
+- (void)undo;
+- (void)redo;
+- (void)undoNestedGroup;
+@property (readonly) BOOL canUndo;
+@property (readonly) BOOL canRedo;
+@property (readonly, getter=isUndoing) BOOL undoing;
+@property (readonly, getter=isRedoing) BOOL redoing;
+- (void)removeAllActions;
+- (void)removeAllActionsWithTarget:(id)target;
+- (void)registerUndoWithTarget:(id)target selector:(SEL)selector object:(nullable id)anObject;
+- (void)registerUndoWithTarget:(id)target handler:(void (^)(id target))undoHandler NS_REFINED_FOR_SWIFT;
+- (void)setActionName:(NSString *)actionName;
+@property (readonly, copy) NSString *undoActionName;
+@property (readonly, copy) NSString *redoActionName;
+@property (readonly, copy) NSString *undoMenuItemTitle;
+@property (readonly, copy) NSString *redoMenuItemTitle;
+@end
+
 @interface NSObject (NSDelayedPerforming)
 - (void)performSelector:(SEL)aSelector withObject:(nullable id)anArgument afterDelay:(NSTimeInterval)delay
                 inModes:(NSArray<NSRunLoopMode> *)modes;
