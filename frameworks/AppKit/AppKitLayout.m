@@ -13,6 +13,8 @@
 #import <AppKit/AppKit.h>
 #import <AppKit/AppKitLayout.h>
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <objc/runtime.h>
 
 #include "AppKitSolver.h"
@@ -459,12 +461,17 @@ static BOOL anchor_expr(BNLayoutPass *P, NSLayoutAnchor *a, double k, Expr *e) {
     return YES;
 }
 
+static int layout_debug = -1;
 static void add_constraint(BNLayoutPass *P, NSLayoutConstraint *c) {
+    if (layout_debug < 0) layout_debug = getenv("BITTEN_LAYOUT_DEBUG") != NULL;
     Expr e = {{0}, {0}, 0, 0};
-    if (!anchor_expr(P, c.firstAnchor, 1, &e)) return;
-    if (c.secondAnchor && !anchor_expr(P, c.secondAnchor, -c.multiplier, &e)) return;
+    if (!anchor_expr(P, c.firstAnchor, 1, &e) || (c.secondAnchor && !anchor_expr(P, c.secondAnchor, -c.multiplier, &e))) {
+        if (layout_debug) fprintf(stderr, "layout: skipped (item not in the pass) %s\n", c.description.UTF8String);
+        return;
+    }
     e.c -= c.constant;
-    add(P, &e, (int)c.relation, c.priority);
+    int ok = bn_solver_add(P->_s, e.var, e.coef, e.n, e.c, (int)c.relation, strength_of(c.priority));
+    if (!ok && layout_debug) fprintf(stderr, "layout: unsatisfiable, dropped %s\n", c.description.UTF8String);
 }
 
 /* var = constant, or a + coef*b = constant... small helpers. */
@@ -696,6 +703,10 @@ static void solve(NSView *root) {
                     else intrinsic(P, v);
                 }
             }
+            if (layout_debug > 0)
+                fprintf(stderr, "layout: pass over %s: %lu constraints, %lu usable, %lu items\n",
+                        object_getClassName(root), (unsigned long)all.count, (unsigned long)usable.count,
+                        (unsigned long)P->_items.count);
             for (NSLayoutConstraint *c in usable) add_constraint(P, c);
             place(P, root);
             place_guides(P);
@@ -706,6 +717,7 @@ static void solve(NSView *root) {
 /* Solves the constraints of the tree rooted at root and sets frames. */
 void bn_layout_tree(NSView *root) {
     if (in_pass || !root) return;
+    if (layout_debug < 0) layout_debug = getenv("BITTEN_LAYOUT_DEBUG") != NULL;
     in_pass = YES;
     [root updateConstraintsForSubtreeIfNeeded];
     for (int i = 0; i < 4; i++) {
