@@ -210,7 +210,10 @@ open class _HostingViewBase: NSView {
     let size = CGSize(width: min(want.width, bounds.size.width), height: min(want.height, bounds.size.height))
     let origin = CGPoint(x: ((bounds.size.width - size.width) / 2).rounded(.down),
                          y: ((bounds.size.height - size.height) / 2).rounded(.down))
-    r.place(in: CGRect(origin: origin, size: size))
+    // Content built while laying out (geometry readers) is watched as well.
+    let ctx = _context
+    withObservationTracking({ r.place(in: CGRect(origin: origin, size: size)) },
+                            onChange: { ctx.invalidate() })
     _placedIn = bounds.size
     if _debugTree { _dbg("bitten: swiftui tree in \(bounds.size)"); r._dumpTree() }
     _orderPlatformViews(r)
@@ -320,7 +323,9 @@ open class NSHostingView<Content: View>: _HostingViewBase {
   override func _makeRoot() -> _ViewNode {
     let inputs = _ViewInputs(_GraphInputs(environment: _environment, context: _context, path: ""))
     _context.beginBuild()
-    let root = _makeNode(rootView, inputs: inputs)
+    // Observable reads made while building but outside any view's body
+    // (builder closures run by containers, styles) rebuild the tree too.
+    let root = _withObservation(inputs) { _makeNode(rootView, inputs: inputs) }
     _context.endBuild()
     return root
   }

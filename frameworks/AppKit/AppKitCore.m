@@ -6,6 +6,7 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 #include <dispatch/dispatch.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 NSApplication *NSApp;
@@ -401,6 +402,8 @@ static NSUInteger next_window_number = 1;
                                 s.origin.y + (s.size.height - _frame.size.height) / 2);
 }
 - (void)orderFront:(id)sender {
+    if (getenv("BITTEN_EVENT_DEBUG") && !_visible)
+        fprintf(stderr, "bitten: window %s %s ordered front\n", object_getClassName(self), NSStringFromRect(_frame).UTF8String);
     _visible = YES;
     [self display];
 }

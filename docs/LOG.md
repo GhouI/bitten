@@ -3626,3 +3626,22 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Test: tests/appkit/drawing.m (a view leaving states saved inside a
   flipped view; offscreen drawing between save and restore).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: modifier keys are flags-changed events; window alpha; SwiftUI watches builder reads
+
+- Modifier keys pressed alone (key codes 54-63) arrive as
+  NSEventTypeFlagsChanged, as on a Mac. Before, they were key-downs with
+  no characters, which terminal views handle as typing.
+- A window whose `alphaValue` is 0 is not shown, and is shown again when
+  its alpha rises (panels kept ordered in but faded out).
+- SwiftUI also watches @Observable reads made while building outside any
+  view body (container builder closures, styles), and while laying out.
+  A change to one of those rebuilds the host, as for body reads.
+- Debugging: `BITTEN_EVENT_DEBUG` logs where Command keys go (a local
+  monitor, the main menu, the window), windows ordered front and alpha
+  changes. `BITTEN_SWIFTUI_TREE` logs observed changes.
+- Found while trying the target app's shortcuts. ⌘↩ adds a pane. ⇧⌘P is
+  taken by the app's local monitor, and its CommandPalettePanel, a
+  separate window ordered in at launch, is stacked under the main window
+  by the display (next: window styles and levels on the display).
+- Target app (total `^MISSING`): 0 -> 0.

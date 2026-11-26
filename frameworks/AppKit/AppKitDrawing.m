@@ -460,6 +460,12 @@ static const char kScheduledKey;
 /* Draws the content view hierarchy and shows the result. */
 - (void)display {
     if (!self.isVisible) return;
+    /* fully transparent: nothing to show (windows kept ordered in but
+     * faded out, as panels shown on demand often are) */
+    if (self.alphaValue <= 0) {
+        [self _bn_closeDisplay];
+        return;
+    }
     [self.contentView layoutSubtreeIfNeeded];
     NSRect content = [self contentRectForFrameRect:self.frame];
     CGContextRef c = [self _bn_backing:content.size];

@@ -154,12 +154,24 @@ extern BOOL bn_dragging_route(NSWindow *w, NSEvent *e);
     return YES;
 }
 - (void)sendEvent:(NSEvent *)event {
+    BOOL debug = getenv("BITTEN_EVENT_DEBUG") && (event.type == NSEventTypeKeyDown || event.type == NSEventTypeFlagsChanged);
+    NSEvent *original = event;
     event = bn_run_local_monitors(event);
-    if (!event) return;
+    if (!event) {
+        if (debug) fprintf(stderr, "bitten: key code %u flags %#lx taken by a local monitor\n", (unsigned)original.keyCode,
+                           (unsigned long)original.modifierFlags);
+        return;
+    }
     /* Command-key shortcuts go to the main menu first. */
     if (event.type == NSEventTypeKeyDown && (event.modifierFlags & NSEventModifierFlagCommand) &&
-        [self.mainMenu performKeyEquivalent:event])
+        [self.mainMenu performKeyEquivalent:event]) {
+        if (debug) fprintf(stderr, "bitten: key '%s' flags %#lx taken by the main menu\n", event.charactersIgnoringModifiers.UTF8String ?: "",
+                           (unsigned long)event.modifierFlags);
         return;
+    }
+    if (debug && event.type == NSEventTypeKeyDown && (event.modifierFlags & NSEventModifierFlagCommand))
+        fprintf(stderr, "bitten: key '%s' flags %#lx: no menu item, to the window\n",
+                event.charactersIgnoringModifiers.UTF8String ?: "", (unsigned long)event.modifierFlags);
     NSWindow *w = event.window;
     if (w) [w sendEvent:event];
     else if (event.type == NSEventTypeKeyDown) [self.keyWindow sendEvent:event];
@@ -228,6 +240,14 @@ static NSString *bn_key_characters(unsigned short code) {
             [event _bn_setScrollDeltaX:e.dx y:e.dy];
             break;
         case 6: case 7: {
+            /* Modifier keys alone change the modifier flags; they type nothing. */
+            unsigned short code = (unsigned short)e.key_code;
+            if (code >= 54 && code <= 63) {
+                event = [NSEvent keyEventWithType:NSEventTypeFlagsChanged location:loc modifierFlags:flags timestamp:t
+                                     windowNumber:window.windowNumber context:nil characters:@""
+                      charactersIgnoringModifiers:@"" isARepeat:NO keyCode:code];
+                break;
+            }
             NSString *ignoring = [NSString stringWithUTF8String:e.characters] ?: @"";
             if (!ignoring.length) ignoring = bn_key_characters((unsigned short)e.key_code);
             NSString *chars = ignoring;
