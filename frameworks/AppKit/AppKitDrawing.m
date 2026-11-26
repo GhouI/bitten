@@ -11,6 +11,8 @@
 #include <pthread.h>
 
 /* ---- the display's handoff API (exported by bitten's runtime) ---- */
+size_t bitten_cg_gstate_depth(CGContextRef c);
+void bitten_cg_restore_to_depth(CGContextRef c, size_t depth);
 int bitten_display_present(uint32_t window, const void *pixels, size_t width, size_t height, size_t row_bytes,
                            uint32_t bitmap_info, double x, double y, const char *title);
 void bitten_display_close(uint32_t window);
@@ -45,8 +47,32 @@ static void make_current_key(void) { pthread_key_create(&current_key, NULL); }
     pthread_setspecific(current_key, context ? (__bridge_retained void *)context : NULL);
 }
 + (BOOL)currentContextDrawingToScreen { return YES; }
-+ (void)saveGraphicsState { [[self currentContext] saveGraphicsState]; }
-+ (void)restoreGraphicsState { [[self currentContext] restoreGraphicsState]; }
+/* As documented, the class methods also save and restore which context is
+ * current (per thread), so drawing that saves, switches to another context
+ * (an image, a bitmap) and restores returns to where it started. */
+static NSMutableArray *context_stack(void) {
+    NSMutableDictionary *d = [NSThread currentThread].threadDictionary;
+    NSMutableArray *a = d[@"BNGraphicsContextStack"];
+    if (!a) d[@"BNGraphicsContextStack"] = a = [NSMutableArray array];
+    return a;
+}
++ (void)saveGraphicsState {
+    NSGraphicsContext *c = [self currentContext];
+    [context_stack() addObject:c ?: (id)[NSNull null]];
+    [c saveGraphicsState];
+}
++ (void)restoreGraphicsState {
+    NSMutableArray *a = context_stack();
+    if (!a.count) {
+        [[self currentContext] restoreGraphicsState];
+        return;
+    }
+    id saved = a.lastObject;
+    [a removeLastObject];
+    NSGraphicsContext *c = saved == (id)[NSNull null] ? nil : saved;
+    [self setCurrentContext:c];
+    [c restoreGraphicsState];
+}
 - (void)saveGraphicsState { CGContextSaveGState(_cg); }
 - (void)restoreGraphicsState { CGContextRestoreGState(_cg); }
 - (void)flushGraphics {}
@@ -364,9 +390,18 @@ static void bn_layer_border(BNBackingLayer *layer, CGContextRef c, CGRect b) {
     }
     NSGraphicsContext *previous = [NSGraphicsContext currentContext];
     [NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithCGContext:c flipped:flipped]];
+    size_t depth = bitten_cg_gstate_depth(c);
     [self drawRect:b];
+    if (bitten_cg_gstate_depth(c) != depth && getenv("BITTEN_DEBUG"))
+        fprintf(stderr, "bitten: %s drawRect: left %ld graphics states unbalanced\n", object_getClassName(self),
+                (long)bitten_cg_gstate_depth(c) - (long)depth);
+    bitten_cg_restore_to_depth(c, depth); /* states the drawing saved and left */
     [NSGraphicsContext setCurrentContext:previous];
-    if (layer) bn_layer_sublayers(layer, c, flipped);
+    if (layer) {
+        depth = bitten_cg_gstate_depth(c);
+        bn_layer_sublayers(layer, c, flipped);
+        bitten_cg_restore_to_depth(c, depth);
+    }
     if (![self _bn_drawsOwnSubviews])
         for (NSView *v in self.subviews) [v _bn_drawIn:c parentFlipped:flipped];
     if (layer) {
@@ -429,6 +464,16 @@ static const char kScheduledKey;
     NSRect content = [self contentRectForFrameRect:self.frame];
     CGContextRef c = [self _bn_backing:content.size];
     if (!c) return;
+    /* Drawing that restores more graphics states than it saved pops this
+     * frame's own state and leaves a view's flip behind in the reused
+     * context; start such a frame from a fresh one (it repaints everything). */
+    if (!CGAffineTransformIsIdentity(CGContextGetCTM(c))) {
+        if (getenv("BITTEN_DEBUG")) fprintf(stderr, "bitten: window %ld: unbalanced graphics state; context reset\n", (long)self.windowNumber);
+        CGContextRelease(c);
+        objc_setAssociatedObject(self, &kBackingKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        c = [self _bn_backing:content.size];
+        if (!c) return;
+    }
     CGContextSaveGState(c);
     NSColor *bg = self.backgroundColor;
     CGContextSetFillColorWithColor(c, bg.CGColor);

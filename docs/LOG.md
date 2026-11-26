@@ -3608,3 +3608,21 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   terminal view, its server and the pty).
 - Target app (total `^MISSING`): 2 -> 2.
 
+
+## Windows stay upright: NSGraphicsContext saves the current context; drawing cannot leak states
+
+- AppKit: +[NSGraphicsContext saveGraphicsState] and +restoreGraphicsState
+  save and restore which context is current (per thread), as documented.
+  Drawing that saved, switched to a bitmap context and restored used to
+  restore the bitmap's state and leave one saved on the window's context;
+  with the target app's terminal pane live, that left a flipped view's
+  transform behind and the whole window came out upside down.
+- AppKit and QuartzCore: a view's drawRect: and a layer's drawing are
+  followed by dropping back to the graphics-state depth they started at
+  (bitten_cg_gstate_depth / bitten_cg_restore_to_depth in CoreGraphics),
+  so drawing that saves more than it restores cannot shift the views drawn
+  after it; BITTEN_DEBUG names such views. A window whose context still
+  starts a frame transformed gets a fresh one.
+- Test: tests/appkit/drawing.m (a view leaving states saved inside a
+  flipped view; offscreen drawing between save and restore).
+- Target app (total `^MISSING`): 0 -> 0.
