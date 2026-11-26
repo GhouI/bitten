@@ -249,6 +249,7 @@ internal final class _ScrollNode: _ViewNode {
 public struct ScrollViewProxy {
   public func scrollTo<ID: Hashable>(_ id: ID, anchor: UnitPoint? = nil) {}
 }
+@frozen
 public struct ScrollViewReader<Content: View>: View {
   public var content: (ScrollViewProxy) -> Content
   public init(@ViewBuilder content: @escaping (ScrollViewProxy) -> Content) { self.content = content }
@@ -1419,6 +1420,9 @@ public struct GeometryProxy {
   public func bounds(of space: NamedCoordinateSpace) -> CGRect? { return CGRect(origin: CGPoint(x: 0, y: 0), size: size) }
 }
 
+/// Frozen in Apple's SwiftUI: programs get it back from `init(content:)` in
+/// registers, not through an indirect result.
+@frozen
 public struct GeometryReader<Content: View>: View {
   public var content: (GeometryProxy) -> Content
   public init(@ViewBuilder content: @escaping (GeometryProxy) -> Content) { self.content = content }

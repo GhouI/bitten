@@ -263,6 +263,7 @@ extension View {
       return _ViewOutputs(_EmptyNode(environment: inputs.environment))
     }
     let body = _withObservation(inputs) { value.body }
+    if _debugGraph && "\(Body.self)".hasPrefix("GeometryReader") { _dbg("bitten: body of \(Self.self) is \(Body.self)") }
     return Body._makeView(view: _GraphValue({ body }), inputs: inputs.child(0))
   }
 
@@ -278,6 +279,7 @@ extension View where Self: Animatable {
     var value = view.value
     _installDynamicProperties(&value, inputs: inputs)
     let body = _withObservation(inputs) { value.body }
+    if _debugGraph && "\(Body.self)".hasPrefix("GeometryReader") { _dbg("bitten: body of \(Self.self) is \(Body.self)") }
     return Body._makeView(view: _GraphValue({ body }), inputs: inputs.child(0))
   }
   public static func _makeViewList(view: _GraphValue<Self>, inputs: _ViewListInputs) -> _ViewListOutputs {

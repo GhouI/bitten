@@ -304,6 +304,13 @@ void realize_class(Class cls) {
                         if (iv->offset) *iv->offset += (int32_t)diff;
                     }
                 rw->instance_size = ro->instance_size + diff;
+                /* A Swift class keeps its own instance size in its metadata
+                 * (after the Objective-C part: flags, address point, size);
+                 * Swift subclasses lay out their fields from it. */
+                if (cls->bits & 3) {
+                    uint32_t *swift_size = (uint32_t *)((char *)cls + 48);
+                    if (*swift_size < rw->instance_size) *swift_size = rw->instance_size;
+                }
             }
         }
         if (cls->isa && cls->isa != cls) RW(cls->isa)->nonmeta = cls;
