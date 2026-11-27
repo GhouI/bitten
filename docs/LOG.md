@@ -4686,3 +4686,18 @@ Debugging aids:
   now cleared directly (`memset` of the rows), and the colour is filled
   only if it shows at all. Opaque backgrounds fill as before.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Transparency layers hold only what can be painted
+
+- CoreGraphics (context.c, raster.c, cg.h): a transparency layer allocates
+  only the target's pixels within the clip's box and, for
+  CGContextBeginTransparencyLayerWithRect, the rectangle's device bounds
+  (drawing outside the rectangle is discarded, as documented). It used to
+  allocate and clear the whole target (3 MB for a 1087x700 window) on
+  every call. The layer's surface is "bounded": its data is offset so
+  pixels keep their full-surface coordinates, and pixel writes and span
+  fills outside the box are dropped, even if drawing inside the layer pops
+  its clip. Ending a layer composites only its box within the clip.
+- Test: tests/c/cg.c (a rectangle under a translated CTM, a clip, a
+  layer whose state is popped).
+- Target app (total `^MISSING`): 0 -> 0.

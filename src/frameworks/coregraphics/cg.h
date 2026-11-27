@@ -162,7 +162,16 @@ struct cg_surface {
     uint8_t *data;
     size_t width, height, row_bytes;
     struct cg_format format;
+    /* A bounded surface (a transparency layer) holds only columns
+     * [bx0, bx1) and rows [by0, by1) (rows top down): data is offset so
+     * those pixels are where a full surface would have them, and nothing
+     * outside is read or written. */
+    bool bounded;
+    size_t bx0, by0, bx1, by1;
 };
+static inline bool cg_surface_holds(const struct cg_surface *s, size_t x, size_t row) {
+    return !s->bounded || (x >= s->bx0 && x < s->bx1 && row >= s->by0 && row < s->by1);
+}
 
 /* A coverage mask over a surface, shared by saved graphics states. */
 struct cg_mask {

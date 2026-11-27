@@ -34,6 +34,7 @@ CGAffineTransform CGContextGetCTM(CGContextRef);
 CGPoint CGContextConvertPointToDeviceSpace(CGContextRef, CGPoint);
 void CGContextSetAlpha(CGContextRef, CGFloat);
 void CGContextBeginTransparencyLayer(CGContextRef, CGRef), CGContextEndTransparencyLayer(CGContextRef);
+void CGContextBeginTransparencyLayerWithRect(CGContextRef, CGRect, CGRef);
 void CGContextSetInterpolationQuality(CGContextRef, int);
 void CGContextDrawImage(CGContextRef, CGRect, CGRef);
 void CGContextClearRect(CGContextRef, CGRect);
@@ -180,6 +181,40 @@ int main(void) {
     CGContextFillRect(c, R(0, 0, 5, 5));                    /* overlap stays one layer */
     CGContextEndTransparencyLayer(c);
     CHECK(near(px(c, 10, 2, 2)[3], 128, 2) && near(px(c, 10, 7, 7)[3], 128, 2));
+    CGContextRelease(c);
+
+    /* a layer with a rectangle holds only that rectangle (in device space,
+     * here moved by the CTM): drawing outside it is discarded */
+    c = rgba(20, 20);
+    CGContextTranslateCTM(c, 2, 3);
+    CGContextBeginTransparencyLayerWithRect(c, R(1, 1, 5, 5), NULL);   /* device x 3..8, y 4..9 */
+    CGContextSetRGBFillColor(c, 1, 0, 0, 1);
+    CGContextFillRect(c, R(-2, -3, 20, 20));
+    CGContextEndTransparencyLayer(c);
+    CHECK(px(c, 20, 5, 6)[0] == 255 && px(c, 20, 5, 6)[3] == 255);
+    CHECK(px(c, 20, 3, 4)[3] == 255 && px(c, 20, 7, 8)[3] == 255);
+    CHECK(px(c, 20, 2, 6)[3] == 0 && px(c, 20, 8, 6)[3] == 0 && px(c, 20, 5, 3)[3] == 0 && px(c, 20, 5, 9)[3] == 0);
+    CHECK(px(c, 20, 15, 15)[3] == 0);
+    CGContextRelease(c);
+    /* a plain layer under a clip composites inside the clip only */
+    c = rgba(20, 20);
+    CGContextClipToRect(c, R(10, 10, 5, 5));
+    CGContextBeginTransparencyLayer(c, NULL);
+    CGContextSetRGBFillColor(c, 0, 0, 1, 1);
+    CGContextFillRect(c, R(0, 0, 20, 20));
+    CGContextEndTransparencyLayer(c);
+    CHECK(px(c, 20, 12, 12)[2] == 255 && px(c, 20, 12, 12)[3] == 255 && px(c, 20, 5, 5)[3] == 0 && px(c, 20, 16, 16)[3] == 0);
+    CGContextRelease(c);
+    /* drawing that pops the layer's own state (so its clip grows back)
+     * still stays inside the layer's pixels */
+    c = rgba(20, 20);
+    CGContextSaveGState(c);
+    CGContextBeginTransparencyLayerWithRect(c, R(0, 0, 4, 4), NULL);
+    CGContextRestoreGState(c);
+    CGContextSetRGBFillColor(c, 0, 1, 0, 1);
+    CGContextFillRect(c, R(0, 0, 20, 20));
+    CGContextEndTransparencyLayer(c);
+    CHECK(px(c, 20, 1, 1)[1] == 255 && px(c, 20, 10, 10)[3] == 0);
     CGContextRelease(c);
 
     /* BGRA little-endian and gray contexts */

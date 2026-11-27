@@ -35,6 +35,7 @@ struct gstate {
 
 struct layer {
     struct cg_surface surface;
+    uint8_t *alloc;                            /* the layer's pixels (surface.data is offset into them) */
     struct cg_surface *under;
     CGFloat alpha;
     int blend;
@@ -74,7 +75,7 @@ static void context_destroy(void *o) {
     while (c->layers) {
         struct layer *l = c->layers;
         c->layers = l->next;
-        free(l->surface.data);
+        free(l->alloc);
         free(l);
     }
     while (c->gs) {
@@ -938,14 +939,48 @@ DX_FN(CGContextDrawRadialGradient);
 
 /* ---- transparency layers ------------------------------------------------------------------------- */
 
-static void d_CGContextBeginTransparencyLayer(CGContextRef c, const void *aux) {
+/* A layer holds only what can be painted: the target, within the clip's
+ * box and (WithRect) the rectangle's device bounds; drawing outside the
+ * rectangle is discarded, as the documentation allows. */
+static void begin_layer(CGContextRef c, const CGRect *rect) {
     if (!c) return;
     struct layer *l = calloc(1, sizeof *l);
     if (!l) return;
     size_t w = c->target->width, h = c->target->height;
+    size_t x0 = 0, y0 = 0, x1 = w, y1 = h;
+    if (c->gs->clip) {
+        x0 = c->gs->clip->x0, y0 = c->gs->clip->y0, x1 = c->gs->clip->x1, y1 = c->gs->clip->y1;
+    }
+    if (rect && isfinite(rect->origin.x) && isfinite(rect->origin.y) && isfinite(rect->size.width) &&
+        isfinite(rect->size.height) && rect->size.width < 1e15 && rect->size.height < 1e15) {
+        /* the rectangle's corners in device space (y up; rows run down) */
+        CGAffineTransform m = c->gs->ctm;
+        CGFloat ax = rect->origin.x, ay = rect->origin.y, bx = ax + rect->size.width, by = ay + rect->size.height;
+        CGPoint p[4] = {{ax, ay}, {bx, ay}, {ax, by}, {bx, by}};
+        CGFloat minx = INFINITY, maxx = -INFINITY, miny = INFINITY, maxy = -INFINITY;
+        for (int i = 0; i < 4; i++) {
+            CGFloat dx = m.a * p[i].x + m.c * p[i].y + m.tx, dy = m.b * p[i].x + m.d * p[i].y + m.ty;
+            minx = fmin(minx, dx); maxx = fmax(maxx, dx); miny = fmin(miny, dy); maxy = fmax(maxy, dy);
+        }
+        CGFloat r0 = (CGFloat)h - maxy, r1 = (CGFloat)h - miny;
+        size_t rx0 = minx <= 0 ? 0 : (size_t)floor(minx), rx1 = maxx <= 0 ? 0 : (size_t)ceil(maxx);
+        size_t ry0 = r0 <= 0 ? 0 : (size_t)floor(r0), ry1 = r1 <= 0 ? 0 : (size_t)ceil(r1);
+        if (rx0 > x0) x0 = rx0;
+        if (ry0 > y0) y0 = ry0;
+        if (rx1 < x1) x1 = rx1;
+        if (ry1 < y1) y1 = ry1;
+    }
+    if (x1 > w) x1 = w;
+    if (y1 > h) y1 = h;
+    if (x0 > x1) x0 = x1;
+    if (y0 > y1) y0 = y1;
+    size_t bw = x1 - x0, bh = y1 - y0;
     struct cg_format f = {4, 0, 1, 2, 3, false, false, false};
-    l->surface = (struct cg_surface){calloc(h ? h : 1, w ? w * 4 : 1), w, h, w * 4, f};
-    if (!l->surface.data) { free(l); return; }
+    uint8_t *buf = calloc(bh ? bh : 1, bw ? bw * 4 : 4);
+    if (!buf) { free(l); return; }
+    /* offset so pixel (x, row) of the full surface is in buf when it is in the box */
+    l->surface = (struct cg_surface){buf - (y0 * bw + x0) * 4, w, h, bw * 4, f, true, x0, y0, x1, y1};
+    l->alloc = buf;
     l->under = c->target;
     l->alpha = c->gs->alpha;
     l->blend = c->gs->blend;
@@ -956,11 +991,10 @@ static void d_CGContextBeginTransparencyLayer(CGContextRef c, const void *aux) {
     c->gs->alpha = 1;
     c->gs->blend = CG_BLEND_NORMAL;
 }
+static void d_CGContextBeginTransparencyLayer(CGContextRef c, const void *aux) { begin_layer(c, NULL); }
 DX_FN(CGContextBeginTransparencyLayer);
 
-static void d_CGContextBeginTransparencyLayerWithRect(CGContextRef c, CGRect r, const void *aux) {
-    d_CGContextBeginTransparencyLayer(c, aux);
-}
+static void d_CGContextBeginTransparencyLayerWithRect(CGContextRef c, CGRect r, const void *aux) { begin_layer(c, &r); }
 DX_FN(CGContextBeginTransparencyLayerWithRect);
 
 static void d_CGContextEndTransparencyLayer(CGContextRef c) {
@@ -970,16 +1004,21 @@ static void d_CGContextEndTransparencyLayer(CGContextRef c) {
     c->layers = l->next;
     c->target = l->under;
     struct cg_target t = {c->target, c->gs->clip, l->alpha, l->blend, true};
-    /* Only the clip's box can have been painted (and shows through it). */
-    size_t x0 = 0, x1 = l->surface.width, y0 = 0, y1 = l->surface.height;
-    if (t.clip) x0 = t.clip->x0, x1 = t.clip->x1, y0 = t.clip->y0, y1 = t.clip->y1;
+    /* Only the layer's box can have been painted, and only the clip's box shows it. */
+    size_t x0 = l->surface.bx0, x1 = l->surface.bx1, y0 = l->surface.by0, y1 = l->surface.by1;
+    if (t.clip) {
+        if (t.clip->x0 > x0) x0 = t.clip->x0;
+        if (t.clip->y0 > y0) y0 = t.clip->y0;
+        if (t.clip->x1 < x1) x1 = t.clip->x1;
+        if (t.clip->y1 < y1) y1 = t.clip->y1;
+    }
     for (size_t row = y0; row < y1; row++)
         for (size_t x = x0; x < x1; x++) {
             CGFloat px[4];
             cg_read_pixel(&l->surface, x, row, px);
             if (px[3] > 0 || l->blend == CG_BLEND_COPY) cg_blend_pixel(&t, x, row, px, 1);
         }
-    free(l->surface.data);
+    free(l->alloc);
     free(l);
 }
 DX_FN(CGContextEndTransparencyLayer);
