@@ -10,23 +10,23 @@ windows no longer leaks.
 
 ## What stands in the way
 
-1. **Speed.** Full window redraws take 0.3–1 s, so resizes, pane zoom and
-   page switches lag by seconds. With a viewer connected the app idles at
-   about 16% CPU. Profiles point at CoreGraphics compositing
-   (`cg_blend_pixel`, `cg_read_pixel` in transparency layers,
-   `CGContextClipToRect` building full-surface masks) and the terminal's
-   Metal fragment path (`cell_bg_fragment`). Wait 8 s or more before
-   judging that an animated change didn't happen.
-2. **Bracketed paste.** Pasting into a terminal pane shows `[200~…~`
-   literally although bash has bracketed paste on (with the app's own `TERM`). The
-   markers are made by the app's terminal code; check where the escape
-   byte is lost on its way to the server.
-3. **Return in text fields.** Escape reaches a `.cancelAction` button and
-   ⌘-shortcuts reach SwiftUI buttons. Return in a field editor only ends
-   editing; check what AppKit does with a default button there before
-   adding it.
-4. **The display page keeps focus on a closed window.** AppKit sends such
-   keys to the key window; the page could refocus the frontmost window.
+1. **Speed.** Full window redraws still take a few hundred milliseconds,
+   so resizes, pane zoom and page switches lag. With a viewer connected
+   the app idles at about 10% CPU, mostly the terminal's Metal fragment
+   path (`cell_bg_fragment`), probably whole surfaces re-rendered for the
+   cursor blink. During redraws CoreGraphics blending (`cg_blend_pixel`,
+   `cg_read_pixel`, `mask_row`) dominates, called from QuartzCore's layer
+   drawing and AppKit's background fills. Wait 8 s or more before judging
+   that an animated change didn't happen.
+2. **Paste timing.** A paste once arrived in bash as literal `[200~…~`.
+   That is consistent with the escape byte reaching readline more than its
+   key-sequence timeout before the rest. It pastes correctly now that
+   frames are faster; watch for it under load.
+
+Settled since the last update: Return in the target app's text fields is
+handled by the app's own delegate. The display page refocuses the
+frontmost window when the focused one closes (#232), and AppKit sends keys
+for a closed window to the key window anyway.
 
 ## Finding problems
 
