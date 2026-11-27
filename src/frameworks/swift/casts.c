@@ -13,6 +13,8 @@
  *     buffer or box, class reference, error box, or metatype, followed by
  *     the witness tables;
  *   - class: the object's class must descend from the target;
+ *   - tuple: element by element, with labels matching where both sides
+ *     have one;
  *   - metatype: the type itself is cast (swift_dynamicCastMetatype).
  * Bridging between Swift values and Objective-C objects (String to
  * NSString...) is the standard library's job and is not done here.
@@ -411,6 +413,39 @@ static int cast_nserror_to_value(sw_opaque *dest, void *object, const sw_metadat
     return bridge(object, dest, target);
 }
 
+/* ---- tuples ------------------------------------------------------------------------------- */
+/* As in Apple's runtime (tryCastToTuple): the element counts must match, and
+ * so must every label that is non-empty on both sides, so an unlabeled tuple
+ * casts to a labeled one and back. Then each element is cast into the
+ * target's offset; on a failure the elements already cast are destroyed. */
+static int labels_compatible(const char *a, const char *b) {
+    while (a && b && a != b) {
+        const char *ae = strchr(a, ' '), *be = strchr(b, ' ');
+        if (!ae || !be) break;
+        if (ae != a && be != b && (ae - a != be - b || strncmp(a, b, ae - a) != 0)) return 0;
+        a = ae + 1;
+        b = be + 1;
+    }
+    return 1;
+}
+
+static int cast_to_tuple(sw_opaque *dest, sw_opaque *src, const sw_metadata *type, const sw_metadata *target) {
+    const sw_tuple_metadata *s = (const sw_tuple_metadata *)type, *t = (const sw_tuple_metadata *)target;
+    if (s->num_elements != t->num_elements || !labels_compatible(s->labels, t->labels)) return 0;
+    for (size_t i = 0; i < t->num_elements; i++) {
+        const sw_tuple_element *se = &s->elements[i], *te = &t->elements[i];
+        if (cast((sw_opaque *)((char *)dest + te->offset), (sw_opaque *)((char *)src + se->offset), se->type,
+                 te->type))
+            continue;
+        while (i--) {
+            te = &t->elements[i];
+            sw_vwt_of(te->type)->destroy((sw_opaque *)((char *)dest + te->offset), te->type);
+        }
+        return 0;
+    }
+    return 1;
+}
+
 /* ---- the general cast --------------------------------------------------------------------- */
 static int cast(sw_opaque *dest, sw_opaque *src, const sw_metadata *type, const sw_metadata *target) {
     if (type == target) {
@@ -439,6 +474,9 @@ static int cast(sw_opaque *dest, sw_opaque *src, const sw_metadata *type, const 
         return cast_to_existential(dest, src, type, target);
     case SW_KIND_EXISTENTIAL_METATYPE:
         return cast_to_existential_metatype(dest, src, type, target);
+    case SW_KIND_TUPLE:
+        if (sk == SW_KIND_TUPLE) return cast_to_tuple(dest, src, type, target);
+        break;
     case SW_KIND_CLASS: case SW_KIND_OBJC_CLASS_WRAPPER:
         if (is_class_like(type)) {
             const void *obj = d_swift_dynamicCastClass(*(void **)src, target);
