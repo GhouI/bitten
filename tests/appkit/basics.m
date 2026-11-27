@@ -149,6 +149,10 @@ int main(void) {
                                               styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
                                                 backing:NSBackingStoreBuffered defer:NO];
     CHECK(w.frame.size.height == 328 && w.contentView.frame.size.height == 300);
+    /* The title bar's buttons sit where the display draws them, left to
+     * right: a program lays its own title bar items out after them. */
+    NSButton *close = [w standardWindowButton:NSWindowCloseButton], *zoom = [w standardWindowButton:NSWindowZoomButton];
+    CHECK(close && zoom && NSMinX(close.frame) < NSMinX(zoom.frame) && NSMaxX(zoom.frame) > 60);
     Box *outer = [[Box alloc] initWithFrame:NSMakeRect(10, 10, 200, 100)];
     Box *inner = [[Box alloc] initWithFrame:NSMakeRect(5, 5, 50, 50)];
     [outer addSubview:inner];

@@ -213,7 +213,13 @@ SIZE_PROP(resizeIncrements, setResizeIncrements, "resizeIncrements", NSMakeSize(
     NSString *k = [NSString stringWithFormat:@"button%lu", (unsigned long)b];
     NSButton *button = get(self, k);
     if (!button) {
-        button = [[NSButton alloc] initWithFrame:NSMakeRect(0, 0, 14, 16)];
+        /* Where the display page draws the window's buttons: 12-point dots
+         * 20 points apart from 10 points in, centred in the 28-point title
+         * bar (frames in title bar coordinates, origin bottom left). */
+        CGFloat x = b <= NSWindowZoomButton ? 9 + 20 * (CGFloat)b : 0;
+        button = [[NSButton alloc] initWithFrame:NSMakeRect(x, 6, 14, 16)];
+        button.bordered = NO;
+        button.title = @"";
         set(self, k, button);
     }
     return button;

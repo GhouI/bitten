@@ -5138,3 +5138,14 @@ Debugging aids:
   settled: sheets as windows, the theme editor, GridRow's stored fields,
   and grids.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: title bar buttons where the display draws them
+
+- `standardWindowButton:` returned buttons framed at (0, 0). Their frames
+  now match the display page's dots: 14 by 16 at 9, 29 and 49 points
+  from the left, centred in the 28-point title bar. The target app places
+  its sidebar toggle after the zoom button. In the Left and Right
+  toolbar layouts the toggle sat under the green dot; it now sits after
+  the buttons.
+- Test: `tests/appkit/basics.m`.
+- Target app (total `^MISSING`): 0 -> 0.
