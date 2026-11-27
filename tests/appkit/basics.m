@@ -402,6 +402,24 @@ int main(void) {
         if (e.type == NSEventTypeRightMouseDown) *stop = YES;
     }];
     CHECK(seen == 2);
+
+    /* Main follows key for windows that can be main; moving a window posts
+     * that it moved. */
+    NSWindow *w2 = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 50, 50) styleMask:NSWindowStyleMaskTitled
+                                                 backing:NSBackingStoreBuffered defer:NO];
+    [w makeKeyAndOrderFront:nil];
+    CHECK(w.isMainWindow && NSApp.mainWindow == w);
+    [w2 makeKeyAndOrderFront:nil];
+    CHECK(w2.isMainWindow && !w.isMainWindow && NSApp.mainWindow == w2);
+    __block int moves = 0;
+    id obs = [[NSNotificationCenter defaultCenter] addObserverForName:NSWindowDidMoveNotification object:w2 queue:nil
+                                                           usingBlock:^(NSNotification *n) { moves++; }];
+    [w2 setFrameOrigin:NSMakePoint(100, 100)];
+    [w2 setFrameOrigin:NSMakePoint(100, 100)];
+    CHECK(moves == 1);
+    [[NSNotificationCenter defaultCenter] removeObserver:obs];
+    [w2 orderOut:nil];
+    CHECK(!w2.isMainWindow && w.isMainWindow);
     puts("AppKit basics ok");
     return 0;
 }

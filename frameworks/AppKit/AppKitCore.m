@@ -511,6 +511,7 @@ static NSUInteger next_window_number = 1;
         bn_debug_callers();
     }
     BOOL resized = frame.size.width != _frame.size.width || frame.size.height != _frame.size.height;
+    BOOL moved = !NSEqualPoints(frame.origin, _frame.origin);
     _frame = frame;
     NSRect c = [self contentRectForFrameRect:frame];
     _contentView.frame = NSMakeRect(0, 0, c.size.width, c.size.height);
@@ -520,6 +521,7 @@ static NSUInteger next_window_number = 1;
                                                                      object:self userInfo:nil]];
         [self _post:NSWindowDidResizeNotification];
     }
+    if (moved) [self _bn_tell:NSWindowDidMoveNotification delegate:@selector(windowDidMove:)];
     if (flag) [self display];
 }
 - (void)setContentSize:(NSSize)size {
@@ -539,6 +541,7 @@ static NSUInteger next_window_number = 1;
     if (!was) bn_tree_visibility(_contentView, YES);
     [self display];
     [self _bn_orderFrontOnDisplay];
+    if (!was) [self _bn_occlusionChanged];
 }
 - (void)makeKeyAndOrderFront:(id)sender {
     if (getenv("BITTEN_EVENT_DEBUG")) {
@@ -551,6 +554,37 @@ static NSUInteger next_window_number = 1;
 /* Key-window changes, as AppKit makes them: the window losing key status
  * hears resignKeyWindow, its delegate's windowDidResignKey: and the
  * notification, then the new one the same for becoming key. */
+/* Tells the delegate (when it has `sel`) and posts `name`. */
+- (void)_bn_tell:(NSNotificationName)name delegate:(SEL)sel {
+    NSNotification *n = [NSNotification notificationWithName:name object:self userInfo:nil];
+    if (sel && [_delegate respondsToSelector:sel]) ((void (*)(id, SEL, id))objc_msgSend)(_delegate, sel, n);
+    [[NSNotificationCenter defaultCenter] postNotification:n];
+}
+/* The main window: the key window when it can be main; a panel made key
+ * leaves the main window main (as in AppKit). */
+static const char kMainKey;
+- (BOOL)isMainWindow { return [objc_getAssociatedObject(self, &kMainKey) boolValue]; }
+- (void)_bn_becomeMain {
+    if (self.isMainWindow) return;
+    for (NSWindow *w in [all_windows copy])
+        if (w != self) [w _bn_resignMain];
+    objc_setAssociatedObject(self, &kMainKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [self becomeMainWindow];
+    [self _bn_tell:NSWindowDidBecomeMainNotification delegate:@selector(windowDidBecomeMain:)];
+}
+- (void)_bn_resignMain {
+    if (!self.isMainWindow) return;
+    objc_setAssociatedObject(self, &kMainKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [self resignMainWindow];
+    [self _bn_tell:NSWindowDidResignMainNotification delegate:@selector(windowDidResignMain:)];
+}
+- (void)becomeMainWindow {}
+- (void)resignMainWindow {}
+- (void)makeMainWindow { if (self.canBecomeMainWindow && _visible) [self _bn_becomeMain]; }
+/* Whether the window can be seen changed: its occlusion state did. */
+- (void)_bn_occlusionChanged {
+    [self _bn_tell:NSWindowDidChangeOcclusionStateNotification delegate:@selector(windowDidChangeOcclusionState:)];
+}
 - (void)_bn_resignKey {
     if (!_key) return;
     _key = NO;
@@ -568,6 +602,7 @@ static NSUInteger next_window_number = 1;
     NSNotification *n = [NSNotification notificationWithName:NSWindowDidBecomeKeyNotification object:self userInfo:nil];
     if ([_delegate respondsToSelector:@selector(windowDidBecomeKey:)]) [_delegate windowDidBecomeKey:n];
     [[NSNotificationCenter defaultCenter] postNotification:n];
+    if (self.canBecomeMainWindow) [self _bn_becomeMain];
 }
 /* A key window that goes away passes key status to the frontmost titled
  * window left (the main window, usually). */
@@ -581,15 +616,21 @@ static NSUInteger next_window_number = 1;
         }
 }
 - (void)orderOut:(id)sender {
+    BOOL was = _visible;
     if (_visible) bn_tree_visibility(_contentView, NO);
     _visible = NO;
     [self _bn_closeDisplay];
+    [self _bn_resignMain];
     [self _bn_passKeyOn];
+    if (was) [self _bn_occlusionChanged];
 }
 /* Hidden but still known to the display (miniaturized: shown as a chip). */
 - (void)_bn_hideKeepingDisplay {
+    BOOL was = _visible;
     if (_visible) bn_tree_visibility(_contentView, NO);
     _visible = NO;
+    [self _bn_resignMain];
+    if (was) [self _bn_occlusionChanged];
     [self _bn_passKeyOn];
 }
 - (void)close {
@@ -633,7 +674,11 @@ static NSUInteger next_window_number = 1;
         if (w.keyWindow) return w;
     return nil;
 }
-- (NSWindow *)mainWindow { return self.keyWindow; }
+- (NSWindow *)mainWindow {
+    for (NSWindow *w in all_windows)
+        if (w.isMainWindow) return w;
+    return nil;
+}
 - (NSMenu *)mainMenu { return _mainMenu; }
 - (void)setMainMenu:(NSMenu *)m { _mainMenu = m; }
 - (BOOL)isRunning { return _running; }

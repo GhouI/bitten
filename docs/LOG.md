@@ -4811,3 +4811,20 @@ Debugging aids:
   dragging it back restores the layout. tests/appkit/basics.m covers
   queue order, masks, a timeout of zero and the tracking handler.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Window notifications: main, occlusion, move, update
+
+- The main window is tracked apart from the key window. A window that can
+  be main becomes main when it becomes key, and stays main while a panel
+  (the command palette) is key. Main passes on when the main window is
+  ordered out. `windowDidBecomeMain:` / `windowDidResignMain:` and their
+  notifications are sent, and `NSApp.mainWindow` and `isMainWindow`
+  follow.
+- A window's occlusion state changes when it is ordered in or out or
+  miniaturized (`windowDidChangeOcclusionState:`). Moving it sends
+  `windowDidMove:`. After each batch of events every visible window posts
+  `NSWindowDidUpdateNotification` (`windowDidUpdate:`), as
+  `updateWindows` does.
+- The target app observes all of these. tests/appkit/basics.m covers main
+  hand-over and moves.
+- Target app (total `^MISSING`): 0 -> 0.
