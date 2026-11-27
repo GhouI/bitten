@@ -218,6 +218,11 @@ static void bn_autoresize_axis(CGFloat delta, BOOL flexLo, BOOL flexLen, BOOL fl
 
 - (void)_setWindow:(NSWindow *)window {
     if (window == _window) return;
+    /* The first responder leaving its window hands first responder status
+     * to the window itself, as on macOS: the view is asked to resign, and
+     * goes either way (it can't stay first responder of a window it left). */
+    if (_window && _window.firstResponder == self && ![_window makeFirstResponder:nil])
+        [_window _bn_dropFirstResponder];
     [self viewWillMoveToWindow:window];
     BOOL was = _window.isVisible;
     _window = window;

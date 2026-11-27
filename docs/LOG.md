@@ -4363,3 +4363,18 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   that falls back to the placeholder.
 
 - Target app (total `^MISSING`): 0 -> 0.
+
+## The first responder leaving its window hands over to the window
+
+- When a view that is its window's first responder leaves the window
+  (removed, or inside a removed parent), the window becomes first
+  responder, as on macOS. The view is asked to resign first and goes
+  either way (`-[NSWindow _bn_dropFirstResponder]`).
+- In the target app, switching back to an earlier tab with ⌃⇧Tab (or
+  closing the current tab) used to show "Terminal Failed: The presented
+  window does not contain block …". The removed tab's terminal stayed
+  first responder, and the app looked its block up in the newly presented
+  tab. Clicking a tab worked, because the click moved first responder
+  first. Both keyboard paths now show the tab's panes.
+  tests/appkit/basics.m covers this.
+- Target app (total `^MISSING`): 0 -> 0.
