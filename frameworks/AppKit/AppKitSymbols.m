@@ -503,8 +503,11 @@ __attribute__((visibility("default"))) void bn_draw_symbol(CGContextRef c, const
     }
 
     if (boxed && filled) {
-        /* A filled container with the glyph knocked out of it. */
-        CGContextBeginTransparencyLayer(c, NULL);
+        /* A filled container with the glyph knocked out of it (a layer
+         * no bigger than the symbol's square). */
+        CGRect square = CGRectMake(ox - 1, oy - 1, side + 2, side + 2);
+        CGContextClipToRect(c, square);
+        CGContextBeginTransparencyLayerWithRect(c, square, NULL);
         stroke_and_fill(c, &container, lw);
         CGContextSetBlendMode(c, kCGBlendModeClear);
         stroke_and_fill(c, &glyphpen, lw * 0.9);
