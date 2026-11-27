@@ -4181,3 +4181,25 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - SDK: function-key characters (`NSUpArrowFunctionKey`…) and
   `menuForEvent:`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Display: partial frames; Metal pass traces; the dimmed-pane strip explained
+
+- `bitten_display_present_rect` presents only a changed rect of a window's
+  bitmap. Only that part is converted, and viewers that missed only partial
+  updates get a new message 3 (a frame's header, the rect, its pixels).
+  - Each window keeps up to 16 changed rects since its last full frame, so
+    a viewer gets their union.
+  - A first frame, a new size, style changes and order-front still send
+    the whole frame, as does a viewer that is further behind.
+  - The page draws message 3 over the canvas.
+- AppKit presents partial frames this way. The idle target app (cursor
+  blink) went from about 23% of a core to 8%.
+- `BITTEN_METAL_DEBUG` traces render passes (target, load action, clear
+  colour), viewports, scissors and draws.
+- The strip at the bottom of a dimmed terminal pane is the target app's
+  doing.
+  - Each pass clears to white, and `cell_bg_fragment` extends cell
+    backgrounds into the padding only on the sides the app's uniforms ask
+    for. Its padding-extend byte (0x30 or 0x31) never sets "down".
+  - The bottom padding keeps the clear colour, as it would on macOS.
+- Target app (total `^MISSING`): 0 -> 0.

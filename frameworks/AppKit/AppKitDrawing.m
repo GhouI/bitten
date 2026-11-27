@@ -17,6 +17,9 @@ size_t bitten_cg_gstate_depth(CGContextRef c);
 void bitten_cg_restore_to_depth(CGContextRef c, size_t depth);
 int bitten_display_present(uint32_t window, const void *pixels, size_t width, size_t height, size_t row_bytes,
                            uint32_t bitmap_info, double x, double y, const char *title);
+int bitten_display_present_rect(uint32_t window, const void *pixels, size_t width, size_t height, size_t row_bytes,
+                                uint32_t bitmap_info, double x, double y, const char *title, size_t rx, size_t ry,
+                                size_t rw, size_t rh);
 void bitten_display_close(uint32_t window);
 int bitten_display_set_style(uint32_t window, uint32_t flags, int32_t level);
 void bitten_display_order_front(uint32_t window);
@@ -654,8 +657,9 @@ static const char kFullKey;  /* @YES: the next frame repaints everything */
         full = YES;
     }
     CGContextSaveGState(c);
+    NSRect dirty = NSZeroRect;
     if (!full) {
-        NSRect dirty = NSIntersectionRect(NSInsetRect(dirtyValue.rectValue, -2, -2),
+        dirty = NSIntersectionRect(NSInsetRect(dirtyValue.rectValue, -2, -2),
                                           NSMakeRect(0, 0, content.size.width, content.size.height));
         if (NSIsEmptyRect(dirty)) {
             CGContextRestoreGState(c);
@@ -695,10 +699,19 @@ static const char kFullKey;  /* @YES: the next frame repaints everything */
     /* The page's coordinates run down from the top of the main screen. */
     NSRect screen = [NSScreen mainScreen].frame;
     double top = CGRectGetMaxY(screen) - CGRectGetMaxY(self.frame);
-    bitten_display_present((uint32_t)self.windowNumber, CGBitmapContextGetData(c), CGBitmapContextGetWidth(c),
-                           CGBitmapContextGetHeight(c), CGBitmapContextGetBytesPerRow(c),
-                           kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little, self.frame.origin.x, top,
-                           self.title.UTF8String ?: "");
+    size_t bw = CGBitmapContextGetWidth(c), bh = CGBitmapContextGetHeight(c);
+    uint32_t info = kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little;
+    if (full) {
+        bitten_display_present((uint32_t)self.windowNumber, CGBitmapContextGetData(c), bw, bh,
+                               CGBitmapContextGetBytesPerRow(c), info, self.frame.origin.x, top, self.title.UTF8String ?: "");
+    } else {
+        /* only the repainted rect goes to the display (its rows run down from the top) */
+        size_t x0 = (size_t)floor(NSMinX(dirty)), x1 = (size_t)ceil(NSMaxX(dirty));
+        size_t y0 = (size_t)floor(bh - NSMaxY(dirty)), y1 = (size_t)ceil(bh - NSMinY(dirty));
+        bitten_display_present_rect((uint32_t)self.windowNumber, CGBitmapContextGetData(c), bw, bh,
+                                    CGBitmapContextGetBytesPerRow(c), info, self.frame.origin.x, top,
+                                    self.title.UTF8String ?: "", x0, y0, x1 - x0, y1 - y0);
+    }
     [NSApplication _bn_listenToDisplay];
 }
 
