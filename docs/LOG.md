@@ -4101,3 +4101,27 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   wrapped description, such as the target app's "No Remote Hosts" text, had
   its second line at the left.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## CoreGraphics: fast paths for 8-bit colour; layer contents and actions in debug output
+
+- The idle target app spent about 77% of a core on its main thread. Each
+  terminal present (the cursor blink, about 1.7 a second) redraws the whole
+  window in software, and every pixel went through double-precision
+  `cg_read_pixel` / `cg_blend_pixel` / `cg_write_pixel`. Three exact fast
+  paths for 4-byte colour surfaces bring that to about 64%:
+  - source-over blends straight on the bytes;
+  - opaque solid fills store fully covered pixels directly;
+  - images made from 8-bit colour data reorder bytes (premultiplying straight
+    alpha with the same rounding, ⌊(2ca + 255) / 510⌋) without floats.
+- Still to do: redraw only what changed (the terminal view's rect on a
+  present), and bound the rasterizer's scan by the clip. Most of the
+  remaining time is translucent fills, clip intersection and transparency
+  layers over the whole window.
+- Debugging:
+  - `BITTEN_VIEW_TREE` shows layer contents sizes and gravity.
+  - `BITTEN_EVENT_DEBUG` logs `sendAction:to:from:` targets.
+  - `BITTEN_VIEW_TREE` showed that an inactive terminal pane's dimmed
+    background stops above the bottom padding. That is inside the
+    renderer's frame (the contents image is full size), and was handed to
+    the Metal/terminal owner.
+- Target app (total `^MISSING`): 0 -> 0.

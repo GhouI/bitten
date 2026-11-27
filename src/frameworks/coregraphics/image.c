@@ -137,6 +137,24 @@ static struct cg_image *image_alloc(size_t w, size_t h) {
 
 /* Convert pixels of a known format into the image's premultiplied RGBA. */
 static void convert_in(struct cg_image *img, const uint8_t *src, size_t row_bytes, const struct cg_format *f) {
+    if (f->bytes == 4 && !f->gray && !f->alpha_only) {
+        /* 8-bit colour: reorder the bytes (premultiplying straight alpha,
+         * rounded as the general path rounds) without going through floats. */
+        for (size_t y = 0; y < img->height; y++) {
+            const uint8_t *p = src + y * row_bytes;
+            uint8_t *d = img->rgba + y * img->width * 4;
+            for (size_t x = 0; x < img->width; x++, p += 4, d += 4) {
+                unsigned a = f->a >= 0 ? p[f->a] : 255, r = p[f->r], g = p[f->g], b = p[f->b];
+                if (f->straight && a != 255) {
+                    r = (2 * r * a + 255) / 510;
+                    g = (2 * g * a + 255) / 510;
+                    b = (2 * b * a + 255) / 510;
+                }
+                d[0] = (uint8_t)r, d[1] = (uint8_t)g, d[2] = (uint8_t)b, d[3] = (uint8_t)a;
+            }
+        }
+        return;
+    }
     struct cg_surface s = {(uint8_t *)src, img->width, img->height, row_bytes, *f};
     for (size_t y = 0; y < img->height; y++)
         for (size_t x = 0; x < img->width; x++) {

@@ -477,6 +477,11 @@ static void bn_dump_tree(NSView *v, int depth) {
                 depth * 2, "", l.position.x, l.position.y, NSStringFromRect(l.bounds).UTF8String, l.anchorPoint.x,
                 l.anchorPoint.y, t.m11, t.m22, t.m41, t.m42, (unsigned long)l.sublayers.count, l.opacity,
                 l.isHidden ? " hidden" : "");
+        id contents = l.contents;
+        if (contents && CFGetTypeID((__bridge CFTypeRef)contents) == CGImageGetTypeID())
+            fprintf(stderr, "%*s  contents %zux%zu gravity %s scale %g\n", depth * 2, "",
+                    CGImageGetWidth((__bridge CGImageRef)contents), CGImageGetHeight((__bridge CGImageRef)contents),
+                    [l.contentsGravity UTF8String] ?: "-", l.contentsScale);
         for (CALayer *sub in l.sublayers) {
             id d = [sub valueForKey:@"delegate"];
             fprintf(stderr, "%*s  sublayer %s frame=%s delegate=%s sublayers=%lu\n", depth * 2, "", object_getClassName(sub),

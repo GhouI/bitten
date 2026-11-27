@@ -55,6 +55,26 @@ void cg_blend_pixel(const struct cg_target *t, size_t x, size_t row, const CGFlo
     if (t->clip) coverage *= t->clip->data[row * t->clip->width + x] / 255.0;
     if (coverage <= 0) return;
     CGFloat d[4], s[4], k = coverage * t->alpha;
+    const struct cg_format *f = &t->surface->format;
+    if (t->blend == CG_BLEND_NORMAL && f->bytes == 4 && !f->gray && !f->alpha_only) {
+        /* Source over an 8-bit colour pixel, the common case, without the
+         * round trip through cg_read_pixel/cg_write_pixel: the same sums. */
+        uint8_t *p = t->surface->data + row * t->surface->row_bytes + x * 4;
+        CGFloat sa = src[3] * k;
+        if (sa >= 1) {
+            p[f->r] = to8(src[0] * k);
+            p[f->g] = to8(src[1] * k);
+            p[f->b] = to8(src[2] * k);
+            if (f->a >= 0) p[f->a] = 255;
+            return;
+        }
+        CGFloat inv = (1 - sa) * (1.0 / 255);
+        p[f->r] = to8(src[0] * k + p[f->r] * inv);
+        p[f->g] = to8(src[1] * k + p[f->g] * inv);
+        p[f->b] = to8(src[2] * k + p[f->b] * inv);
+        if (f->a >= 0) p[f->a] = to8(sa + p[f->a] * inv);
+        return;
+    }
     cg_read_pixel(t->surface, x, row, d);
     switch (t->blend) {
     case CG_BLEND_CLEAR:
@@ -242,10 +262,28 @@ static void fill_row(void *arg, size_t row, size_t x0, size_t x1, const float *c
         for (int i = 0; i < 3; i++) premul[i] = c->paint->rgba[i] * a;
         premul[3] = a;
     }
+    /* An opaque colour over 8-bit colour pixels: where the shape and the
+     * clip cover a pixel fully, the pixel is the colour. */
+    const struct cg_format *f = &t->surface->format;
+    bool solid = !c->paint->shade && premul[3] >= 1 && t->alpha >= 1 && t->blend == CG_BLEND_NORMAL &&
+                 f->bytes == 4 && !f->gray && !f->alpha_only;
+    uint8_t px[4] = {0};
+    if (solid) {
+        px[f->r] = to8(premul[0]);
+        px[f->g] = to8(premul[1]);
+        px[f->b] = to8(premul[2]);
+        if (f->a >= 0) px[f->a] = 255;
+    }
+    uint8_t *line = t->surface->data + row * t->surface->row_bytes;
+    const uint8_t *clip = t->clip ? t->clip->data + row * t->clip->width : NULL;
     for (size_t x = x0; x < x1; x++) {
         float k = cov[x - x0];
         if (k <= 0) continue;
         if (k > 1) k = 1;
+        if (solid && k >= 1 && (!clip || clip[x] == 255)) {
+            memcpy(line + x * 4, px, 4);
+            continue;
+        }
         if (c->paint->shade) {
             c->paint->shade(c->paint, x + 0.5, (CGFloat)t->surface->height - (row + 0.5), color);
             if (c->paint->premultiplied) {
