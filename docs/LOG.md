@@ -4989,3 +4989,15 @@ Debugging aids:
   it to the content's ideal width, and ours under-measures an AppKit
   split view inside it.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## NEXT.md: ideal sizes of AppKit views in SwiftUI
+
+- Added to NEXT.md: representables without their own sizing measure
+  small, and `fittingSize` doesn't solve constraints. That is why the
+  target app's Settings window is narrower than on macOS and its Terminal
+  typography row is squeezed.
+- Seen with `BITTEN_DEBUG`: some generic Swift class instantiations
+  register under the same Objective-C name ("defined more than once";
+  the first wins for lookups by name). Lookups by class pointer aren't
+  affected.
+- Target app (total `^MISSING`): 0 -> 0.
