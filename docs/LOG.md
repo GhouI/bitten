@@ -5033,3 +5033,16 @@ Debugging aids:
 - Live resizing from the display page keeps windows within
   `contentMinSize` and `contentMaxSize`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Swift runtime: the demangler keeps its symbol lookups
+
+- Resolving a mangled type name looked standard types up by symbol each
+  time (Optional as `_$sSqN`, then `_$sSqMn`), and each lookup walked
+  every loaded image's export trie. Building a large SwiftUI page spent
+  most of its time there: in the target app's Settings, switching from
+  Integrations to Notifications took 1.4 to 3.4 s.
+- The demangler now caches what each name resolves to. A name that wasn't
+  found is looked up again once another image loads.
+- The same switch now lands within 0.4 s. Launch to an interactive
+  terminal went from 5.2–5.4 s to 4.6 s on the same machine.
+- Target app (total `^MISSING`): 0 -> 0.
