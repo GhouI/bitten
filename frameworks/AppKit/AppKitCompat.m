@@ -149,7 +149,6 @@
 - (NSUInteger)phase { return 0; }
 - (NSUInteger)momentumPhase { return 0; }
 - (BOOL)isDirectionInvertedFromDevice { return NO; }
-- (NSTrackingArea *)trackingArea { return nil; }
 /* Tracking loops need events delivered while the caller waits; here the
  * loop ends at once, as if the mouse had been released. */
 - (void)trackSwipeEventWithOptions:(NSUInteger)options dampenAmountThresholdMin:(CGFloat)minDampenThreshold

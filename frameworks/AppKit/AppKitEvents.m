@@ -45,6 +45,76 @@ static NSTimeInterval now_seconds(void) {
 
 static const char kFirstResponderKey, kTrackingKey;
 
+/* ---- tracking areas ----
+ * As the mouse moves over a window, each tracking area it enters or leaves
+ * tells its owner (mouseEntered: / mouseExited:), and areas that ask for
+ * movement get mouseMoved:. A view is asked to update its areas
+ * (updateTrackingAreas) when it joins a window or changes size, as AppKit
+ * does when a view's visible rect changes. */
+static const char kTrackingAreaKey, kInsideKey, kTrackingDirtyKey;
+
+@implementation NSEvent (BittenTracking)
+- (NSTrackingArea *)trackingArea { return objc_getAssociatedObject(self, &kTrackingAreaKey); }
+- (void *)userData { return (__bridge void *)self.trackingArea.userInfo; }
+- (NSInteger)trackingNumber { return (NSInteger)(__bridge void *)self.trackingArea; }
+@end
+
+static NSEvent *tracking_event(NSEventType type, NSEvent *from, NSTrackingArea *area) {
+    NSEvent *e = [NSEvent mouseEventWithType:type location:from.locationInWindow modifierFlags:from.modifierFlags
+                                   timestamp:from.timestamp windowNumber:from.windowNumber context:nil eventNumber:0
+                                  clickCount:0 pressure:0];
+    objc_setAssociatedObject(e, &kTrackingAreaKey, area, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    return e;
+}
+
+@implementation NSView (BittenTrackingState)
+- (void)_bn_setTrackingAreasNeedUpdate {
+    objc_setAssociatedObject(self, &kTrackingDirtyKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+@end
+
+/* The areas of v and its visible subviews that contain p (window coordinates). */
+static void collect_areas(NSView *v, NSPoint p, NSMutableArray *inside) {
+    if (v.isHidden) return;
+    if ([objc_getAssociatedObject(v, &kTrackingDirtyKey) boolValue]) {
+        objc_setAssociatedObject(v, &kTrackingDirtyKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        [v updateTrackingAreas];
+    }
+    NSArray *areas = v.trackingAreas;
+    if (areas.count) {
+        NSPoint local = [v convertPoint:p fromView:nil];
+        for (NSTrackingArea *a in areas) {
+            NSRect r = (a.options & NSTrackingInVisibleRect) ? v.visibleRect : a.rect;
+            if (NSPointInRect(local, r)) [inside addObject:a];
+        }
+    }
+    for (NSView *s in v.subviews) collect_areas(s, p, inside);
+}
+
+@implementation NSWindow (BittenTracking)
+- (void)_bn_trackMouse:(NSEvent *)event {
+    NSMutableArray<NSTrackingArea *> *now = [NSMutableArray array];
+    if (self.contentView) collect_areas(self.contentView, event.locationInWindow, now);
+    NSMutableArray<NSTrackingArea *> *before = objc_getAssociatedObject(self, &kInsideKey) ?: [NSMutableArray array];
+    objc_setAssociatedObject(self, &kInsideKey, now, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    for (NSTrackingArea *a in before)
+        if ([now indexOfObjectIdenticalTo:a] == NSNotFound && (a.options & NSTrackingMouseEnteredAndExited))
+            [a.owner mouseExited:tracking_event(NSEventTypeMouseExited, event, a)];
+    for (NSTrackingArea *a in now) {
+        BOOL entered = [before indexOfObjectIdenticalTo:a] == NSNotFound;
+        if (entered && getenv("BITTEN_EVENT_DEBUG"))
+            fprintf(stderr, "bitten: mouse entered a tracking area of %s (options %#lx)\n", object_getClassName(a.owner),
+                    (unsigned long)a.options);
+        if (entered && (a.options & NSTrackingMouseEnteredAndExited))
+            [a.owner mouseEntered:tracking_event(NSEventTypeMouseEntered, event, a)];
+        if (entered && (a.options & NSTrackingCursorUpdate) && [a.owner respondsToSelector:@selector(cursorUpdate:)])
+            [a.owner cursorUpdate:tracking_event(NSEventTypeCursorUpdate, event, a)];
+        if ((a.options & NSTrackingMouseMoved) && event.type == NSEventTypeMouseMoved)
+            [a.owner mouseMoved:event];
+    }
+}
+@end
+
 @implementation NSWindow (BittenEvents)
 - (NSResponder *)firstResponder {
     NSResponder *r = objc_getAssociatedObject(self, &kFirstResponderKey);
@@ -89,6 +159,12 @@ extern BOOL bn_dragging_route(NSWindow *w, NSEvent *e);
             fprintf(stderr, "bitten: mouse down at %s hits", NSStringFromPoint(event.locationInWindow).UTF8String);
             for (NSView *v = target; v; v = v.superview) fprintf(stderr, " < %s", object_getClassName(v));
             fprintf(stderr, "\n");
+            unsigned n = 0;
+            Method *ms = class_copyMethodList(object_getClass(target), &n);
+            fprintf(stderr, "bitten:   target's own methods:");
+            for (unsigned i = 0; i < n; i++) fprintf(stderr, " %s@%p", sel_getName(method_getName(ms[i])), (void *)method_getImplementation(ms[i]));
+            free(ms);
+            fprintf(stderr, "; %lu gesture recognizers\n", (unsigned long)target.gestureRecognizers.count);
         }
         objc_setAssociatedObject(self, &kTrackingKey, target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         if (!self.isKeyWindow) [self makeKeyAndOrderFront:nil];
@@ -103,6 +179,7 @@ extern BOOL bn_dragging_route(NSWindow *w, NSEvent *e);
     }
     case NSEventTypeLeftMouseDragged:
     case NSEventTypeRightMouseDragged: {
+        [self _bn_trackMouse:event];
         NSView *target = objc_getAssociatedObject(self, &kTrackingKey);
         [target ?: self.contentView mouseDragged:event];
         break;
@@ -115,11 +192,12 @@ extern BOOL bn_dragging_route(NSWindow *w, NSEvent *e);
         else [target rightMouseUp:event];
         break;
     }
-    case NSEventTypeMouseMoved: {
-        NSView *hit = [self.contentView hitTest:event.locationInWindow];
-        [hit ?: self.contentView mouseMoved:event];
+    case NSEventTypeMouseMoved:
+        /* Views see movement through their tracking areas; the first
+         * responder also gets it when the window accepts mouse-moved events. */
+        [self _bn_trackMouse:event];
+        if (self.acceptsMouseMovedEvents) [self.firstResponder mouseMoved:event];
         break;
-    }
     case NSEventTypeScrollWheel: {
         NSView *hit = [self.contentView hitTest:event.locationInWindow];
         [hit ?: self.contentView scrollWheel:event];

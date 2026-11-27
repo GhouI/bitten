@@ -13,6 +13,9 @@
 - (void)mouseUp:(NSEvent *)event NS_SWIFT_NAME(mouseUp(with:));
 - (void)mouseDragged:(NSEvent *)event NS_SWIFT_NAME(mouseDragged(with:));
 - (void)mouseMoved:(NSEvent *)event NS_SWIFT_NAME(mouseMoved(with:));
+- (void)mouseEntered:(NSEvent *)event NS_SWIFT_NAME(mouseEntered(with:));
+- (void)mouseExited:(NSEvent *)event NS_SWIFT_NAME(mouseExited(with:));
+- (void)cursorUpdate:(NSEvent *)event NS_SWIFT_NAME(cursorUpdate(with:));
 - (void)rightMouseDown:(NSEvent *)event NS_SWIFT_NAME(rightMouseDown(with:));
 - (void)scrollWheel:(NSEvent *)event NS_SWIFT_NAME(scrollWheel(with:));
 - (void)keyDown:(NSEvent *)event NS_SWIFT_NAME(keyDown(with:));
@@ -1096,6 +1099,13 @@ typedef NS_OPTIONS(unsigned long long, NSAlignmentOptions) {
 @property (readonly) NSTrackingAreaOptions options;
 @property (nullable, readonly, weak) id owner;
 @property (nullable, readonly) NSDictionary *userInfo;
+@end
+
+@interface NSEvent (NSTrackingAreaEvents)
+/* For mouse-entered, mouse-exited and cursor-update events. */
+@property (nullable, readonly) NSTrackingArea *trackingArea;
+@property (nullable, readonly) void *userData;
+@property (readonly) NSInteger trackingNumber;
 @end
 
 @class NSScrollView, NSCursor, NSMenu;
