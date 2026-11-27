@@ -134,6 +134,17 @@ static void strings(void) {
     CFStringDelete(mutable, (CFRange){4, 3});
     CFStringAppend(mutable, prefix);
     CHECK(string_is(mutable, "caf\xc3\xa9" "caf") && string_is(copy, text));
+    /* Many appends (ASCII, then a non-ASCII one), indexing on both sides of
+     * it, and a string appended to itself. */
+    CFMutableRef built = CFStringCreateMutableCopy(NULL, 0, prefix);
+    for (int i = 0; i < 20000; i++) CFStringAppend(built, prefix);
+    CHECK(CFStringGetLength(built) == 3 * 20001);
+    CFStringAppend(built, suffix);
+    CHECK(CFStringGetLength(built) == 3 * 20001 + 2 && CFStringGetCharacterAtIndex(built, 3 * 20001 + 1) == 0xde00);
+    CHECK(CFStringGetCharacterAtIndex(built, 3 * 20000 + 2) == 'f');
+    CFStringAppend(built, built);
+    CHECK(CFStringGetLength(built) == 2 * (3 * 20001 + 2) && CFStringGetCharacterAtIndex(built, 3 * 20001 + 2) == 'c');
+    CFRelease(built);
 
     CFRef external = CFStringCreateExternalRepresentation(NULL, s, UTF8, 0);
     CHECK(CFDataGetLength(external) == (CFIndex)strlen(text));

@@ -4828,3 +4828,20 @@ Debugging aids:
 - The target app observes all of these. tests/appkit/basics.m covers main
   hand-over and moves.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## CFString appends and indexing stay linear
+
+- Each `CFStringReplace` or append found its byte offsets by walking the
+  UTF-8 from the start, then copied the whole string into a new buffer.
+  Building a string by appending was quadratic, and indexing ASCII text
+  walked it every time. In the target app's launch profile, `utf8_next`
+  and `CFStringReplace` together were 16% of the samples.
+- The end of a string, and any index in ASCII text (a byte per
+  character), now map to a byte offset without a walk. Appends grow a
+  mutable string's buffer geometrically and copy only what is added.
+  Appending a string to itself still takes the copying path.
+- Launch to the first interactive terminal went from about 6.0 s to
+  5.5–5.9 s, and the two functions are gone from the profile.
+  tests/c/cf.c covers 20,000 appends, indexing past a non-ASCII append,
+  and a self-append.
+- Target app (total `^MISSING`): 0 -> 0.
