@@ -519,7 +519,7 @@ static float blend_factor(MTLBlendFactor f, const float *src, const float *dst, 
 }
 
 static void write_fragment(DrawState *s, int x, int y, const float *src) {
-    BNMTLPipeline *p = s->p;
+    __unsafe_unretained BNMTLPipeline *p = s->p; /* per pixel: no retain and release */
     float out[4] = {src[0], src[1], src[2], src[3]};
     if (p->_blend) {
         float dst[4];

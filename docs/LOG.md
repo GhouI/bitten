@@ -4468,3 +4468,14 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Test: `tests/c/display.c` checks the conversion over 16 alphas
   against the old formula.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Metal: no reference counting per pixel
+
+- The rasteriser read the pipeline into a strong local for every
+  fragment, so each pixel cost a retain and a release, both through the
+  locked side table. It is unretained now (the encoder holds the
+  pipeline).
+- A 1024x640 blended pass: 206 ms -> 118 ms (`tests/metal/render.m`
+  reports it). In the target app, the terminal's idle redraws (a cursor
+  blink) cost 72% CPU before this and the SwiftUI fixes, and 23% after.
+- Target app (total `^MISSING`): 0 -> 0.
