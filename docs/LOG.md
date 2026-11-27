@@ -5182,3 +5182,23 @@ Debugging aids:
   now goes under the first lock. Launch time doesn't change measurably
   (about 4.6 s either way); this lock showed up in launch profiles.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: toolbar items show in a full-size window's title bar
+
+- A window's `NSToolbar` was kept but never shown. For a titled window
+  with full-size content, its visible items now sit in the title bar's
+  28-point strip, over the content, as in macOS's unified title bar.
+  - They start after the window's buttons. Items after the sidebar
+    tracking separator start from the window's split view divider, and
+    flexible spaces share what is left.
+  - Items with a view show that view. Others get a button: one per
+    subitem for a group, which sends the subitem's action or the
+    group's with `selectedIndex` set. Items validate before showing.
+  - Clicks in the strip go to the items first.
+- The target app's Settings window now shows its back and forward
+  buttons and the page heading ("Notifications", "Blocked"). Back and
+  forward navigate. Its main window's toolbar has no items, so nothing
+  changes there.
+- `BITTEN_TOOLBAR_DEBUG` logs each toolbar's items as they're made.
+- Test: `tests/appkit/split.m`.
+- Target app (total `^MISSING`): 0 -> 0.

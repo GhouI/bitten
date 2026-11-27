@@ -634,6 +634,9 @@ typedef NSString *NSUserInterfaceItemIdentifier NS_TYPED_EXTENSIBLE_ENUM;
 @end
 @interface NSWindow (BittenDisplay)
 - (void)_bn_scheduleDisplay;
+/* A full-size-content window's toolbar items, in the title bar's strip
+ * over the content; nil without any. */
+- (nullable NSView *)_bn_toolbarView;
 - (void)_bn_sendStyle;
 - (void)_bn_hideKeepingDisplay;
 - (void)_bn_dropFirstResponder;

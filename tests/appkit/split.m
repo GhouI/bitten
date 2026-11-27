@@ -21,6 +21,23 @@
 - (void)splitViewDidResizeSubviews:(NSNotification *)n { self.resized++; }
 @end
 
+/* A toolbar with a sidebar tracking separator and one button. */
+@interface Bar : NSObject <NSToolbarDelegate>
+@property int pressed;
+@end
+@implementation Bar
+- (NSArray<NSToolbarItemIdentifier> *)toolbarDefaultItemIdentifiers:(NSToolbar *)t {
+    return @[ @"NSToolbarSidebarTrackingSeparatorItemIdentifier", @"go" ];
+}
+- (NSToolbarItem *)toolbar:(NSToolbar *)t itemForItemIdentifier:(NSToolbarItemIdentifier)ident
+    willBeInsertedIntoToolbar:(BOOL)flag {
+    NSToolbarItem *item = [[NSToolbarItem alloc] initWithItemIdentifier:ident];
+    item.view = [NSButton buttonWithTitle:@"Go" target:self action:@selector(go:)];
+    return item;
+}
+- (void)go:(id)sender { self.pressed++; }
+@end
+
 static NSView *pane(CGFloat w, CGFloat h) { return [[NSView alloc] initWithFrame:NSMakeRect(0, 0, w, h)]; }
 
 static NSEvent *mouse(NSEventType t, NSWindow *w, CGFloat x, CGFloat y) {
@@ -183,6 +200,32 @@ int main(void) {
     CHECK(!inspItem.isCollapsed);
     RECT(insp.view, 750, 0, 250, 500);
     RECT(main.view, 201, 0, 548, 500);
+
+    /* A full-size-content window's toolbar items sit in its title bar's
+     * strip, those after the sidebar tracking separator from the split
+     * view's divider, and take clicks there. */
+    NSWindow *tw = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 400, 200)
+                                               styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskFullSizeContentView
+                                                 backing:NSBackingStoreBuffered defer:NO];
+    NSSplitView *ts = [[NSSplitView alloc] initWithFrame:NSMakeRect(0, 0, 400, 200)];
+    ts.vertical = YES;
+    [ts addSubview:pane(120, 200)];
+    [ts addSubview:pane(279, 200)];
+    tw.contentView = ts;
+    [ts adjustSubviews];
+    Bar *bar = [Bar new];
+    NSToolbar *toolbar = [[NSToolbar alloc] initWithIdentifier:@"test"];
+    toolbar.delegate = bar;
+    tw.toolbar = toolbar;
+    NSView *strip = [tw _bn_toolbarView];
+    CHECK(strip && strip.subviews.count == 1);
+    NSRect go = [strip.subviews[0] convertRect:strip.subviews[0].bounds toView:nil];
+    CHECK(NSMinX(go) >= 120 && NSMinY(go) >= 200 - 28 && NSMaxY(go) <= 200);
+    [tw makeKeyAndOrderFront:nil];
+    [tw sendEvent:mouse(NSEventTypeLeftMouseDown, tw, NSMidX(go), NSMidY(go))];
+    [tw sendEvent:mouse(NSEventTypeLeftMouseUp, tw, NSMidX(go), NSMidY(go))];
+    CHECK(bar.pressed == 1);
+    [tw close];
 
     printf("split ok\n");
     return 0;
