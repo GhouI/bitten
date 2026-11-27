@@ -3,6 +3,40 @@
  * provides one), the appearance callbacks, child controllers, and windows
  * that show a controller's view. */
 #import <AppKit/AppKit.h>
+#import <objc/runtime.h>
+
+/* ---- appearance ----
+ * A controller's view knows its controller. When the view comes into a
+ * visible window (or its window is ordered in) the controller hears
+ * viewWillAppear/viewDidAppear, and viewWillDisappear/viewDidDisappear
+ * when it leaves (or the window goes away), once each way. */
+@interface BNWeakController : NSObject
+@property (weak) NSViewController *controller;
+@property BOOL appeared;
+@end
+@implementation BNWeakController
+@end
+static const char kControllerKey;
+
+void bn_view_visibility(NSView *view, BOOL visible) {
+    BNWeakController *box = objc_getAssociatedObject(view, &kControllerKey);
+    NSViewController *c = box.controller;
+    if (!c || c.viewIfLoaded != view || box.appeared == visible) return;
+    box.appeared = visible;
+    if (visible) {
+        [c viewWillAppear];
+        [c viewDidAppear];
+    } else {
+        [c viewWillDisappear];
+        [c viewDidDisappear];
+    }
+}
+/* The same for every view in the tree, parents first. */
+void bn_tree_visibility(NSView *root, BOOL visible) {
+    if (!root) return;
+    bn_view_visibility(root, visible);
+    for (NSView *v in root.subviews) bn_tree_visibility(v, visible);
+}
 
 @implementation NSViewController {
     NSView *_view;
@@ -27,12 +61,18 @@
 - (NSView *)view {
     if (!_view) {
         [self loadView];
-        if (!_view) _view = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 100, 100)];
+        if (!_view) self.view = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 100, 100)];
         [self viewDidLoad];
     }
     return _view;
 }
-- (void)setView:(NSView *)view { _view = view; }
+- (void)setView:(NSView *)view {
+    _view = view;
+    if (!view) return;
+    BNWeakController *box = [BNWeakController new];
+    box.controller = self;
+    objc_setAssociatedObject(view, &kControllerKey, box, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
 - (NSView *)viewIfLoaded { return _view; }
 - (BOOL)isViewLoaded { return _view != nil; }
 - (void)loadView {}

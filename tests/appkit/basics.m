@@ -50,6 +50,18 @@ static NSEvent *seen_current;
 - (void)pick:(NSMenuItem *)sender { self.picked = (int)sender.tag; }
 @end
 
+/* Records its view's appearances. */
+@interface Watched : NSViewController
+@property (copy) NSString *log;
+@end
+@implementation Watched
+- (void)loadView { self.view = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 10, 10)]; }
+- (void)viewWillAppear { self.log = [self.log ?: @"" stringByAppendingString:@"w"]; }
+- (void)viewDidAppear { self.log = [self.log stringByAppendingString:@"a"]; }
+- (void)viewWillDisappear { self.log = [self.log stringByAppendingString:@"x"]; }
+- (void)viewDidDisappear { self.log = [self.log stringByAppendingString:@"d"]; }
+@end
+
 @interface Delegate : NSObject <NSApplicationDelegate>
 @property int launched;
 @end
@@ -161,6 +173,22 @@ int main(void) {
     [menuWindow sendEvent:key(NSDownArrowFunctionKey)];  /* over the separator: Second */
     [menuWindow sendEvent:key('\r')];
     CHECK(picker.picked == 2 && !menuWindow.visible && w.keyWindow);
+
+    /* A controller's view appears with a visible window and disappears
+     * when it leaves or the window goes. */
+    Watched *watched = [Watched new];
+    NSWindow *hiddenWindow = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 50, 50)
+                                                         styleMask:NSWindowStyleMaskTitled
+                                                           backing:NSBackingStoreBuffered defer:NO];
+    [hiddenWindow.contentView addSubview:watched.view];
+    CHECK(watched.log == nil);                         /* not visible yet */
+    [hiddenWindow orderFront:nil];
+    CHECK([watched.log isEqualToString:@"wa"]);
+    [watched.view removeFromSuperview];
+    CHECK([watched.log isEqualToString:@"waxd"]);
+    [hiddenWindow.contentView addSubview:watched.view];
+    [hiddenWindow orderOut:nil];
+    CHECK([watched.log isEqualToString:@"waxdwaxd"]);
     puts("AppKit basics ok");
     return 0;
 }
