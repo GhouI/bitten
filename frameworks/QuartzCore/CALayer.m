@@ -519,15 +519,50 @@ void bitten_cg_restore_to_depth(CGContextRef c, size_t depth);
     CGContextRestoreGState(ctx);
 }
 
-/* Draw this layer and its sublayers, in this layer's coordinates. */
+/* The blend mode a compositingFilter names: a Core Animation filter name
+ * ("multiplyBlendMode", "destOut", "plusL", ...), a Core Image one
+ * ("CIMultiplyBlendMode", "CISourceOutCompositing", ...), or an object with
+ * such a name (CIFilter's name, CAFilter's type). -1 for none or unknown. */
+static int blend_for_filter(id f) {
+    if (!f) return -1;
+    NSString *n = [f isKindOfClass:[NSString class]] ? f : nil;
+    if (!n && [f respondsToSelector:@selector(type)]) n = [f performSelector:@selector(type)];
+    if (!n && [f respondsToSelector:@selector(name)]) n = [f performSelector:@selector(name)];
+    if (![n isKindOfClass:[NSString class]] || !n.length) return -1;
+    if ([n hasPrefix:@"CI"]) n = [n substringFromIndex:2];
+    for (NSString *suffix in @[ @"BlendMode", @"Compositing" ])
+        if ([n hasSuffix:suffix] && n.length > suffix.length) n = [n substringToIndex:n.length - suffix.length];
+    n = n.lowercaseString;
+    static NSDictionary<NSString *, NSNumber *> *modes;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        modes = @{
+            @"normal" : @0, @"sourceover" : @0, @"multiply" : @1, @"screen" : @2, @"overlay" : @3, @"darken" : @4,
+            @"lighten" : @5, @"colordodge" : @6, @"colorburn" : @7, @"softlight" : @8, @"hardlight" : @9,
+            @"difference" : @10, @"exclusion" : @11, @"hue" : @12, @"saturation" : @13, @"color" : @14,
+            @"luminosity" : @15, @"clear" : @16, @"copy" : @17, @"sourcein" : @18, @"sourceout" : @19,
+            @"sourceatop" : @20, @"destover" : @21, @"destinationover" : @21, @"destin" : @22, @"destinationin" : @22,
+            @"destout" : @23, @"destinationout" : @23, @"destatop" : @24, @"destinationatop" : @24, @"xor" : @25,
+            @"plusd" : @26, @"plusdarker" : @26, @"plusl" : @27, @"pluslighter" : @27, @"addition" : @27,
+        };
+    });
+    NSNumber *m = modes[n];
+    return m ? m.intValue : -1;
+}
+
+/* Draw this layer and its sublayers, in this layer's coordinates. A layer
+ * with a compositingFilter is drawn as a group and composited with that
+ * blend mode onto what is under it. */
 - (void)_bn_render:(CGContextRef)ctx {
     if (_hidden || _opacity <= 0) return;
     [self layoutIfNeeded];
     [self displayIfNeeded];
     CGContextSaveGState(ctx);
-    BOOL group = _opacity < 1;
+    int mode = blend_for_filter(_compositingFilter);
+    BOOL group = _opacity < 1 || mode > 0;
     if (group) {
         CGContextSetAlpha(ctx, _opacity);
+        if (mode > 0) CGContextSetBlendMode(ctx, (CGBlendMode)mode);
         CGContextBeginTransparencyLayer(ctx, NULL);
     }
     if (_backgroundColor && CGColorGetAlpha(_backgroundColor) > 0) {
