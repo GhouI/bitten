@@ -79,9 +79,6 @@ OBJ_PROP(NSMenu *, helpMenu, setHelpMenu, "helpMenu")
 /* The event being handled: the one most recently taken from the queue. */
 - (NSEvent *)currentEvent { return props(self)[@"currentEvent"]; }
 - (void)_bn_setCurrentEvent:(NSEvent *)event { props(self)[@"currentEvent"] = event; }
-- (void)postEvent:(NSEvent *)event atStart:(BOOL)flag {
-    dispatch_async(dispatch_get_main_queue(), ^{ [self sendEvent:event]; });
-}
 - (void)discardEventsMatchingMask:(NSEventMask)mask beforeEvent:(NSEvent *)lastEvent {}
 - (NSInteger)requestUserAttention:(NSRequestUserAttentionType)type { return 0; }
 - (void)cancelUserAttentionRequest:(NSInteger)request {}

@@ -4793,3 +4793,21 @@ Debugging aids:
   settles to the right layout. tests/appkit/basics.m covers the start
   and end.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Tracking loops get events
+
+- `-[NSApplication nextEventMatchingMask:untilDate:inMode:dequeue:]`, the
+  window's `nextEventMatchingMask:` variants and
+  `+[NSEvent trackEventsMatchingMask:timeout:mode:handler:]` returned
+  nothing, so a modal tracking loop (a drag handled inside `mouseDown:`)
+  ended at once.
+- There is now an event queue. While a loop waits, events from the display
+  are queued instead of sent. The loop takes the first one its mask
+  allows, and the others stay queued, in order, and are sent once it
+  returns. While waiting it runs the run loop, so windows keep redrawing.
+- `postEvent:atStart:` queues too, at either end.
+- `pressedMouseButtons` and `trackEventsMatchingMask:...` are declared.
+- The target app uses all of these. Dragging a pane divider moves it, and
+  dragging it back restores the layout. tests/appkit/basics.m covers
+  queue order, masks, a timeout of zero and the tracking handler.
+- Target app (total `^MISSING`): 0 -> 0.

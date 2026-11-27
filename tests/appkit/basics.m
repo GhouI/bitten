@@ -382,6 +382,26 @@ int main(void) {
     CHECK(w.inLiveResize && rz.inLiveResize && rz.started == 1 && rz.ended == 0);
     [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.6]];
     CHECK(!w.inLiveResize && rz.started == 1 && rz.ended == 1);
+
+    /* Tracking loops take queued events by mask; others stay, in order. */
+    NSEvent *(^mouse)(NSEventType) = ^(NSEventType t) {
+        return [NSEvent mouseEventWithType:t location:NSMakePoint(5, 5) modifierFlags:0 timestamp:0
+                              windowNumber:w.windowNumber context:nil eventNumber:0 clickCount:1 pressure:1];
+    };
+    [NSApp postEvent:mouse(NSEventTypeLeftMouseDragged) atStart:NO];
+    [NSApp postEvent:mouse(NSEventTypeRightMouseDown) atStart:NO];
+    [NSApp postEvent:mouse(NSEventTypeLeftMouseUp) atStart:NO];
+    NSEvent *got = [NSApp nextEventMatchingMask:NSEventMaskLeftMouseUp untilDate:[NSDate distantPast]
+                                         inMode:NSEventTrackingRunLoopMode dequeue:YES];
+    CHECK(got.type == NSEventTypeLeftMouseUp);
+    CHECK(![NSApp nextEventMatchingMask:NSEventMaskKeyDown untilDate:nil inMode:NSDefaultRunLoopMode dequeue:YES]);
+    __block int seen = 0;
+    [NSEvent trackEventsMatchingMask:NSEventMaskLeftMouseDragged | NSEventMaskRightMouseDown timeout:1
+                                mode:NSEventTrackingRunLoopMode handler:^(NSEvent *e, BOOL *stop) {
+        seen++;
+        if (e.type == NSEventTypeRightMouseDown) *stop = YES;
+    }];
+    CHECK(seen == 2);
     puts("AppKit basics ok");
     return 0;
 }

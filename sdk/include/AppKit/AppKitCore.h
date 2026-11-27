@@ -2213,6 +2213,9 @@ typedef NS_OPTIONS(NSUInteger, NSWritingToolsResultOptions) {
                                             handler:(NSEvent *_Nullable (^)(NSEvent *event))block;
 + (nullable id)addGlobalMonitorForEventsMatchingMask:(NSEventMask)mask handler:(void (^)(NSEvent *event))block;
 + (void)removeMonitor:(id)eventMonitor;
++ (void)trackEventsMatchingMask:(NSEventMask)mask timeout:(NSTimeInterval)timeout mode:(NSRunLoopMode)mode
+                        handler:(void (^)(NSEvent *_Nullable event, BOOL *stop))trackingHandler;
+@property (class, readonly) NSUInteger pressedMouseButtons;
 @end
 
 @interface NSDockTile : NSObject

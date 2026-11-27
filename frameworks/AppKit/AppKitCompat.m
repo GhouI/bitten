@@ -83,7 +83,6 @@
 - (void)invalidateCursorRectsForView:(NSView *)view {}
 - (void)selectNextKeyView:(id)sender {}
 - (void)selectPreviousKeyView:(id)sender {}
-- (NSEvent *)nextEventMatchingMask:(NSEventMask)mask { return nil; }
 /* Each window keeps its own undo manager unless its delegate supplies one. */
 - (NSUndoManager *)undoManager {
     id<NSWindowDelegate> d = self.delegate;
@@ -157,11 +156,6 @@ NSUInteger bn_pressed_buttons;
 - (void)trackSwipeEventWithOptions:(NSUInteger)options dampenAmountThresholdMin:(CGFloat)minDampenThreshold
                                max:(CGFloat)maxDampenThreshold
                       usingHandler:(void (^)(CGFloat, NSUInteger, BOOL, BOOL *))handler {}
-+ (void)trackEventsMatchingMask:(NSEventMask)mask timeout:(NSTimeInterval)timeout mode:(NSRunLoopMode)mode
-                        handler:(void (^)(NSEvent *, BOOL *))handler {
-    BOOL stop = NO;
-    if (handler) handler(nil, &stop);
-}
 @end
 
 /* ---- view controllers presented as sheets ---- */
