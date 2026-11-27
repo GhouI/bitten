@@ -20,17 +20,11 @@ windows no longer leaks.
    doesn't track which regions changed. `BITTEN_DISPLAY_DEBUG` logs who
    asked for each one. Wait 8 s or more before judging that an animated
    change didn't happen.
-2. **The Terminal settings typography row.** Its first column is
-   squeezed to a few points. The Settings scene sizes its window to its
-   content (`.contentSize`), whose ideal width is exactly 720, so the
-   window is probably 720 on macOS too. The row's fixed-width columns
-   with 12-point spacing need about 553 points of the 487 available.
-   Whatever macOS does differently is still unknown: column metrics, or
-   something about the separators. Reporting hosting views' ideal sizes
-   to AppKit (`intrinsicContentSize`) and sizing representables from
-   their AppKit subviews didn't change the window and slowed layout, so
-   neither is in. `BITTEN_WINDOW_DEBUG` logs how SwiftUI sizes each
-   window it makes.
+2. **The Terminal settings typography row.** With the window at the
+   app's 740-point default, the first column gets about 40 points: the
+   three fixed-size columns and 12-point gaps take the rest. Real
+   macOS fonts may give it a little more. The window can now be widened
+   to 900, and the column grows with it (up to 180).
 3. **Paste timing.** A paste once arrived in bash as literal `[200~…~`.
    That is consistent with the escape byte reaching readline more than its
    key-sequence timeout before the rest. It pastes correctly now that

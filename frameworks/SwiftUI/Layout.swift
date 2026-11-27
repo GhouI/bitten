@@ -764,8 +764,13 @@ internal final class _FrameNode: _ViewNode {
       if lo == nil && hi == nil && ideal == nil { return c }
       if let lo = lo, let hi = hi, lo == hi { return lo }
       if let p = p {
-        if hi == .infinity { return max(p, lo ?? 0) }
-        return clamp(max(c, lo ?? c), lo, hi).isFinite ? clamp(hi == nil ? c : min(p, hi!), lo, hi) : c
+        // SwiftUI's flexible frame: a minimum lets a smaller proposal win
+        // over the content (down to the minimum), a maximum a larger one
+        // (up to the maximum).
+        var r = c
+        if let lo = lo { r = max(lo, min(r, p)) }
+        if let hi = hi { r = min(hi, max(r, p)) }
+        return r
       }
       return clamp(ideal ?? c, lo, hi)
     }

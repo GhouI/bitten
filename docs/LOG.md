@@ -5014,3 +5014,22 @@ Debugging aids:
   measured whole trees), so both were left out. NEXT.md has what is
   known about the squeezed typography row.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: flexible frames shrink, content-sized windows take their default size
+
+- A frame with a minimum and no maximum (`.frame(minWidth: 0)`) now takes
+  a smaller proposal than its content, down to the minimum, and one with
+  a maximum takes a larger one up to it, which is SwiftUI's rule. Before,
+  a minimum-only frame never went below its content, so stacks short of
+  room couldn't shrink it. Test: `minframe`.
+- A window whose scene uses `.windowResizability(.contentSize)` now opens
+  at its default size, kept between the content's smallest and largest
+  sizes, and can be resized within them, as in SwiftUI. Before, it took
+  the content's ideal size and couldn't be resized. The target app's
+  Settings asks for 740 by 520 and its content allows 720 to 900 points
+  wide, so it now opens at 740 (not 720) and resizes up to 900. The
+  Terminal page's typography row goes from a 5-point first column to
+  about 40.
+- Live resizing from the display page keeps windows within
+  `contentMinSize` and `contentMaxSize`.
+- Target app (total `^MISSING`): 0 -> 0.

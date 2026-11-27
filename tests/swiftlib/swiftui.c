@@ -16,6 +16,7 @@ long swl_swiftui_labels(void);
 long swl_swiftui_hover(void);
 long swl_swiftui_togglemarks(void);
 long swl_swiftui_flexrows(void);
+long swl_swiftui_minframe(void);
 long swl_swiftui_shortcuts(void);
 long swl_swiftui_toggleclick(void);
 long swl_swiftui_rebuildwrites(void);
@@ -41,6 +42,7 @@ int main(void) {
     ok &= check("hover", swl_swiftui_hover());
     ok &= check("togglemarks", swl_swiftui_togglemarks());
     ok &= check("flexrows", swl_swiftui_flexrows());
+    ok &= check("minframe", swl_swiftui_minframe());
     ok &= check("shortcuts", swl_swiftui_shortcuts());
     ok &= check("toggleclick", swl_swiftui_toggleclick());
     ok &= check("rebuildwrites", swl_swiftui_rebuildwrites());

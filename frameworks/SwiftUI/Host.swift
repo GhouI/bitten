@@ -81,12 +81,30 @@ final class _AppHost {
     if config.defaultSize == nil, let f = fitting, f.width > 0, f.height > 0 {
       size = CGSize(width: max(f.width, 300), height: max(f.height, 200))
     }
-    if config.resizability == .contentSize, let f = fitting, f.width > 0, f.height > 0 { size = f }
+    // As SwiftUI: a window sized by its content stays between the
+    // content's smallest and largest sizes, opening at its default size
+    // (or else its ideal one) within them.
+    var limits: (CGSize, CGSize)?
+    if config.resizability == .contentSize, let host = view as? _HostingViewBase,
+       let f = fitting, f.width > 0, f.height > 0 {
+      let lo = host._contentSize(ProposedViewSize(width: 0, height: 0))
+      let big = host._contentSize(ProposedViewSize(width: 1e6, height: 1e6))
+      let hi = CGSize(width: big.width < 1e5 ? max(big.width, lo.width) : .greatestFiniteMagnitude,
+                      height: big.height < 1e5 ? max(big.height, lo.height) : .greatestFiniteMagnitude)
+      let want = config.defaultSize ?? f
+      size = CGSize(width: min(max(want.width, lo.width), hi.width),
+                    height: min(max(want.height, lo.height), hi.height))
+      limits = (lo, hi)
+    }
     if getenv("BITTEN_WINDOW_DEBUG") != nil {
-      _dbg("bitten: swiftui window '\(title)' default \(String(describing: config.defaultSize)) resizability \(config.resizability) fitting \(String(describing: fitting)) -> \(size)")
+      _dbg("bitten: swiftui window '\(title)' default \(String(describing: config.defaultSize)) resizability \(config.resizability) fitting \(String(describing: fitting)) limits \(String(describing: limits)) -> \(size)")
     }
     var style: NSWindow.StyleMask = [.titled, .closable, .miniaturizable]
-    if config.resizability != .contentSize { style.insert(.resizable) }
+    if let (lo, hi) = limits {
+      if hi.width > lo.width || hi.height > lo.height { style.insert(.resizable) }
+    } else {
+      style.insert(.resizable)
+    }
     if config.hiddenTitleBar { style.insert(.fullSizeContentView) }
     let w = NSWindow(contentRect: NSMakeRect(0, 0, min(size.width, screen.size.width), min(size.height, screen.size.height)),
                      styleMask: style, backing: .buffered, defer: false)
@@ -97,6 +115,10 @@ final class _AppHost {
     }
     w.contentView = view
     if let f = fitting, config.resizability == .contentMinSize { w.contentMinSize = f }
+    if let (lo, hi) = limits {
+      w.contentMinSize = lo
+      w.contentMaxSize = hi
+    }
     w.center()
     return w
   }
@@ -517,9 +539,11 @@ open class _HostingViewBase: NSView {
   }
 
   /// The size the content wants when nothing is proposed.
-  public var fittingContentSize: NSSize {
+  public var fittingContentSize: NSSize { return _contentSize(.unspecified) }
+  /// The content's size for `proposal` (its ideal size for none).
+  func _contentSize(_ proposal: ProposedViewSize) -> CGSize {
     _measureGeneration &+= 1
-    return _makeRoot().sizeThatFits(.unspecified)
+    return _makeRoot().sizeThatFits(proposal)
   }
 }
 
