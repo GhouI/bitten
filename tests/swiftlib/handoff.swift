@@ -108,6 +108,16 @@ actor Library {
       for _ in 0..<500 { _ = withObservationTracking({ counter.n }, onChange: {}) }
     }
     check(counter.n > 0, #line)
+    // A property read inside nested tracking is watched by the enclosing
+    // tracking too (Observation merges the inner accesses outward).
+    final class Flag: @unchecked Sendable { var fired = false }
+    let outer = Flag(), inner = Flag()
+    let nested = Counter()
+    withObservationTracking({
+      _ = withObservationTracking({ nested.n }, onChange: { inner.fired = true })
+    }, onChange: { outer.fired = true })
+    nested.n += 1
+    check(inner.fired && outer.fired, #line)
     var more = 0
     let lib = Library()
     for i in 0..<60 {
