@@ -101,6 +101,7 @@ typedef NS_ENUM(NSInteger, NSViewLayerContentsPlacement) {
 - (void)windowWillClose:(NSNotification *)notification;
 - (void)windowDidResize:(NSNotification *)notification;
 - (void)windowDidBecomeKey:(NSNotification *)notification;
+- (void)windowDidResignKey:(NSNotification *)notification;
 @end
 
 @interface NSWindow : NSResponder {

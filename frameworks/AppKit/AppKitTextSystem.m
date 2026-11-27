@@ -8,6 +8,8 @@
 #import <objc/message.h>
 #import <objc/runtime.h>
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 /* ---- key bindings: what a key press means to the text system ---- */
 
@@ -87,6 +89,9 @@ static SEL command_for(NSEvent *e) {
 }
 - (void)doCommandBySelector:(SEL)sel {
     if (sel == @selector(noop:)) return;
+    if (getenv("BITTEN_EVENT_DEBUG"))
+        fprintf(stderr, "bitten: command %s at %s%s\n", sel_getName(sel), object_getClassName(self),
+                [self respondsToSelector:sel] ? " (handled)" : "");
     if ([self respondsToSelector:sel]) ((void (*)(id, SEL, id))objc_msgSend)(self, sel, nil);
     else [self.nextResponder doCommandBySelector:sel];
 }
@@ -527,6 +532,8 @@ static NSTextInputContext *current_context;
 }
 - (void)doCommandBySelector:(SEL)sel {
     id<NSTextViewDelegate> d = _delegate;
+    if (getenv("BITTEN_EVENT_DEBUG"))
+        fprintf(stderr, "bitten: text view command %s, delegate %s\n", sel_getName(sel), d ? object_getClassName(d) : "none");
     if ([d respondsToSelector:@selector(textView:doCommandBySelector:)] && [d textView:self doCommandBySelector:sel]) return;
     [super doCommandBySelector:sel];
 }
@@ -595,7 +602,6 @@ static NSTextInputContext *current_context;
     NSRange line = [self _bn_lineAt:_selected.location];
     [self _bn_replace:NSMakeRange(line.location, _selected.location - line.location) with:@""];
 }
-- (void)cancelOperation:(id)s {}
 - (void)scrollToBeginningOfDocument:(id)s { [self scrollRangeToVisible:NSMakeRange(0, 0)]; }
 - (void)scrollToEndOfDocument:(id)s { [self scrollRangeToVisible:NSMakeRange(_storage.length, 0)]; }
 - (void)copy:(id)sender {

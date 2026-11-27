@@ -336,11 +336,14 @@ static NSString *bn_key_characters(unsigned short code) {
             [event _bn_setScrollDeltaX:e.dx y:e.dy];
             break;
         case 6: case 7: {
+            /* Keys go to the key window (a panel the program made key),
+             * whichever window the display had focused. */
+            NSWindow *keyed = NSApp.keyWindow.isVisible ? NSApp.keyWindow : window;
             /* Modifier keys alone change the modifier flags; they type nothing. */
             unsigned short code = (unsigned short)e.key_code;
             if (code >= 54 && code <= 63) {
                 event = [NSEvent keyEventWithType:NSEventTypeFlagsChanged location:loc modifierFlags:flags timestamp:t
-                                     windowNumber:window.windowNumber context:nil characters:@""
+                                     windowNumber:keyed.windowNumber context:nil characters:@""
                       charactersIgnoringModifiers:@"" isARepeat:NO keyCode:code];
                 break;
             }
@@ -354,7 +357,7 @@ static NSString *bn_key_characters(unsigned short code) {
                 if (c >= '@' && c <= '_') chars = [NSString stringWithFormat:@"%C", (unichar)(c - '@')];
             }
             event = [NSEvent keyEventWithType:e.type == 6 ? NSEventTypeKeyDown : NSEventTypeKeyUp location:loc
-                                modifierFlags:flags timestamp:t windowNumber:window.windowNumber context:nil
+                                modifierFlags:flags timestamp:t windowNumber:keyed.windowNumber context:nil
                                    characters:chars charactersIgnoringModifiers:ignoring isARepeat:NO
                                       keyCode:(unsigned short)e.key_code];
             break;

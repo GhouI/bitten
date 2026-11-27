@@ -104,6 +104,25 @@ int main(void) {
     CHECK(hover.entered == 1 && hover.moved == 2 && hover.exited == 0);
     [w sendEvent:move(300, 10)];
     CHECK(hover.entered == 1 && hover.exited == 1);
+
+    /* Key status moves with notifications; a key window ordered out
+     * passes it back to the titled window behind it. */
+    __block int resigned = 0, became = 0;
+    NSWindow *panel = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 100, 100)
+                                                  styleMask:NSWindowStyleMaskBorderless
+                                                    backing:NSBackingStoreBuffered defer:NO];
+    id o1 = [[NSNotificationCenter defaultCenter] addObserverForName:NSWindowDidResignKeyNotification object:w queue:nil
+                                                          usingBlock:^(NSNotification *n) { resigned++; }];
+    id o2 = [[NSNotificationCenter defaultCenter] addObserverForName:NSWindowDidBecomeKeyNotification object:w queue:nil
+                                                          usingBlock:^(NSNotification *n) { became++; }];
+    [w makeKeyAndOrderFront:nil];
+    CHECK(became == 0 && resigned == 0);  // already key
+    [panel makeKeyAndOrderFront:nil];
+    CHECK(panel.keyWindow && !w.keyWindow && resigned == 1);
+    [panel orderOut:nil];
+    CHECK(!panel.keyWindow && w.keyWindow && became == 1);
+    [[NSNotificationCenter defaultCenter] removeObserver:o1];
+    [[NSNotificationCenter defaultCenter] removeObserver:o2];
     puts("AppKit basics ok");
     return 0;
 }

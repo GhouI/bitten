@@ -4070,3 +4070,24 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   19-point icon, a stepper), and the Settings window opens at its 720-point
   minimum.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: key-window changes, keys to the key window, Escape up the chain
+
+- Key status changes as in AppKit. The window losing it gets
+  `resignKeyWindow`, its delegate's `windowDidResignKey:` and
+  `NSWindowDidResignKeyNotification`. The new key window gets the matching
+  "become" messages. A key window that is ordered out or closed passes key
+  status to the frontmost titled window. Before, other windows were just
+  marked not key, with no notification, and making the key window key again
+  re-posted. The target app's session picker now closes when another of its
+  panels (the remote-host prompt) takes key status.
+- Key events go to the key window, whichever window the display last
+  focused. Typing into the app's popups (the session picker's filter, the
+  activity filter) used to go to the main window.
+- NSTextView no longer swallows `cancelOperation:`. Escape travels up the
+  responder chain (after the delegate's `textView:doCommandBySelector:`),
+  so the app's search fields clear on the first Escape and close their
+  popup on the second.
+- Debugging: `BITTEN_EVENT_DEBUG` logs key commands and the responders that
+  handle them.
+- Target app (total `^MISSING`): 0 -> 0.

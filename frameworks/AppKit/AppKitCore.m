@@ -458,14 +458,45 @@ static NSUInteger next_window_number = 1;
         fprintf(stderr, "bitten: window %s made key from", object_getClassName(self));
         bn_debug_callers();
     }
-    for (NSWindow *w in all_windows) w->_key = NO;
-    _key = YES;
     [self orderFront:sender];
-    [self _post:NSWindowDidBecomeKeyNotification];
+    [self _bn_becomeKey];
+}
+/* Key-window changes, as AppKit makes them: the window losing key status
+ * hears resignKeyWindow, its delegate's windowDidResignKey: and the
+ * notification, then the new one the same for becoming key. */
+- (void)_bn_resignKey {
+    if (!_key) return;
+    _key = NO;
+    [self resignKeyWindow];
+    NSNotification *n = [NSNotification notificationWithName:NSWindowDidResignKeyNotification object:self userInfo:nil];
+    if ([_delegate respondsToSelector:@selector(windowDidResignKey:)]) [_delegate windowDidResignKey:n];
+    [[NSNotificationCenter defaultCenter] postNotification:n];
+}
+- (void)_bn_becomeKey {
+    if (_key) return;
+    for (NSWindow *w in [all_windows copy])
+        if (w != self) [w _bn_resignKey];
+    _key = YES;
+    [self becomeKeyWindow];
+    NSNotification *n = [NSNotification notificationWithName:NSWindowDidBecomeKeyNotification object:self userInfo:nil];
+    if ([_delegate respondsToSelector:@selector(windowDidBecomeKey:)]) [_delegate windowDidBecomeKey:n];
+    [[NSNotificationCenter defaultCenter] postNotification:n];
+}
+/* A key window that goes away passes key status to the frontmost titled
+ * window left (the main window, usually). */
+- (void)_bn_passKeyOn {
+    if (!_key) return;
+    [self _bn_resignKey];
+    for (NSWindow *w in [all_windows reverseObjectEnumerator])
+        if (w != self && w->_visible && (w->_styleMask & NSWindowStyleMaskTitled)) {
+            [w _bn_becomeKey];
+            break;
+        }
 }
 - (void)orderOut:(id)sender {
     _visible = NO;
     [self _bn_closeDisplay];
+    [self _bn_passKeyOn];
 }
 - (void)close {
     if ([_delegate respondsToSelector:@selector(windowWillClose:)])
@@ -474,6 +505,7 @@ static NSUInteger next_window_number = 1;
     [self _post:NSWindowWillCloseNotification];
     _visible = NO;
     [self _bn_closeDisplay];
+    [self _bn_passKeyOn];
     [all_windows removeObject:self];
 }
 @end
