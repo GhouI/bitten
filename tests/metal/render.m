@@ -137,6 +137,32 @@ int main(int argc, char **argv) {
     pixel(copy, 0, 0, p);
     CHECK(p[2] > 230);
 
+    /* how long a window-sized pass takes: a clear and two blended
+     * triangles over every pixel (reported, not checked) */
+    MTLTextureDescriptor *bd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+                                                                                 width:1024 height:640 mipmapped:NO];
+    bd.usage = MTLTextureUsageRenderTarget;
+    id<MTLTexture> big = [dev newTextureWithDescriptor:bd];
+    Vertex full[6] = {{-1, 1, 0, 0, 1, 1, 1, 0.5f}, {1, 1, 0, 0, 1, 1, 1, 0.5f}, {1, -1, 0, 0, 1, 1, 1, 0.5f},
+                      {-1, 1, 0, 0, 1, 1, 1, 0.5f}, {1, -1, 0, 0, 1, 1, 1, 0.5f}, {-1, -1, 0, 0, 1, 1, 1, 0.5f}};
+    rp.colorAttachments[0].texture = big;
+    rp.colorAttachments[0].loadAction = MTLLoadActionClear;
+    NSTimeInterval t0 = [NSDate timeIntervalSinceReferenceDate];
+    for (int i = 0; i < 5; i++) {
+        id<MTLCommandBuffer> b = [q commandBuffer];
+        enc = [b renderCommandEncoderWithDescriptor:rp];
+        [enc setRenderPipelineState:blended];
+        [enc setVertexBytes:full length:sizeof full atIndex:0];
+        [enc setFragmentTexture:mask atIndex:0];
+        [enc drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:6];
+        [enc endEncoding];
+        [b commit];
+        [b waitUntilCompleted];
+    }
+    printf("render: a 1024x640 pass takes %.1f ms\n", ([NSDate timeIntervalSinceReferenceDate] - t0) * 1000 / 5);
+    pixel(big, 512, 320, p);                      /* white at half alpha over blue */
+    CHECK(near(p[0], 255) && near(p[1], 128) && near(p[2], 128));
+
     printf("render ok\n");
     return 0;
 }
