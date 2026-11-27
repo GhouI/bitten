@@ -93,6 +93,14 @@ int ct_face_count(void) {
     return nfaces;
 }
 
+struct ttf *ct_face_at(int i) {
+    pthread_once(&scanned, scan);
+    pthread_mutex_lock(&lock);
+    struct ttf *f = i >= 0 && i < nfaces ? faces[i] : NULL;
+    pthread_mutex_unlock(&lock);
+    return f;
+}
+
 struct ttf *ct_register_file(const char *path) {
     pthread_once(&scanned, scan);
     pthread_mutex_lock(&lock);

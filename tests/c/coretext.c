@@ -40,7 +40,16 @@ Ref CTFontCopyFamilyName(Ref);
 Ref CTFontCopyPostScriptName(Ref);
 Ref CTFontDescriptorCreateWithAttributes(Ref);
 Ref CTFontDescriptorCreateMatchingFontDescriptors(Ref, Ref);
-extern Ref kCTFontFamilyNameAttribute;
+extern Ref kCTFontFamilyNameAttribute, kCTFontTraitsAttribute, kCTFontSymbolicTrait;
+Ref CTFontCollectionCreateWithFontDescriptors(Ref, Ref);
+Ref CTFontCollectionCreateFromAvailableFonts(Ref);
+Ref CTFontCollectionCreateMatchingFontDescriptors(Ref);
+Ref CTFontManagerCopyAvailableFontFamilyNames(void);
+Ref CTFontManagerCopyAvailablePostScriptNames(void);
+Ref CTFontCreateWithFontDescriptor(Ref, CGFloat, const void *);
+Ref CFArrayCreate(Ref, const void **, long, const void *);
+extern const char kCFTypeArrayCallBacks[];
+Ref CFNumberCreate(Ref, long, const void *);
 unsigned char CTFontGetGlyphsForCharacters(Ref, const unsigned short *, unsigned short *, long);
 double CTFontGetAdvancesForGlyphs(Ref, unsigned int, const unsigned short *, CGSize *, long);
 Ref CTFontCreatePathForGlyph(Ref, unsigned short, const void *);
@@ -95,7 +104,52 @@ int main(void) {
         v[0] = S("DejaVu Sans");
         d = CTFontDescriptorCreateWithAttributes(CFDictionaryCreate(0, k, v, 1, kCFTypeDictionaryKeyCallBacks,
                                                                     kCFTypeDictionaryValueCallBacks));
-        CHECK(CTFontDescriptorCreateMatchingFontDescriptors(d, 0) != 0);
+        Ref all = CTFontDescriptorCreateMatchingFontDescriptors(d, 0);
+        CHECK(all != 0);
+        /* a family gives every face of it (DejaVu Sans: Book and Bold) */
+        CHECK(CFArrayGetCount(all) >= 2);
+        char fam[64];
+        for (long i = 0; i < CFArrayGetCount(all); i++)
+            CHECK(CFStringGetCString(CTFontCopyFamilyName(CTFontCreateWithFontDescriptor(CFArrayGetValueAtIndex(all, i), 12, 0)),
+                                     fam, sizeof fam, 0x08000100) && !strcmp(fam, "DejaVu Sans"));
+    }
+    /* collections match the installed fonts: all of them when empty */
+    {
+        Ref every = CTFontCollectionCreateMatchingFontDescriptors(CTFontCollectionCreateFromAvailableFonts(0));
+        Ref ps = CTFontManagerCopyAvailablePostScriptNames();
+        CHECK(every && CFArrayGetCount(every) >= 4 && CFArrayGetCount(every) == CFArrayGetCount(ps));
+        Ref empty = CTFontCollectionCreateMatchingFontDescriptors(CTFontCollectionCreateWithFontDescriptors(0, 0));
+        CHECK(empty && CFArrayGetCount(empty) == CFArrayGetCount(every));
+        /* narrowed by a trait: monospaced faces only */
+        int mono = 1 << 10;
+        Ref num = CFNumberCreate(0, 9 /* kCFNumberIntType */, &mono);
+        const void *tk[] = {kCTFontSymbolicTrait}, *tv[] = {num};
+        Ref traits = CFDictionaryCreate(0, tk, tv, 1, kCFTypeDictionaryKeyCallBacks, kCFTypeDictionaryValueCallBacks);
+        const void *dk[] = {kCTFontTraitsAttribute}, *dv[] = {traits};
+        Ref md = CTFontDescriptorCreateWithAttributes(CFDictionaryCreate(0, dk, dv, 1, kCFTypeDictionaryKeyCallBacks,
+                                                                         kCFTypeDictionaryValueCallBacks));
+        const void *one[] = {md};
+        Ref monos = CTFontCollectionCreateMatchingFontDescriptors(
+            CTFontCollectionCreateWithFontDescriptors(CFArrayCreate(0, one, 1, kCFTypeArrayCallBacks), 0));
+        CHECK(monos && CFArrayGetCount(monos) >= 1 && CFArrayGetCount(monos) < CFArrayGetCount(every));
+        for (long i = 0; i < CFArrayGetCount(monos); i++)
+            CHECK(CTFontGetSymbolicTraits(CTFontCreateWithFontDescriptor(CFArrayGetValueAtIndex(monos, i), 12, 0)) & (1 << 10));
+        /* a family that is not there: nothing */
+        const void *fk[] = {kCTFontFamilyNameAttribute}, *fv[] = {S("No Such Family")};
+        Ref nd = CTFontDescriptorCreateWithAttributes(CFDictionaryCreate(0, fk, fv, 1, kCFTypeDictionaryKeyCallBacks,
+                                                                         kCFTypeDictionaryValueCallBacks));
+        const void *none[] = {nd};
+        CHECK(CTFontCollectionCreateMatchingFontDescriptors(
+                  CTFontCollectionCreateWithFontDescriptors(CFArrayCreate(0, none, 1, kCFTypeArrayCallBacks), 0)) == 0);
+        /* the family names, sorted and each once */
+        Ref fams = CTFontManagerCopyAvailableFontFamilyNames();
+        int dejavu = 0;
+        for (long i = 0; i < CFArrayGetCount(fams); i++) {
+            char f[96];
+            CHECK(CFStringGetCString(CFArrayGetValueAtIndex(fams, i), f, sizeof f, 0x08000100));
+            dejavu += !strcmp(f, "DejaVu Sans");
+        }
+        CHECK(dejavu == 1);
     }
 
     /* glyphs and advances: 'W' is wider than 'i'; monospace is even */
