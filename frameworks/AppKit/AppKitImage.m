@@ -382,6 +382,24 @@ static BOOL asset_catalog_has(NSBundle *bundle, NSString *name) {
                        0.85, flipped);
     }
 }
+/* A template image drawn as AppKit's views draw one: its shape (alpha)
+ * filled with `color` (the view's tint, or the label colour of the current
+ * appearance). Other images draw as they are. */
+- (void)_bn_drawTemplateInRect:(NSRect)rect color:(NSColor *)color {
+    CGContextRef c = [NSGraphicsContext currentContext].CGContext;
+    if (!c || !_template) {
+        [self drawInRect:rect];
+        return;
+    }
+    CGContextSaveGState(c);
+    CGContextBeginTransparencyLayer(c, NULL);
+    [self drawInRect:rect];
+    CGContextSetBlendMode(c, kCGBlendModeSourceAtop);
+    CGContextSetFillColorWithColor(c, (color ?: NSColor.labelColor).CGColor);
+    CGContextFillRect(c, rect);
+    CGContextEndTransparencyLayer(c);
+    CGContextRestoreGState(c);
+}
 - (void)drawInRect:(NSRect)dst fromRect:(NSRect)src operation:(NSCompositingOperation)op fraction:(CGFloat)alpha {
     CGContextRef c = [NSGraphicsContext currentContext].CGContext;
     if (c) {

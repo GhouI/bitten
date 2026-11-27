@@ -3,6 +3,7 @@
 #import <AppKit/AppKit.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <dlfcn.h>
 
 #define CHECK(c) do { if (!(c)) { printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); exit(1); } } while (0)
 
@@ -62,11 +63,24 @@ static NSEvent *seen_current;
 - (void)viewDidDisappear { self.log = [self.log stringByAppendingString:@"d"]; }
 @end
 
+/* Keeps its colour in its layer, refreshed in updateLayer. */
+@interface LayerKeeper : NSView
+@property int updates;
+@end
+@implementation LayerKeeper
+- (BOOL)wantsUpdateLayer { return YES; }
+- (void)updateLayer { self.updates++; }
+@end
+
 @interface Delegate : NSObject <NSApplicationDelegate>
 @property int launched;
 @end
 @implementation Delegate
 - (void)applicationDidFinishLaunching:(NSNotification *)n { self.launched++; }
+@end
+
+@interface NSWindow (BittenBacking)
+- (CGContextRef)_bn_backingContext;
 @end
 
 int main(void) {
@@ -189,6 +203,45 @@ int main(void) {
     [hiddenWindow.contentView addSubview:watched.view];
     [hiddenWindow orderOut:nil];
     CHECK([watched.log isEqualToString:@"waxdwaxd"]);
+
+    /* System colours follow the drawing appearance. */
+    NSAppearance *darkAqua = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
+    NSAppearance *aqua = [NSAppearance appearanceNamed:NSAppearanceNameAqua];
+    __block CGFloat darkBg = 0, lightBg = 0, darkLabel = 0;
+    [darkAqua performAsCurrentDrawingAppearance:^{
+        darkBg = NSColor.windowBackgroundColor.redComponent;
+        darkLabel = NSColor.labelColor.redComponent;
+    }];
+    [aqua performAsCurrentDrawingAppearance:^{ lightBg = NSColor.windowBackgroundColor.redComponent; }];
+    CHECK(darkBg < 0.3 && lightBg > 0.9 && darkLabel > 0.9);
+
+    /* An appearance change has update-layer views refresh their layers. */
+    CHECK(dlopen("/System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore", RTLD_NOW) != NULL);
+    LayerKeeper *keeper = [[LayerKeeper alloc] initWithFrame:NSMakeRect(0, 0, 20, 20)];
+    keeper.wantsLayer = YES;
+    [w.contentView addSubview:keeper];
+    [w display];
+    int updatesBefore = keeper.updates;
+    w.appearance = darkAqua;
+    [w display];
+    CHECK(keeper.updates > updatesBefore);
+
+    /* A template image draws in the label colour of the appearance. */
+    NSImage *glyph = [NSImage imageWithSize:NSMakeSize(4, 4) flipped:NO drawingHandler:^BOOL(NSRect r) {
+        [[NSColor blackColor] setFill];
+        NSRectFill(r);
+        return YES;
+    }];
+    glyph.template = YES;
+    NSImageView *iv = [[NSImageView alloc] initWithFrame:NSMakeRect(40, 40, 4, 4)];
+    iv.image = glyph;
+    [w.contentView addSubview:iv];
+    [w display];
+    CGContextRef backing = [w _bn_backingContext];
+    const unsigned char *bp = CGBitmapContextGetData(backing);
+    size_t bpr = CGBitmapContextGetBytesPerRow(backing), bh = CGBitmapContextGetHeight(backing);
+    const unsigned char *pix = bp + (bh - 42) * bpr + 42 * 4;   /* BGRA, rows top down */
+    CHECK(pix[0] > 200 && pix[1] > 200 && pix[2] > 200);      /* white-ish in dark */
     puts("AppKit basics ok");
     return 0;
 }

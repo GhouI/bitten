@@ -4237,3 +4237,32 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
     Terminal page's squeezed "Font style" column follows from that and the
     app's fixed field widths.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit/SwiftUI: dark mode follows the appearance
+
+- System colours that change with the appearance are dynamic:
+  `labelColor`, `secondaryLabelColor`, `textColor`, `textBackgroundColor`,
+  `windowBackgroundColor`, `controlBackgroundColor` and `separatorColor`.
+  They were fixed light values, so window backgrounds and AppKit text
+  stayed light.
+- Each view draws with its effective appearance current, and the window
+  background is filled in the window's. Dynamic colours used to resolve
+  for the application's appearance everywhere.
+- Setting the appearance of the application, a window or a view tells the
+  affected views (`viewDidChangeEffectiveAppearance`), marks them for
+  display and redraws. The application's appearance has a real setter.
+- Views that want `updateLayer` get it, in their appearance, before their
+  layer is painted. Appearance-dependent layer colours set there now
+  refresh.
+- SwiftUI hosting views take their `colorScheme` from their effective
+  appearance and rebuild when it changes. It was always light, so
+  `.primary` text stayed dark on dark backgrounds.
+- Template images in image views and buttons draw in the tint colour, or
+  the label colour of the appearance. They drew as they were (black).
+- A window asked to display while it is drawing (a view setting the
+  window's appearance as it draws) displays after the frame. It used to
+  draw re-entrantly and free the context in use.
+- The drawing appearance is retained per thread.
+- In the target app, switching Settings → Interface between Light and Dark
+  now changes the whole app live: windows, Settings, the toolbar icons.
+- Target app (total `^MISSING`): 0 -> 0.
