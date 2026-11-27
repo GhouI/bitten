@@ -17,6 +17,9 @@
  *     u16 title length, title (UTF-8), then width*height RGBA bytes
  *     (straight alpha, as canvas ImageData wants)
  *   2 (close): u8 2, u32 window
+ *   3 (part of a frame): as 1 up to the title, then u32 x, u32 y, u32
+ *     width, u32 height of a rect in the window, and its RGBA bytes; the
+ *     rest of the window is as the last frame left it
  * page to server, text messages, one JSON object each:
  *   {"t":"down"|"up"|"move"|"drag"|"scroll"|"key"|"keyup"|"close"|"resize",
  *    "w":window, "x":..., "y":..., "b":button, "m":modifier flags,
@@ -162,6 +165,51 @@ static bool send_window(int fd, const struct window *w) {
     return ok;
 }
 
+/* The rect of `w` changed since version `since`, when only parts of it
+ * have (else false: a full frame is needed). */
+static bool damage_since(const struct window *w, uint64_t since, uint32_t r[4]) {
+    if (!w->rgba || w->closed || since < w->full_version) return false;
+    uint32_t x0 = UINT32_MAX, y0 = UINT32_MAX, x1 = 0, y1 = 0;
+    for (int i = 0; i < w->ndamage; i++) {
+        if (w->damage[i].version <= since) continue;
+        if (w->damage[i].x < x0) x0 = w->damage[i].x;
+        if (w->damage[i].y < y0) y0 = w->damage[i].y;
+        if (w->damage[i].x + w->damage[i].w > x1) x1 = w->damage[i].x + w->damage[i].w;
+        if (w->damage[i].y + w->damage[i].h > y1) y1 = w->damage[i].y + w->damage[i].h;
+    }
+    if (x0 >= x1 || y0 >= y1) x0 = y0 = x1 = y1 = 0;
+    r[0] = x0, r[1] = y0, r[2] = x1 - x0, r[3] = y1 - y0;
+    return true;
+}
+
+/* Part of a window's frame: the header of a frame, the rect, its pixels
+ * (copied from w->rgba, with display_lock held: the message is built
+ * under the lock and sent without it). */
+static uint8_t *part_message(const struct window *w, const uint32_t r[4], size_t *n) {
+    size_t tl = strlen(w->title);
+    *n = 1 + 4 * 8 + 2 + tl + 16 + (size_t)r[2] * r[3] * 4;
+    uint8_t *m = malloc(*n);
+    if (!m) return NULL;
+    m[0] = 3;
+    put32(m + 1, w->id);
+    put32(m + 5, (uint32_t)w->x);
+    put32(m + 9, (uint32_t)w->y);
+    put32(m + 13, w->width);
+    put32(m + 17, w->height);
+    put32(m + 21, w->flags);
+    put32(m + 25, (uint32_t)w->level);
+    put32(m + 29, w->front);
+    m[33] = (uint8_t)tl;
+    m[34] = (uint8_t)(tl >> 8);
+    memcpy(m + 35, w->title, tl);
+    uint8_t *p = m + 35 + tl;
+    for (int i = 0; i < 4; i++) put32(p + 4 * i, r[i]);
+    p += 16;
+    for (uint32_t row = 0; row < r[3]; row++)
+        memcpy(p + (size_t)row * r[2] * 4, w->rgba + ((size_t)(r[1] + row) * w->width + r[0]) * 4, (size_t)r[2] * 4);
+    return m;
+}
+
 /* Values out of the page's flat JSON objects. */
 static double json_number(const char *s, const char *key, double fallback) {
     char k[16];
@@ -271,6 +319,18 @@ static void *client_writer(void *arg) {
             seen = display_version;
             for (struct window *w = display_windows; w; w = w->next) {
                 if (w->version <= since || (!w->closed && !w->rgba)) continue;
+                uint32_t r[4];
+                if (damage_since(w, since, r)) {
+                    size_t n;
+                    uint8_t *m = part_message(w, r, &n);
+                    pthread_mutex_unlock(&display_lock);
+                    bool ok = m && ws_send(c->fd, 2, m, n);
+                    free(m);
+                    pthread_mutex_lock(&display_lock);
+                    if (!ok) c->dead = true;
+                    if (c->dead) break;
+                    continue;
+                }
                 /* Copy under the lock, send without it. */
                 struct window copy = *w;
                 copy.rgba = w->closed ? NULL : malloc((size_t)w->width * w->height * 4 + 1);
@@ -457,11 +517,69 @@ int bitten_display_present(uint32_t id, const void *pixels, size_t width, size_t
     w->closed = false;
     snprintf(w->title, sizeof w->title, "%s", title ? title : "");
     w->version = ++display_version;
+    w->full_version = w->version;
+    w->ndamage = 0;
     display_changed();
     pthread_mutex_unlock(&display_lock);
     return 0;
 }
 DX_EXPORT("_bitten_display_present", bitten_display_present);
+
+/* Like bitten_display_present, when only the rect (rx, ry, rw, rh: pixels,
+ * origin top left) of the bitmap changed since the window's last frame:
+ * only that part is converted and sent. A first frame or a new size is
+ * presented whole. */
+int bitten_display_present_rect(uint32_t id, const void *pixels, size_t width, size_t height, size_t row_bytes,
+                                uint32_t bitmap_info, double x, double y, const char *title, size_t rx, size_t ry,
+                                size_t rw, size_t rh) {
+    struct cg_format f;
+    if (!pixels || !cg_format_for(cg_space_rgb(), 8, 32, bitmap_info, &f)) return -1;
+    if (rx > width) rx = width;
+    if (ry > height) ry = height;
+    if (rw > width - rx) rw = width - rx;
+    if (rh > height - ry) rh = height - ry;
+    pthread_mutex_lock(&display_lock);
+    struct window *w = find(id);
+    bool whole = !w || !w->rgba || w->closed || w->width != width || w->height != height;
+    pthread_mutex_unlock(&display_lock);
+    if (whole) return bitten_display_present(id, pixels, width, height, row_bytes, bitmap_info, x, y, title);
+    bitten_display_start();
+    pthread_mutex_lock(&display_lock);
+    w = find(id);
+    if (!w || !w->rgba || w->width != width || w->height != height) {
+        pthread_mutex_unlock(&display_lock);
+        return bitten_display_present(id, pixels, width, height, row_bytes, bitmap_info, x, y, title);
+    }
+    struct cg_surface s = {(uint8_t *)pixels, width, height, row_bytes, f};
+    for (size_t r = ry; r < ry + rh; r++)
+        for (size_t c = rx; c < rx + rw; c++) {
+            CGFloat px[4];
+            cg_read_pixel(&s, c, r, px);
+            if (!f.straight && px[3] > 0 && px[3] < 1)
+                for (int k = 0; k < 3; k++) px[k] /= px[3];
+            uint8_t *d = w->rgba + (r * width + c) * 4;
+            for (int k = 0; k < 4; k++) d[k] = (uint8_t)(fmin(fmax(px[k], 0), 1) * 255 + 0.5);
+        }
+    w->x = (int32_t)x;
+    w->y = (int32_t)y;
+    snprintf(w->title, sizeof w->title, "%s", title ? title : "");
+    w->version = ++display_version;
+    if (w->ndamage == (int)(sizeof w->damage / sizeof *w->damage)) {
+        w->full_version = w->version;           /* too many parts: the next viewer gets it whole */
+        w->ndamage = 0;
+    } else {
+        w->damage[w->ndamage].version = w->version;
+        w->damage[w->ndamage].x = (uint32_t)rx;
+        w->damage[w->ndamage].y = (uint32_t)ry;
+        w->damage[w->ndamage].w = (uint32_t)rw;
+        w->damage[w->ndamage].h = (uint32_t)rh;
+        w->ndamage++;
+    }
+    display_changed();
+    pthread_mutex_unlock(&display_lock);
+    return 0;
+}
+DX_EXPORT("_bitten_display_present_rect", bitten_display_present_rect);
 
 /* A window's look and stacking: flags 1 borderless (no title bar or
  * frame), 2 transparent (the page shows through where alpha < 1), 4 full-size
@@ -477,6 +595,7 @@ int bitten_display_set_style(uint32_t id, uint32_t flags, int32_t level) {
         w->flags = flags;
         w->level = level;
         w->version = ++display_version;
+        w->full_version = w->version;
         display_changed();
     }
     pthread_mutex_unlock(&display_lock);
@@ -492,6 +611,7 @@ void bitten_display_order_front(uint32_t id) {
     if (w) {
         w->front = ++fronts;
         w->version = ++display_version;
+        w->full_version = w->version;
         display_changed();
     }
     pthread_mutex_unlock(&display_lock);
@@ -507,6 +627,7 @@ void bitten_display_close(uint32_t id) {
         w->rgba = NULL;
         w->closed = true;
         w->version = ++display_version;
+        w->full_version = w->version;
         display_changed();
     }
     pthread_mutex_unlock(&display_lock);

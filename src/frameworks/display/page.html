@@ -123,8 +123,16 @@ function frame(buf) {
     w.el.style.left = left + "px"; w.el.style.top = top + "px";
   }
   w.title.textContent = title; if (!(flags & 1) && title) document.title = title;
-  if (w.canvas.width !== width || w.canvas.height !== height) { w.canvas.width = width; w.canvas.height = height; }
-  if (width && height) w.ctx.putImageData(new ImageData(new Uint8ClampedArray(buf, 35 + tl, width * height * 4), width, height), 0, 0);
+  if (type === 3) {
+    // Part of the frame: a rect's pixels over what the canvas shows.
+    const rx = v.getUint32(35 + tl, true), ry = v.getUint32(39 + tl, true);
+    const rw = v.getUint32(43 + tl, true), rh = v.getUint32(47 + tl, true);
+    if (w.canvas.width === width && w.canvas.height === height && rw && rh)
+      w.ctx.putImageData(new ImageData(new Uint8ClampedArray(buf, 51 + tl, rw * rh * 4), rw, rh), rx, ry);
+  } else {
+    if (w.canvas.width !== width || w.canvas.height !== height) { w.canvas.width = width; w.canvas.height = height; }
+    if (width && height) w.ctx.putImageData(new ImageData(new Uint8ClampedArray(buf, 35 + tl, width * height * 4), width, height), 0, 0);
+  }
   if (!focused && !(flags & 1)) focus(id);
 }
 function connect() {

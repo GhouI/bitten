@@ -23,6 +23,9 @@ struct event {
 int bitten_display_listen(int port);
 int bitten_display_present(unsigned int id, const void *pixels, unsigned long w, unsigned long h,
                            unsigned long row_bytes, unsigned int info, double x, double y, const char *title);
+int bitten_display_present_rect(unsigned int id, const void *pixels, unsigned long w, unsigned long h,
+                                unsigned long row_bytes, unsigned int info, double x, double y, const char *title,
+                                unsigned long rx, unsigned long ry, unsigned long rw, unsigned long rh);
 int bitten_display_next_event(struct event *out);
 void bitten_display_close(unsigned int id);
 int bitten_display_set_style(unsigned int id, unsigned int flags, int level);
@@ -123,6 +126,23 @@ int main(void) {
     bitten_display_order_front(7);
     CHECK(read_some(fd, hdr, 2) == 2 && hdr[0] == 0x82 && hdr[1] == len);
     CHECK(read_some(fd, msg, len) == len && msg[1] == 7 && msg[29] == 1);
+
+    /* a changed rect sends just that part (message 3): the frame's header,
+     * the rect, its pixels */
+    CGContextSetRGBFillColor(ctx, 0, 0, 1, 1);
+    CGContextFillRect(ctx, all);
+    CHECK(bitten_display_present_rect(7, CGBitmapContextGetData(ctx), 4, 3, CGBitmapContextGetBytesPerRow(ctx),
+                                      2 | 0x2000, 40, 30, "Test", 1, 1, 2, 1) == 0);
+    long plen = 35 + 4 + 16 + 2 * 1 * 4;
+    CHECK(read_some(fd, hdr, 2) == 2 && hdr[0] == 0x82 && hdr[1] == plen);
+    CHECK(read_some(fd, msg, plen) == plen && msg[0] == 3 && msg[1] == 7 && msg[13] == 4 && msg[17] == 3);
+    CHECK(msg[39] == 1 && msg[43] == 1 && msg[47] == 2 && msg[51] == 1);   /* x 1, y 1, 2 wide, 1 high */
+    CHECK(msg[55] == 0 && msg[56] == 0 && msg[57] == 255 && msg[58] == 255); /* blue */
+    /* a size the window does not have is presented whole */
+    CHECK(bitten_display_present_rect(7, CGBitmapContextGetData(ctx), 2, 3, CGBitmapContextGetBytesPerRow(ctx),
+                                      2 | 0x2000, 40, 30, "Test", 0, 0, 1, 1) == 0);
+    CHECK(read_some(fd, hdr, 2) == 2 && hdr[0] == 0x82 && hdr[1] == 35 + 4 + 2 * 3 * 4);
+    CHECK(read_some(fd, msg, hdr[1]) == hdr[1] && msg[0] == 1 && msg[13] == 2);
 
     /* closing the window sends a close message */
     bitten_display_close(7);

@@ -653,6 +653,9 @@ static void raster_triangle(DrawState *s, const VOut *v0, const VOut *v1, const 
 static void draw(DrawState *s, MTLPrimitiveType type, NSUInteger start, NSUInteger count, NSUInteger instances,
                  NSUInteger base, const uint32_t *indices) {
     if (!s->p || !s->p->_vertex || !s->target || !s->target->data || !count) return;
+    TRACE("draw %s/%s type %lu, %lu vertices x %lu instances\n", s->p->_vertex->_name.UTF8String ?: "?",
+          s->p->_fragment ? s->p->_fragment->_name.UTF8String ?: "?" : "-", (unsigned long)type, (unsigned long)count,
+          (unsigned long)instances);
     VOut *verts = malloc(sizeof(VOut) * count);
     for (NSUInteger inst = 0; inst < instances; inst++) {
         for (NSUInteger i = 0; i < count; i++)
@@ -688,6 +691,8 @@ static void draw(DrawState *s, MTLPrimitiveType type, NSUInteger start, NSUInteg
         _target = (BNMTLTexture *)c.texture;
         if ([_target isKindOfClass:[BNMTLTexture class]]) {
             _s.target = &_target->_t;
+            TRACE("render pass on %dx%d, load %lu, clear %.3f %.3f %.3f %.3f\n", _target->_t.width, _target->_t.height,
+                  (unsigned long)c.loadAction, c.clearColor.red, c.clearColor.green, c.clearColor.blue, c.clearColor.alpha);
             if (c.loadAction == MTLLoadActionClear) {
                 MTLClearColor cc = c.clearColor;
                 float col[4] = {(float)cc.red, (float)cc.green, (float)cc.blue, (float)cc.alpha};
@@ -730,8 +735,12 @@ static void set_bytes(Bindings *b, const void *p, NSUInteger n, NSUInteger i) {
 - (void)setFragmentBytes:(const void *)p length:(NSUInteger)n atIndex:(NSUInteger)i { set_bytes(&_fb, p, n, i); }
 - (void)setFragmentTexture:(id<MTLTexture>)t atIndex:(NSUInteger)i { if (i < 31) _fb.textures[i] = t; }
 - (void)setFragmentSamplerState:(id<MTLSamplerState>)s atIndex:(NSUInteger)i { if (i < 16) _fb.samplers[i] = s; }
-- (void)setViewport:(MTLViewport)v { _s.vp = v; }
+- (void)setViewport:(MTLViewport)v {
+    TRACE("viewport %.1f %.1f %.1f x %.1f\n", v.originX, v.originY, v.width, v.height);
+    _s.vp = v;
+}
 - (void)setScissorRect:(MTLScissorRect)r {
+    TRACE("scissor %lu %lu %lu x %lu\n", (unsigned long)r.x, (unsigned long)r.y, (unsigned long)r.width, (unsigned long)r.height);
     _s.scissor = r;
     _s.scissorSet = YES;
 }

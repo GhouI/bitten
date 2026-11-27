@@ -16,6 +16,11 @@ struct window {
     uint32_t front;                        /* bumped by each order-front */
     uint8_t *rgba;                         /* straight alpha; NULL until the first frame */
     uint64_t version;
+    /* Since full_version, only these rects changed (each at its version):
+     * a viewer that saw full_version or later needs just their union. */
+    uint64_t full_version;
+    struct { uint64_t version; uint32_t x, y, w, h; } damage[16];
+    int ndamage;
     bool closed;
     struct window *next;
 };
