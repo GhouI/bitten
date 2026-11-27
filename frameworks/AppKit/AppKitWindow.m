@@ -156,11 +156,9 @@ SIZE_PROP(resizeIncrements, setResizeIncrements, "resizeIncrements", NSMakeSize(
 }
 
 /* ---- ordering ---- */
-- (BOOL)isMainWindow { return self.isKeyWindow; }
 - (BOOL)canBecomeKeyWindow { return (self.styleMask & NSWindowStyleMaskTitled) != 0 || self.styleMask == 0; }
 - (BOOL)canBecomeMainWindow { return self.canBecomeKeyWindow; }
 - (void)makeKeyWindow { [self makeKeyAndOrderFront:nil]; }
-- (void)makeMainWindow {}
 - (void)becomeKeyWindow {}
 - (void)resignKeyWindow {}
 - (void)orderFrontRegardless { [self orderFront:nil]; }

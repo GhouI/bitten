@@ -465,6 +465,10 @@ static NSString *bn_key_characters(unsigned short code) {
         if (bn_tracking) [bn_pending addObject:event];
         else [NSApp sendEvent:event];
     }
+    /* After events, as AppKit's updateWindows: each visible window updates. */
+    if (!bn_tracking)
+        for (NSWindow *w in [NSApp windows])
+            if (w.isVisible) [w _bn_tell:NSWindowDidUpdateNotification delegate:@selector(windowDidUpdate:)];
 }
 
 /* Starts listening once the display is up (after the first window shows). */
