@@ -728,7 +728,13 @@ static void *alloc_reporter(void *arg) {
     }
     return NULL;
 }
+/* BITTEN_METHODS=Name also covers classes that aren't views: the first
+ * time an instance of a class whose name contains it is made, its own
+ * methods are printed with their implementations. */
+static const char *methods_of;
+static void methods_note(const void *cls);
 static void alloc_init(void) {
+    methods_of = getenv("BITTEN_METHODS");
     const char *e = getenv("BITTEN_ALLOC_STATS");
     alloc_period = e ? atoi(e) : 0;
     if (alloc_period <= 0) return;
@@ -738,6 +744,7 @@ static void alloc_init(void) {
 }
 void dx_alloc_note(const void *cls, int delta) {
     pthread_once(&alloc_once, alloc_init);
+    if (methods_of && delta > 0 && cls) methods_note(cls);
     if (alloc_period <= 0 || !cls) return;
     pthread_mutex_lock(&alloc_lock);
     if (alloc_used * 2 >= alloc_cap) {
@@ -970,6 +977,28 @@ static Method *d_class_copyMethodList(Class cls, unsigned *count) {
     return out;
 }
 DX_FN(class_copyMethodList);
+
+static void methods_note(const void *cls) {
+    static const void *seen[256];
+    static int nseen;
+    static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+    const char *name = class_name((Class)cls);
+    if (!name || !strstr(name, methods_of)) return;
+    pthread_mutex_lock(&lock);
+    for (int i = 0; i < nseen; i++)
+        if (seen[i] == cls) {
+            pthread_mutex_unlock(&lock);
+            return;
+        }
+    if (nseen < 256) seen[nseen++] = cls;
+    pthread_mutex_unlock(&lock);
+    unsigned n = 0;
+    Method *ms = d_class_copyMethodList((Class)cls, &n);
+    fprintf(stderr, "bitten: %s made; methods:", name);
+    for (unsigned i = 0; i < n; i++) fprintf(stderr, " %s@%p", ms[i]->name, (void *)ms[i]->imp);
+    fprintf(stderr, "\n");
+    free(ms);
+}
 
 static SEL d_method_getName(Method m) { return m ? m->name : NULL; }
 DX_FN(method_getName);

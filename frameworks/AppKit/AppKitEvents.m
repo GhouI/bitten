@@ -380,6 +380,9 @@ static NSString *bn_key_characters(unsigned short code) {
             else if (e.type == 3) type = NSEventTypeMouseMoved;
             else type = right ? NSEventTypeRightMouseDragged : NSEventTypeLeftMouseDragged;
             NSInteger clicks = e.type == 1 ? click_count(loc, t) : 1;
+            extern NSUInteger bn_pressed_buttons;
+            if (e.type == 1) bn_pressed_buttons |= right ? 2 : 1;
+            if (e.type == 2) bn_pressed_buttons &= ~(NSUInteger)(right ? 2 : 1);
             event = [NSEvent mouseEventWithType:type location:loc modifierFlags:flags timestamp:t
                                    windowNumber:window.windowNumber context:nil eventNumber:0
                                      clickCount:clicks pressure:1];

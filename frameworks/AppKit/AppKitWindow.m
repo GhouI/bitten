@@ -279,10 +279,8 @@ SIZE_PROP(resizeIncrements, setResizeIncrements, "resizeIncrements", NSMakeSize(
     CGFloat s = self.backingScaleFactor;
     return NSMakeRect(rect.origin.x / s, rect.origin.y / s, rect.size.width / s, rect.size.height / s);
 }
-- (NSPoint)mouseLocationOutsideOfEventStream {
-    NSValue *v = get(self, @"mouseLocation");
-    return v ? v.pointValue : NSMakePoint(0, 0);
-}
+/* Where the mouse is now, in the window's coordinates. */
+- (NSPoint)mouseLocationOutsideOfEventStream { return [self convertPointFromScreen:[NSEvent mouseLocation]]; }
 
 /* ---- sheets: shown as a window over this one ---- */
 - (void)beginSheet:(NSWindow *)sheet completionHandler:(void (^)(NSModalResponse))handler {

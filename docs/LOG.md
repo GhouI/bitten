@@ -4750,3 +4750,19 @@ Debugging aids:
   other than selection are now at least 96% opaque. Settings and its
   sidebar look the same.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Where the mouse is: tooltips show
+
+- `-[NSWindow mouseLocationOutsideOfEventStream]` read a value nothing
+  set, so it always reported (0, 0). It now converts the current mouse
+  location into the window's coordinates.
+- `+[NSEvent pressedMouseButtons]` always returned 0. It now reports the
+  buttons held down, from the events delivered.
+- The target app's hover tips check where the mouse is before showing.
+  They saw (0, 0), off the hovered control, and never appeared. Hovering
+  the toolbar's + now shows "New Tab ⌘T". tests/appkit/basics.m covers
+  the mouse location.
+- `BITTEN_METHODS=Name` now also covers classes that aren't views. The
+  first time an instance of a matching class is made (Objective-C or
+  Swift), its methods are printed with their implementations.
+- Target app (total `^MISSING`): 0 -> 0.
