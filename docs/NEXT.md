@@ -12,14 +12,13 @@ windows no longer leaks.
 
 1. **Speed.** With a viewer connected the target app idles at about 10%
    CPU, mostly the terminal's Metal fragment path (`cell_bg_fragment`).
-   Launch reaches an interactive terminal in about 4.5 s (1.2 s before
-   `main`). Full window redraws still take a few hundred milliseconds,
-   almost all CoreGraphics blending (`cg_blend_pixel`, `mask_row`,
-   `scan`), so resizes, pane zoom and page switches lag. The remaining
-   full redraws come from the root SwiftUI host after rebuilds; it
-   doesn't track which regions changed. `BITTEN_DISPLAY_DEBUG` logs who
-   asked for each one. Wait 8 s or more before judging that an animated
-   change didn't happen.
+   With Settings open it idles at about 5% and sends no frames. Launch
+   reaches an interactive terminal in about 4.6 s on a loaded machine.
+   Page switches mostly cost CoreGraphics blending now (`cg_blend_pixel`,
+   `mask_row`, `scan`, transparency layers). A state change rebuilds
+   only its own host. `BITTEN_DISPLAY_DEBUG` logs who asked for each full
+   redraw and each presented window's number. Wait 8 s or more before
+   judging that an animated change didn't happen.
 2. **The Terminal settings typography row.** With the window at the
    app's 740-point default, the first column gets about 40 points: the
    three fixed-size columns and 12-point gaps take the rest. Real
@@ -30,10 +29,13 @@ windows no longer leaks.
    key-sequence timeout before the rest. It pastes correctly now that
    frames are faster; watch for it under load.
 
-Settled since the last update: Return in the target app's text fields is
-handled by the app's own delegate. The display page refocuses the
-frontmost window when the focused one closes (#232), and AppKit sends keys
-for a closed window to the key window anyway.
+Settled since the last update: sheets are windows (Add Remote Host, the
+theme editor). Settings ▸ Themes ▸ New no longer crashes. That crash was
+GridRow's stored fields: a frozen type's field list matters, not just
+its bytes, because programs read field offsets from metadata. Grids span
+and align cells. In a text field in a sheet, the first Escape reverts the
+field (the app's delegate does this) and the second closes the sheet, as
+on macOS.
 
 ## Finding problems
 

@@ -5130,3 +5130,11 @@ Debugging aids:
   column to the whole width. All eight swatches now show in each row.
 - Test: `gridspan`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Docs: where to pick up, updated
+
+- `docs/NEXT.md` now gives today's speed figures (Settings idles at 5%
+  with no frames sent; page switches are mostly blending) and what was
+  settled: sheets as windows, the theme editor, GridRow's stored fields,
+  and grids.
+- Target app (total `^MISSING`): 0 -> 0.
