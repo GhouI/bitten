@@ -57,6 +57,22 @@ static id freeze(id self, CFMutableDictionaryRef table) {
 - (id)objectForKey:(id)key { return key ? (__bridge id)CFDictionaryGetValue(CFD(self), (__bridge const void *)key) : nil; }
 - (id)objectForKeyedSubscript:(id)key { return [self objectForKey:key]; }
 - (id)__swift_objectForKeyedSubscript:(id)key { return [self objectForKey:key]; }
+/* The keys in the order of their values, as the values compare. */
+- (NSArray *)keysSortedByValueUsingComparator:(NSComparator)cmp {
+    return [self.allKeys sortedArrayUsingComparator:^NSComparisonResult(id a, id b) {
+        return cmp([self objectForKey:a], [self objectForKey:b]);
+    }];
+}
+- (NSArray *)keysSortedByValueWithOptions:(NSSortOptions)opts usingComparator:(NSComparator)cmp {
+    return [self.allKeys sortedArrayWithOptions:opts usingComparator:^NSComparisonResult(id a, id b) {
+        return cmp([self objectForKey:a], [self objectForKey:b]);
+    }];
+}
+- (NSArray *)keysSortedByValueUsingSelector:(SEL)comparator {
+    return [self keysSortedByValueUsingComparator:^NSComparisonResult(id a, id b) {
+        return ((NSComparisonResult(*)(id, SEL, id))objc_msgSend)(a, comparator, b);
+    }];
+}
 - (NSArray *)allKeys {
     NSUInteger n = self.count;
     void **keys = malloc((n ? n : 1) * sizeof(void *));

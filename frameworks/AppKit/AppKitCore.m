@@ -11,6 +11,12 @@
 #include <string.h>
 
 void bn_debug_callers(void);
+@interface NSView (BittenContentsDiff)
+- (BOOL)_bn_contentsChange:(NSRect *)changed; /* AppKitDrawing.m */
+@end
+@interface NSWindow (BittenPartialDisplay)
+- (void)_bn_invalidateRect:(NSRect)r;
+@end
 @interface NSView (BittenTrackingState)
 - (void)_bn_setTrackingAreasNeedUpdate; /* AppKitEvents.m */
 @end
@@ -150,10 +156,16 @@ static void bn_autoresize_axis(CGFloat delta, BOOL flexLo, BOOL flexLen, BOOL fl
 - (BOOL)needsDisplay { return _needsDisplay; }
 - (void)setNeedsDisplay:(BOOL)flag {
     _needsDisplay = flag;
-    if (flag) {
-        if (_superview) _superview.needsDisplay = YES;
-        else [_window _bn_scheduleDisplay];
+    if (!flag) return;
+    /* New layer contents redraw only where their pixels changed. */
+    NSRect changed;
+    if (_window && [self _bn_contentsChange:&changed]) {
+        if (!NSIsEmptyRect(changed)) [_window _bn_invalidateRect:changed];
+        for (NSView *v = _superview; v; v = v->_superview) v->_needsDisplay = YES;
+        return;
     }
+    if (_superview) _superview.needsDisplay = YES;
+    else [_window _bn_scheduleDisplay];
 }
 - (void)setNeedsDisplayInRect:(NSRect)rect { self.needsDisplay = YES; }
 - (BOOL)isHidden { return _hidden; }

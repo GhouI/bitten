@@ -136,6 +136,7 @@ struct cg_mask *cg_mask_new(size_t w, size_t h, uint8_t fill) {
     m->data = malloc((w && h) ? w * h : 1);
     if (!m->data) { free(m); return NULL; }
     memset(m->data, fill, w * h);
+    if (fill) m->x1 = w, m->y1 = h;
     return m;
 }
 
@@ -164,8 +165,9 @@ static int by_x(const void *a, const void *b) {
 typedef void (*row_fn)(void *ctx, size_t row, size_t x0, size_t x1, const float *coverage);
 
 /* Polygons in device space (y up) over a width x height pixel grid. */
+/* Only rows [lr0, lr1) and columns [lc0, lc1) are scanned (a clip's box). */
 static void scan(const struct cg_polys *polys, size_t width, size_t height, bool even_odd, bool aa,
-                 row_fn fn, void *ctx) {
+                 size_t lr0, size_t lr1, size_t lc0, size_t lc1, row_fn fn, void *ctx) {
     size_t ne = 0, cap = 64;
     struct edge *edges = malloc(cap * sizeof *edges);
     if (!edges) return;
@@ -194,10 +196,12 @@ static void scan(const struct cg_polys *polys, size_t width, size_t height, bool
     }
     if (!ne) { free(edges); return; }
     long r0 = (long)floor(miny), r1 = (long)ceil(maxy);
-    if (r0 < 0) r0 = 0;
+    if (r0 < (long)lr0) r0 = (long)lr0;
+    if (r1 > (long)lr1) r1 = (long)lr1;
     if (r1 > (long)height) r1 = (long)height;
     long c0 = (long)floor(minx) - 1, c1 = (long)ceil(maxx) + 1;
-    if (c0 < 0) c0 = 0;
+    if (c0 < (long)lc0) c0 = (long)lc0;
+    if (c1 > (long)lc1) c1 = (long)lc1;
     if (c1 > (long)width) c1 = (long)width;
     if (r0 >= r1 || c0 >= c1) { free(edges); return; }
     size_t span = (size_t)(c1 - c0);
@@ -300,7 +304,13 @@ static void fill_row(void *arg, size_t row, size_t x0, size_t x1, const float *c
 void cg_fill_polys(const struct cg_target *t, const struct cg_polys *polys, bool even_odd, const struct cg_paint *paint) {
     if (!t->surface || !t->surface->data) return;
     struct fill_ctx c = {t, paint};
-    scan(polys, t->surface->width, t->surface->height, even_odd, t->antialias, fill_row, &c);
+    size_t w = t->surface->width, h = t->surface->height;
+    if (t->clip) {
+        if (t->clip->x0 >= t->clip->x1 || t->clip->y0 >= t->clip->y1) return;
+        scan(polys, w, h, even_odd, t->antialias, t->clip->y0, t->clip->y1, t->clip->x0, t->clip->x1, fill_row, &c);
+    } else {
+        scan(polys, w, h, even_odd, t->antialias, 0, h, 0, w, fill_row, &c);
+    }
 }
 
 struct mask_ctx { struct cg_mask *m; };
@@ -310,11 +320,23 @@ static void mask_row(void *arg, size_t row, size_t x0, size_t x1, const float *c
     for (size_t x = x0; x < x1; x++) {
         float k = cov[x - x0];
         if (k > 1) k = 1;
-        if (k > 0) m->data[row * m->width + x] = (uint8_t)(k * 255 + 0.5f);
+        uint8_t v = (uint8_t)(k * 255 + 0.5f);
+        if (k <= 0 || !v) continue;
+        m->data[row * m->width + x] = v;
+        if (m->x0 >= m->x1) m->x0 = x, m->x1 = x + 1, m->y0 = row, m->y1 = row + 1;
+        if (x < m->x0) m->x0 = x;
+        if (x + 1 > m->x1) m->x1 = x + 1;
+        if (row < m->y0) m->y0 = row;
+        if (row + 1 > m->y1) m->y1 = row + 1;
     }
 }
 
 void cg_mask_polys(struct cg_mask *m, const struct cg_polys *polys, bool even_odd, bool antialias) {
+    cg_mask_polys_within(m, polys, even_odd, antialias, NULL);
+}
+void cg_mask_polys_within(struct cg_mask *m, const struct cg_polys *polys, bool even_odd, bool antialias,
+                          const struct cg_mask *within) {
     struct mask_ctx c = {m};
-    scan(polys, m->width, m->height, even_odd, antialias, mask_row, &c);
+    if (within) scan(polys, m->width, m->height, even_odd, antialias, within->y0, within->y1, within->x0, within->x1, mask_row, &c);
+    else scan(polys, m->width, m->height, even_odd, antialias, 0, m->height, 0, m->width, mask_row, &c);
 }

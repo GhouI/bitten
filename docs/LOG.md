@@ -4125,3 +4125,32 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
     renderer's frame (the contents image is full size), and was handed to
     the Metal/terminal owner.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Partial window redraws; CoreGraphics clip boxes; stable sorting
+
+- A view whose layer shows a presented image (the terminal's Metal frames)
+  compares each new image with the last. Only the pixels that changed are
+  invalidated (none for an identical frame), and the window repaints just
+  that rect over its previous frame. Every other invalidation still
+  repaints everything. A cursor blink now repaints an 11×18 rect instead
+  of the window. The idle target app went from about 64% of a core to 23%.
+- CoreGraphics clip masks carry the box where they can be non-zero. Fills,
+  images and gradients scan only rows and columns inside it, clip paths are
+  rasterized within the current clip, intersections visit only the new
+  mask's box, and transparency layers composite only the clip's box.
+  Results are unchanged; work outside the clip is skipped.
+- Foundation:
+  - Array sorts are stable, as Apple's are; they used plain `qsort`.
+  - Added `sortedArrayWithOptions:usingComparator:` and
+    `sortWithOptions:usingComparator:`, with `NSSortOptions`.
+  - Added NSDictionary's `keysSortedByValueUsingSelector:`,
+    `keysSortedByValueUsingComparator:` and
+    `keysSortedByValueWithOptions:usingComparator:`.
+- Debugging:
+  - `BITTEN_DRAW_PROFILE` prints the time each view class takes to paint.
+  - `BITTEN_DISPLAY_DEBUG` logs partial frames.
+  - `BITTEN_VIEW_TREE=2` adds layer background, corner, border, shadow and
+    filters.
+- What remains in the idle app is sending the whole frame to the display,
+  and the terminal renderer redrawing its whole drawable.
+- Target app (total `^MISSING`): 0 -> 0.

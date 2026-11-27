@@ -111,6 +111,7 @@ typedef NS_CLOSED_ENUM(NSInteger, NSComparisonResult) {
     NSOrderedAscending = -1, NSOrderedSame = 0, NSOrderedDescending = 1
 } NS_SWIFT_NAME(ComparisonResult);
 typedef NSComparisonResult (^NSComparator)(id a, id b);
+typedef NS_OPTIONS(NSUInteger, NSSortOptions) { NSSortConcurrent = 1UL << 0, NSSortStable = 1UL << 4 };
 typedef NSUInteger NSStringEncoding;
 enum {
     NSASCIIStringEncoding = 1,
@@ -351,6 +352,7 @@ __attribute__((swift_bridge("Swift.Array")))
 - (BOOL)isEqualToArray:(NSArray<ObjectType> *)other;
 - (void)enumerateObjectsUsingBlock:(void (^)(ObjectType obj, NSUInteger idx, BOOL *stop))block;
 - (NSArray<ObjectType> *)sortedArrayUsingComparator:(NSComparator)comparator;
+- (NSArray<ObjectType> *)sortedArrayWithOptions:(NSSortOptions)opts usingComparator:(NSComparator)comparator;
 - (NSArray<ObjectType> *)sortedArrayUsingSelector:(SEL)comparator;
 - (NSEnumerator<ObjectType> *)objectEnumerator;
 - (NSEnumerator<ObjectType> *)reverseObjectEnumerator;
@@ -371,6 +373,7 @@ __attribute__((swift_bridge("Swift.Array")))
 - (void)replaceObjectAtIndex:(NSUInteger)index withObject:(ObjectType)object;
 - (void)setObject:(ObjectType)object atIndexedSubscript:(NSUInteger)index;
 - (void)sortUsingComparator:(NSComparator)comparator;
+- (void)sortWithOptions:(NSSortOptions)opts usingComparator:(NSComparator)comparator;
 @end
 
 __attribute__((swift_bridge("Swift.Dictionary")))
@@ -393,6 +396,9 @@ __attribute__((swift_bridge("Swift.Dictionary")))
 - (NSEnumerator<KeyType> *)keyEnumerator;
 - (NSEnumerator<ObjectType> *)objectEnumerator;
 - (NSArray<KeyType> *)allKeysForObject:(ObjectType)object;
+- (NSArray<KeyType> *)keysSortedByValueUsingSelector:(SEL)comparator;
+- (NSArray<KeyType> *)keysSortedByValueUsingComparator:(NSComparator NS_NOESCAPE)cmptr;
+- (NSArray<KeyType> *)keysSortedByValueWithOptions:(NSSortOptions)opts usingComparator:(NSComparator NS_NOESCAPE)cmptr;
 @end
 
 @interface NSMutableDictionary<KeyType, ObjectType> : NSDictionary<KeyType, ObjectType>
