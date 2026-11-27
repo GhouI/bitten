@@ -4055,3 +4055,18 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   tooltips, and the pane header's split button splits the pane into a
   second shell.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: onHover and onContinuousHover
+
+- Hover regions report the pointer entering, moving in and leaving them.
+  Covered: `onHover` (built by Apple's inlined code as
+  `_HoverRegionModifier`) and `onContinuousHover` (with points local to the
+  region). The hosting view keeps a tracking area over itself and matches
+  regions by their place in the tree, which survives rebuilds. Both used to
+  be no-ops.
+- Debugging: `BITTEN_SWIFTUI_TREE` shows frame modifiers' min/ideal/max.
+  The Terminal settings page's "Font style" column is squeezed because the
+  other columns use the target app's fixed widths (a 45-point field, a
+  19-point icon, a stepper), and the Settings window opens at its 720-point
+  minimum.
+- Target app (total `^MISSING`): 0 -> 0.

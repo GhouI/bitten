@@ -138,6 +138,10 @@ internal class _ViewNode {
     let f = frame
     var name = _debugName.map { String($0.prefix(160)) } ?? ""
     if let t = self as? _TextNode { name += " \"" + String(t.string.prefix(40)) + "\"" }
+    if let fr = self as? _FrameNode {
+      func d(_ v: CGFloat?) -> String { return v.map { "\($0)" } ?? "-" }
+      name += " [w \(d(fr.minW))/\(d(fr.idealW))/\(d(fr.maxW)) h \(d(fr.minH))/\(d(fr.idealH))/\(d(fr.maxH))]"
+    }
     _dbg(String(repeating: "  ", count: depth) + "\(type(of: self)) \(name) (\(f.origin.x),\(f.origin.y) \(f.size.width)x\(f.size.height))")
     for c in children { c._dumpTree(depth + 1) }
   }
@@ -173,6 +177,11 @@ internal class _ViewNode {
     return handlesTaps ? self : nil
   }
   var handlesTaps: Bool { return false }
+  /// The hover regions (onHover, onContinuousHover) at `point`, each with
+  /// its path in the tree, which stays the same when the tree is rebuilt.
+  func collectHover(_ point: CGPoint, path: String, into: inout [(String, _HoverNode)]) {
+    for (i, c) in children.enumerated() { c.collectHover(point, path: path + "/\(i)", into: &into) }
+  }
   /// Whether something this subtree draws (or a content shape) is at
   /// `point`: gestures take clicks only there, as in SwiftUI.
   func hitsContent(_ point: CGPoint) -> Bool {

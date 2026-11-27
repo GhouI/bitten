@@ -11,6 +11,7 @@ long swl_swiftui_scrollstack(void);
 long swl_swiftui_aspect(void);
 long swl_swiftui_inset(void);
 long swl_swiftui_labels(void);
+long swl_swiftui_hover(void);
 
 static int check(const char *what, long bad) {
     if (bad) printf("%s: failed checks %#lx\n", what, bad);
@@ -28,6 +29,7 @@ int main(void) {
     ok &= check("aspect", swl_swiftui_aspect());
     ok &= check("inset", swl_swiftui_inset());
     ok &= check("labels", swl_swiftui_labels());
+    ok &= check("hover", swl_swiftui_hover());
     CHECK(ok);
     puts("swift swiftui ok");
     return 0;

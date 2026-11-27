@@ -262,6 +262,37 @@ open class _HostingViewBase: NSView {
     _layout().draw(cg)
   }
 
+  // MARK: hover
+  /// The hover regions the pointer is in, by path.
+  var _hovered = Set<String>()
+  override open func updateTrackingAreas() {
+    super.updateTrackingAreas()
+    for a in trackingAreas where a.owner === self { removeTrackingArea(a) }
+    addTrackingArea(NSTrackingArea(rect: NSMakeRect(0, 0, 0, 0), options: [.mouseEnteredAndExited, .mouseMoved, .activeAlways,
+                                                          .inVisibleRect], owner: self, userInfo: nil))
+  }
+  func _hover(at point: CGPoint?) {
+    var now: [(String, _HoverNode)] = []
+    if let p = point { _layout().collectHover(p, path: "", into: &now) }
+    let paths = Set(now.map { $0.0 })
+    // Regions left are known by path only: find them in the current tree.
+    let left = _hovered.subtracting(paths)
+    if !left.isEmpty {
+      var byPath: [String: _HoverNode] = [:]
+      _collectAllHover(_layout(), path: "", into: &byPath)
+      for path in left { byPath[path]?.hover(nil, entering: false) }
+    }
+    for (path, node) in now { node.hover(point, entering: !_hovered.contains(path)) }
+    _hovered = paths
+  }
+  private func _collectAllHover(_ node: _ViewNode, path: String, into: inout [String: _HoverNode]) {
+    if let h = node as? _HoverNode { into[path] = h }
+    for (i, c) in node.children.enumerated() { _collectAllHover(c, path: path + "/\(i)", into: &into) }
+  }
+  override open func mouseMoved(with event: NSEvent) { _hover(at: convert(event.locationInWindow, from: nil)) }
+  override open func mouseEntered(with event: NSEvent) { _hover(at: convert(event.locationInWindow, from: nil)) }
+  override open func mouseExited(with event: NSEvent) { _hover(at: nil) }
+
   var _pressPoint = CGPoint(x: 0, y: 0)
   var _dragging = false
   override open func mouseDown(with event: NSEvent) {

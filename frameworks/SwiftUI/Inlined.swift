@@ -18,7 +18,9 @@ public struct _HoverRegionModifier: ViewModifier {
   public func body(content: Content) -> Never { fatalError("no body") }
   public static func _makeView(modifier: _GraphValue<Self>, inputs: _ViewInputs,
                                body: @escaping (_Graph, _ViewInputs) -> _ViewOutputs) -> _ViewOutputs {
-    return body(_Graph(), inputs)
+    let node = _HoverNode(environment: inputs.environment, children: [body(_Graph(), inputs).node])
+    node.entered = modifier.value.callback
+    return _ViewOutputs(node)
   }
 }
 
