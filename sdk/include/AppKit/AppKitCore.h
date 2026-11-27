@@ -1340,8 +1340,10 @@ typedef NS_ENUM(NSInteger, NSScrollElasticity) {
 @property (nullable, readonly) id accessibilityFocusedUIElement;
 @end
 
+/* macOS on x86-64 keeps AppKit's original values (right before center);
+ * the iOS order is only for arm64. */
 typedef NS_ENUM(NSInteger, NSTextAlignment) {
-    NSTextAlignmentLeft = 0, NSTextAlignmentCenter = 1, NSTextAlignmentRight = 2, NSTextAlignmentJustified = 3,
+    NSTextAlignmentLeft = 0, NSTextAlignmentRight = 1, NSTextAlignmentCenter = 2, NSTextAlignmentJustified = 3,
     NSTextAlignmentNatural = 4
 };
 typedef NS_ENUM(NSInteger, NSLineBreakMode) {

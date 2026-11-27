@@ -478,6 +478,12 @@ static void bn_dump_tree(NSView *v, int depth) {
                 l.anchorPoint.y, t.m11, t.m22, t.m41, t.m42, (unsigned long)l.sublayers.count, l.opacity,
                 l.isHidden ? " hidden" : "");
     }
+    if ([v isKindOfClass:[NSTextField class]]) {
+        NSTextField *t = (NSTextField *)v;
+        fprintf(stderr, "%*s  text '%s' bezeled=%d bordered=%d background=%d editable=%d font=%s %g\n", depth * 2, "",
+                t.stringValue.UTF8String ?: "", t.isBezeled, t.isBordered, t.drawsBackground, t.isEditable,
+                t.font.fontName.UTF8String ?: "?", t.font.pointSize);
+    }
     for (NSView *s in v.subviews) bn_dump_tree(s, depth + 1);
 }
 
