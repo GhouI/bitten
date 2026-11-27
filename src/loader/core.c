@@ -41,6 +41,8 @@ void dx_fatal(const char *fmt, ...) {
     ssize_t r = write(2, prefix, sizeof prefix - 1);
     r = write(2, buf, n);
     (void)r;
+    /* With crash reports asked for, trap: the report shows where this came from. */
+    if (getenv("BITTEN_CRASH_REPORT")) __builtin_trap();
     _exit(134);
 }
 
