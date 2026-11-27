@@ -449,7 +449,12 @@ __attribute__((swift_bridge("Foundation.Data")))
 + (instancetype)dataWithBytes:(const void *)bytes length:(NSUInteger)length;
 + (instancetype)dataWithData:(NSData *)data;
 + (instancetype)dataWithContentsOfFile:(NSString *)path;
++ (instancetype)dataWithBytesNoCopy:(void *)bytes length:(NSUInteger)length;
++ (instancetype)dataWithBytesNoCopy:(void *)bytes length:(NSUInteger)length freeWhenDone:(BOOL)b;
 - (instancetype)initWithBytes:(const void *)bytes length:(NSUInteger)length;
+- (instancetype)initWithBytesNoCopy:(void *)bytes length:(NSUInteger)length;
+- (instancetype)initWithBytesNoCopy:(void *)bytes length:(NSUInteger)length freeWhenDone:(BOOL)b;
+- (instancetype)initWithBytesNoCopy:(void *)bytes length:(NSUInteger)length deallocator:(nullable void (^)(void *bytes, NSUInteger length))deallocator;
 - (instancetype)initWithData:(NSData *)data;
 - (instancetype)initWithContentsOfFile:(NSString *)path;
 - (instancetype)initWithBase64EncodedString:(NSString *)string options:(NSDataBase64DecodingOptions)options;
@@ -459,6 +464,7 @@ __attribute__((swift_bridge("Foundation.Data")))
 - (void)getBytes:(void *)buffer range:(NSRange)range;
 - (NSData *)subdataWithRange:(NSRange)range;
 - (BOOL)isEqualToData:(NSData *)other;
+- (NSRange)rangeOfData:(NSData *)dataToFind options:(NSDataSearchOptions)mask range:(NSRange)searchRange;
 - (BOOL)writeToFile:(NSString *)path atomically:(BOOL)atomically;
 - (NSString *)base64EncodedStringWithOptions:(NSDataBase64EncodingOptions)options;
 @end

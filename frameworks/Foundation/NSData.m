@@ -15,6 +15,28 @@ static id make_data(id self, const void *bytes, NSUInteger length) {
     return (__bridge_transfer id)CFDataCreate(NULL, bytes, (CFIndex)length);
 }
 
+CFDataRef bitten_cf_data_create_no_copy(CFAllocatorRef allocator, const uint8_t *bytes, CFIndex length,
+                                        void (*release)(void *, void *, CFIndex), void *context);
+
+static void run_deallocator(void *context, void *bytes, CFIndex length) {
+    void (^deallocator)(void *, NSUInteger) = (__bridge_transfer id)context;
+    deallocator(bytes, (NSUInteger)length);
+}
+
+/* NSMutableData copies the bytes and gives the caller's buffer back at once, so it can grow. */
+static id make_no_copy(id self, void *bytes, NSUInteger length, void (^deallocator)(void *, NSUInteger)) {
+    if (wants_mutable(self)) {
+        id data = make_data(self, bytes, length);
+        if (deallocator) deallocator(bytes, length);
+        return data;
+    }
+    if (!deallocator) return (__bridge_transfer id)CFDataCreateWithBytesNoCopy(NULL, bytes, (CFIndex)length, kCFAllocatorNull);
+    return (__bridge_transfer id)bitten_cf_data_create_no_copy(NULL, bytes, (CFIndex)length, run_deallocator,
+                                                               (__bridge_retained void *)[deallocator copy]);
+}
+
+static void (^const free_bytes)(void *, NSUInteger) = ^(void *bytes, NSUInteger length) { free(bytes); };
+
 /* Read a whole file; returns malloc'd bytes or NULL with errno set. */
 void *BNReadFile(const char *path, size_t *length) {
     int fd = open(path, O_RDONLY | O_CLOEXEC);
@@ -81,6 +103,17 @@ static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0
 + (instancetype)dataWithContentsOfFile:(NSString *)path { return [[self alloc] initWithContentsOfFile:path]; }
 - (instancetype)init { return make_data(self, NULL, 0); }
 - (instancetype)initWithBytes:(const void *)bytes length:(NSUInteger)length { return make_data(self, bytes, length); }
++ (instancetype)dataWithBytesNoCopy:(void *)bytes length:(NSUInteger)length { return [[self alloc] initWithBytesNoCopy:bytes length:length]; }
++ (instancetype)dataWithBytesNoCopy:(void *)bytes length:(NSUInteger)length freeWhenDone:(BOOL)b {
+    return [[self alloc] initWithBytesNoCopy:bytes length:length freeWhenDone:b];
+}
+- (instancetype)initWithBytesNoCopy:(void *)bytes length:(NSUInteger)length { return make_no_copy(self, bytes, length, free_bytes); }
+- (instancetype)initWithBytesNoCopy:(void *)bytes length:(NSUInteger)length freeWhenDone:(BOOL)b {
+    return make_no_copy(self, bytes, length, b ? free_bytes : (void (^)(void *, NSUInteger))nil);
+}
+- (instancetype)initWithBytesNoCopy:(void *)bytes length:(NSUInteger)length deallocator:(void (^)(void *, NSUInteger))deallocator {
+    return make_no_copy(self, bytes, length, deallocator);
+}
 - (instancetype)initWithData:(NSData *)data { return make_data(self, data.bytes, data.length); }
 - (instancetype)initWithContentsOfFile:(NSString *)path {
     size_t length = 0;
@@ -135,6 +168,22 @@ static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0
 - (NSData *)subdataWithRange:(NSRange)range {
     if (NSMaxRange(range) > self.length) BNRaise("NSRangeException", "-[NSData subdataWithRange:]: range {%lu, %lu} exceeds data length %lu", range.location, range.length, self.length);
     return [NSData dataWithBytes:(const char *)self.bytes + range.location length:range.length];
+}
+- (NSRange)rangeOfData:(NSData *)needle options:(NSDataSearchOptions)options range:(NSRange)range {
+    NSUInteger length = self.length, n = needle.length;
+    if (range.location > length || range.length > length - range.location)
+        BNRaise("NSRangeException", "-[NSData rangeOfData:options:range:]: range {%lu, %lu} exceeds length %lu",
+                (unsigned long)range.location, (unsigned long)range.length, (unsigned long)length);
+    if (!n || n > range.length) return NSMakeRange(NSNotFound, 0);
+    const char *base = (const char *)self.bytes + range.location, *p = needle.bytes;
+    NSUInteger last = range.length - n;
+    BOOL backwards = (options & NSDataSearchBackwards) != 0, anchored = (options & NSDataSearchAnchored) != 0;
+    for (NSUInteger i = 0; i <= last; i++) {
+        NSUInteger at = backwards ? last - i : i;
+        if (!memcmp(base + at, p, n)) return NSMakeRange(range.location + at, n);
+        if (anchored) break;
+    }
+    return NSMakeRange(NSNotFound, 0);
 }
 - (BOOL)isEqualToData:(NSData *)other {
     return other && other.length == self.length && !memcmp(self.bytes, other.bytes, self.length);
