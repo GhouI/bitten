@@ -4203,3 +4203,21 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
     for. Its padding-extend byte (0x30 or 0x31) never sets "down".
   - The bottom padding keeps the clear colour, as it would on macOS.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: menu items' action selector; fatal errors can trap
+
+- SwiftUI's main-menu items targeted `#selector(_MenuActionTarget.perform(_:))`.
+  NSObject's `-performSelector:` also imports to Swift as `perform(_:)`, and
+  the selector was that one, so performing an item sent the menu item as
+  a selector. The method is now `performMenuAction:`.
+  - The target app performs its Settings item itself (`item.menu`,
+    `update`, `performActionForItem(at:)`). Since `NSMenuItem.menu` stopped
+    being nil (#201), ⌘, crashed with an unrecognized garbage selector.
+    Settings opens again.
+- `dx_fatal` traps when `BITTEN_CRASH_REPORT` is set, so a fatal error (an
+  unrecognized selector) gets a crash report with a backtrace.
+- Debugging:
+  - `BITTEN_WINDOW_DEBUG` logs window creation and frame changes with
+    callers.
+  - `BITTEN_EVENT_DEBUG` logs menu items performed by index.
+- Target app (total `^MISSING`): 0 -> 0.

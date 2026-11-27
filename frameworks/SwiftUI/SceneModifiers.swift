@@ -251,7 +251,9 @@ extension Window {
 final class _MenuActionTarget: NSObject {
   let action: () -> Void
   init(_ action: @escaping () -> Void) { self.action = action }
-  @objc func perform(_ sender: Any?) { action() }
+  /// Named apart from NSObject's perform(_:) (-performSelector:), which a
+  /// #selector of perform(_:) would pick.
+  @objc(performMenuAction:) func performMenuAction(_ sender: Any?) { action() }
 }
 nonisolated(unsafe) var _menuTargets: [_MenuActionTarget] = []
 
@@ -260,7 +262,7 @@ private func _item(_ title: String, _ key: String = "", _ mods: NSEvent.Modifier
                    _ action: @escaping () -> Void) -> NSMenuItem {
   let t = _MenuActionTarget(action)
   _menuTargets.append(t)
-  let item = NSMenuItem(title: title, action: #selector(_MenuActionTarget.perform(_:)), keyEquivalent: key)
+  let item = NSMenuItem(title: title, action: #selector(_MenuActionTarget.performMenuAction(_:)), keyEquivalent: key)
   item.target = t
   item.keyEquivalentModifierMask = mods
   return item

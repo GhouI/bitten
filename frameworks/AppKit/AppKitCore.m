@@ -384,6 +384,11 @@ static NSUInteger next_window_number = 1;
 @synthesize delegate = _delegate;
 - (instancetype)initWithContentRect:(NSRect)rect styleMask:(NSWindowStyleMask)style
                             backing:(NSBackingStoreType)backing defer:(BOOL)flag {
+    if (getenv("BITTEN_WINDOW_DEBUG")) {
+        fprintf(stderr, "bitten: window created with content %s style %#lx from", NSStringFromRect(rect).UTF8String,
+                (unsigned long)style);
+        bn_debug_callers();
+    }
     if ((self = [super init])) {
         _styleMask = style;
         _frame = [self frameRectForContentRect:rect];
@@ -437,6 +442,11 @@ static NSUInteger next_window_number = 1;
     [[NSNotificationCenter defaultCenter] postNotificationName:name object:self];
 }
 - (void)setFrame:(NSRect)frame display:(BOOL)flag {
+    if (getenv("BITTEN_WINDOW_DEBUG")) {
+        fprintf(stderr, "bitten: window %s frame %s -> %s from", object_getClassName(self), NSStringFromRect(_frame).UTF8String,
+                NSStringFromRect(frame).UTF8String);
+        bn_debug_callers();
+    }
     BOOL resized = frame.size.width != _frame.size.width || frame.size.height != _frame.size.height;
     _frame = frame;
     NSRect c = [self contentRectForFrameRect:frame];
@@ -915,6 +925,10 @@ static const NSEventModifierFlags bn_shortcut_mask = NSEventModifierFlagCommand 
 }
 - (void)performActionForItemAtIndex:(NSInteger)index {
     NSMenuItem *item = [self itemAtIndex:index];
+    if (getenv("BITTEN_EVENT_DEBUG"))
+        fprintf(stderr, "bitten: menu '%s' performs item %ld '%s' (%s) action %p target %s\n", self.title.UTF8String ?: "",
+                (long)index, item.title.UTF8String ?: "", object_getClassName(item), (void *)item.action,
+                item.target ? object_getClassName(item.target) : "nil");
     if (!item.action) return;
     if (item.target) ((void (*)(id, SEL, id))objc_msgSend)(item.target, item.action, item);
     else [NSApp sendAction:item.action to:nil from:item];
