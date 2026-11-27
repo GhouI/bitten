@@ -69,7 +69,12 @@ BOOL_PROP(titlebarAppearsTransparent, setTitlebarAppearsTransparent, "titlebarAp
 INT_PROP(NSTitlebarSeparatorStyle, titlebarSeparatorStyle, setTitlebarSeparatorStyle, "titlebarSeparatorStyle",
          NSTitlebarSeparatorStyleAutomatic)
 INT_PROP(NSWindowToolbarStyle, toolbarStyle, setToolbarStyle, "toolbarStyle", NSWindowToolbarStyleAutomatic)
-OBJ_PROP(NSToolbar *, toolbar, setToolbar, "toolbar")
+- (NSToolbar *)toolbar { return get(self, @"toolbar"); }
+- (void)setToolbar:(NSToolbar *)t {
+    set(self, @"toolbar", t);
+    /* the content view moves below the title strip when items show there */
+    self.contentView.frame = [self _bn_contentViewFrame];
+}
 - (NSString *)subtitle { return get(self, @"subtitle") ?: @""; }
 - (void)setSubtitle:(NSString *)v { set(self, @"subtitle", [v copy]); }
 INT_PROP(NSWindowCollectionBehavior, collectionBehavior, setCollectionBehavior, "collectionBehavior",

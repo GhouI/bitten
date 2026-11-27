@@ -637,6 +637,7 @@ typedef NSString *NSUserInterfaceItemIdentifier NS_TYPED_EXTENSIBLE_ENUM;
 /* The content view's superview, as large as the window (AppKit's theme
  * frame). */
 - (NSView *)_bn_frameView;
+- (NSRect)_bn_contentViewFrame;
 /* A full-size-content window's toolbar items, in the title bar's strip
  * over the content; nil without any. */
 - (nullable NSView *)_bn_toolbarView;

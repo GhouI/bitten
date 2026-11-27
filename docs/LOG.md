@@ -5374,3 +5374,18 @@ Debugging aids:
   wraps across the row instead of in a narrow column.
 - Test: `spacershort`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: content below a full-size window's toolbar strip
+
+- In a full-size-content window whose toolbar shows items in the title
+  bar's strip, the content view now sits below the 28-point strip, which
+  is where macOS's safe area puts such content. This holds through
+  resizes, style changes and toolbar changes.
+- Before, the target app's Settings content was below the strip only
+  because the style change to full-size content never re-laid the
+  content view. Resizing the window moved the content up under the
+  traffic lights and the page heading. A full safe-area system for
+  SwiftUI (`ignoresSafeArea` is still a no-op) would be the general fix.
+  The main window, whose toolbar has no items, is unchanged.
+- Test: `tests/appkit/split.m`.
+- Target app (total `^MISSING`): 0 -> 0.

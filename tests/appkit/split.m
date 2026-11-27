@@ -217,6 +217,13 @@ int main(void) {
     NSToolbar *toolbar = [[NSToolbar alloc] initWithIdentifier:@"test"];
     toolbar.delegate = bar;
     tw.toolbar = toolbar;
+    /* The content view sits below the title bar's strip, the items above
+     * it; a resize keeps it there. */
+    CHECK(ts.frame.size.height == 200 - 28 && ts.frame.origin.y == 0);
+    [tw setFrame:NSMakeRect(0, 0, 420, 260) display:NO];
+    CHECK(ts.frame.size.height == 260 - 28);
+    [tw setFrame:NSMakeRect(0, 0, 400, 200) display:NO];
+    [ts adjustSubviews];
     NSView *strip = [tw _bn_toolbarView];
     CHECK(strip && strip.subviews.count == 1);
     NSRect go = [strip.subviews[0] convertRect:strip.subviews[0].bounds toView:nil];
