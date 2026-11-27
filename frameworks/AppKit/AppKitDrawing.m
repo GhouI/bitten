@@ -711,9 +711,25 @@ static const char kDrawingKey;
     }
     NSColor *bg = self.backgroundColor;
     NSAppearance *drawingBefore = [NSAppearance _bn_swapDrawingAppearance:self.effectiveAppearance];
-    CGContextSetFillColorWithColor(c, bg.CGColor);
+    CGColorRef bgColor = CGColorRetain(bg.CGColor);
     [NSAppearance _bn_swapDrawingAppearance:drawingBefore];
-    CGContextFillRect(c, CGRectMake(0, 0, content.size.width, content.size.height));
+    /* The background replaces what the frame repaints: what is not opaque
+     * starts transparent (cleared in the bitmap, rather than blended over
+     * the last frame), then the colour goes on if it shows at all. */
+    if (CGColorGetAlpha(bgColor) < 1) {
+        uint8_t *data = CGBitmapContextGetData(c);
+        size_t bw = CGBitmapContextGetWidth(c), bh = CGBitmapContextGetHeight(c), bpr = CGBitmapContextGetBytesPerRow(c);
+        NSRect r = full ? NSMakeRect(0, 0, bw, bh) : NSIntegralRect(dirty);
+        size_t x0 = (size_t)MAX(0, r.origin.x), x1 = (size_t)MIN((CGFloat)bw, NSMaxX(r));
+        size_t y0 = (size_t)MAX(0, r.origin.y), y1 = (size_t)MIN((CGFloat)bh, NSMaxY(r));
+        if (data && x1 > x0)
+            for (size_t y = y0; y < y1; y++) memset(data + (bh - 1 - y) * bpr + x0 * 4, 0, (x1 - x0) * 4);
+    }
+    if (CGColorGetAlpha(bgColor) > 0) {
+        CGContextSetFillColorWithColor(c, bgColor);
+        CGContextFillRect(c, CGRectMake(0, 0, content.size.width, content.size.height));
+    }
+    CGColorRelease(bgColor);
     if (getenv("BITTEN_VIEW_TREE")) bn_dump_tree(self.contentView, 0);
     double frame0 = now_ms();
     [self.contentView _bn_drawIn:c parentFlipped:NO];

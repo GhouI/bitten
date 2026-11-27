@@ -4674,3 +4674,15 @@ Debugging aids:
 - In the target app, idle CPU with a viewer connected went from 16–17%
   to about 12%. Icons look the same (command palette, pane menu).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## A window's background replaces what it repaints
+
+- Each repaint filled the window's background colour over the backing with
+  normal blending. For a transparent window (the target app's main window
+  has a clear background), that was a full blending pass over every
+  repainted pixel that changed nothing, and it never cleared what the
+  last frame left there.
+- Where the background isn't opaque, the repainted area of the bitmap is
+  now cleared directly (`memset` of the rows), and the colour is filled
+  only if it shows at all. Opaque backgrounds fill as before.
+- Target app (total `^MISSING`): 0 -> 0.
