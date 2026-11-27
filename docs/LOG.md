@@ -5080,3 +5080,19 @@ Debugging aids:
 - With Settings open, the target app idles at 5% CPU, and its windows
   send no frames when nothing changes. Test: `statescope`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: sheets are windows
+
+- `.sheet` used to draw its content over the presenting view, inside that
+  view's bounds and stretched to fill them. Now it is a window of its own,
+  attached to the presenting window with `beginSheet`. It is sized to the
+  content's ideal size, has a rounded edge and a hairline outline, and
+  carries the presenting environment (with `dismiss`). It is updated when
+  the presenting view rebuilds and closed (`endSheet`) when no longer
+  presented. In the target app, Settings ▸ Remote Hosts ▸ Add Remote Host
+  now opens as a sheet centred on the Settings window and takes typing.
+  Escape closes it.
+- `BITTEN_DISPLAY_DEBUG` now prints the window number of each frame it
+  presents.
+- Test: `sheetwindow`.
+- Target app (total `^MISSING`): 0 -> 0.
