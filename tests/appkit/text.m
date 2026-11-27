@@ -3,6 +3,7 @@
 // NSString line and composed-character helpers it relies on.
 #import <AppKit/AppKit.h>
 #include <stdio.h>
+#include <math.h>
 #include <stdlib.h>
 
 #define CHECK(c) do { if (!(c)) { printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); exit(1); } } while (0)
@@ -104,6 +105,38 @@ int main(void) {
         CHECK(field.isBezeled && !field.isBordered);
         // x86-64 macOS keeps AppKit's original alignment values.
         CHECK(NSTextAlignmentRight == 1 && NSTextAlignmentCenter == 2);
+
+        // Points map to insertion points: before the text, past its end, on
+        // the second line; a click puts the insertion point there, shift
+        // extends the selection and a double click selects the word.
+        NSTextView *pv = [[NSTextView alloc] initWithFrame:NSMakeRect(0, 0, 300, 100)];
+        pv.font = [NSFont systemFontOfSize:12];
+        pv.string = @"hello world\nsecond";
+        CHECK([pv characterIndexForInsertionAtPoint:NSMakePoint(0, 2)] == 0);
+        CHECK([pv characterIndexForInsertionAtPoint:NSMakePoint(290, 2)] == 11);
+        NSUInteger mid = [pv characterIndexForInsertionAtPoint:NSMakePoint(40, 2)];
+        CHECK(mid > 0 && mid < 11);
+        CGFloat lh = ceil(pv.font.ascender - pv.font.descender);
+        CHECK([pv characterIndexForInsertionAtPoint:NSMakePoint(290, lh + 2)] == 18);
+        CHECK([pv characterIndexForInsertionAtPoint:NSMakePoint(5, 10 * lh)] == 18);
+        NSWindow *tw = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 300, 100) styleMask:NSWindowStyleMaskTitled
+                                                     backing:NSBackingStoreBuffered defer:NO];
+        [tw.contentView addSubview:pv];
+        NSPoint inWindow = [pv convertPoint:NSMakePoint(290, 2) toView:nil];
+        NSEvent *click = [NSEvent mouseEventWithType:NSEventTypeLeftMouseDown location:inWindow modifierFlags:0 timestamp:0
+                                        windowNumber:tw.windowNumber context:nil eventNumber:0 clickCount:1 pressure:1];
+        [pv mouseDown:click];
+        CHECK(pv.selectedRange.location == 11 && pv.selectedRange.length == 0);
+        NSEvent *shift = [NSEvent mouseEventWithType:NSEventTypeLeftMouseDown location:[pv convertPoint:NSMakePoint(0, 2) toView:nil]
+                                       modifierFlags:NSEventModifierFlagShift timestamp:0 windowNumber:tw.windowNumber
+                                             context:nil eventNumber:0 clickCount:1 pressure:1];
+        [pv mouseDown:shift];
+        CHECK(pv.selectedRange.location == 0 && pv.selectedRange.length == 11);
+        NSEvent *dbl = [NSEvent mouseEventWithType:NSEventTypeLeftMouseDown location:[pv convertPoint:NSMakePoint(5, 2) toView:nil]
+                                     modifierFlags:0 timestamp:0 windowNumber:tw.windowNumber context:nil eventNumber:0
+                                        clickCount:2 pressure:1];
+        [pv mouseDown:dbl];
+        CHECK(pv.selectedRange.location == 0 && pv.selectedRange.length == 5);
         puts("appkit text ok");
     }
     return 0;

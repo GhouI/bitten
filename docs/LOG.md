@@ -4467,4 +4467,28 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   window.
 - Test: `tests/c/display.c` checks the conversion over 16 alphas
   against the old formula.
+
+## Clicks in text views, the standard Edit menu, validated key equivalents
+
+- NSTextView now maps points to text:
+  - `characterIndexForInsertionAtPoint:` is new.
+  - `characterIndexForPoint:` was a stub; it now converts from the screen.
+  - A click places the insertion point, shift-click extends the
+    selection, a double click selects the word, and dragging selects.
+  - In the target app, clicking Settings → Search Settings used to crash:
+    its text view subclass calls `characterIndexForInsertionAtPoint:`
+    from `mouseDown:`.
+- SwiftUI's default Edit menu has the standard items, sent to the first
+  responder: Undo/Redo, Cut/Copy/Paste, Paste and Match Style, Delete and
+  Select All. ⌘A selects all in the settings search field, and ⌘C/⌘V
+  copy from it and paste into a terminal pane.
+- Menus validate an item before its key equivalent fires, as AppKit's
+  auto-enabling does. The item must have a target (its own, or along the
+  responder chain) that takes its action, and that target's
+  `validateMenuItem:` / `validateUserInterfaceItem:` must agree. A
+  shortcut nothing can perform passes on to the window instead of being
+  swallowed.
+- Tests: tests/appkit/text.m (points, clicks, word selection),
+  tests/appkit/basics.m (validation).
+
 - Target app (total `^MISSING`): 0 -> 0.
