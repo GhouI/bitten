@@ -691,7 +691,7 @@ static const char kFullKey;  /* @YES: the next frame repaints everything */
 
 /* Draws the content view hierarchy and shows the result. */
 - (void)display {
-    if (bn_display_debug()) { fprintf(stderr, "bitten: full display asked by"); bn_debug_callers(); }
+    if (bn_display_debug()) { fprintf(stderr, "bitten: full display of '%s' asked by", self.title.UTF8String ?: ""); bn_debug_callers(); }
     objc_setAssociatedObject(self, &kFullKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [self _bn_displayPending];
 }
@@ -717,7 +717,7 @@ static const char kDrawingKey;
     NSValue *dirtyValue = objc_getAssociatedObject(self, &kDirtyKey);
     objc_setAssociatedObject(self, &kFullKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(self, &kDirtyKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    if (!full && !dirtyValue) return;
+    if (!full && (!dirtyValue || NSIsEmptyRect(dirtyValue.rectValue))) return;   /* (a layout pass that moved nothing) */
     if (getenv("BITTEN_DISPLAY_DEBUG"))
         fprintf(stderr, "bitten: display %s visible %d alpha %g\n", self.title.UTF8String ?: "", self.isVisible,
                 self.alphaValue);
@@ -855,7 +855,7 @@ static const char kStyleKey;
 
 /* Redraws on the next turn of the main queue, once per batch of changes. */
 - (void)_bn_scheduleDisplay {
-    if (bn_display_debug()) { fprintf(stderr, "bitten: full display scheduled by"); bn_debug_callers(); }
+    if (bn_display_debug()) { fprintf(stderr, "bitten: full display of '%s' scheduled by", self.title.UTF8String ?: ""); bn_debug_callers(); }
     objc_setAssociatedObject(self, &kFullKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [self _bn_queueDisplay];
 }

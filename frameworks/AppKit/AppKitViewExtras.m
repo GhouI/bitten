@@ -134,7 +134,11 @@ static const char k_alpha, k_tooltip, k_identifier, k_shadow, k_focus, k_tamic, 
 - (BOOL)needsLayout { return [get(self, &k_needsLayout) boolValue]; }
 - (void)setNeedsLayout:(BOOL)b {
     set(self, &k_needsLayout, @(b));
-    if (b) self.needsDisplay = YES;
+    if (!b) return;
+    /* A layout pass soon (the window lays out before it draws); what
+     * layout moves repaints itself. Not a repaint of this view. */
+    if (self.window) [self.window _bn_invalidateRect:NSZeroRect];
+    else self.needsDisplay = YES;
 }
 /* Solves the tree's constraints (AppKitLayout.m), then lets views lay out. */
 extern void bn_layout_tree(NSView *root);

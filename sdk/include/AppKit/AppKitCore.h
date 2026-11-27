@@ -638,6 +638,7 @@ typedef NSString *NSUserInterfaceItemIdentifier NS_TYPED_EXTENSIBLE_ENUM;
 - (void)_bn_hideKeepingDisplay;
 - (void)_bn_dropFirstResponder;
 - (void)_bn_liveResizeStep;
+- (void)_bn_invalidateRect:(NSRect)r;
 - (void)_bn_tell:(NSNotificationName)name delegate:(nullable SEL)sel;
 - (void)becomeMainWindow;
 - (void)resignMainWindow;

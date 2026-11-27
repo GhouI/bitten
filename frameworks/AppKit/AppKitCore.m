@@ -202,7 +202,8 @@ static void bn_autoresize_axis(CGFloat delta, BOOL flexLo, BOOL flexLen, BOOL fl
         return;
     }
     if (_superview) _superview.needsDisplay = YES;
-    else [_window _bn_scheduleDisplay];
+    /* (a view out of the tree but still naming a window isn't drawn) */
+    else if (_window && _window.contentView == self) [_window _bn_scheduleDisplay];
 }
 - (void)_bn_invalidateOwnArea {
     if (!_window || !_superview) return;
