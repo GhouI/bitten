@@ -4914,3 +4914,11 @@ Debugging aids:
   hosting view asking to repaint after rebuilds; our SwiftUI host doesn't
   track finer regions.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## NEXT.md: speed after today's work
+
+- NEXT.md's speed item now has current numbers: about 10% idle CPU and
+  about 4.5 s launch to interactive. It also names what's left: CG
+  blending in full redraws, and the root SwiftUI host's whole-window
+  repaints.
+- Target app (total `^MISSING`): 0 -> 0.

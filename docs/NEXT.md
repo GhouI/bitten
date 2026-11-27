@@ -10,14 +10,16 @@ windows no longer leaks.
 
 ## What stands in the way
 
-1. **Speed.** Full window redraws still take a few hundred milliseconds,
-   so resizes, pane zoom and page switches lag. With a viewer connected
-   the app idles at about 10% CPU, mostly the terminal's Metal fragment
-   path (`cell_bg_fragment`), probably whole surfaces re-rendered for the
-   cursor blink. During redraws CoreGraphics blending (`cg_blend_pixel`,
-   `cg_read_pixel`, `mask_row`) dominates, called from QuartzCore's layer
-   drawing and AppKit's background fills. Wait 8 s or more before judging
-   that an animated change didn't happen.
+1. **Speed.** With a viewer connected the target app idles at about 10%
+   CPU, mostly the terminal's Metal fragment path (`cell_bg_fragment`).
+   Launch reaches an interactive terminal in about 4.5 s (1.2 s before
+   `main`). Full window redraws still take a few hundred milliseconds,
+   almost all CoreGraphics blending (`cg_blend_pixel`, `mask_row`,
+   `scan`), so resizes, pane zoom and page switches lag. The remaining
+   full redraws come from the root SwiftUI host after rebuilds; it
+   doesn't track which regions changed. `BITTEN_DISPLAY_DEBUG` logs who
+   asked for each one. Wait 8 s or more before judging that an animated
+   change didn't happen.
 2. **Paste timing.** A paste once arrived in bash as literal `[200~…~`.
    That is consistent with the escape byte reaching readline more than its
    key-sequence timeout before the rest. It pastes correctly now that
