@@ -5172,3 +5172,13 @@ Debugging aids:
   under their copy buttons; they now read `202b1b3fc0…e2d47daa9`.
 - Test: `truncate`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Objective-C runtime: one lock to forget an ordinary object
+
+- Each object's deallocation (Objective-C, and Swift through
+  `swift_deallocClassInstance`) took its side-table shard lock twice:
+  once to look for weak references and associated objects, and once to
+  drop its entry. When there are none, which is most objects, the entry
+  now goes under the first lock. Launch time doesn't change measurably
+  (about 4.6 s either way); this lock showed up in launch profiles.
+- Target app (total `^MISSING`): 0 -> 0.

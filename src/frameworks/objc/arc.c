@@ -396,6 +396,12 @@ void dx_objc_object_destroyed(void *object) {
     pthread_mutex_lock(&s->lock);
     struct rc_entry *e = rc_find(s, obj, 0);
     int weak = e && e->weakly_referenced, assoc = e && e->has_assoc;
+    if (!weak && !assoc) {
+        /* Most objects: nothing to clear but the entry, under one lock. */
+        if (e) rc_remove(s, e);
+        pthread_mutex_unlock(&s->lock);
+        return;
+    }
     pthread_mutex_unlock(&s->lock);
     if (assoc) d_objc_removeAssociatedObjects(obj);
     if (weak) weak_clear(obj);
