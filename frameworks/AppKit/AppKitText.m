@@ -275,7 +275,8 @@ static void draw_text(NSAttributedString *s, NSRect rect, NSInteger maxLines, BO
 }
 - (instancetype)initWithFrame:(NSRect)frame {
     self = [super initWithFrame:frame];
-    _editable = _selectable = _bordered = _bezeled = _drawsBackground = YES;
+    /* bezeled, not bordered: the two are exclusive, as in AppKit */
+    _editable = _selectable = _bezeled = _drawsBackground = YES;
     _backgroundColor = NSColor.textBackgroundColor;
     _wraps = YES;
     return self;
@@ -292,9 +293,17 @@ static void draw_text(NSAttributedString *s, NSRect rect, NSInteger maxLines, BO
 - (BOOL)isSelectable { return _selectable; }
 - (void)setSelectable:(BOOL)b { _selectable = b; }
 - (BOOL)isBordered { return _bordered; }
-- (void)setBordered:(BOOL)b { _bordered = b; }
+- (void)setBordered:(BOOL)b {
+    _bordered = b;
+    if (b) _bezeled = NO;
+    self.needsDisplay = YES;
+}
 - (BOOL)isBezeled { return _bezeled; }
-- (void)setBezeled:(BOOL)b { _bezeled = b; }
+- (void)setBezeled:(BOOL)b {
+    _bezeled = b;
+    if (b) _bordered = NO;
+    self.needsDisplay = YES;
+}
 - (NSTextFieldBezelStyle)bezelStyle { return _bezelStyle; }
 - (void)setBezelStyle:(NSTextFieldBezelStyle)s { _bezelStyle = s; }
 - (BOOL)drawsBackground { return _drawsBackground; }

@@ -95,6 +95,15 @@ int main(void) {
         NSColor *blue = NSColor.blueColor;
         tv2.selectedTextAttributes = @{NSForegroundColorAttributeName : blue};
         CHECK(tv2.selectedTextAttributes[NSForegroundColorAttributeName] == blue);
+        // A text field made in code is bezeled, not bordered; the two exclude each other.
+        NSTextField *field = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 100, 20)];
+        CHECK(field.isBezeled && !field.isBordered && field.drawsBackground);
+        field.bordered = YES;
+        CHECK(field.isBordered && !field.isBezeled);
+        field.bezeled = YES;
+        CHECK(field.isBezeled && !field.isBordered);
+        // x86-64 macOS keeps AppKit's original alignment values.
+        CHECK(NSTextAlignmentRight == 1 && NSTextAlignmentCenter == 2);
         puts("appkit text ok");
     }
     return 0;

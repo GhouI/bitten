@@ -4024,3 +4024,17 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   changes of matching views, with callers.
 - Target app (total `^MISSING`): 0 -> 0.
 
+
+## AppKit: x86-64 text alignment values; text fields bezeled, not bordered
+
+- `NSTextAlignment` uses the x86-64 macOS values (Right 1, Center 2). The
+  iOS order (Center 1, Right 2) applies only on arm64. Centred labels in the
+  target app, such as the activity popup's "No processes are reporting
+  activity", were drawn right-aligned.
+- A text field made in code is bezeled and not bordered, and setting either
+  property clears the other, as in AppKit. The app's filter field turns off
+  only the bezel and background, so it kept a border and its text was
+  clipped by the border insets.
+- `BITTEN_VIEW_TREE` shows text fields' strings, bezel, border, background
+  and font.
+- Target app (total `^MISSING`): 0 -> 0.
