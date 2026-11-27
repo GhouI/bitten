@@ -824,7 +824,12 @@ static NSSplitView *find_split(NSView *v, int depth) {
     [super layout];
 }
 - (void)drawRect:(NSRect)dirty {
-    /* (the window draws what is behind the strip) */
+    /* The title bar's background over the content (scrolled content goes
+     * under it, as under macOS's unified title bar): from the sidebar's
+     * divider on, the sidebar keeping its own look. */
+    CGFloat from = MAX(0, [self _bn_dividerX]);
+    [self.window.backgroundColor setFill];
+    NSRectFill(NSMakeRect(from, 0, self.bounds.size.width - from, self.bounds.size.height));
 }
 @end
 

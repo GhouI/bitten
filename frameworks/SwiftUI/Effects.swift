@@ -228,11 +228,73 @@ public struct _BlendModeEffect: _DrawingModifier, Equatable {
   public var blendMode: BlendMode
   @inlinable public init(blendMode: BlendMode) { self.blendMode = blendMode }
   func apply(_ context: CGContext, _ frame: CGRect, _ environment: EnvironmentValues) -> Bool { return true }
+  /// The content drawn on its own, then laid on what is under it with the
+  /// blend mode (destinationOut erases where the content is).
+  public static func _makeView(modifier: _GraphValue<Self>, inputs: _ViewInputs,
+                               body: @escaping (_Graph, _ViewInputs) -> _ViewOutputs) -> _ViewOutputs {
+    let mode = modifier.value.blendMode._cgMode
+    let content = body(_Graph(), inputs).node
+    return _ViewOutputs(_LayerEffectNode(content: content, environment: inputs.environment, blendMode: mode))
+  }
 }
 @frozen
 public struct _CompositingGroupEffect: _DrawingModifier, Equatable {
   @inlinable public init() {}
   func apply(_ context: CGContext, _ frame: CGRect, _ environment: EnvironmentValues) -> Bool { return true }
+  /// The content drawn as one layer: blend modes inside it mix only with
+  /// each other.
+  public static func _makeView(modifier: _GraphValue<Self>, inputs: _ViewInputs,
+                               body: @escaping (_Graph, _ViewInputs) -> _ViewOutputs) -> _ViewOutputs {
+    let content = body(_Graph(), inputs).node
+    return _ViewOutputs(_LayerEffectNode(content: content, environment: inputs.environment, blendMode: nil))
+  }
+}
+
+/// Draws its content into a transparency layer, composited (with a blend
+/// mode, when it has one) onto what is already drawn.
+internal final class _LayerEffectNode: _ViewNode {
+  let blendMode: Int32?
+  init(content: _ViewNode, environment: EnvironmentValues, blendMode: Int32?) {
+    self.blendMode = blendMode
+    super.init(environment: environment, children: [content])
+  }
+  override func draw(_ context: CGContext) {
+    CGContextSaveGState(context)
+    if let m = blendMode { CGContextSetBlendMode(context, CGBlendMode(rawValue: m) ?? .normal) }
+    CGContextBeginTransparencyLayer(context, nil)
+    children[0].draw(context)
+    CGContextEndTransparencyLayer(context)
+    CGContextRestoreGState(context)
+  }
+}
+
+extension BlendMode {
+  /// CoreGraphics' number for this mode.
+  internal var _cgMode: Int32 {
+    switch self {
+    case .normal: return 0
+    case .multiply: return 1
+    case .screen: return 2
+    case .overlay: return 3
+    case .darken: return 4
+    case .lighten: return 5
+    case .colorDodge: return 6
+    case .colorBurn: return 7
+    case .softLight: return 8
+    case .hardLight: return 9
+    case .difference: return 10
+    case .exclusion: return 11
+    case .hue: return 12
+    case .saturation: return 13
+    case .color: return 14
+    case .luminosity: return 15
+    case .sourceAtop: return 20
+    case .destinationOver: return 21
+    case .destinationOut: return 23
+    case .plusDarker: return 26
+    case .plusLighter: return 27
+    }
+  }
 }
 @frozen
 public struct _GeometryGroupEffect: _DrawingModifier, Equatable {

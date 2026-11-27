@@ -24,7 +24,15 @@ windows no longer leaks.
    three fixed-size columns and 12-point gaps take the rest. Real
    macOS fonts may give it a little more. The window can now be widened
    to 900, and the column grows with it (up to 180).
-3. **Paste timing.** A paste once arrived in bash as literal `[200~…~`.
+3. **The Settings search spotlight's cut-out.** Clicking a search result
+   dims the page (the app adds `SettingsSearchSpotlightHost.OverlayView`
+   to the window's frame view), but the rounded cut-out around the found
+   setting shows a plain card, not the setting. The overlay view has no
+   layer or subviews when drawn, and no SwiftUI blend nodes show in the
+   trees dumped so far, so what draws the dim and card is still unknown.
+   Core Animation `compositingFilter` (#278), grouping blending sublayers
+   (#277) and SwiftUI blend modes are all in place.
+4. **Paste timing.** A paste once arrived in bash as literal `[200~…~`.
    That is consistent with the escape byte reaching readline more than its
    key-sequence timeout before the rest. It pastes correctly now that
    frames are faster; watch for it under load.

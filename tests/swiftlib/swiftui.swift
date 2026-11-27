@@ -702,6 +702,22 @@ struct Counting: View {
   }
 }
 
+/// A destinationOut blend erases what is under it, within its compositing
+/// group only (the white underneath shows through, the red around stays).
+@_silgen_name("swl_swiftui_blendout") public func blendOut() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    let view = ZStack {
+      Color(.sRGB, red: 1, green: 0, blue: 0)
+      Color.black.frame(width: 10, height: 10).blendMode(.destinationOut)
+    }.compositingGroup().frame(width: 30, height: 30)
+    let px = render(view, 30, 30)
+    if px(15, 15) != white { bad |= 1 }
+    if px(2, 2) != red { bad |= 2 }
+    return bad
+  }
+}
+
 /// A button's keyboard shortcut performs it: Escape a .cancelAction
 /// button, a command key a ⌘ shortcut; a disabled one doesn't.
 @_silgen_name("swl_swiftui_shortcuts") public func shortcuts() -> Int {
