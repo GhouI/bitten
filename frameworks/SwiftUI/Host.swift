@@ -169,6 +169,59 @@ final class _WeakHost {
   init(_ v: _HostingViewBase) { view = v }
 }
 
+/// `area` grown to take in `r` (itself grown by `margin`).
+func _bn_addArea(_ area: inout CGRect?, _ r: CGRect, margin: CGFloat) {
+  let grown = CGRect(_x: r._minX - margin, y: r._minY - margin, width: r._width + 2 * margin, height: r._height + 2 * margin)
+  guard let a = area else {
+    area = grown
+    return
+  }
+  let x0 = min(a._minX, grown._minX), y0 = min(a._minY, grown._minY)
+  let x1 = max(a._maxX, grown._maxX), y1 = max(a._maxY, grown._maxY)
+  area = CGRect(_x: x0, y: y0, width: x1 - x0, height: y1 - y0)
+}
+
+/// Adds to `area` where `node`'s tree draws by itself (AppKit views in it
+/// draw themselves), with a margin for what draws just outside a frame.
+/// False when that can't be told (transforms and effects move or spread
+/// what they draw).
+@MainActor
+func _bn_drawnArea(_ node: _ViewNode, _ area: inout CGRect?) -> Bool {
+  if node is _PlatformViewNode { return true }
+  if let t = node as? _TransformNode {
+    // What its content draws, moved as it is drawn: about the frame's origin.
+    var inner: CGRect? = nil
+    for c in t.children where !_bn_drawnArea(c, &inner) { return false }
+    guard let a = inner else { return true }
+    let m = t.transform(t.frame.size), o = t.frame
+    var x0 = CGFloat.infinity, y0 = CGFloat.infinity, x1 = -CGFloat.infinity, y1 = -CGFloat.infinity
+    for (px, py) in [(a._minX, a._minY), (a._maxX, a._minY), (a._minX, a._maxY), (a._maxX, a._maxY)] {
+      let lx = px - o._minX, ly = py - o._minY
+      let x = m.a * lx + m.c * ly + m.tx + o._minX, y = m.b * lx + m.d * ly + m.ty + o._minY
+      x0 = min(x0, x); y0 = min(y0, y); x1 = max(x1, x); y1 = max(y1, y)
+    }
+    _bn_addArea(&area, CGRect(_x: x0, y: y0, width: x1 - x0, height: y1 - y0), margin: 0)
+    return true
+  }
+  if let e = node as? _DrawEffectNode {
+    // An effect (opacity, clip, shadow, blur) draws its content, spread
+    // at most by a shadow or blur.
+    var inner: CGRect? = nil
+    for c in e.children where !_bn_drawnArea(c, &inner) { return false }
+    if let a = inner { _bn_addArea(&area, a, margin: 32) }
+    return true
+  }
+  let drawsOwnFrame = node.children.isEmpty || node is _ScrollNode || node is _ButtonNode || node is _TextFieldNode ||
+    node is _SliderNode || node is _ProgressNode || node is _DividerNode || node is _ImageNode || node is _ToggleMarkNode
+  if drawsOwnFrame {
+    let f = node.frame
+    if f.size.width > 0 && f.size.height > 0 { _bn_addArea(&area, f, margin: 12) }
+    if node is _ScrollNode { return true }   // its content is clipped to it
+  }
+  for c in node.children where !_bn_drawnArea(c, &area) { return false }
+  return true
+}
+
 /// Whether `event` is `shortcut`'s key with its modifiers.
 func _matches(_ shortcut: KeyboardShortcut, _ event: NSEvent) -> Bool {
   var want: NSEvent.ModifierFlags = []
@@ -248,8 +301,38 @@ open class _HostingViewBase: NSView {
       _invalidatedWhilePlacing = true
       return
     }
+    // A rebuild already pending covers this one too.
+    if _root == nil && _rebuildRepaint { return }
+    let old = _root
     _root = nil
+    // In a window, a rebuilt tree repaints where the old tree drew and where
+    // the new one does (AppKit views in it repaint themselves as they move);
+    // the new one is built when the window lays out before drawing.
+    var area: CGRect? = nil
+    if let w = window, let o = old, _bn_drawnArea(o, &area) {
+      _rebuildRepaint = true
+      needsLayout = true
+      w._bn_invalidateRect(area.map { convert($0, to: nil) } ?? NSZeroRect)
+      return
+    }
+    if getenv("BITTEN_DISPLAY_DEBUG") != nil {
+      _dbg("bitten: swiftui host repaints whole: window \(window != nil) old tree \(old != nil) \(type(of: self))".prefix(200).description)
+    }
     needsDisplay = true
+  }
+  /// Set when a rebuild is to repaint only where the trees draw.
+  var _rebuildRepaint = false
+  override open func layout() {
+    super.layout()
+    guard _rebuildRepaint else { return }
+    _rebuildRepaint = false
+    let r = _layout()
+    var area: CGRect? = nil
+    if let w = window, _bn_drawnArea(r, &area) {
+      if let a = area { w._bn_invalidateRect(convert(a, to: nil)) }
+    } else {
+      needsDisplay = true
+    }
   }
 
   /// The tree, built (and laid out in the bounds) on demand.

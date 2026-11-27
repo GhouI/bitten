@@ -99,8 +99,11 @@ static void collect_areas(NSView *v, NSPoint p, NSMutableArray *inside) {
     NSMutableArray<NSTrackingArea *> *before = objc_getAssociatedObject(self, &kInsideKey) ?: [NSMutableArray array];
     objc_setAssociatedObject(self, &kInsideKey, now, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     for (NSTrackingArea *a in before)
-        if ([now indexOfObjectIdenticalTo:a] == NSNotFound && (a.options & NSTrackingMouseEnteredAndExited))
+        if ([now indexOfObjectIdenticalTo:a] == NSNotFound && (a.options & NSTrackingMouseEnteredAndExited)) {
+            if (getenv("BITTEN_EVENT_DEBUG"))
+                fprintf(stderr, "bitten: mouse exited a tracking area of %s\n", object_getClassName(a.owner));
             [a.owner mouseExited:tracking_event(NSEventTypeMouseExited, event, a)];
+        }
     for (NSTrackingArea *a in now) {
         BOOL entered = [before indexOfObjectIdenticalTo:a] == NSNotFound;
         if (entered && getenv("BITTEN_EVENT_DEBUG"))

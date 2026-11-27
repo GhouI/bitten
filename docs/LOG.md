@@ -4922,3 +4922,26 @@ Debugging aids:
   blending in full redraws, and the root SwiftUI host's whole-window
   repaints.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI rebuilds and layout requests repaint only what changed
+
+- A rebuilt SwiftUI tree repainted its whole hosting view, which for the
+  target app's root host is the whole window. It now repaints where the
+  old tree drew and where the new one draws, with a margin; AppKit views
+  in it repaint themselves as they move. That is the union of the frames
+  of leaves and self-drawing nodes. A transform's content is mapped
+  through the transform, and an effect's (opacity, clip, shadow, blur)
+  gets a wider margin. The new tree is built in the window's layout pass,
+  just before the frame reads what it must repaint. An invalidation while
+  a rebuild is already pending adds nothing.
+- `setNeedsLayout:` asked for a repaint of the view (the whole window
+  for a root view). As in AppKit, it now only makes sure a layout pass
+  comes; what layout moves repaints itself. A frame whose only change
+  was layout (nothing dirty) draws nothing. A view out of the tree that
+  still names a window no longer asks that window for a full redraw.
+- Target app launch: the main window's full redraws went from 11 (16
+  before #249) to 2, with 16 partial ones, in the first 7 seconds.
+  Checked: palette and its keyboard navigation, Settings pages, a switch
+  on and off, tooltips, resize; no stale pixels. `BITTEN_EVENT_DEBUG`
+  now logs leaving tracking areas too.
+- Target app (total `^MISSING`): 0 -> 0.
