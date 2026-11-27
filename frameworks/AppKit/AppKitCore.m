@@ -221,6 +221,17 @@ static void bn_autoresize_axis(CGFloat delta, BOOL flexLo, BOOL flexLen, BOOL fl
     [self viewWillMoveToWindow:window];
     BOOL was = _window.isVisible;
     _window = window;
+    static const char *methods_of;
+    static int methods_inited;
+    if (!methods_inited) { methods_of = getenv("BITTEN_METHODS"); methods_inited = 1; }
+    if (window && methods_of && strstr(object_getClassName(self), methods_of)) {
+        unsigned n = 0;
+        Method *ms = class_copyMethodList(object_getClass(self), &n);
+        fprintf(stderr, "bitten: %s methods:", object_getClassName(self));
+        for (unsigned i = 0; i < n; i++) fprintf(stderr, " %s", sel_getName(method_getName(ms[i])));
+        fprintf(stderr, "\n");
+        free(ms);
+    }
     /* a controller's view appears with a visible window, and goes with it */
     if (window.isVisible != was) bn_view_visibility(self, window.isVisible);
     for (NSView *v in _subviews) [v _setWindow:window];

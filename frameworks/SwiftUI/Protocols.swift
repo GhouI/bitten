@@ -481,6 +481,13 @@ private typealias _DrawInFn = @convention(c) (AnyObject, Selector, CGContext, Ob
   unsafeBitCast(m, to: _DrawInFn.self)(v, sel, context, ObjCBool(true))
 }
 
+/// The view, or the first view inside it, that takes first responder.
+@MainActor func _firstAcceptingResponder(_ v: NSView) -> NSView? {
+  if v.acceptsFirstResponder { return v }
+  for s in v.subviews where !s.isHidden { if let t = _firstAcceptingResponder(s) { return t } }
+  return nil
+}
+
 /// An AppKit view placed as a subview of the hosting view.
 internal final class _PlatformViewNode: _ViewNode {
   let view: NSView
@@ -507,6 +514,17 @@ internal final class _PlatformViewNode: _ViewNode {
       v._bn_layoutSubtree()
     }
     context?.livePlatformViews.insert(ObjectIdentifier(v))
+    // Focus given to this view (.focused) makes it the window's first
+    // responder, or the first view inside it that can be, as SwiftUI does.
+    if let focus = environment._focus, MainActor.assumeIsolated({ focus.isFocusedGet() }) {
+      DispatchQueue.main.async { [weak v] in
+        MainActor.assumeIsolated {
+          guard let v = v, let window = v.window else { return }
+          if let current = window.firstResponder as? NSView, current === v || current.isDescendant(of: v) { return }
+          if let target = _firstAcceptingResponder(v) { _ = window.makeFirstResponder(target) }
+        }
+      }
+    }
   }
   override func collectPlatformViews(_ into: inout [NSView]) { into.append(view) }
   override func hitsContent(_ point: CGPoint) -> Bool { return frame._contains(point) }

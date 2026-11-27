@@ -43,6 +43,7 @@ static NSTimeInterval now_seconds(void) {
 
 /* ---- first responders and mouse tracking, per window ---- */
 
+void bn_debug_callers(void); /* AppKitCore.m */
 static const char kFirstResponderKey, kTrackingKey;
 
 /* ---- tracking areas ----
@@ -115,7 +116,17 @@ static void collect_areas(NSView *v, NSPoint p, NSMutableArray *inside) {
 }
 @end
 
+@implementation NSView (BittenKeyEquivalents)
+/* A key equivalent is offered to each visible subview until one takes it. */
+- (BOOL)performKeyEquivalent:(NSEvent *)event {
+    for (NSView *v in self.subviews)
+        if (!v.isHidden && [v performKeyEquivalent:event]) return YES;
+    return NO;
+}
+@end
+
 @implementation NSWindow (BittenEvents)
+- (BOOL)performKeyEquivalent:(NSEvent *)event { return [self.contentView performKeyEquivalent:event]; }
 - (NSResponder *)firstResponder {
     NSResponder *r = objc_getAssociatedObject(self, &kFirstResponderKey);
     return r ?: self;
@@ -132,6 +143,11 @@ static void collect_areas(NSView *v, NSPoint p, NSMutableArray *inside) {
 }
 - (BOOL)makeFirstResponder:(NSResponder *)responder {
     NSResponder *current = objc_getAssociatedObject(self, &kFirstResponderKey);
+    if (getenv("BITTEN_EVENT_DEBUG") && current != responder) {
+        fprintf(stderr, "bitten: first responder %s -> %s (accepts %d) from", current ? object_getClassName(current) : "window",
+                responder ? object_getClassName(responder) : "window", responder ? responder.acceptsFirstResponder : 1);
+        bn_debug_callers();
+    }
     if (current == responder) return YES;
     if (current && ![current resignFirstResponder]) return NO;
     if (responder && responder != self && ![responder becomeFirstResponder]) return NO;
@@ -257,7 +273,14 @@ extern BOOL bn_dragging_route(NSWindow *w, NSEvent *e);
                            (unsigned long)original.modifierFlags);
         return;
     }
-    /* Command-key shortcuts go to the main menu first. */
+    /* Command-key shortcuts go to the key window's views first (a
+     * shortcut recorder, a button's key equivalent), then the main menu. */
+    if (event.type == NSEventTypeKeyDown && (event.modifierFlags & NSEventModifierFlagCommand) &&
+        [(event.window ?: self.keyWindow) performKeyEquivalent:event]) {
+        if (debug) fprintf(stderr, "bitten: key '%s' flags %#lx taken by a view\n", event.charactersIgnoringModifiers.UTF8String ?: "",
+                           (unsigned long)event.modifierFlags);
+        return;
+    }
     if (event.type == NSEventTypeKeyDown && (event.modifierFlags & NSEventModifierFlagCommand) &&
         [self.mainMenu performKeyEquivalent:event]) {
         if (debug) fprintf(stderr, "bitten: key '%s' flags %#lx taken by the main menu\n", event.charactersIgnoringModifiers.UTF8String ?: "",

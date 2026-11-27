@@ -4291,3 +4291,20 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - A client's first sync now sends windows back to front, by their
   order-front count.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit/SwiftUI: key equivalents reach views first; focus reaches platform views
+
+- A command key goes to the key window's views (`performKeyEquivalent:`,
+  offered to each visible subview) before the main menu, as in AppKit. A
+  shortcut recorder or a button's key equivalent takes it first. NSView
+  and NSWindow implement `performKeyEquivalent:`.
+- A SwiftUI `.focused(...)` binding that is set makes the focused
+  representable's AppKit view the window's first responder, or the first
+  view inside it that accepts it.
+- In the target app, Settings → Shortcuts records a shortcut once its
+  field is clicked; ⌘N was recorded back for New Window.
+- Debugging:
+  - `BITTEN_EVENT_DEBUG` logs first-responder changes with callers.
+  - `BITTEN_METHODS=ClassName` lists a matching view class's own methods
+    when it joins a window.
+- Target app (total `^MISSING`): 0 -> 0.
