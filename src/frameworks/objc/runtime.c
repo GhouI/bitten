@@ -743,7 +743,15 @@ static void alloc_init(void) {
     pthread_detach(t);
 }
 void dx_alloc_note(const void *cls, int delta) {
-    pthread_once(&alloc_once, alloc_init);
+    /* Off (the usual case): one load, after the first call. */
+    static _Atomic int state;   /* 0 unknown, 1 off, 2 on */
+    int st = state;
+    if (st == 1) return;
+    if (st == 0) {
+        pthread_once(&alloc_once, alloc_init);
+        state = (alloc_period > 0 || methods_of) ? 2 : 1;
+        if (state == 1) return;
+    }
     if (methods_of && delta > 0 && cls) methods_note(cls);
     if (alloc_period <= 0 || !cls) return;
     pthread_mutex_lock(&alloc_lock);
