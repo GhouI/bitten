@@ -4654,4 +4654,9 @@ Debugging aids:
   is speed (CG compositing and terminal Metal at idle), bracketed paste,
   Return in text fields, and the display page's focus after a window
   closes. It also lists the debugging switches that find problems.
+## The display page refocuses when the focused window closes
+
+- Display (page.html): when the focused window closes, the frontmost
+  window still showing (not miniaturized, not a borderless panel) takes
+  focus, or none; keys no longer go to a window that is gone.
 - Target app (total `^MISSING`): 0 -> 0.

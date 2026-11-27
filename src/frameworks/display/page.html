@@ -66,6 +66,18 @@ function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
 // Stacking: the window's level first (normal, floating, pop-up, ...), then
 // the order windows were brought forward, by a click here or by the program.
 function restack(w) { const band = Math.max(-1, Math.min(w.level, 2000)) + 2; w.el.style.zIndex = band * 1e6 + w.seq; }
+// After the focused window closes: the frontmost one still showing (not
+// miniaturized, not a borderless panel), or none.
+function refocus() {
+  let best = 0, top = -Infinity;
+  for (const [id, w] of wins) {
+    if (w.chip || (w.flags & 1)) continue;
+    const zi = Number(w.el.style.zIndex) || 0;
+    if (zi > top) { top = zi; best = id; }
+  }
+  focused = 0;
+  if (best) { focus(best); wins.get(best).canvas.focus(); }
+}
 function focus(id) { focused = id; const w = wins.get(id); if (w) { w.seq = ++z; restack(w); } }
 // A miniaturized window is hidden and kept as a chip in the dock; the
 // chip brings it back.
@@ -136,7 +148,11 @@ addEventListener("keydown", (e) => key(e, "key"));
 addEventListener("keyup", (e) => key(e, "keyup"));
 function frame(buf) {
   const v = new DataView(buf); const type = v.getUint8(0), id = v.getUint32(1, true);
-  if (type === 2) { const w = wins.get(id); if (w) { miniaturized(id, w, false); w.el.remove(); wins.delete(id); } return; }
+  if (type === 2) {
+    const w = wins.get(id); if (w) { miniaturized(id, w, false); w.el.remove(); wins.delete(id); }
+    if (focused === id) refocus();
+    return;
+  }
   const x = v.getInt32(5, true), y = v.getInt32(9, true), width = v.getUint32(13, true), height = v.getUint32(17, true);
   const flags = v.getUint32(21, true), level = v.getInt32(25, true), front = v.getUint32(29, true);
   const tl = v.getUint16(33, true), title = new TextDecoder().decode(new Uint8Array(buf, 35, tl));
