@@ -139,6 +139,28 @@ int main(void) {
             c = [w _bn_backingContext];
             CHECK(pixel(c, 12, 12) == 0xFF0000 && pixel(c, 71, 68) == 0x00FF00);
         }
+        /* A bitmap rep with pixels of its own: drawn into through a graphics
+         * context, read back by colorAtX:y: (top left origin), and written
+         * as a PNG that reads back the same. */
+        NSBitmapImageRep *rep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:NULL pixelsWide:4 pixelsHigh:4
+            bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSDeviceRGBColorSpace
+            bytesPerRow:0 bitsPerPixel:0];
+        CHECK(rep && rep.bytesPerRow == 16 && rep.bitmapData);
+        NSGraphicsContext *g = [NSGraphicsContext graphicsContextWithBitmapImageRep:rep];
+        CHECK(g);
+        [NSGraphicsContext saveGraphicsState];
+        [NSGraphicsContext setCurrentContext:g];
+        [[NSColor redColor] setFill];
+        NSRectFill(NSMakeRect(0, 0, 4, 2)); // the bottom half
+        [NSGraphicsContext restoreGraphicsState];
+        NSColor *bottom = [rep colorAtX:0 y:3], *top = [rep colorAtX:0 y:0];
+        CHECK(bottom.redComponent > 0.99 && bottom.alphaComponent > 0.99);
+        CHECK(top.alphaComponent < 0.01);
+        NSData *png = [rep representationUsingType:4 properties:@{}];
+        CHECK(png.length > 8 && ((const unsigned char *)png.bytes)[1] == 'P');
+        NSBitmapImageRep *back = [NSBitmapImageRep imageRepWithData:png];
+        CHECK(back && back.pixelsWide == 4 && back.pixelsHigh == 4);
+        CHECK([back colorAtX:2 y:3].redComponent > 0.99 && [back colorAtX:2 y:0].alphaComponent < 0.01);
         [w close];
         printf("ok\n");
     }

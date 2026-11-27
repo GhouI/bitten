@@ -5,6 +5,8 @@
  * shape. */
 #import <AppKit/AppKit.h>
 #include <ctype.h>
+#include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 typedef struct CGImageSource *CGImageSourceRef;
@@ -41,8 +43,14 @@ void bn_draw_symbol(CGContextRef c, const char *name, double x, double y, double
 - (CGImageRef)CGImageForProposedRect:(NSRect *)r context:(NSGraphicsContext *)c hints:(NSDictionary *)h { return NULL; }
 @end
 
+/* A bitmap: either a CGImage it was made from, or pixels of its own (8-bit
+ * samples, chunky, rows from the top, alpha last and premultiplied, as
+ * AppKit lays them out) that a graphics context can draw into. */
 @implementation NSBitmapImageRep {
     CGImageRef _image;
+    unsigned char *_data;
+    BOOL _ownsData;
+    NSInteger _bytesPerRow, _bitsPerPixel, _samplesPerPixel, _bitsPerSample;
 }
 - (instancetype)initWithCGImage:(CGImageRef)cgImage {
     if ((self = [super init])) {
@@ -51,6 +59,37 @@ void bn_draw_symbol(CGContextRef c, const char *name, double x, double y, double
         self.pixelsHigh = (NSInteger)CGImageGetHeight(cgImage);
         self.size = NSMakeSize(self.pixelsWide, self.pixelsHigh);
         self.alpha = YES;
+        _bitsPerSample = 8;
+        _samplesPerPixel = 4;
+        _bitsPerPixel = 32;
+    }
+    return self;
+}
+- (instancetype)initWithBitmapDataPlanes:(unsigned char **)planes pixelsWide:(NSInteger)width
+                              pixelsHigh:(NSInteger)height bitsPerSample:(NSInteger)bps
+                         samplesPerPixel:(NSInteger)spp hasAlpha:(BOOL)alpha isPlanar:(BOOL)planar
+                          colorSpaceName:(NSString *)space bytesPerRow:(NSInteger)rowBytes
+                            bitsPerPixel:(NSInteger)pixelBits {
+    if (width <= 0 || height <= 0 || bps != 8 || planar || spp < 1 || spp > 4) return nil;
+    if (!pixelBits) pixelBits = bps * spp;
+    if (pixelBits != 8 * spp && !(pixelBits == 32 && spp == 3)) return nil;
+    if (!rowBytes) rowBytes = (width * pixelBits + 7) / 8;
+    if ((self = [super init])) {
+        self.pixelsWide = width;
+        self.pixelsHigh = height;
+        self.size = NSMakeSize(width, height);
+        self.alpha = alpha;
+        _bitsPerSample = bps;
+        _samplesPerPixel = spp;
+        _bitsPerPixel = pixelBits;
+        _bytesPerRow = rowBytes;
+        if (planes && planes[0]) {
+            _data = planes[0];
+        } else {
+            _data = calloc((size_t)height, (size_t)rowBytes);
+            if (!_data) return nil;
+            _ownsData = YES;
+        }
     }
     return self;
 }
@@ -64,9 +103,190 @@ void bn_draw_symbol(CGContextRef c, const char *name, double x, double y, double
     return self;
 }
 + (instancetype)imageRepWithData:(NSData *)data { return [[self alloc] initWithData:data]; }
-- (void)dealloc { CGImageRelease(_image); }
-- (CGImageRef)CGImage { return _image; }
-- (CGImageRef)CGImageForProposedRect:(NSRect *)r context:(NSGraphicsContext *)c hints:(NSDictionary *)h { return _image; }
+- (void)dealloc {
+    CGImageRelease(_image);
+    if (_ownsData) free(_data);
+}
+- (NSInteger)bitsPerSample { return _bitsPerSample; }
+- (NSInteger)samplesPerPixel { return _samplesPerPixel; }
+- (NSInteger)bitsPerPixel { return _bitsPerPixel; }
+- (BOOL)isPlanar { return NO; }
+- (NSInteger)numberOfPlanes { return 1; }
+- (NSString *)colorSpaceName { return NSDeviceRGBColorSpace; }
+/* Pixels made from the image, for a rep made from one. */
+- (void)_bn_makeData {
+    if (_data || !_image) return;
+    size_t w = (size_t)self.pixelsWide, h = (size_t)self.pixelsHigh;
+    _bytesPerRow = (NSInteger)(w * 4);
+    _data = calloc(h, w * 4);
+    if (!_data) return;
+    _ownsData = YES;
+    CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB();
+    CGContextRef c = CGBitmapContextCreate(_data, w, h, 8, w * 4, rgb, kCGImageAlphaPremultipliedLast);
+    CGColorSpaceRelease(rgb);
+    if (c) {
+        CGContextDrawImage(c, CGRectMake(0, 0, w, h), _image);
+        CGContextRelease(c);
+    }
+}
+- (unsigned char *)bitmapData {
+    [self _bn_makeData];
+    return _data;
+}
+- (void)getBitmapDataPlanes:(unsigned char **)planes {
+    if (planes) planes[0] = self.bitmapData;
+}
+- (NSInteger)bytesPerRow {
+    [self _bn_makeData];
+    return _bytesPerRow;
+}
+- (NSInteger)bytesPerPlane { return self.bytesPerRow * self.pixelsHigh; }
+/* How CoreGraphics reads the pixels. */
+- (CGBitmapInfo)_bn_bitmapInfo {
+    if (self.hasAlpha) return (CGBitmapInfo)kCGImageAlphaPremultipliedLast;
+    return (CGBitmapInfo)(_bitsPerPixel == 32 ? kCGImageAlphaNoneSkipLast : kCGImageAlphaNone);
+}
+- (CGImageRef)CGImage {
+    if (!_data) return _image;
+    /* Pixels may have been drawn since: an image of them as they are now. */
+    CGImageRelease(_image);
+    size_t h = (size_t)self.pixelsHigh;
+    CFDataRef bytes = CFDataCreate(NULL, _data, (CFIndex)(h * (size_t)_bytesPerRow));
+    CGDataProviderRef provider = CGDataProviderCreateWithCFData(bytes);
+    CFRelease(bytes);
+    CGColorSpaceRef space = _samplesPerPixel < 3 ? CGColorSpaceCreateDeviceGray() : CGColorSpaceCreateDeviceRGB();
+    _image = CGImageCreate((size_t)self.pixelsWide, h, 8, (size_t)_bitsPerPixel, (size_t)_bytesPerRow, space,
+                           _samplesPerPixel < 3 ? (CGBitmapInfo)(self.hasAlpha ? kCGImageAlphaPremultipliedLast : kCGImageAlphaNone)
+                                                : self._bn_bitmapInfo,
+                           provider, NULL, false, kCGRenderingIntentDefault);
+    CGColorSpaceRelease(space);
+    CGDataProviderRelease(provider);
+    return _image;
+}
+- (CGImageRef)CGImageForProposedRect:(NSRect *)r context:(NSGraphicsContext *)c hints:(NSDictionary *)h { return self.CGImage; }
+/* The colour of a pixel, (0, 0) at the top left. */
+- (NSColor *)colorAtX:(NSInteger)x y:(NSInteger)y {
+    unsigned char *d = self.bitmapData;
+    if (!d || x < 0 || y < 0 || x >= self.pixelsWide || y >= self.pixelsHigh) return nil;
+    const unsigned char *p = d + y * _bytesPerRow + x * (_bitsPerPixel / 8);
+    if (_samplesPerPixel < 3) {
+        CGFloat a = self.hasAlpha ? p[1] / 255.0 : 1;
+        return [NSColor colorWithWhite:(a > 0 ? p[0] / 255.0 / (self.hasAlpha ? a : 1) : 0) alpha:a];
+    }
+    CGFloat a = self.hasAlpha ? p[3] / 255.0 : 1;
+    CGFloat k = self.hasAlpha && a > 0 ? 1 / a : 1;
+    return [NSColor colorWithSRGBRed:fmin(1, p[0] / 255.0 * k) green:fmin(1, p[1] / 255.0 * k)
+                                blue:fmin(1, p[2] / 255.0 * k) alpha:a];
+}
+
+static void png_put32(NSMutableData *d, uint32_t v) {
+    uint8_t b[4] = {(uint8_t)(v >> 24), (uint8_t)(v >> 16), (uint8_t)(v >> 8), (uint8_t)v};
+    [d appendBytes:b length:4];
+}
+static uint32_t png_crc(const uint8_t *p, size_t n, uint32_t c) {
+    static uint32_t table[256];
+    if (!table[1]) {
+        for (uint32_t i = 0; i < 256; i++) {
+            uint32_t v = i;
+            for (int k = 0; k < 8; k++) v = v & 1 ? 0xedb88320u ^ (v >> 1) : v >> 1;
+            table[i] = v;
+        }
+    }
+    for (size_t i = 0; i < n; i++) c = table[(c ^ p[i]) & 0xff] ^ (c >> 8);
+    return c;
+}
+static void png_chunk(NSMutableData *out, const char *type, NSData *body) {
+    png_put32(out, (uint32_t)body.length);
+    NSUInteger start = out.length;
+    [out appendBytes:type length:4];
+    [out appendData:body];
+    uint32_t crc = png_crc((const uint8_t *)out.bytes + start, out.length - start, 0xffffffffu) ^ 0xffffffffu;
+    png_put32(out, crc);
+}
+/* A PNG of 8-bit RGBA rows (straight alpha), its pixels stored uncompressed
+ * in deflate's stored blocks. */
+static NSData *png_encode(const uint8_t *rgba, size_t w, size_t h) {
+    NSMutableData *raw = [NSMutableData dataWithCapacity:h * (w * 4 + 1)];
+    for (size_t y = 0; y < h; y++) {
+        uint8_t filter = 0;
+        [raw appendBytes:&filter length:1];
+        [raw appendBytes:rgba + y * w * 4 length:w * 4];
+    }
+    NSMutableData *z = [NSMutableData data];
+    uint8_t head[2] = {0x78, 0x01};
+    [z appendBytes:head length:2];
+    const uint8_t *r = raw.bytes;
+    size_t n = raw.length, at = 0;
+    uint32_t s1 = 1, s2 = 0;
+    for (size_t i = 0; i < n; i++) {
+        s1 = (s1 + r[i]) % 65521;
+        s2 = (s2 + s1) % 65521;
+    }
+    do {
+        size_t len = n - at > 65535 ? 65535 : n - at;
+        uint8_t b[5] = {at + len == n, (uint8_t)len, (uint8_t)(len >> 8), (uint8_t)~len, (uint8_t)(~len >> 8)};
+        [z appendBytes:b length:5];
+        [z appendBytes:r + at length:len];
+        at += len;
+    } while (at < n);
+    png_put32(z, s2 << 16 | s1);
+    NSMutableData *out = [NSMutableData data];
+    static const uint8_t sig[8] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'};
+    [out appendBytes:sig length:8];
+    NSMutableData *ihdr = [NSMutableData data];
+    png_put32(ihdr, (uint32_t)w);
+    png_put32(ihdr, (uint32_t)h);
+    uint8_t rest[5] = {8, 6, 0, 0, 0};
+    [ihdr appendBytes:rest length:5];
+    png_chunk(out, "IHDR", ihdr);
+    png_chunk(out, "IDAT", z);
+    png_chunk(out, "IEND", [NSData data]);
+    return out;
+}
+/* Only PNG can be written (NSBitmapImageFileTypePNG). */
+- (NSData *)representationUsingType:(NSUInteger)type properties:(NSDictionary *)properties {
+    if (type != 4) return nil;
+    size_t w = (size_t)self.pixelsWide, h = (size_t)self.pixelsHigh;
+    if (!w || !h) return nil;
+    uint8_t *rgba = malloc(w * h * 4);
+    if (!rgba) return nil;
+    CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB();
+    CGContextRef c = CGBitmapContextCreate(rgba, w, h, 8, w * 4, rgb, kCGImageAlphaPremultipliedLast);
+    CGColorSpaceRelease(rgb);
+    CGImageRef img = self.CGImage;
+    if (!c || !img) {
+        if (c) CGContextRelease(c);
+        free(rgba);
+        return nil;
+    }
+    CGContextClearRect(c, CGRectMake(0, 0, w, h));
+    CGContextDrawImage(c, CGRectMake(0, 0, w, h), img);
+    CGContextRelease(c);
+    for (size_t i = 0; i < w * h; i++) {
+        uint8_t *p = rgba + i * 4;
+        if (p[3] && p[3] < 255)
+            for (int k = 0; k < 3; k++) p[k] = (uint8_t)fmin(255, p[k] * 255.0 / p[3] + 0.5);
+    }
+    NSData *png = png_encode(rgba, w, h);
+    free(rgba);
+    return png;
+}
+@end
+
+@implementation NSGraphicsContext (BittenBitmap)
+/* Drawing into a bitmap rep's own pixels. */
++ (NSGraphicsContext *)graphicsContextWithBitmapImageRep:(NSBitmapImageRep *)rep {
+    unsigned char *data = rep.bitmapData;
+    if (!data || rep.bitsPerSample != 8 || rep.samplesPerPixel < 3) return nil;
+    CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB();
+    CGContextRef c = CGBitmapContextCreate(data, (size_t)rep.pixelsWide, (size_t)rep.pixelsHigh, 8,
+                                           (size_t)rep.bytesPerRow, rgb, rep._bn_bitmapInfo);
+    CGColorSpaceRelease(rgb);
+    if (!c) return nil;
+    NSGraphicsContext *g = [NSGraphicsContext graphicsContextWithCGContext:c flipped:NO];
+    CGContextRelease(c);
+    return g;
+}
 @end
 
 @implementation NSImageSymbolConfiguration {

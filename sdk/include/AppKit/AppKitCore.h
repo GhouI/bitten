@@ -720,8 +720,10 @@ typedef NS_ENUM(NSUInteger, NSImageInterpolation) {
     NSImageInterpolationMedium = 4,
     NSImageInterpolationHigh = 3,
 };
+@class NSBitmapImageRep;
 @interface NSGraphicsContext : NSObject
 + (NSGraphicsContext *)graphicsContextWithCGContext:(CGContextRef)graphicsPort flipped:(BOOL)initialFlippedState;
++ (nullable NSGraphicsContext *)graphicsContextWithBitmapImageRep:(NSBitmapImageRep *)bitmapRep;
 @property (class, nullable, strong) NSGraphicsContext *currentContext;
 + (BOOL)currentContextDrawingToScreen;
 + (void)saveGraphicsState;
@@ -895,7 +897,20 @@ typedef NS_ENUM(NSInteger, NSImageSymbolScale) {
 - (instancetype)initWithCGImage:(CGImageRef)cgImage;
 - (nullable instancetype)initWithData:(NSData *)data;
 + (nullable instancetype)imageRepWithData:(NSData *)data;
+- (nullable instancetype)initWithBitmapDataPlanes:(unsigned char *_Nullable *_Nullable)planes pixelsWide:(NSInteger)width
+                                       pixelsHigh:(NSInteger)height bitsPerSample:(NSInteger)bps
+                                  samplesPerPixel:(NSInteger)spp hasAlpha:(BOOL)alpha isPlanar:(BOOL)isPlanar
+                                   colorSpaceName:(NSString *)colorSpaceName bytesPerRow:(NSInteger)rBytes
+                                     bitsPerPixel:(NSInteger)pBits;
 @property (nullable, readonly) CGImageRef CGImage;
+@property (nullable, readonly) unsigned char *bitmapData;
+@property (readonly) NSInteger bitsPerSample, samplesPerPixel, bitsPerPixel, bytesPerRow, bytesPerPlane, numberOfPlanes;
+@property (readonly, getter=isPlanar) BOOL planar;
+@property (readonly) NSString *colorSpaceName;
+- (void)getBitmapDataPlanes:(unsigned char *_Nullable *_Nonnull)data;
+- (nullable NSColor *)colorAtX:(NSInteger)x y:(NSInteger)y;
+- (nullable NSData *)representationUsingType:(NSUInteger)storageType properties:(NSDictionary *)properties;
+- (CGBitmapInfo)_bn_bitmapInfo;
 @end
 
 @interface NSImageSymbolConfiguration : NSObject <NSCopying>

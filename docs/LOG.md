@@ -5046,3 +5046,18 @@ Debugging aids:
 - The same switch now lands within 0.4 s. Launch to an interactive
   terminal went from 5.2–5.4 s to 4.6 s on the same machine.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: bitmap image reps with their own pixels
+
+- `NSBitmapImageRep` can now be made with
+  `initWithBitmapDataPlanes:…` (8-bit samples, chunky, its own buffer or
+  the caller's), drawn into through
+  `+[NSGraphicsContext graphicsContextWithBitmapImageRep:]`, read with
+  `colorAtX:y:`, `bitmapData` and `bytesPerRow`, and written as PNG with
+  `representationUsingType:properties:` (stored deflate blocks, no
+  compression). Its `CGImage` shows the pixels as they are now.
+- The target app makes one while it runs; it stopped with an
+  unrecognized selector before.
+- Test: `tests/appkit/drawing.m` draws into a rep, reads pixels back and
+  round-trips it through PNG.
+- Target app (total `^MISSING`): 0 -> 0.
