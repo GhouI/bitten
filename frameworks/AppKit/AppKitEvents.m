@@ -240,6 +240,9 @@ extern BOOL bn_dragging_route(NSWindow *w, NSEvent *e);
 - (id)targetForAction:(SEL)action { return [self targetForAction:action to:nil from:nil]; }
 - (BOOL)sendAction:(SEL)action to:(id)target from:(id)sender {
     id t = [self targetForAction:action to:target from:sender];
+    if (getenv("BITTEN_EVENT_DEBUG"))
+        fprintf(stderr, "bitten: action %s from %s to %s\n", sel_getName(action), sender ? object_getClassName(sender) : "nil",
+                t ? object_getClassName(t) : "nobody");
     if (!t) return NO;
     ((void (*)(id, SEL, id))objc_msgSend)(t, action, sender);
     return YES;
