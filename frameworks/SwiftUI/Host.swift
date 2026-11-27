@@ -465,7 +465,13 @@ open class _HostingViewBase: NSView {
     if let platform = node as? _PlatformViewNode { return platform.view.hitTest(p) }
     if node != nil { return self }
     // Nothing of SwiftUI's here: AppKit views the program added itself.
-    return super.hitTest(point)
+    // Views SwiftUI placed (representables) get clicks only through its own
+    // hit testing above, so one under allowsHitTesting(false) gets none.
+    let placed = _context.livePlatformViews
+    for v in subviews.reversed() where !v.isHidden && !placed.contains(ObjectIdentifier(v)) {
+      if let hit = v.hitTest(p) { return hit }
+    }
+    return self
   }
 
   override open func draw(_ dirtyRect: NSRect) {

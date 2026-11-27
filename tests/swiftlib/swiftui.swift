@@ -671,6 +671,19 @@ struct Counting: View {
   }
 }
 
+/// A representable under allowsHitTesting(false) gets no clicks: hit
+/// testing where nothing else is finds the hosting view, not the AppKit view.
+@_silgen_name("swl_swiftui_nohitrep") public func noHitRep() -> Int {
+  return MainActor.assumeIsolated {
+    let view = Color.clear.frame(width: 40, height: 40).overlay(RedRep().allowsHitTesting(false))
+    let host = NSHostingView(rootView: view)
+    _ = render(view, 40, 40, host: host)
+    let hit = host.hitTest(NSMakePoint(20, 20))
+    if hit is RedFill { return 1 }
+    return hit === host ? 0 : 2
+  }
+}
+
 /// A button's keyboard shortcut performs it: Escape a .cancelAction
 /// button, a command key a ⌘ shortcut; a disabled one doesn't.
 @_silgen_name("swl_swiftui_shortcuts") public func shortcuts() -> Int {
