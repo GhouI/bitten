@@ -258,6 +258,12 @@ internal final class _LayerEffectNode: _ViewNode {
     self.blendMode = blendMode
     super.init(environment: environment, children: [content])
   }
+  /// Whether a tree has a blend mode that isn't plain source-over.
+  static func _blends(_ node: _ViewNode) -> Bool {
+    if let e = node as? _LayerEffectNode, let m = e.blendMode, m != 0 { return true }
+    for c in node.children where _blends(c) { return true }
+    return false
+  }
   override func draw(_ context: CGContext) {
     CGContextSaveGState(context)
     if let m = blendMode { CGContextSetBlendMode(context, CGBlendMode(rawValue: m) ?? .normal) }

@@ -420,8 +420,12 @@ internal final class _CanvasNode: _ViewNode {
   override func draw(_ context: CGContext) {
     CGContextSaveGState(context)
     CGContextClipToRect(context, frame)
+    // A canvas draws into a layer of its own (as on macOS): its blend modes
+    // (a destinationOut cut-out) mix with its own drawing, not the window's.
+    CGContextBeginTransparencyLayerWithRect(context, frame, nil)
     var g = GraphicsContext(cg: context, environment: environment, origin: frame.origin)
     renderer(&g, frame.size)
+    CGContextEndTransparencyLayer(context)
     CGContextRestoreGState(context)
   }
 }

@@ -5349,3 +5349,16 @@ Debugging aids:
   no layer or subviews when drawn). What draws it is still open
   (`docs/NEXT.md`).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: canvases and blending hosts draw in layers of their own
+
+- The target app's Settings search spotlight is a hosting view over the
+  window holding a `Canvas`. The canvas fills a dim, then cuts the found
+  setting out with `GraphicsContext.blendMode = .destinationOut`. Drawn
+  straight into the window's backing, the erase went through the
+  window's content too, leaving a blank card. On macOS a canvas, like a
+  hosting view, draws into its own layer. Canvases now draw inside a
+  transparency layer of their own, and so does a hosting view whose tree
+  has a blend mode. The spotlight shows the setting through its cut-out.
+- Test: `canvashole`.
+- Target app (total `^MISSING`): 0 -> 0.
