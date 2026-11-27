@@ -95,7 +95,7 @@ static void collect_areas(NSView *v, NSPoint p, NSMutableArray *inside) {
 @implementation NSWindow (BittenTracking)
 - (void)_bn_trackMouse:(NSEvent *)event {
     NSMutableArray<NSTrackingArea *> *now = [NSMutableArray array];
-    if (self.contentView) collect_areas(self.contentView, event.locationInWindow, now);
+    if (self._bn_frameView) collect_areas(self._bn_frameView, event.locationInWindow, now);
     NSMutableArray<NSTrackingArea *> *before = objc_getAssociatedObject(self, &kInsideKey) ?: [NSMutableArray array];
     objc_setAssociatedObject(self, &kInsideKey, now, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     for (NSTrackingArea *a in before)
@@ -171,6 +171,13 @@ static void collect_areas(NSView *v, NSPoint p, NSMutableArray *inside) {
 /* Drag and drop (AppKitDragging.m) takes the mouse during a drag. */
 extern BOOL bn_dragging_route(NSWindow *w, NSEvent *e);
 
+/* The view a click at `p` goes to: views over the content in the frame
+ * view first, then the content view's. */
+- (NSView *)_bn_hitView:(NSPoint)p {
+    NSView *hit = [self._bn_frameView hitTest:p];
+    if (!hit || hit == self._bn_frameView) hit = [self.contentView hitTest:p];
+    return hit;
+}
 - (void)sendEvent:(NSEvent *)event {
     if (bn_dragging_route(self, event)) return;
     switch (event.type) {
@@ -182,7 +189,7 @@ extern BOOL bn_dragging_route(NSWindow *w, NSEvent *e);
             hit = [toolbar hitTest:event.locationInWindow];
             if (hit == toolbar) hit = nil;
         }
-        if (!hit) hit = [self.contentView hitTest:event.locationInWindow];
+        if (!hit) hit = [self _bn_hitView:event.locationInWindow];
         NSView *target = hit ?: self.contentView;
         if (getenv("BITTEN_EVENT_DEBUG")) {
             fprintf(stderr, "bitten: mouse down at %s hits", NSStringFromPoint(event.locationInWindow).UTF8String);
@@ -228,7 +235,7 @@ extern BOOL bn_dragging_route(NSWindow *w, NSEvent *e);
         if (self.acceptsMouseMovedEvents) [self.firstResponder mouseMoved:event];
         break;
     case NSEventTypeScrollWheel: {
-        NSView *hit = [self.contentView hitTest:event.locationInWindow];
+        NSView *hit = [self _bn_hitView:event.locationInWindow];
         [hit ?: self.contentView scrollWheel:event];
         break;
     }
@@ -578,14 +585,14 @@ static void bn_tell_live_resize(NSView *v, BOOL start) {
                                     withObject:[NSNotification notificationWithName:NSWindowWillStartLiveResizeNotification
                                                                              object:self userInfo:nil]];
         [self _post:NSWindowWillStartLiveResizeNotification];
-        bn_tell_live_resize(self.contentView, YES);
+        bn_tell_live_resize(self._bn_frameView, YES);
     }
     __weak NSWindow *weakSelf = self;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 350 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
         NSWindow *w = weakSelf;
         if (!w || [objc_getAssociatedObject(w, &kStep) integerValue] != step || !w.inLiveResize) return;
         objc_setAssociatedObject(w, @selector(inLiveResize), nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        bn_tell_live_resize(w.contentView, NO);
+        bn_tell_live_resize(w._bn_frameView, NO);
         if ([w.delegate respondsToSelector:@selector(windowDidEndLiveResize:)])
             [(id)w.delegate performSelector:@selector(windowDidEndLiveResize:)
                                  withObject:[NSNotification notificationWithName:NSWindowDidEndLiveResizeNotification

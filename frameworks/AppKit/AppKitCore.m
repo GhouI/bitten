@@ -203,7 +203,7 @@ static void bn_autoresize_axis(CGFloat delta, BOOL flexLo, BOOL flexLen, BOOL fl
     }
     if (_superview) _superview.needsDisplay = YES;
     /* (a view out of the tree but still naming a window isn't drawn) */
-    else if (_window && _window.contentView == self) [_window _bn_scheduleDisplay];
+    else if (_window && (_window.contentView == self || self == [_window _bn_frameView])) [_window _bn_scheduleDisplay];
 }
 - (void)_bn_invalidateOwnArea {
     if (!_window || !_superview) return;
@@ -460,9 +460,19 @@ __attribute__((noinline)) void bn_debug_callers(void) {
 
 static NSUInteger next_window_number = 1;
 
+/* The window's frame view, as AppKit's theme frame: the content view's
+ * superview, as large as the window. Programs add views to it to draw over
+ * the content (window.contentView.superview). */
+@interface BNFrameView : NSView
+@end
+@implementation BNFrameView
+@end
+
 @implementation NSWindow {
     NSColor *_backgroundColor;
+    BNFrameView *_frameView;
 }
+- (NSView *)_bn_frameView { return _frameView; }
 @synthesize delegate = _delegate;
 - (void)dealloc {
     if (getenv("BITTEN_WINDOW_DEBUG")) fprintf(stderr, "bitten: window %s '%s' freed\n", object_getClassName(self), _title.UTF8String ?: "");
@@ -470,7 +480,7 @@ static NSUInteger next_window_number = 1;
      * AppKit lets a window go: they drop what they set up for it (event
      * monitors, observers). */
     [self _bn_dropFirstResponder];
-    [_contentView _bn_forgetWindow:self];
+    [_frameView _bn_forgetWindow:self];
 }
 - (instancetype)initWithContentRect:(NSRect)rect styleMask:(NSWindowStyleMask)style
                             backing:(NSBackingStoreType)backing defer:(BOOL)flag {
@@ -484,6 +494,9 @@ static NSUInteger next_window_number = 1;
         _frame = [self frameRectForContentRect:rect];
         _windowNumber = next_window_number++;
         _title = @"";
+        _frameView = [[BNFrameView alloc] initWithFrame:NSMakeRect(0, 0, _frame.size.width, _frame.size.height)];
+        _frameView.autoresizesSubviews = NO;   /* the window sizes the content view itself */
+        [_frameView _setWindow:self];
         self.contentView = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, rect.size.width, rect.size.height)];
         if (!all_windows) all_windows = [NSMutableArray array];
         [all_windows addObject:self];
@@ -510,13 +523,19 @@ static NSUInteger next_window_number = 1;
 }
 - (NSView *)contentView { return _contentView; }
 - (void)setContentView:(NSView *)view {
-    [_contentView _setWindow:nil];
-    _contentView.nextResponder = nil;
+    NSView *old = _contentView;
     _contentView = view;
+    if (old.superview == _frameView) [old removeFromSuperview];
+    [old _setWindow:nil];
+    old.nextResponder = nil;
     NSRect c = [self contentRectForFrameRect:_frame];
-    view.frame = NSMakeRect(0, 0, c.size.width, c.size.height);
-    view.nextResponder = self;
-    [view _setWindow:self];
+    if (view) {
+        /* below anything else in the frame view: views added there draw over it */
+        if (view.superview != _frameView) [_frameView addSubview:view positioned:NSWindowBelow relativeTo:nil];
+        view.frame = NSMakeRect(0, 0, c.size.width, c.size.height);
+        view.nextResponder = self;
+        [view _setWindow:self];
+    }
 }
 - (NSString *)title { return _title; }
 - (void)setTitle:(NSString *)t { _title = [t copy]; }
@@ -541,6 +560,7 @@ static NSUInteger next_window_number = 1;
     BOOL moved = !NSEqualPoints(frame.origin, _frame.origin);
     _frame = frame;
     NSRect c = [self contentRectForFrameRect:frame];
+    _frameView.frame = NSMakeRect(0, 0, frame.size.width, frame.size.height);
     _contentView.frame = NSMakeRect(0, 0, c.size.width, c.size.height);
     if (resized) {
         if ([_delegate respondsToSelector:@selector(windowDidResize:)])
@@ -565,7 +585,7 @@ static NSUInteger next_window_number = 1;
         fprintf(stderr, "bitten: window %s %s ordered front\n", object_getClassName(self), NSStringFromRect(_frame).UTF8String);
     BOOL was = _visible;
     _visible = YES;
-    if (!was) bn_tree_visibility(_contentView, YES);
+    if (!was) bn_tree_visibility(_frameView, YES);
     [self display];
     [self _bn_orderFrontOnDisplay];
     if (!was) [self _bn_occlusionChanged];
@@ -644,7 +664,7 @@ static const char kMainKey;
 }
 - (void)orderOut:(id)sender {
     BOOL was = _visible;
-    if (_visible) bn_tree_visibility(_contentView, NO);
+    if (_visible) bn_tree_visibility(_frameView, NO);
     _visible = NO;
     [self _bn_closeDisplay];
     [self _bn_resignMain];
@@ -654,7 +674,7 @@ static const char kMainKey;
 /* Hidden but still known to the display (miniaturized: shown as a chip). */
 - (void)_bn_hideKeepingDisplay {
     BOOL was = _visible;
-    if (_visible) bn_tree_visibility(_contentView, NO);
+    if (_visible) bn_tree_visibility(_frameView, NO);
     _visible = NO;
     [self _bn_resignMain];
     if (was) [self _bn_occlusionChanged];
@@ -665,7 +685,7 @@ static const char kMainKey;
         [_delegate windowWillClose:[NSNotification notificationWithName:NSWindowWillCloseNotification
                                                                  object:self userInfo:nil]];
     [self _post:NSWindowWillCloseNotification];
-    if (_visible) bn_tree_visibility(_contentView, NO);
+    if (_visible) bn_tree_visibility(_frameView, NO);
     _visible = NO;
     [self _bn_closeDisplay];
     [self _bn_passKeyOn];

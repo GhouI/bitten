@@ -184,6 +184,18 @@ int main(void) {
                 for (int x = 0; x < 24; x++) darkest[enabled] = MIN(darkest[enabled], [r colorAtX:x y:y].redComponent);
         }
         CHECK(darkest[1] < 0.4 && darkest[0] > 0.6);
+
+        /* The content view has a superview as large as the window (AppKit's
+         * frame view): a view a program adds there draws over the content. */
+        NSView *frameView = w.contentView.superview;
+        CHECK(frameView && NSEqualSizes(frameView.bounds.size, w.frame.size) && frameView.window == w);
+        Painter *over = [[Painter alloc] initWithFrame:NSMakeRect(0, 0, 40, 40)];
+        [frameView addSubview:over];
+        CHECK(over.window == w && w.contentView.superview == frameView);
+        [w display];
+        c = [w _bn_backingContext];
+        CHECK(pixel(c, 2, 2) == 0xFF0000);
+        [over removeFromSuperview];
         [w close];
         printf("ok\n");
     }
