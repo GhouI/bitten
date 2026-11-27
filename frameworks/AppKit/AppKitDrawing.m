@@ -12,6 +12,11 @@
 #include <objc/runtime.h>
 #include <pthread.h>
 
+/* What of the window's bitmap the frame being drawn can still change (see
+ * -_bn_drawIn:parentFlipped:). */
+static CGContextRef bn_visible_ctx;
+static CGRect bn_visible;
+
 /* ---- the display's handoff API (exported by bitten's runtime) ---- */
 size_t bitten_cg_gstate_depth(CGContextRef c);
 void bitten_cg_restore_to_depth(CGContextRef c, size_t depth);
@@ -358,7 +363,17 @@ static void bn_layer_background(BNBackingLayer *layer, CGContextRef c, CGRect b)
         CGPathRelease(p);
     }
     CGContextSaveGState(c);
-    if (layer.masksToBounds && layer.cornerRadius > 0) {
+    /* Rounded corners clip only where they cut: not when all the frame can
+     * still change lies inside the rect less its corners. */
+    BOOL cornersShow = YES;
+    if (c == bn_visible_ctx && layer.cornerRadius > 0) {
+        CGRect inner = CGRectApplyAffineTransform(CGRectInset(b, layer.cornerRadius, layer.cornerRadius), CGContextGetCTM(c));
+        CGRect insideCorners = CGRectApplyAffineTransform(CGRectInset(b, 0, layer.cornerRadius), CGContextGetCTM(c));
+        CGRect insideSides = CGRectApplyAffineTransform(CGRectInset(b, layer.cornerRadius, 0), CGContextGetCTM(c));
+        cornersShow = !(CGRectContainsRect(inner, bn_visible) || CGRectContainsRect(insideCorners, bn_visible) ||
+                        CGRectContainsRect(insideSides, bn_visible));
+    }
+    if (layer.masksToBounds && layer.cornerRadius > 0 && cornersShow) {
         CGPathRef p = bn_rounded(b, layer.cornerRadius);
         CGContextAddPath(c, p);
         CGContextClip(c);
@@ -418,8 +433,6 @@ static void profile_add(id view, double ms) {
  * the way down. A clip that would not narrow it is skipped, and a
  * clipping view wholly outside it is not drawn at all. Only for the
  * window's own context (bn_visible_ctx). */
-static CGContextRef bn_visible_ctx;
-static CGRect bn_visible;
 - (void)_bn_drawIn:(CGContextRef)c parentFlipped:(BOOL)parentFlipped {
     if (self.isHidden) return;
     static int profiling = -1;

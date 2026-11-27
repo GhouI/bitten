@@ -4731,3 +4731,12 @@ Debugging aids:
 - With the speed-ups from #233–#236, idle CPU is about 10%. NEXT.md now
   lists speed, and paste timing to watch, as what's left.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Rounded corners clip only where they cut
+
+- A layer with rounded corners that masks to bounds clipped every repaint
+  to its rounded path (`CGContextClip`), about 3% of a resize profile.
+  Repaints that lie wholly inside the rect less its corners (inside the
+  side bands or the centre) now skip the clip; the rect clip already
+  bounds them. Pane corners look the same.
+- Target app (total `^MISSING`): 0 -> 0.
