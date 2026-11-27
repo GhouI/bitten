@@ -11,6 +11,8 @@
 #include <string.h>
 
 void bn_debug_callers(void);
+void bn_view_visibility(NSView *view, BOOL visible); /* AppKitControllers.m */
+void bn_tree_visibility(NSView *root, BOOL visible);
 @interface NSView (BittenContentsDiff)
 - (BOOL)_bn_contentsChange:(NSRect *)changed; /* AppKitDrawing.m */
 @end
@@ -214,7 +216,10 @@ static void bn_autoresize_axis(CGFloat delta, BOOL flexLo, BOOL flexLen, BOOL fl
 - (void)_setWindow:(NSWindow *)window {
     if (window == _window) return;
     [self viewWillMoveToWindow:window];
+    BOOL was = _window.isVisible;
     _window = window;
+    /* a controller's view appears with a visible window, and goes with it */
+    if (window.isVisible != was) bn_view_visibility(self, window.isVisible);
     for (NSView *v in _subviews) [v _setWindow:window];
     if (window) [self _bn_setTrackingAreasNeedUpdate];
     [self viewDidMoveToWindow];
@@ -471,7 +476,9 @@ static NSUInteger next_window_number = 1;
 - (void)orderFront:(id)sender {
     if (getenv("BITTEN_EVENT_DEBUG") && !_visible)
         fprintf(stderr, "bitten: window %s %s ordered front\n", object_getClassName(self), NSStringFromRect(_frame).UTF8String);
+    BOOL was = _visible;
     _visible = YES;
+    if (!was) bn_tree_visibility(_contentView, YES);
     [self display];
     [self _bn_orderFrontOnDisplay];
 }
@@ -516,6 +523,7 @@ static NSUInteger next_window_number = 1;
         }
 }
 - (void)orderOut:(id)sender {
+    if (_visible) bn_tree_visibility(_contentView, NO);
     _visible = NO;
     [self _bn_closeDisplay];
     [self _bn_passKeyOn];
@@ -525,6 +533,7 @@ static NSUInteger next_window_number = 1;
         [_delegate windowWillClose:[NSNotification notificationWithName:NSWindowWillCloseNotification
                                                                  object:self userInfo:nil]];
     [self _post:NSWindowWillCloseNotification];
+    if (_visible) bn_tree_visibility(_contentView, NO);
     _visible = NO;
     [self _bn_closeDisplay];
     [self _bn_passKeyOn];

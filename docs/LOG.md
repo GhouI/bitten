@@ -4221,3 +4221,19 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
     callers.
   - `BITTEN_EVENT_DEBUG` logs menu items performed by index.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: view controllers hear their views appear and disappear
+
+- `viewWillAppear`/`viewDidAppear` and `viewWillDisappear`/`viewDidDisappear`
+  are called. A controller's view knows its controller. The callbacks fire
+  when the view joins or leaves a visible window, and when that window is
+  ordered in, out or closed, parents first and once each way. They were
+  never called before.
+- The target app's Settings window installs its initial page on
+  appearance, so it used to open with an empty detail pane. It now opens on
+  the Server page.
+  - Settings still opens at its 720-point minimum, as it would on a Mac:
+    the window is sized from its content before the page is added. The
+    Terminal page's squeezed "Font style" column follows from that and the
+    app's fixed field widths.
+- Target app (total `^MISSING`): 0 -> 0.
