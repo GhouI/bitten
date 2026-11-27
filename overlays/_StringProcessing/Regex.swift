@@ -8,8 +8,9 @@
 //
 // A regex's Output is decided by the compiler (Substring, or a tuple of the
 // whole match and each capture, a capture under ?, * or | being optional).
-// Matches build it from the type: the elements are Substrings or optional
-// Substrings, laid out one after another.
+// Matches build it from the tuple type's own elements: Substrings, values
+// captured components make (a number format style's Double), or optionals
+// of either, each at the offset the type gives it.
 
 // ---- the tree --------------------------------------------------------------
 
@@ -416,11 +417,26 @@ internal final class _RProgram: @unchecked Sendable {
   /// For regexes whose Output is a value made from the match (a parsed
   /// number...): nil rejects the match.
   let transform: ((Substring) -> Any?)?
-  init(_ root: _RNode, captures: Int, transform: ((Substring) -> Any?)? = nil) {
+  /// Captures whose value is made from their text (a capture of a regex
+  /// component with an Output of its own, such as a parsed number), by
+  /// capture number.
+  let captureTransforms: [Int: (Substring) -> Any?]
+  init(_ root: _RNode, captures: Int, transform: ((Substring) -> Any?)? = nil,
+       captureTransforms: [Int: (Substring) -> Any?] = [:]) {
     self.root = root
     self.captures = captures
     self.transform = transform
+    self.captureTransforms = captureTransforms
   }
+  /// The capture transforms with their numbers moved up by `by`.
+  func transforms(movedBy by: Int) -> [Int: (Substring) -> Any?] {
+    var out: [Int: (Substring) -> Any?] = [:]
+    for (k, v) in captureTransforms { out[k + by] = v }
+    return out
+  }
+}
+internal func _merged(_ a: [Int: (Substring) -> Any?], _ b: [Int: (Substring) -> Any?]) -> [Int: (Substring) -> Any?] {
+  return a.merging(b) { x, _ in x }
 }
 
 public struct Regex<Output>: RegexComponent, @unchecked Sendable {
@@ -492,7 +508,8 @@ public struct Regex<Output>: RegexComponent, @unchecked Sendable {
   public func prefixMatch(in s: String) throws -> Match? { return try prefixMatch(in: s[...]) }
 
   public func ignoresCase(_ on: Bool = true) -> Regex<Output> {
-    return Regex(_program: _RProgram(.caseInsensitive(_program.root, on), captures: _program.captures))
+    return Regex(_program: _RProgram(.caseInsensitive(_program.root, on), captures: _program.captures,
+                                     transform: _program.transform, captureTransforms: _program.captureTransforms))
   }
 
   internal func _search(_ s: Substring, whole: Bool, from: Int, anywhere: Bool) -> Match? {
@@ -516,7 +533,17 @@ public struct Regex<Output>: RegexComponent, @unchecked Sendable {
             return Match(range: range, output: value, _input: s, _captures: caps)
           }
         } else {
-          return Match(range: range, output: Self._output(s, range, caps), _input: s, _captures: caps)
+          // Captures that make a value: a capture whose transform finds no
+          // value (text a number style can't parse) fails the match.
+          var values: [Int: Any] = [:]
+          var ok = true
+          for (n, t) in _program.captureTransforms where n - 1 < caps.count {
+            guard let r = caps[n - 1] else { continue }
+            if let v = t(s[r]) { values[n] = v } else { ok = false; break }
+          }
+          if ok {
+            return Match(range: range, output: Self._output(s, range, caps, values), _input: s, _captures: caps)
+          }
         }
       }
       if !anywhere { break }
@@ -538,56 +565,31 @@ public struct Regex<Output>: RegexComponent, @unchecked Sendable {
     return out
   }
 
-  /// The Output value: Substring, or a tuple of the match and its captures.
-  internal static func _output(_ s: Substring, _ range: Range<String.Index>, _ caps: [Range<String.Index>?]) -> Output {
+  /// The Output value: Substring, or a tuple of the match and its captures
+  /// (each written as its element's type: a Substring, a value a capture
+  /// made, or an optional of either).
+  internal static func _output(_ s: Substring, _ range: Range<String.Index>, _ caps: [Range<String.Index>?],
+                               _ values: [Int: Any] = [:]) -> Output {
     if Output.self == Substring.self { return unsafeBitCast(s[range], to: Output.self) }
     if Output.self == AnyRegexOutput.self {
       let any = AnyRegexOutput(_elements: [s[range]] + caps.map { r in r.map { s[$0] } })
       return unsafeBitCast(any, to: Output.self)
     }
-    let shape = _tupleShape()
     let raw = UnsafeMutableRawPointer.allocate(byteCount: Swift.max(MemoryLayout<Output>.size, 1),
                                                alignment: MemoryLayout<Output>.alignment)
     defer { raw.deallocate() }
-    let stride = MemoryLayout<Substring>.stride
-    for (n, optional) in shape.enumerated() {
-      let at = raw + n * stride
-      let value: Substring? = n == 0 ? s[range] : (n - 1 < caps.count ? caps[n - 1].map { s[$0] } : nil)
-      if optional {
-        at.initializeMemory(as: Optional<Substring>.self, repeating: value, count: 1)
-      } else {
-        at.initializeMemory(as: Substring.self, repeating: value ?? s[s.startIndex..<s.startIndex], count: 1)
-      }
+    let count = _rx_fieldCount(raw, Output.self)
+    for n in 0..<count {
+      var name: UnsafePointer<CChar>? = nil
+      var type: Any.Type? = nil
+      guard let at = _rx_field(raw, Output.self, n, &name, &type), let elementType = type else { continue }
+      let value: Any? = n == 0 ? s[range]
+        : (values[n] ?? (n - 1 < caps.count ? caps[n - 1].map { s[$0] as Any } : nil))
+      _rx_write(elementType, value, UnsafeMutableRawPointer(mutating: at), s[s.startIndex..<s.startIndex])
     }
     return raw.assumingMemoryBound(to: Output.self).move()
   }
 
-  /// Which elements of the Output tuple are optional, from its type name:
-  /// "(Substring, Substring?)", "(Substring, name: Optional<Substring>)".
-  internal static func _tupleShape() -> [Bool] {
-    var name = _typeName(Output.self, qualified: false)
-    guard name.hasPrefix("("), name.hasSuffix(")") else { return [false] }
-    name.removeFirst()
-    name.removeLast()
-    var parts: [String] = []
-    var depth = 0
-    var cur = ""
-    for c in name {
-      if c == "(" || c == "<" { depth += 1 }
-      if c == ")" || c == ">" { depth -= 1 }
-      if c == "," && depth == 0 {
-        parts.append(cur)
-        cur = ""
-      } else {
-        cur.append(c)
-      }
-    }
-    parts.append(cur)
-    return parts.map { p in
-      let t = p.split(separator: ":").last.map { $0.trimmingSpaces() } ?? ""
-      return t.hasSuffix("?") || t.hasPrefix("Optional<")
-    }
-  }
 }
 
 /// The Output of a regex made at run time: the match and each capture.
@@ -684,34 +686,41 @@ public struct _RegexFactory {
   public init() {}
   public func capture<W, R: RegexComponent>(_ r: R) -> Regex<W> {
     let p = r.regex._program
-    // The new group is number 1; the component's own groups follow it.
-    return Regex(_program: _RProgram(.group(_renumber(p.root, by: 1), capture: 1), captures: p.captures + 1))
+    // The new group is number 1; the component's own groups follow it. A
+    // component that makes its own value (a number format style) makes the
+    // capture's value.
+    var transforms = p.transforms(movedBy: 1)
+    if let t = p.transform { transforms[1] = t }
+    return Regex(_program: _RProgram(.group(_renumber(p.root, by: 1), capture: 1), captures: p.captures + 1,
+                                     captureTransforms: transforms))
   }
   public func accumulate<W, R0: RegexComponent, R1: RegexComponent>(_ a: R0, _ b: R1) -> Regex<W> {
     let pa = a.regex._program, pb = b.regex._program
     return Regex(_program: _RProgram(.sequence([pa.root, _renumber(pb.root, by: pa.captures)]),
-                                     captures: pa.captures + pb.captures))
+                                     captures: pa.captures + pb.captures,
+                                     captureTransforms: _merged(pa.captureTransforms, pb.transforms(movedBy: pa.captures))))
   }
   public func oneOrMore<W, R: RegexComponent>(_ r: R, _ lazy: Bool = false) -> Regex<W> {
     let p = r.regex._program
-    return Regex(_program: _RProgram(.quantified(p.root, min: 1, max: nil, mode: lazy ? .lazy : .greedy), captures: p.captures))
+    return Regex(_program: _RProgram(.quantified(p.root, min: 1, max: nil, mode: lazy ? .lazy : .greedy), captures: p.captures, captureTransforms: p.captureTransforms))
   }
   public func zeroOrMore<W, R: RegexComponent>(_ r: R, _ lazy: Bool = false) -> Regex<W> {
     let p = r.regex._program
-    return Regex(_program: _RProgram(.quantified(p.root, min: 0, max: nil, mode: lazy ? .lazy : .greedy), captures: p.captures))
+    return Regex(_program: _RProgram(.quantified(p.root, min: 0, max: nil, mode: lazy ? .lazy : .greedy), captures: p.captures, captureTransforms: p.captureTransforms))
   }
   public func optionally<W, R: RegexComponent>(_ r: R) -> Regex<W> {
     let p = r.regex._program
-    return Regex(_program: _RProgram(.quantified(p.root, min: 0, max: 1, mode: .greedy), captures: p.captures))
+    return Regex(_program: _RProgram(.quantified(p.root, min: 0, max: 1, mode: .greedy), captures: p.captures, captureTransforms: p.captureTransforms))
   }
   public func repeating<W, R: RegexComponent>(_ r: R, min: Int, max: Int?) -> Regex<W> {
     let p = r.regex._program
-    return Regex(_program: _RProgram(.quantified(p.root, min: min, max: max, mode: .greedy), captures: p.captures))
+    return Regex(_program: _RProgram(.quantified(p.root, min: min, max: max, mode: .greedy), captures: p.captures, captureTransforms: p.captureTransforms))
   }
   public func orderedChoice<W, R0: RegexComponent, R1: RegexComponent>(_ a: R0, _ b: R1) -> Regex<W> {
     let pa = a.regex._program, pb = b.regex._program
     return Regex(_program: _RProgram(.alternation([pa.root, _renumber(pb.root, by: pa.captures)]),
-                                     captures: pa.captures + pb.captures))
+                                     captures: pa.captures + pb.captures,
+                                     captureTransforms: _merged(pa.captureTransforms, pb.transforms(movedBy: pa.captures))))
   }
 }
 
@@ -791,4 +800,38 @@ extension RangeReplaceableCollection where SubSequence == Substring, Self: Bidir
   {
     self = replacing(regex, with: replacement)
   }
+}
+
+// ---- writing an output tuple's elements -------------------------------------
+
+@_silgen_name("_bitten_mirror_count")
+internal func _rx_fieldCount(_ value: UnsafeRawPointer, _ type: Any.Type) -> Int
+@_silgen_name("_bitten_mirror_child")
+internal func _rx_field(_ value: UnsafeRawPointer, _ type: Any.Type, _ index: Int,
+                        _ name: UnsafeMutablePointer<UnsafePointer<CChar>?>,
+                        _ childType: UnsafeMutablePointer<Any.Type?>) -> UnsafeRawPointer?
+
+internal protocol _RxWriter {
+  static func write(_ value: Any?, _ at: UnsafeMutableRawPointer, _ empty: Substring)
+}
+internal enum _RxWrite<E>: _RxWriter {
+  static func write(_ value: Any?, _ at: UnsafeMutableRawPointer, _ empty: Substring) {
+    // The value as this element's type (a Double into Double? too); no value
+    // makes nil for an optional element, else an empty match.
+    if let value = value, let v = value as? E {
+      at.initializeMemory(as: E.self, repeating: v, count: 1)
+    } else if let none = (Optional<Any>.none as Any) as? E {
+      at.initializeMemory(as: E.self, repeating: none, count: 1)
+    } else if let v = empty as? E {
+      at.initializeMemory(as: E.self, repeating: v, count: 1)
+    } else {
+      fatalError("Regex: no value for an output element of type \(E.self)")
+    }
+  }
+}
+/// Writes `value` at `at` as an element of type `type`.
+internal func _rx_write(_ type: Any.Type, _ value: Any?, _ at: UnsafeMutableRawPointer, _ empty: Substring) {
+  func writer<E>(_: E.Type) -> _RxWriter.Type { return _RxWrite<E>.self }
+  let w = _openExistential(type, do: writer)
+  w.write(value, at, empty)
 }

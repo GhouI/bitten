@@ -101,7 +101,9 @@ extension Section: View where Parent: View, Content: View, Footer: View {
     if Parent.self != EmptyView.self { children.append(_makeNode(v.header, inputs: header.named("header"))) }
     // a collapsed section shows its header only
     if v.isExpanded?.wrappedValue ?? true {
+      if getenv("BITTEN_TMP") != nil { _dbg("SECTION \(Content.self)") }
       children += _makeNodes(v.content, inputs: inputs.named("content"))
+      if getenv("BITTEN_TMP") != nil { _dbg("SECTION done") }
       if Footer.self != EmptyView.self { children.append(_makeNode(v.footer, inputs: inputs.named("footer"))) }
     }
     return _ViewOutputs(_StackNode(axis: .vertical, alignment: Alignment(horizontal: .leading, vertical: .center),

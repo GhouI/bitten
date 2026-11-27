@@ -2,6 +2,7 @@
 // in a regex), lists, ISO 8601 (format and parse), date styles, TimeZone.
 import Foundation
 import _StringProcessing
+import RegexBuilder
 
 @_silgen_name("swl_fmt_numbers") public func numbers() -> Int {
   var bad = 0
@@ -23,6 +24,18 @@ import _StringProcessing
   if let m = try? Regex<Double>(_bittenPattern: "x", transform: { _ in nil }).firstMatch(in: "x"), m != nil { bad |= 0x2000 }
   let style = FloatingPointFormatStyle<Double>.localizedDouble(locale: us)
   if (try? style.regex.firstMatch(in: "Total: 1,250.75 USD"))??.output != 1250.75 { bad |= 0x4000 }
+  // Captured, a number style's value is the capture's: the output is
+  // (Substring, Double), laid out as that tuple; text it can't parse
+  // doesn't match.
+  let spacing = Regex {
+    "x="
+    Capture(.localizedDouble(locale: us))
+    "px"
+  }
+  if let m = try? spacing.wholeMatch(in: "x=12.5px"[...]) {
+    if m.output.0 != "x=12.5px" || m.output.1 != 12.5 { bad |= 0x8000 }
+  } else { bad |= 0x10000 }
+  if (try? spacing.wholeMatch(in: "x=abcpx"[...])) != nil { bad |= 0x20000 }
   return bad
 }
 
