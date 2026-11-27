@@ -4308,3 +4308,16 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   - `BITTEN_METHODS=ClassName` lists a matching view class's own methods
     when it joins a window.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Debugging: a view class's methods and stored properties
+
+- `BITTEN_METHODS=ClassName` now prints the implementation address of each
+  of the matching class's own methods. It also prints its ivars (Swift
+  stored properties, with their runtime offsets and first byte) when the
+  view joins a window and again a main-queue turn later.
+- With it, and gdb breakpoints on the target app's code, the shortcut
+  recorder in Settings → Shortcuts was checked. It begins recording on one
+  click (it makes itself first responder from `viewDidMoveToWindow`, a turn
+  later) and records ⌘N, now that command keys reach views first (#208).
+  The Swift field offsets it reads were slid correctly by the runtime.
+- Target app (total `^MISSING`): 0 -> 0.
