@@ -4719,3 +4719,15 @@ Debugging aids:
   (from 16–17% earlier today), and memset no longer shows in the idle
   profile.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## NEXT.md: what is still open
+
+- Pasting into a terminal pane now arrives as a bracketed paste: bash
+  highlights the pasted text. The earlier literal `[200~` fits an escape
+  byte reaching readline after its key-sequence timeout while frames were
+  slow.
+- Return in the target app's text fields is the app's own (its delegate
+  takes `insertNewline:`).
+- With the speed-ups from #233–#236, idle CPU is about 10%. NEXT.md now
+  lists speed, and paste timing to watch, as what's left.
+- Target app (total `^MISSING`): 0 -> 0.
