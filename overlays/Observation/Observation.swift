@@ -38,6 +38,11 @@ nonisolated(unsafe) private let lock: UnsafeMutablePointer<UInt32> = {
   return body()
 }
 
+@_silgen_name("getenv") internal func _bitten_getenv(_ name: UnsafePointer<CChar>) -> UnsafeMutablePointer<CChar>?
+@_silgen_name("write") internal func _bitten_write(_ fd: Int32, _ p: UnsafePointer<UInt8>?, _ n: Int) -> Int
+/// BITTEN_OBSERVATION_DEBUG: log each write that fires a tracked change.
+private let _debugObservation = _bitten_getenv("BITTEN_OBSERVATION_DEBUG") != nil
+
 /// What each thread is currently tracking (a stack, because tracking can
 /// nest).
 nonisolated(unsafe) private var trackingStacks: [UInt: [_Tracking]] = [:]
@@ -73,6 +78,10 @@ public struct ObservationRegistrar: Sendable {
         t.onChange = nil
       }
       return out
+    }
+    if !changes.isEmpty && _debugObservation {
+      var line = "bitten: observation: \(keyPath) changed\n"
+      line.withUTF8 { _ = _bitten_write(2, $0.baseAddress, $0.count) }
     }
     for change in changes { change() }
   }

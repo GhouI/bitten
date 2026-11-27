@@ -47,7 +47,15 @@ internal final class _RenderContext {
   private var seen: Set<String> = []
   private var live: [String: (() -> Void)?] = [:]
   private var pendingAppear: [() -> Void] = []
-  func beginBuild() { seen = [] }
+  /// Counts builds. Observation registered by an earlier build watches a
+  /// tree that is gone: a write that fires it while a newer tree is built
+  /// (a view's initialiser storing what it was given) is not a change the
+  /// new tree missed.
+  var generation = 0
+  func beginBuild() {
+    seen = []
+    generation += 1
+  }
   func lifecycle(_ key: String, appear: (() -> Void)?, disappear: (() -> Void)?) {
     seen.insert(key)
     if live[key] == nil, let a = appear { pendingAppear.append(a) }
@@ -344,7 +352,9 @@ extension View where Self: Animatable {
 /// when one changes, the host rebuilds.
 internal func _withObservation<T>(_ inputs: _ViewInputs, _ body: () -> T) -> T {
   let context = inputs.base.context
+  let generation = context.generation
   return withObservationTracking(body, onChange: {
+    guard generation == context.generation else { return }
     if _debugGraph || _debugTree { _dbg("bitten: observed change: rebuilding") }
     context.invalidate()
   })
