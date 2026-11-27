@@ -3976,3 +3976,27 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   pixels. `BITTEN_NOTIFICATION_DEBUG` logs every posted notification.
 
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Target app: the CLI helper's exit status 1, and a test for reading its output
+
+- On a fresh HOME the target app logs "Rex CLI helper exited unexpectedly
+  ... status=1". That is its first `server status --json` probe. The CLI
+  answers "rex server is not running" with exit 1, which is correct when no
+  server runs yet. The app then runs `server start`, and the server comes up
+  through bitten's launchctl (bootout, bootstrap, kickstart, print). This
+  happens on the host and in the container, where the socket is
+  `~/Library/Application Support/rex/server.sock`. bitten does not cause the
+  exit status.
+- The app stopped right after this because of unimplemented methods it
+  calls on the helper's output and endpoint. The NSData no-copy entry, the
+  update-framework selectors entry and the tuple cast entry above added
+  them, and that is what moves it past "Creating Session…".
+- Test: tests/foundation/helperoutput.m covers that path without the app.
+  It splits piped-output bytes into lines with `rangeOfData:options:range:`
+  (forward, backwards, anchored, out of range) and with
+  `enumerateLinesUsingBlock:` (\n, \r\n, stop, empty). It also resolves
+  an endpoint with `URLWithString:relativeToURL:`, including every RFC 3986
+  section 5.4 normal example.
+- Target app (total `^MISSING`): 0 -> 0. Ran `docker run ... bitten run`
+  (browser display) on main: onboarding appears, "Skip for now" opens a zsh
+  terminal, and `echo hi` typed in the window prints `hi` in the window.
