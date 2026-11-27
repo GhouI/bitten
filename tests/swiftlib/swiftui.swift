@@ -365,3 +365,25 @@ struct Forwarding: PrimitiveButtonStyle {
     return 0
   }
 }
+
+/// A switch draws a white knob at the end it is set to; a checkbox that is
+/// on draws a white check in its box.
+@_silgen_name("swl_swiftui_togglemarks") public func togglemarks() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    @MainActor func mark(_ on: Bool, _ style: some ToggleStyle) -> (Int, Int) -> UInt32 {
+      return render(Toggle("", isOn: .constant(on)).labelsHidden().toggleStyle(style).frame(width: 40, height: 20), 40, 20)
+    }
+    // The 32x16 switch sits centred: x 4...36, y 2...18; its knob is 14 across.
+    var px = mark(true, .switch)
+    if px(28, 10) != white || px(10, 10) == white { bad |= 1 }
+    px = mark(false, .switch)
+    if px(12, 10) != white || px(28, 10) == white { bad |= 2 }
+    // The 14x14 checkbox: x 13...27, y 3...17; the check crosses near its middle.
+    px = mark(true, .checkbox)
+    var whiteInBox = 0
+    for y in 5..<15 { for x in 15..<25 where px(x, y) == white { whiteInBox += 1 } }
+    if whiteInBox == 0 { bad |= 4 }
+    return bad
+  }
+}

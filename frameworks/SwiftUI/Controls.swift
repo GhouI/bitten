@@ -775,8 +775,11 @@ public struct ContentUnavailableView<Label: View, Description: View, Actions: Vi
     let v = view.value
     var title = inputs
     title.environment.font = .title2.bold()
+    title.environment.multilineTextAlignment = .center
     var secondary = inputs
     secondary.environment._foregroundStyle = AnyShapeStyle(HierarchicalShapeStyle.secondary)
+    // The description's lines are centred under the title, as on macOS.
+    secondary.environment.multilineTextAlignment = .center
     let children = [_makeNode(v.label, inputs: title.named("label")),
                     _makeNode(v.description, inputs: secondary.named("description")),
                     _makeNode(v.actions, inputs: inputs.named("actions"))]
@@ -836,12 +839,10 @@ public struct Toggle<Label: View>: View {
     let on = v.isOn.wrappedValue
     let isSwitch = inputs.environment._toggleStyle == .switch
     let mark = _ControlNode(environment: inputs.environment, children: [
-      _ShapeNode(shape: RoundedRectangle(cornerRadius: isSwitch ? 8 : 3),
-                 paint: on ? Color.accentColor.resolve(in: inputs.environment).paint : _Paint(r: 0.85, g: 0.85, b: 0.85, a: 1),
-                 eoFill: false, stroke: nil, environment: inputs.environment),
+      _ToggleMarkNode(on: on, isSwitch: isSwitch, environment: inputs.environment),
     ])
-    let sized = _FrameNode(minW: isSwitch ? 32 : 14, idealW: isSwitch ? 32 : 14, maxW: isSwitch ? 32 : 14, minH: 16,
-                           idealH: 16, maxH: 16, alignment: .center, environment: inputs.environment, children: [mark])
+    let sized = _FrameNode(minW: isSwitch ? 32 : 14, idealW: isSwitch ? 32 : 14, maxW: isSwitch ? 32 : 14,
+                           minH: isSwitch ? 16 : 14, idealH: isSwitch ? 16 : 14, maxH: isSwitch ? 16 : 14, alignment: .center, environment: inputs.environment, children: [mark])
     let binding = v.isOn
     let row = _ControlNode(environment: inputs.environment, children: [
       _StackNode(axis: .horizontal, alignment: .center, spacing: 6, environment: inputs.environment,
@@ -861,6 +862,40 @@ extension Toggle where Label == Text {
   @_disfavoredOverload
   public init<S: StringProtocol>(_ title: S, isOn: Binding<Bool>) {
     self.init(isOn: isOn) { Text(title) }
+  }
+}
+/// A toggle's mark as macOS draws it: a switch is a track with a white
+/// knob at the end it is set to; a checkbox is a box with a check when on.
+internal final class _ToggleMarkNode: _ViewNode {
+  let on: Bool, isSwitch: Bool
+  init(on: Bool, isSwitch: Bool, environment: EnvironmentValues) {
+    self.on = on
+    self.isSwitch = isSwitch
+    super.init(environment: environment)
+  }
+  override func sizeThatFits(_ proposal: ProposedViewSize) -> CGSize {
+    return CGSize(width: proposal.width ?? (isSwitch ? 32 : 14), height: proposal.height ?? (isSwitch ? 16 : 14))
+  }
+  override func draw(_ context: CGContext) {
+    let f = frame
+    let accent = Color.accentColor.resolve(in: environment).paint
+    let off = _Paint(r: 0.85, g: 0.85, b: 0.85, a: 1)
+    if isSwitch {
+      let r = f._height / 2
+      (on ? accent : off).fill(CGPathCreateWithRoundedRect(f, r, r, nil), in: context)
+      let d = f._height - 2
+      let knob = CGRect(_x: on ? f._maxX - d - 1 : f._minX + 1, y: f._minY + 1, width: d, height: d)
+      _Paint(r: 1, g: 1, b: 1, a: 1).fill(CGPathCreateWithEllipseInRect(knob, nil), in: context)
+      _Paint(r: 0, g: 0, b: 0, a: 0.12).stroke(CGPathCreateWithEllipseInRect(knob, nil), in: context, width: 0.5)
+    } else {
+      (on ? accent : off).fill(CGPathCreateWithRoundedRect(f, 3, 3, nil), in: context)
+      guard on else { return }
+      let check = CGPathCreateMutable()
+      CGPathMoveToPoint(check, nil, f._minX + f._width * 0.25, f._minY + f._height * 0.52)
+      CGPathAddLineToPoint(check, nil, f._minX + f._width * 0.43, f._minY + f._height * 0.72)
+      CGPathAddLineToPoint(check, nil, f._minX + f._width * 0.76, f._minY + f._height * 0.3)
+      _Paint(r: 1, g: 1, b: 1, a: 1).stroke(check, in: context, width: 1.8)
+    }
   }
 }
 internal enum _ToggleAppearance { case automatic, `switch`, checkbox, button }
