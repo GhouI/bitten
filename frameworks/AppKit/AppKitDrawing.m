@@ -433,6 +433,22 @@ static void profile_add(id view, double ms) {
  * the way down. A clip that would not narrow it is skipped, and a
  * clipping view wholly outside it is not drawn at all. Only for the
  * window's own context (bn_visible_ctx). */
+/* A view is its backing layer's delegate: rendering the layer on its own
+ * (-[CALayer renderInContext:], a snapshot) draws the view and its
+ * subviews into the layer's space. The window's own drawing paints views
+ * directly, so this does nothing then. */
+- (void)drawLayer:(CALayer *)layer inContext:(CGContextRef)ctx {
+    if (!ctx || ctx == bn_visible_ctx) return;
+    CGContextRef visibleBefore = bn_visible_ctx;
+    CGRect visibleRectBefore = bn_visible;
+    bn_visible_ctx = NULL;
+    CGContextSaveGState(ctx);
+    CGContextTranslateCTM(ctx, -self.frame.origin.x, -self.frame.origin.y);
+    [self _bn_drawIn:ctx parentFlipped:NO];
+    CGContextRestoreGState(ctx);
+    bn_visible_ctx = visibleBefore;
+    bn_visible = visibleRectBefore;
+}
 - (void)_bn_drawIn:(CGContextRef)c parentFlipped:(BOOL)parentFlipped {
     if (self.isHidden) return;
     static int profiling = -1;
@@ -715,7 +731,12 @@ static const char kDrawingKey;
      * frame repaints those. */
     if (self.isVisible && self.alphaValue > 0 &&
         ([objc_getAssociatedObject(self, &kFullKey) boolValue] || objc_getAssociatedObject(self, &kDirtyKey)))
+    {
         [self.contentView layoutSubtreeIfNeeded];
+        /* views a program put over the content, in the frame view */
+        for (NSView *v in self._bn_frameView.subviews)
+            if (v != self.contentView) [v layoutSubtreeIfNeeded];
+    }
     BOOL full = [objc_getAssociatedObject(self, &kFullKey) boolValue];
     NSValue *dirtyValue = objc_getAssociatedObject(self, &kDirtyKey);
     objc_setAssociatedObject(self, &kFullKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -786,7 +807,7 @@ static const char kDrawingKey;
     CGRect visibleRectBefore = bn_visible;
     bn_visible_ctx = c;
     bn_visible = full ? CGRectMake(0, 0, content.size.width, content.size.height) : CGRectMake(dirty.origin.x, dirty.origin.y, dirty.size.width, dirty.size.height);
-    [self.contentView _bn_drawIn:c parentFlipped:NO];
+    [self._bn_frameView _bn_drawIn:c parentFlipped:NO];
     NSView *toolbar = self._bn_toolbarView;
     if (toolbar) [toolbar _bn_drawIn:c parentFlipped:NO];
     bn_visible_ctx = visibleBefore;

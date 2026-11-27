@@ -5280,3 +5280,25 @@ Debugging aids:
   CTFontManagerCopyAvailablePostScriptNames.
 - Test: tests/c/coretext.c.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: windows have a frame view over their content view
+
+- `window.contentView.superview` was nil. On macOS it is the window's
+  frame view (the theme frame), as large as the window, and programs add
+  views to it to draw over everything.
+  - Windows now have one. The content view is its first subview, and
+    views added later draw above the content and take clicks first.
+  - The window draws and hit-tests through it. Tracking areas,
+    visibility, appearance and live resize reach its views. Layout still
+    starts from the content view, with views over it laid out on their
+    own.
+- The target app's Settings search spotlight now runs: clicking a search
+  result dims the page around the setting it found. Its cut-out still
+  shows a plain card instead of the setting, because Core Animation's
+  `compositingFilter` (used to erase the dim there) isn't drawn yet
+  (raised with the QuartzCore side).
+- A view is its backing layer's delegate: `drawLayer:inContext:` now draws
+  the view and its subviews when the layer is rendered on its own
+  (`renderInContext:`); the window's drawing still paints views directly.
+- Test: `tests/appkit/drawing.m`.
+- Target app (total `^MISSING`): 0 -> 0.

@@ -117,7 +117,7 @@ static void tell_appearance_changed(NSView *v) {
     [self _bn_appearanceChanged];
 }
 - (void)_bn_appearanceChanged {
-    if (self.contentView) tell_appearance_changed(self.contentView);
+    if (self._bn_frameView) tell_appearance_changed(self._bn_frameView);
     if (self.isVisible) [self _bn_scheduleDisplay]; /* may come in the middle of drawing */
 }
 - (NSAppearance *)effectiveAppearance { return self.appearance ?: [NSApplication sharedApplication].effectiveAppearance; }
