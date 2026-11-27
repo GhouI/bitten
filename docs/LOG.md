@@ -4577,3 +4577,15 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   tests/swiftlib/swiftui.swift (`shortcuts`).
 - Target app (total `^MISSING`): 0 -> 0.
 
+
+## Switches and checkboxes take clicks again
+
+- A regression from #198: a toggle's switch or check box is drawn by a
+  leaf node (`_ToggleMarkNode`), which didn't count as content where a
+  click lands. The toggle's control node therefore took no clicks, and
+  every switch and checkbox stopped responding.
+- The mark now counts as content over its frame. In the target app,
+  Settings → Developer → Developer Mode switches on (its developer
+  settings appear) and back off. tests/swiftlib/swiftui.swift
+  (`toggleclick`) clicks a switch and a checkbox.
+- Target app (total `^MISSING`): 0 -> 0.

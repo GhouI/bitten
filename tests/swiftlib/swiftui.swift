@@ -579,3 +579,34 @@ struct StoringParent: View {
     return bad
   }
 }
+
+/// A click on a switch or a checkbox flips it.
+@_silgen_name("swl_swiftui_toggleclick") public func toggleClick() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    for (i, style) in [AnyToggleStyleBox(.switch), AnyToggleStyleBox(.checkbox)].enumerated() {
+      var on = false
+      let binding = Binding(get: { on }, set: { on = $0 })
+      let view = style.apply(Toggle("", isOn: binding).labelsHidden()).frame(width: 40, height: 20)
+      let host = NSHostingView(rootView: view)
+      _ = render(view, 40, 20, host: host)
+      let at = NSMakePoint(20, 10)
+      for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+        let e = NSEvent.mouseEvent(with: type, location: at, modifierFlags: [], timestamp: 0, windowNumber: 0,
+                                   context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+        if type == .leftMouseDown { host.mouseDown(with: e) } else { host.mouseUp(with: e) }
+      }
+      if !on { bad |= 1 << i }
+    }
+    return bad
+  }
+}
+/// A toggle style chosen at run time.
+struct AnyToggleStyleBox {
+  let isSwitch: Bool
+  init(_ s: SwitchToggleStyle) { isSwitch = true }
+  init(_ s: CheckboxToggleStyle) { isSwitch = false }
+  @MainActor func apply<V: View>(_ v: V) -> AnyView {
+    return isSwitch ? AnyView(v.toggleStyle(.switch)) : AnyView(v.toggleStyle(.checkbox))
+  }
+}
