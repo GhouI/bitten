@@ -4544,3 +4544,14 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   status; both one and four workers pass. Unused unwind imports remain
   unsupported. From #168.
 - Target app: not rechecked; the change only adds an export.
+
+## Build: a failed libSystem stub generation fails the build
+
+- `tools/gen-tbd.sh` read `mrun --list-exports` through a pipeline, so a
+  failing mrun still produced a stub with no exports and exit status 0.
+  It now captures the list first and fails with it. The Makefile writes
+  the stub to a temporary file and moves it into place only on success,
+  so a failure leaves nothing a later `make` would take as current.
+- Test: `tests/gen-tbd.sh`, run by `make check`, uses an mrun that fails.
+  From #55.
+- Target app (total `^MISSING`): unaffected; build tooling only.
