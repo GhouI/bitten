@@ -132,6 +132,18 @@ typedef NS_OPTIONS(NSUInteger, NSStringCompareOptions) {
     NSForcedOrderingSearch NS_SWIFT_NAME(forcedOrdering) = 512,
     NSRegularExpressionSearch NS_SWIFT_NAME(regularExpression) = 1024
 } NS_SWIFT_NAME(NSString.CompareOptions);
+typedef NS_OPTIONS(NSUInteger, NSStringEnumerationOptions) {
+    NSStringEnumerationByLines NS_SWIFT_NAME(byLines) = 0,
+    NSStringEnumerationByParagraphs NS_SWIFT_NAME(byParagraphs) = 1,
+    NSStringEnumerationByComposedCharacterSequences NS_SWIFT_NAME(byComposedCharacterSequences) = 2,
+    NSStringEnumerationByWords NS_SWIFT_NAME(byWords) = 3,
+    NSStringEnumerationBySentences NS_SWIFT_NAME(bySentences) = 4,
+    NSStringEnumerationByCaretPositions NS_SWIFT_NAME(byCaretPositions) = 5,
+    NSStringEnumerationByDeletionClusters NS_SWIFT_NAME(byDeletionClusters) = 6,
+    NSStringEnumerationReverse NS_SWIFT_NAME(reverse) = 1UL << 8,
+    NSStringEnumerationSubstringNotRequired NS_SWIFT_NAME(substringNotRequired) = 1UL << 9,
+    NSStringEnumerationLocalized NS_SWIFT_NAME(localized) = 1UL << 10
+} NS_SWIFT_NAME(NSString.EnumerationOptions);
 
 #define NS_FORMAT_FUNCTION(F, A) __attribute__((format(__NSString__, F, A)))
 #define NS_REQUIRES_NIL_TERMINATION __attribute__((sentinel))
@@ -201,6 +213,10 @@ __attribute__((swift_bridge("Swift.String")))
 - (NSRange)rangeOfComposedCharacterSequencesForRange:(NSRange)range;
 - (void)getLineStart:(nullable NSUInteger *)startPtr end:(nullable NSUInteger *)lineEndPtr
          contentsEnd:(nullable NSUInteger *)contentsEndPtr forRange:(NSRange)range;
+- (void)enumerateSubstringsInRange:(NSRange)range options:(NSStringEnumerationOptions)opts
+                        usingBlock:(void (^)(NSString *_Nullable substring, NSRange substringRange, NSRange enclosingRange, BOOL *stop))block;
+- (void)enumerateLinesUsingBlock:(void (^)(NSString *line, BOOL *stop))block;
+@property (nullable, readonly, copy) NSString *stringByRemovingPercentEncoding;
 - (void)getParagraphStart:(nullable NSUInteger *)startPtr end:(nullable NSUInteger *)parEndPtr
               contentsEnd:(nullable NSUInteger *)contentsEndPtr forRange:(NSRange)range;
 - (NSRange)lineRangeForRange:(NSRange)range;
@@ -236,10 +252,14 @@ __attribute__((swift_bridge("Swift.String")))
 - (NSString *)stringByTrimmingCharactersInSet:(NSCharacterSet *)set;
 - (NSArray<NSString *> *)componentsSeparatedByCharactersInSet:(NSCharacterSet *)set;
 - (NSRange)rangeOfCharacterFromSet:(NSCharacterSet *)set;
+- (nullable NSString *)stringByAddingPercentEncodingWithAllowedCharacters:(NSCharacterSet *)allowedCharacters;
 - (NSString *)stringByPaddingToLength:(NSUInteger)length withString:(NSString *)pad startingAtIndex:(NSUInteger)index;
 + (nullable instancetype)stringWithContentsOfFile:(NSString *)path encoding:(NSStringEncoding)enc error:(NSError **)error;
 - (nullable instancetype)initWithContentsOfFile:(NSString *)path encoding:(NSStringEncoding)enc error:(NSError **)error;
 - (BOOL)writeToFile:(NSString *)path atomically:(BOOL)atomically encoding:(NSStringEncoding)enc error:(NSError **)error;
++ (nullable instancetype)stringWithContentsOfURL:(NSURL *)url encoding:(NSStringEncoding)enc error:(NSError **)error;
+- (nullable instancetype)initWithContentsOfURL:(NSURL *)url encoding:(NSStringEncoding)enc error:(NSError **)error;
+- (BOOL)writeToURL:(NSURL *)url atomically:(BOOL)atomically encoding:(NSStringEncoding)enc error:(NSError **)error;
 @end
 
 @interface NSMutableString : NSString
@@ -290,6 +310,8 @@ __attribute__((swift_bridge("Swift.String")))
 @property (readonly) char charValue;
 @property (readonly) int intValue;
 @property (readonly) unsigned int unsignedIntValue;
+@property (readonly) short shortValue;
+@property (readonly) unsigned short unsignedShortValue;
 @property (readonly) long longValue;
 @property (readonly) unsigned long unsignedLongValue;
 @property (readonly) long long longLongValue;
@@ -323,6 +345,7 @@ __attribute__((swift_bridge("Swift.Array")))
 - (NSUInteger)indexOfObject:(ObjectType)object;
 - (NSUInteger)indexOfObjectIdenticalTo:(ObjectType)anObject;
 - (NSArray<ObjectType> *)arrayByAddingObject:(ObjectType)object;
+- (NSArray<ObjectType> *)arrayByAddingObjectsFromArray:(NSArray<ObjectType> *)otherArray;
 - (NSArray<ObjectType> *)subarrayWithRange:(NSRange)range;
 - (NSString *)componentsJoinedByString:(NSString *)separator;
 - (BOOL)isEqualToArray:(NSArray<ObjectType> *)other;
@@ -355,6 +378,8 @@ __attribute__((swift_bridge("Swift.Dictionary")))
 + (instancetype)dictionary;
 + (instancetype)dictionaryWithObject:(ObjectType)object forKey:(KeyType<NSCopying>)key;
 + (instancetype)dictionaryWithObjects:(const ObjectType[])objects forKeys:(const KeyType<NSCopying>[])keys count:(NSUInteger)count;
++ (instancetype)dictionaryWithObjects:(NSArray<ObjectType> *)objects forKeys:(NSArray<KeyType<NSCopying>> *)keys;
+- (instancetype)initWithObjects:(NSArray<ObjectType> *)objects forKeys:(NSArray<KeyType<NSCopying>> *)keys;
 + (instancetype)dictionaryWithDictionary:(NSDictionary<KeyType, ObjectType> *)dictionary;
 - (instancetype)initWithObjects:(const ObjectType[])objects forKeys:(const KeyType<NSCopying>[])keys count:(NSUInteger)count;
 - (instancetype)initWithDictionary:(NSDictionary<KeyType, ObjectType> *)dictionary;
@@ -457,6 +482,12 @@ __attribute__((swift_bridge("Foundation.Data")))
 - (instancetype)initWithBytesNoCopy:(void *)bytes length:(NSUInteger)length deallocator:(nullable void (^)(void *bytes, NSUInteger length))deallocator;
 - (instancetype)initWithData:(NSData *)data;
 - (instancetype)initWithContentsOfFile:(NSString *)path;
++ (nullable instancetype)dataWithContentsOfFile:(NSString *)path options:(NSDataReadingOptions)readOptionsMask error:(NSError **)errorPtr;
++ (nullable instancetype)dataWithContentsOfURL:(NSURL *)url;
++ (nullable instancetype)dataWithContentsOfURL:(NSURL *)url options:(NSDataReadingOptions)readOptionsMask error:(NSError **)errorPtr;
+- (nullable instancetype)initWithContentsOfFile:(NSString *)path options:(NSDataReadingOptions)readOptionsMask error:(NSError **)errorPtr;
+- (nullable instancetype)initWithContentsOfURL:(NSURL *)url;
+- (nullable instancetype)initWithContentsOfURL:(NSURL *)url options:(NSDataReadingOptions)readOptionsMask error:(NSError **)errorPtr;
 - (instancetype)initWithBase64EncodedString:(NSString *)string options:(NSDataBase64DecodingOptions)options;
 @property (readonly) NSUInteger length;
 @property (readonly) const void *bytes;
@@ -466,6 +497,9 @@ __attribute__((swift_bridge("Foundation.Data")))
 - (BOOL)isEqualToData:(NSData *)other;
 - (NSRange)rangeOfData:(NSData *)dataToFind options:(NSDataSearchOptions)mask range:(NSRange)searchRange;
 - (BOOL)writeToFile:(NSString *)path atomically:(BOOL)atomically;
+- (BOOL)writeToURL:(NSURL *)url atomically:(BOOL)atomically;
+- (BOOL)writeToFile:(NSString *)path options:(NSDataWritingOptions)writeOptionsMask error:(NSError **)errorPtr;
+- (BOOL)writeToURL:(NSURL *)url options:(NSDataWritingOptions)writeOptionsMask error:(NSError **)errorPtr;
 - (NSString *)base64EncodedStringWithOptions:(NSDataBase64EncodingOptions)options;
 @end
 @interface NSMutableData : NSData
@@ -520,6 +554,7 @@ enum {
     NSFileNoSuchFileError = 4, NSFileReadNoSuchFileError = 260, NSFileReadUnsupportedSchemeError = 262, NSFileReadNoPermissionError = 257,
     NSFileReadUnknownError = 256, NSFileReadInapplicableStringEncodingError = 261,
     NSFileWriteUnknownError = 512, NSFileWriteNoPermissionError = 513, NSFileWriteFileExistsError = 516,
+    NSFileWriteUnsupportedSchemeError = 518,
     NSPropertyListReadCorruptError = 3840
 };
 __attribute__((swift_bridge("Swift.Error")))
@@ -585,6 +620,12 @@ __attribute__((swift_bridge("Swift.Set")))
 @property (class, readonly, copy) NSCharacterSet *lowercaseLetterCharacterSet NS_SWIFT_NAME(lowercaseLetters);
 @property (class, readonly, copy) NSCharacterSet *punctuationCharacterSet NS_SWIFT_NAME(punctuationCharacters);
 @property (class, readonly, copy) NSCharacterSet *controlCharacterSet NS_SWIFT_NAME(controlCharacters);
+@property (class, readonly, copy) NSCharacterSet *URLUserAllowedCharacterSet NS_SWIFT_NAME(urlUserAllowed);
+@property (class, readonly, copy) NSCharacterSet *URLPasswordAllowedCharacterSet NS_SWIFT_NAME(urlPasswordAllowed);
+@property (class, readonly, copy) NSCharacterSet *URLHostAllowedCharacterSet NS_SWIFT_NAME(urlHostAllowed);
+@property (class, readonly, copy) NSCharacterSet *URLPathAllowedCharacterSet NS_SWIFT_NAME(urlPathAllowed);
+@property (class, readonly, copy) NSCharacterSet *URLQueryAllowedCharacterSet NS_SWIFT_NAME(urlQueryAllowed);
+@property (class, readonly, copy) NSCharacterSet *URLFragmentAllowedCharacterSet NS_SWIFT_NAME(urlFragmentAllowed);
 + (instancetype)characterSetWithCharactersInString:(NSString *)string;
 + (instancetype)characterSetWithRange:(NSRange)range;
 - (BOOL)characterIsMember:(unichar)character;
@@ -633,6 +674,8 @@ NS_SWIFT_NAME(ProcessInfo)
 @property (readonly, copy) NSString *userName;
 @property BOOL automaticTerminationSupportEnabled;
 - (BOOL)isOperatingSystemAtLeastVersion:(NSOperatingSystemVersion)version;
+@property (readonly, getter=isMacCatalystApp) BOOL macCatalystApp;
+@property (readonly, getter=isiOSAppOnMac) BOOL iOSAppOnMac;
 - (void)disableAutomaticTermination:(NSString *)reason;
 - (void)enableAutomaticTermination:(NSString *)reason;
 - (void)disableSuddenTermination;
@@ -665,8 +708,21 @@ typedef NS_OPTIONS(NSUInteger, NSFileManagerItemReplacementOptions) {
     NSFileManagerItemReplacementUsingNewMetadataOnly = 1UL << 0,
     NSFileManagerItemReplacementWithoutDeletingBackupItem = 1UL << 1
 } NS_SWIFT_NAME(FileManager.ItemReplacementOptions);
+@interface NSDirectoryEnumerator<ObjectType> : NSEnumerator<ObjectType>
+@property (nullable, readonly, copy) NSDictionary<NSFileAttributeKey, id> *fileAttributes;
+@property (nullable, readonly, copy) NSDictionary<NSFileAttributeKey, id> *directoryAttributes;
+@property (readonly) NSUInteger level;
+@property (readonly) BOOL isEnumeratingDirectoryPostOrder;
+- (void)skipDescendants;
+- (void)skipDescendents;
+@end
 NS_SWIFT_NAME(FileManager)
 @interface NSFileManager : NSObject
+- (nullable NSDirectoryEnumerator<NSString *> *)enumeratorAtPath:(NSString *)path;
+- (nullable NSDirectoryEnumerator<NSURL *> *)enumeratorAtURL:(NSURL *)url
+                                  includingPropertiesForKeys:(nullable NSArray<NSString *> *)keys
+                                                     options:(NSDirectoryEnumerationOptions)mask
+                                                errorHandler:(nullable BOOL (^)(NSURL *url, NSError *error))handler;
 - (NSArray<NSURL *> *)URLsForDirectory:(NSSearchPathDirectory)directory inDomains:(NSSearchPathDomainMask)domainMask;
 - (nullable NSURL *)URLForDirectory:(NSSearchPathDirectory)directory inDomain:(NSSearchPathDomainMask)domain
                   appropriateForURL:(nullable NSURL *)url create:(BOOL)shouldCreate error:(NSError **)error;
@@ -745,6 +801,19 @@ __attribute__((swift_bridge("Foundation.URL")))
 @property (readonly, getter=isFileURL) BOOL fileURL;
 - (NSURL *)URLByAppendingPathComponent:(NSString *)component;
 @property (nullable, readonly, copy) NSURL *URLByDeletingLastPathComponent;
++ (nullable instancetype)URLWithString:(NSString *)URLString relativeToURL:(nullable NSURL *)baseURL;
+- (nullable instancetype)initWithString:(NSString *)URLString relativeToURL:(nullable NSURL *)baseURL;
++ (NSURL *)fileURLWithFileSystemRepresentation:(const char *)path isDirectory:(BOOL)isDir relativeToURL:(nullable NSURL *)baseURL;
+- (instancetype)initFileURLWithFileSystemRepresentation:(const char *)path isDirectory:(BOOL)isDir relativeToURL:(nullable NSURL *)baseURL;
+@property (readonly) const char *fileSystemRepresentation;
+- (BOOL)getFileSystemRepresentation:(char *)buffer maxLength:(NSUInteger)maxBufferLength;
+- (NSURL *)URLByAppendingPathComponent:(NSString *)pathComponent isDirectory:(BOOL)isDirectory;
+- (NSURL *)URLByAppendingPathExtension:(NSString *)pathExtension;
+@property (nullable, readonly, copy) NSURL *URLByDeletingPathExtension;
+@property (nullable, readonly, copy) NSURL *URLByStandardizingPath;
+@property (nullable, readonly, copy) NSURL *URLByResolvingSymlinksInPath;
+- (BOOL)getResourceValue:(out id _Nullable *_Nonnull)value forKey:(NSString *)key error:(NSError **)error;
+- (nullable NSDictionary<NSString *, id> *)resourceValuesForKeys:(NSArray<NSString *> *)keys error:(NSError **)error;
 @end
 
 typedef NSUInteger NSJSONReadingOptions;
@@ -810,6 +879,11 @@ NS_SWIFT_NAME(Bundle)
 @property (nullable, readonly) Class principalClass;
 @property (readonly, copy) NSArray<NSString *> *localizations;
 @property (readonly, copy) NSArray<NSString *> *preferredLocalizations;
++ (NSArray<NSString *> *)preferredLocalizationsFromArray:(NSArray<NSString *> *)localizationsArray;
++ (NSArray<NSString *> *)preferredLocalizationsFromArray:(NSArray<NSString *> *)localizationsArray
+                                         forPreferences:(nullable NSArray<NSString *> *)preferencesArray;
+- (nullable NSString *)pathForAuxiliaryExecutable:(NSString *)executableName;
+- (nullable NSURL *)URLForAuxiliaryExecutable:(NSString *)executableName;
 @property (nullable, readonly, copy) NSString *developmentLocalization;
 - (BOOL)load;
 @property (readonly, getter=isLoaded) BOOL loaded;
@@ -1596,6 +1670,9 @@ extern NSURLResourceKey const NSURLVolumeTotalCapacityKey NS_SWIFT_NAME(URLResou
 extern NSURLResourceKey const NSURLIsUbiquitousItemKey NS_SWIFT_NAME(URLResourceKey.isUbiquitousItemKey);
 extern NSURLResourceKey const NSURLFileProtectionKey NS_SWIFT_NAME(URLResourceKey.fileProtectionKey);
 extern NSURLResourceKey const NSURLAddedToDirectoryDateKey NS_SWIFT_NAME(URLResourceKey.addedToDirectoryDateKey);
+extern NSString *const NSURLFileResourceTypeNamedPipe, *const NSURLFileResourceTypeCharacterSpecial,
+    *const NSURLFileResourceTypeDirectory, *const NSURLFileResourceTypeBlockSpecial, *const NSURLFileResourceTypeRegular,
+    *const NSURLFileResourceTypeSymbolicLink, *const NSURLFileResourceTypeSocket, *const NSURLFileResourceTypeUnknown;
 
 NS_SWIFT_NAME(Host)
 @interface NSHost : NSObject

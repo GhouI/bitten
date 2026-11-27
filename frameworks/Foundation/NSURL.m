@@ -1,4 +1,7 @@
 #import "FoundationInternal.h"
+#include <limits.h>
+#include <sys/param.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 /* Components of a parsed URL (strong references: the pieces are fresh
@@ -88,7 +91,222 @@ static BNURLParts *parse(NSString *url) {
     return p;
 }
 
+static NSString *remove_dot_segments(NSString *path) {
+    NSMutableArray<NSString *> *out = [NSMutableArray array];
+    NSArray<NSString *> *parts = [path componentsSeparatedByString:@"/"];
+    for (NSUInteger i = 0; i < parts.count; i++) {
+        NSString *p = parts[i];
+        BOOL last = i + 1 == parts.count;
+        if ([p isEqualToString:@"."]) {
+            if (last) [out addObject:@""];
+        } else if ([p isEqualToString:@".."]) {
+            if (out.count > 1) [out removeLastObject];
+            if (last) [out addObject:@""];
+        } else {
+            [out addObject:p];
+        }
+    }
+    NSString *joined = [out componentsJoinedByString:@"/"];
+    return [path hasPrefix:@"/"] && ![joined hasPrefix:@"/"] ? [@"/" stringByAppendingString:joined] : joined;
+}
+
+static BOOL has_scheme(NSString *s) {
+    NSUInteger n = s.length;
+    for (NSUInteger i = 0; i < n; i++) {
+        unichar c = [s characterAtIndex:i];
+        if (c == ':') return i > 0;
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (i && ((c >= '0' && c <= '9') || c == '+' || c == '-' || c == '.')))) return NO;
+    }
+    return NO;
+}
+
+/* RFC 3986 section 5.2: resolve a reference against an absolute base URL. */
+static NSString *resolve_reference(NSString *ref, NSString *base) {
+    if (!base.length || has_scheme(ref)) return ref;
+    NSRange hash = [base rangeOfString:@"#"];
+    if (hash.location != NSNotFound) base = [base substringToIndex:hash.location];
+    if (!ref.length) return base;
+    if ([ref hasPrefix:@"#"]) return [base stringByAppendingString:ref];
+    NSRange q = [base rangeOfString:@"?"];
+    NSString *noQuery = q.location == NSNotFound ? base : [base substringToIndex:q.location];
+    if ([ref hasPrefix:@"?"]) return [noQuery stringByAppendingString:ref];
+    NSRange colon = [noQuery rangeOfString:@":"];
+    NSString *scheme = [noQuery substringToIndex:colon.location + 1], *rest = [noQuery substringFromIndex:colon.location + 1];
+    if ([ref hasPrefix:@"//"]) return [scheme stringByAppendingString:ref];
+    NSString *authority = @"", *path = rest;
+    if ([rest hasPrefix:@"//"]) {
+        NSRange slash = [rest rangeOfString:@"/" options:0 range:NSMakeRange(2, rest.length - 2)];
+        authority = slash.location == NSNotFound ? rest : [rest substringToIndex:slash.location];
+        path = slash.location == NSNotFound ? @"" : [rest substringFromIndex:slash.location];
+    }
+    NSString *tail = @"", *refPath = ref;
+    NSRange cut = [ref rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"?#"]];
+    if (cut.location != NSNotFound) {
+        tail = [ref substringFromIndex:cut.location];
+        refPath = [ref substringToIndex:cut.location];
+    }
+    if (![refPath hasPrefix:@"/"]) {
+        NSRange last = [path rangeOfString:@"/" options:NSBackwardsSearch];
+        NSString *dir = last.location == NSNotFound ? (authority.length ? @"/" : @"") : [path substringToIndex:last.location + 1];
+        refPath = [dir stringByAppendingString:refPath];
+    }
+    return [NSString stringWithFormat:@"%@%@%@%@", scheme, authority, remove_dot_segments(refPath), tail];
+}
+
+static NSURL *with_path(NSURL *url, NSString *path) {
+    NSString *s = url.absoluteString, *tail = @"";
+    NSRange cut = [s rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"?#"]];
+    if (cut.location != NSNotFound) tail = [s substringFromIndex:cut.location];
+    if (url.isFileURL) return [NSURL URLWithString:[[@"file://" stringByAppendingString:percent_encode_path(path)] stringByAppendingString:tail]];
+    NSString *head = [s substringToIndex:cut.location == NSNotFound ? s.length : cut.location];
+    NSRange start = [head rangeOfString:@"://"];
+    NSUInteger from = start.location == NSNotFound ? [head rangeOfString:@":"].location + 1 : start.location + 3;
+    NSRange slash = [head rangeOfString:@"/" options:0 range:NSMakeRange(from, head.length - from)];
+    NSString *prefix = slash.location == NSNotFound ? head : [head substringToIndex:slash.location];
+    return [NSURL URLWithString:[NSString stringWithFormat:@"%@%@%@", prefix, percent_encode_path(path), tail]];
+}
+
+NSString *const NSURLFileResourceTypeNamedPipe = @"NSURLFileResourceTypeNamedPipe";
+NSString *const NSURLFileResourceTypeCharacterSpecial = @"NSURLFileResourceTypeCharacterSpecial";
+NSString *const NSURLFileResourceTypeDirectory = @"NSURLFileResourceTypeDirectory";
+NSString *const NSURLFileResourceTypeBlockSpecial = @"NSURLFileResourceTypeBlockSpecial";
+NSString *const NSURLFileResourceTypeRegular = @"NSURLFileResourceTypeRegular";
+NSString *const NSURLFileResourceTypeSymbolicLink = @"NSURLFileResourceTypeSymbolicLink";
+NSString *const NSURLFileResourceTypeSocket = @"NSURLFileResourceTypeSocket";
+NSString *const NSURLFileResourceTypeUnknown = @"NSURLFileResourceTypeUnknown";
+
+static NSString *file_type(mode_t m) {
+    if (S_ISDIR(m)) return NSURLFileResourceTypeDirectory;
+    if (S_ISREG(m)) return NSURLFileResourceTypeRegular;
+    if (S_ISLNK(m)) return NSURLFileResourceTypeSymbolicLink;
+    if (S_ISFIFO(m)) return NSURLFileResourceTypeNamedPipe;
+    if (S_ISCHR(m)) return NSURLFileResourceTypeCharacterSpecial;
+    if (S_ISBLK(m)) return NSURLFileResourceTypeBlockSpecial;
+    if (S_ISSOCK(m)) return NSURLFileResourceTypeSocket;
+    return NSURLFileResourceTypeUnknown;
+}
+
 @implementation NSURL (Foundation)
++ (instancetype)URLWithString:(NSString *)string relativeToURL:(NSURL *)base {
+    return [[self alloc] initWithString:string relativeToURL:base];
+}
+- (instancetype)initWithString:(NSString *)string relativeToURL:(NSURL *)base {
+    if (!string) return nil;
+    if (!base) return [self initWithString:string];
+    for (const char *c = string.UTF8String; c && *c; c++)
+        if ((unsigned char)*c <= ' ') return nil;
+    return [self initWithString:resolve_reference(string, base.absoluteString)];
+}
++ (instancetype)fileURLWithFileSystemRepresentation:(const char *)path isDirectory:(BOOL)isDir relativeToURL:(NSURL *)base {
+    return [[self alloc] initFileURLWithFileSystemRepresentation:path isDirectory:isDir relativeToURL:base];
+}
+- (instancetype)initFileURLWithFileSystemRepresentation:(const char *)path isDirectory:(BOOL)isDir relativeToURL:(NSURL *)base {
+    NSString *p = path ? [NSString stringWithUTF8String:path] : nil;
+    if (!p) return nil;
+    if (![p hasPrefix:@"/"] && base.isFileURL) p = [base.path stringByAppendingPathComponent:p];
+    if (isDir && ![p hasSuffix:@"/"]) p = [p stringByAppendingString:@"/"];
+    return [self initFileURLWithPath:p];
+}
+- (const char *)fileSystemRepresentation {
+    if (!self.isFileURL) return NULL;
+    NSString *__autoreleasing path = self.path;
+    return path.fileSystemRepresentation;
+}
+- (BOOL)getFileSystemRepresentation:(char *)buffer maxLength:(NSUInteger)max {
+    NSString *path = self.isFileURL ? self.path : nil;
+    const char *p = path.fileSystemRepresentation;
+    if (!p || !buffer || strlen(p) + 1 > max) return NO;
+    memcpy(buffer, p, strlen(p) + 1);
+    return YES;
+}
+- (NSURL *)URLByAppendingPathComponent:(NSString *)component isDirectory:(BOOL)isDirectory {
+    NSURL *url = [self URLByAppendingPathComponent:component];
+    if (!isDirectory || [url.absoluteString hasSuffix:@"/"]) return url;
+    return with_path(url, [url.path stringByAppendingString:@"/"]);
+}
+- (NSURL *)URLByAppendingPathExtension:(NSString *)extension {
+    NSString *p = self.path;
+    if (!p.length || [p isEqualToString:@"/"]) return self;
+    NSString *dir = [self.absoluteString hasSuffix:@"/"] ? @"/" : @"";
+    return with_path(self, [[p stringByAppendingPathExtension:extension] stringByAppendingString:dir]);
+}
+- (NSURL *)URLByDeletingPathExtension {
+    NSString *p = self.path;
+    if (!p.length) return self;
+    NSString *dir = [self.absoluteString hasSuffix:@"/"] && p.length > 1 ? @"/" : @"";
+    return with_path(self, [p.stringByDeletingPathExtension stringByAppendingString:dir]);
+}
+- (NSURL *)URLByStandardizingPath {
+    if (!self.isFileURL) return self;
+    NSString *dir = [self.absoluteString hasSuffix:@"/"] && self.path.length > 1 ? @"/" : @"";
+    return with_path(self, [self.path.stringByStandardizingPath stringByAppendingString:dir]);
+}
+- (NSURL *)URLByResolvingSymlinksInPath {
+    if (!self.isFileURL) return self;
+    char resolved[MAXPATHLEN];
+    if (!realpath(self.path.fileSystemRepresentation, resolved)) return self.URLByStandardizingPath;
+    NSString *p = [NSString stringWithUTF8String:resolved];
+    if ([p hasPrefix:@"/private/"] && ![self.path hasPrefix:@"/private/"]) p = [p substringFromIndex:8];
+    NSString *dir = [self.absoluteString hasSuffix:@"/"] && p.length > 1 ? @"/" : @"";
+    return with_path(self, [p stringByAppendingString:dir]);
+}
+- (NSDictionary<NSString *, id> *)resourceValuesForKeys:(NSArray<NSString *> *)keys error:(NSError **)error {
+    if (!self.isFileURL) {
+        if (error)
+            *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSFileReadUnsupportedSchemeError
+                                     userInfo:@{NSURLErrorKey : self}];
+        return nil;
+    }
+    NSString *path = self.path;
+    struct stat st, lst;
+    if (lstat(path.fileSystemRepresentation, &lst) != 0) {
+        BNSetPOSIXError(error, path, YES);
+        return nil;
+    }
+    if (stat(path.fileSystemRepresentation, &st) != 0) st = lst;
+    NSString *name = path.lastPathComponent, *ext = path.pathExtension.lowercaseString;
+    BOOL dir = S_ISDIR(st.st_mode);
+    BOOL package = dir && [@[ @"app", @"bundle", @"framework", @"plugin", @"kext", @"xpc", @"appex" ] containsObject:ext];
+    NSMutableDictionary *out = [NSMutableDictionary dictionary];
+    for (NSString *key in keys) {
+        id v = nil;
+        if ([key isEqualToString:NSURLNameKey] || [key isEqualToString:NSURLLocalizedNameKey]) v = name;
+        else if ([key isEqualToString:NSURLPathKey]) v = path;
+        else if ([key isEqualToString:NSURLIsDirectoryKey]) v = @(dir);
+        else if ([key isEqualToString:NSURLIsRegularFileKey]) v = @(S_ISREG(st.st_mode));
+        else if ([key isEqualToString:NSURLIsSymbolicLinkKey]) v = @(S_ISLNK(lst.st_mode));
+        else if ([key isEqualToString:NSURLIsPackageKey]) v = @(package);
+        else if ([key isEqualToString:NSURLIsApplicationKey]) v = @(dir && [ext isEqualToString:@"app"]);
+        else if ([key isEqualToString:NSURLIsHiddenKey]) v = @([name hasPrefix:@"."]);
+        else if ([key isEqualToString:NSURLIsVolumeKey]) v = @([path isEqualToString:@"/"]);
+        else if ([key isEqualToString:NSURLIsReadableKey]) v = @(access(path.fileSystemRepresentation, R_OK) == 0);
+        else if ([key isEqualToString:NSURLIsWritableKey]) v = @(access(path.fileSystemRepresentation, W_OK) == 0);
+        else if ([key isEqualToString:NSURLIsExecutableKey]) v = @(access(path.fileSystemRepresentation, X_OK) == 0);
+        else if ([key isEqualToString:NSURLFileSizeKey] || [key isEqualToString:NSURLTotalFileSizeKey])
+            v = dir ? nil : @((unsigned long long)st.st_size);
+        else if ([key isEqualToString:NSURLFileAllocatedSizeKey] || [key isEqualToString:NSURLTotalFileAllocatedSizeKey])
+            v = dir ? nil : @((unsigned long long)st.st_blocks * 512);
+        else if ([key isEqualToString:NSURLContentModificationDateKey])
+            v = [NSDate dateWithTimeIntervalSince1970:st.st_mtimespec.tv_sec + st.st_mtimespec.tv_nsec / 1e9];
+        else if ([key isEqualToString:NSURLAttributeModificationDateKey])
+            v = [NSDate dateWithTimeIntervalSince1970:st.st_ctimespec.tv_sec + st.st_ctimespec.tv_nsec / 1e9];
+        else if ([key isEqualToString:NSURLContentAccessDateKey])
+            v = [NSDate dateWithTimeIntervalSince1970:st.st_atimespec.tv_sec + st.st_atimespec.tv_nsec / 1e9];
+        else if ([key isEqualToString:NSURLCreationDateKey])
+            v = [NSDate dateWithTimeIntervalSince1970:st.st_birthtimespec.tv_sec + st.st_birthtimespec.tv_nsec / 1e9];
+        else if ([key isEqualToString:NSURLLinkCountKey]) v = @((unsigned long)st.st_nlink);
+        else if ([key isEqualToString:NSURLFileResourceTypeKey]) v = file_type(lst.st_mode);
+        else if ([key isEqualToString:NSURLParentDirectoryURLKey]) v = self.URLByDeletingLastPathComponent;
+        else if ([key isEqualToString:NSURLIsExcludedFromBackupKey] || [key isEqualToString:NSURLIsUbiquitousItemKey]) v = @NO;
+        if (v) out[key] = v;
+    }
+    return out;
+}
+- (BOOL)getResourceValue:(id *)value forKey:(NSString *)key error:(NSError **)error {
+    NSDictionary *values = [self resourceValuesForKeys:@[ key ] error:error];
+    if (value) *value = values[key];
+    return values != nil;
+}
 + (instancetype)URLWithString:(NSString *)string { return [[self alloc] initWithString:string]; }
 + (instancetype)fileURLWithPath:(NSString *)path { return [[self alloc] initFileURLWithPath:path]; }
 + (instancetype)fileURLWithPath:(NSString *)path isDirectory:(BOOL)isDirectory {

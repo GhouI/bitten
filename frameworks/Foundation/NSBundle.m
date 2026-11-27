@@ -199,6 +199,31 @@ static NSDictionary *read_table(NSString *path) {
     return out;
 }
 - (NSArray<NSString *> *)preferredLocalizations { return @[ self.developmentLocalization ]; }
++ (NSArray<NSString *> *)preferredLocalizationsFromArray:(NSArray<NSString *> *)localizations {
+    return [self preferredLocalizationsFromArray:localizations forPreferences:nil];
+}
++ (NSArray<NSString *> *)preferredLocalizationsFromArray:(NSArray<NSString *> *)localizations
+                                         forPreferences:(NSArray<NSString *> *)preferences {
+    for (NSString *wanted in preferences ?: [NSLocale preferredLanguages]) {
+        NSString *language = [wanted componentsSeparatedByString:@"-"].firstObject;
+        for (NSString *have in localizations)
+            if ([have caseInsensitiveCompare:wanted] == NSOrderedSame) return @[ have ];
+        for (NSString *have in localizations)
+            if ([[have componentsSeparatedByString:@"-"].firstObject caseInsensitiveCompare:language] == NSOrderedSame) return @[ have ];
+    }
+    for (NSString *fallback in @[ @"en", @"English", @"Base" ])
+        if ([localizations containsObject:fallback]) return @[ fallback ];
+    return localizations.count ? @[ localizations.firstObject ] : @[];
+}
+- (NSString *)pathForAuxiliaryExecutable:(NSString *)name {
+    NSString *dir = self.executablePath.stringByDeletingLastPathComponent;
+    NSString *p = dir && name.length ? [dir stringByAppendingPathComponent:name] : nil;
+    return p && [[NSFileManager defaultManager] fileExistsAtPath:p] ? p : nil;
+}
+- (NSURL *)URLForAuxiliaryExecutable:(NSString *)name {
+    NSString *p = [self pathForAuxiliaryExecutable:name];
+    return p ? [NSURL fileURLWithPath:p] : nil;
+}
 - (Class)principalClass {
     NSString *name = self.infoDictionary[@"NSPrincipalClass"];
     return name ? NSClassFromString(name) : nil;

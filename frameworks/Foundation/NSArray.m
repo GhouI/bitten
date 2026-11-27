@@ -109,6 +109,11 @@ static NSArray *sorted(NSArray *self, NSComparator comparator, SEL selector, BOO
     [m addObject:object];
     return [m copy];
 }
+- (NSArray *)arrayByAddingObjectsFromArray:(NSArray *)other {
+    NSMutableArray *m = [self mutableCopy];
+    if (other) [m addObjectsFromArray:other];
+    return [m copy];
+}
 - (NSArray *)subarrayWithRange:(NSRange)range {
     if (NSMaxRange(range) > self.count) BNRaise("NSRangeException", "-[NSArray subarrayWithRange:]: range {%lu, %lu} extends beyond bounds", range.location, range.length);
     void **items = malloc((range.length ? range.length : 1) * sizeof(void *));

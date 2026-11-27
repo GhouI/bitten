@@ -61,6 +61,8 @@ int sysctlbyname(const char *, void *, size_t *, void *, size_t);
     if (v.minorVersion != w.minorVersion) return v.minorVersion > w.minorVersion;
     return v.patchVersion >= w.patchVersion;
 }
+- (BOOL)isMacCatalystApp { return NO; }
+- (BOOL)isiOSAppOnMac { return NO; }
 - (NSUInteger)processorCount { long n = sysconf(_SC_NPROCESSORS_ONLN); return n > 0 ? (NSUInteger)n : 1; }
 - (NSUInteger)activeProcessorCount { return self.processorCount; }
 - (unsigned long long)physicalMemory { long pages = sysconf(_SC_PHYS_PAGES); return pages > 0 ? (unsigned long long)pages * 4096ULL : 0; }

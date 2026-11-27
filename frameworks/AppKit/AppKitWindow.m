@@ -92,6 +92,9 @@ BOOL_PROP(isMovableByWindowBackground, setMovableByWindowBackground, "movableByW
 BOOL_PROP(isReleasedWhenClosed, setReleasedWhenClosed, "releasedWhenClosed", YES)
 BOOL_PROP(hidesOnDeactivate, setHidesOnDeactivate, "hidesOnDeactivate", NO)
 BOOL_PROP(canHide, setCanHide, "canHide", YES)
+BOOL_PROP(autorecalculatesKeyViewLoop, setAutorecalculatesKeyViewLoop, "autorecalculatesKeyViewLoop", NO)
+BOOL_PROP(allowsToolTipsWhenApplicationIsInactive, setAllowsToolTipsWhenApplicationIsInactive,
+          "allowsToolTipsWhenApplicationIsInactive", NO)
 BOOL_PROP(ignoresMouseEvents, setIgnoresMouseEvents, "ignoresMouseEvents", NO)
 BOOL_PROP(acceptsMouseMovedEvents, setAcceptsMouseMovedEvents, "acceptsMouseMovedEvents", NO)
 BOOL_PROP(isExcludedFromWindowsMenu, setExcludedFromWindowsMenu, "excludedFromWindowsMenu", NO)

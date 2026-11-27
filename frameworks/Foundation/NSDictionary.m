@@ -36,6 +36,17 @@ static id freeze(id self, CFMutableDictionaryRef table) {
     for (NSUInteger i = 0; i < count; i++) put(t, keys[i], objects[i], "-[NSDictionary initWithObjects:forKeys:count:]");
     return freeze(self, t);
 }
++ (instancetype)dictionaryWithObjects:(NSArray *)objects forKeys:(NSArray *)keys {
+    return [[self alloc] initWithObjects:objects forKeys:keys];
+}
+- (instancetype)initWithObjects:(NSArray *)objects forKeys:(NSArray *)keys {
+    if (objects.count != keys.count)
+        BNRaise("NSInvalidArgumentException", "-[NSDictionary initWithObjects:forKeys:]: count of objects (%lu) differs from count of keys (%lu)",
+                (unsigned long)objects.count, (unsigned long)keys.count);
+    CFMutableDictionaryRef t = new_table();
+    for (NSUInteger i = 0; i < objects.count; i++) put(t, keys[i], objects[i], "-[NSDictionary initWithObjects:forKeys:]");
+    return freeze(self, t);
+}
 - (instancetype)initWithDictionary:(NSDictionary *)other {
     if (!other) return [self init];
     if (wants_mutable(self)) return (__bridge_transfer id)CFDictionaryCreateMutableCopy(NULL, 0, CFD(other));

@@ -1,4 +1,5 @@
 #import "FoundationInternal.h"
+#include <ctype.h>
 
 CFStringEncoding BNCFEncoding(NSStringEncoding encoding) {
     switch (encoding) {
@@ -390,6 +391,109 @@ static void check_index(NSString *s, NSUInteger index, const char *what) {
     return NSMakeRange(s, e - s);
 }
 - (NSRange)paragraphRangeForRange:(NSRange)r { return [self lineRangeForRange:r]; }
+static BOOL is_word_char(unichar c) {
+    return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '\'' || c == '_' ||
+           (c >= 0xc0 && c != 0xd7 && c != 0xf7 && !(c >= 0x2000 && c <= 0x206f) && c != 0x3000);
+}
+static BOOL is_sentence_end(unichar c) { return c == '.' || c == '!' || c == '?'; }
+static BOOL is_blank(unichar c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == 0x2028 || c == 0x2029 || c == 0xa0; }
+- (void)enumerateSubstringsInRange:(NSRange)range options:(NSStringEnumerationOptions)opts
+                        usingBlock:(void (^)(NSString *, NSRange, NSRange, BOOL *))block {
+    check_index(self, NSMaxRange(range), "enumerateSubstringsInRange:options:usingBlock:");
+    NSUInteger kind = opts & 0xff, end = NSMaxRange(range), i = range.location, count = 0, cap = 16;
+    NSRange (*pieces)[2] = malloc(cap * sizeof *pieces);
+    while (i < end) {
+        NSRange sub, enclosing;
+        if (kind == NSStringEnumerationByComposedCharacterSequences) {
+            sub = enclosing = NSIntersectionRange([self rangeOfComposedCharacterSequenceAtIndex:i], range);
+        } else if (kind == NSStringEnumerationByWords) {
+            NSUInteger start = i;
+            while (i < end && !is_word_char([self characterAtIndex:i])) i++;
+            if (i == end) break;
+            NSUInteger w = i;
+            while (i < end && is_word_char([self characterAtIndex:i])) i++;
+            NSUInteger e = i;
+            while (e < end && !is_word_char([self characterAtIndex:e])) e++;
+            sub = NSMakeRange(w, i - w);
+            enclosing = NSMakeRange(start, e - start);
+        } else if (kind == NSStringEnumerationBySentences) {
+            NSUInteger s = i;
+            while (s < end && is_blank([self characterAtIndex:s])) s++;
+            if (s == end) break;
+            NSUInteger e = s;
+            while (e < end) {
+                unichar c = [self characterAtIndex:e];
+                if (c == '\n' || c == 0x2029) break;
+                e++;
+                if (is_sentence_end(c)) {
+                    while (e < end && is_sentence_end([self characterAtIndex:e])) e++;
+                    if (e == end || is_blank([self characterAtIndex:e])) break;
+                }
+            }
+            NSUInteger tail = e;
+            while (tail < end && is_blank([self characterAtIndex:tail])) tail++;
+            sub = NSMakeRange(s, e - s);
+            enclosing = NSMakeRange(i, tail - i);
+        } else {
+            NSUInteger s, e, contents;
+            [self getLineStart:&s end:&e contentsEnd:&contents forRange:NSMakeRange(i, 0)];
+            s = MAX(s, range.location);
+            e = MIN(e, end);
+            contents = MIN(contents, end);
+            sub = NSMakeRange(s, contents - s);
+            enclosing = NSMakeRange(s, e - s);
+        }
+        if (count == cap) pieces = realloc(pieces, (cap *= 2) * sizeof *pieces);
+        pieces[count][0] = sub;
+        pieces[count][1] = enclosing;
+        count++;
+        i = MAX(NSMaxRange(enclosing), i + 1);
+    }
+    BOOL reverse = (opts & NSStringEnumerationReverse) != 0, stop = NO;
+    for (NSUInteger k = 0; k < count && !stop; k++) {
+        NSRange *pair = pieces[reverse ? count - 1 - k : k];
+        NSString *text = (opts & NSStringEnumerationSubstringNotRequired) ? nil : [self substringWithRange:pair[0]];
+        block(text, pair[0], pair[1], &stop);
+    }
+    free(pieces);
+}
+- (void)enumerateLinesUsingBlock:(void (^)(NSString *, BOOL *))block {
+    [self enumerateSubstringsInRange:NSMakeRange(0, self.length) options:NSStringEnumerationByLines
+                          usingBlock:^(NSString *line, NSRange r, NSRange e, BOOL *stop) { block(line, stop); }];
+}
+- (NSString *)stringByAddingPercentEncodingWithAllowedCharacters:(NSCharacterSet *)allowed {
+    const unsigned char *in = (const unsigned char *)self.UTF8String;
+    if (!in) return nil;
+    NSMutableString *out = [NSMutableString string];
+    for (; *in; in++) {
+        if (*in < 0x80 && [allowed characterIsMember:*in]) [out appendFormat:@"%c", *in];
+        else [out appendFormat:@"%%%02X", *in];
+    }
+    return out;
+}
+- (NSString *)stringByRemovingPercentEncoding {
+    const char *in = self.UTF8String;
+    if (!in) return nil;
+    size_t n = strlen(in), o = 0;
+    char *out = malloc(n + 1);
+    for (size_t i = 0; i < n; i++) {
+        if (in[i] != '%') {
+            out[o++] = in[i];
+            continue;
+        }
+        if (i + 2 >= n + 0 || !isxdigit((unsigned char)in[i + 1]) || !isxdigit((unsigned char)in[i + 2])) {
+            free(out);
+            return nil;
+        }
+        char hex[3] = {in[i + 1], in[i + 2], 0};
+        out[o++] = (char)strtol(hex, NULL, 16);
+        i += 2;
+    }
+    out[o] = 0;
+    NSString *r = [NSString stringWithUTF8String:out];
+    free(out);
+    return r;
+}
 - (NSRange)rangeOfString:(NSString *)needle options:(NSStringCompareOptions)mask range:(NSRange)range {
     check_index(self, NSMaxRange(range), "rangeOfString:options:range:");
     NSRange r = [[self substringWithRange:range] rangeOfString:needle options:mask];

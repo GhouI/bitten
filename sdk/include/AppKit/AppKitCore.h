@@ -534,6 +534,8 @@ typedef NSString *NSUserInterfaceItemIdentifier NS_TYPED_EXTENSIBLE_ENUM;
 @property (getter=isReleasedWhenClosed) BOOL releasedWhenClosed;
 @property BOOL hidesOnDeactivate;
 @property BOOL canHide;
+@property BOOL autorecalculatesKeyViewLoop;
+@property BOOL allowsToolTipsWhenApplicationIsInactive;
 @property BOOL ignoresMouseEvents;
 @property BOOL acceptsMouseMovedEvents;
 @property (getter=isExcludedFromWindowsMenu) BOOL excludedFromWindowsMenu;
@@ -832,6 +834,7 @@ typedef NS_ENUM(NSUInteger, NSLineJoinStyle) { NSLineJoinStyleMiter = 0, NSLineJ
 @property (nullable, strong) NSViewController *contentViewController;
 @property (readonly, getter=isWindowLoaded) BOOL windowLoaded;
 @property (nullable, assign) id owner;
+@property BOOL shouldCascadeWindows;
 - (void)loadWindow;
 - (void)windowWillLoad;
 - (void)windowDidLoad;
@@ -2139,6 +2142,7 @@ typedef NS_OPTIONS(NSUInteger, NSWritingToolsResultOptions) {
 @property BOOL allowsWritingTools;
 @property NSWritingToolsBehavior writingToolsBehavior;
 @property NSWritingToolsResultOptions allowedWritingToolsResultOptions;
+@property BOOL usesAdaptiveColorMappingForDarkAppearance;
 @end
 @interface NSControl (BittenCellClass)
 @property (class, nullable) Class cellClass;

@@ -87,13 +87,22 @@
     NSViewController *_contentViewController;
     NSString *_windowNibName;
     __unsafe_unretained id _owner;
+    BOOL _shouldCascadeWindows;
 }
+- (BOOL)shouldCascadeWindows { return _shouldCascadeWindows; }
+- (void)setShouldCascadeWindows:(BOOL)cascade { _shouldCascadeWindows = cascade; }
 - (instancetype)initWithWindow:(NSWindow *)window {
-    if ((self = [super init])) _window = window;
+    if ((self = [super init])) {
+        _window = window;
+        _shouldCascadeWindows = YES;
+    }
     return self;
 }
 - (instancetype)initWithWindowNibName:(NSString *)windowNibName {
-    if ((self = [super init])) _windowNibName = [windowNibName copy];
+    if ((self = [super init])) {
+        _windowNibName = [windowNibName copy];
+        _shouldCascadeWindows = YES;
+    }
     return self;
 }
 - (instancetype)init { return [self initWithWindow:nil]; }

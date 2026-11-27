@@ -43,6 +43,13 @@ static BOOL t_wsnl(unichar c) { return is_space(c) || is_newline(c); }
 static BOOL t_digit(unichar c) { return c >= '0' && c <= '9'; }
 static BOOL t_alnum(unichar c) { return is_letter(c) || (c >= '0' && c <= '9'); }
 static BOOL t_control(unichar c) { return c < 0x20 || (c >= 0x7f && c <= 0x9f); }
+static BOOL url_unreserved(unichar c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || (c && c < 0x80 && strchr("-._~!$&'()*+,;=", c));
+}
+static BOOL t_url_user(unichar c) { return url_unreserved(c); }
+static BOOL t_url_host(unichar c) { return url_unreserved(c) || c == ':' || c == '[' || c == ']'; }
+static BOOL t_url_path(unichar c) { return url_unreserved(c) || c == ':' || c == '@' || c == '/'; }
+static BOOL t_url_query(unichar c) { return t_url_path(c) || c == '?'; }
 
 #define SHARED(name, test)                                   \
     +(NSCharacterSet *)name {                                \
@@ -64,6 +71,12 @@ SHARED(uppercaseLetterCharacterSet, is_upper)
 SHARED(lowercaseLetterCharacterSet, is_lower)
 SHARED(punctuationCharacterSet, is_punct)
 SHARED(controlCharacterSet, t_control)
+SHARED(URLUserAllowedCharacterSet, t_url_user)
+SHARED(URLPasswordAllowedCharacterSet, t_url_user)
+SHARED(URLHostAllowedCharacterSet, t_url_host)
+SHARED(URLPathAllowedCharacterSet, t_url_path)
+SHARED(URLQueryAllowedCharacterSet, t_url_query)
+SHARED(URLFragmentAllowedCharacterSet, t_url_query)
 + (instancetype)characterSetWithCharactersInString:(NSString *)string {
     NSCharacterSet *s = [self new];
     NSUInteger n = string.length;
