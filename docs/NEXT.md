@@ -24,7 +24,15 @@ windows no longer leaks.
    three fixed-size columns and 12-point gaps take the rest. Real
    macOS fonts may give it a little more. The window can now be widened
    to 900, and the column grows with it (up to 180).
-3. **Paste timing.** A paste once arrived in bash as literal `[200~…~`.
+3. **Lines left after resizing the main window.** Shrinking the target
+   app's main window by its grip and growing it back leaves thin vertical
+   blue lines: one through the title bar near the tab pill's old right
+   edge, one inside the middle pane. They are in the app's frames (a
+   fresh page shows them), and the frames after the resize are full
+   redraws, so some view or layer keeps an outdated frame or size.
+   `BITTEN_VIEW_TREE=1` (now from the window's frame view) lists frames.
+   No resize, no lines.
+4. **Paste timing.** A paste once arrived in bash as literal `[200~…~`.
    That is consistent with the escape byte reaching readline more than its
    key-sequence timeout before the rest. It pastes correctly now that
    frames are faster; watch for it under load.
