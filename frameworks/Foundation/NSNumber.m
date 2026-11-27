@@ -60,6 +60,8 @@ GET(floatValue, float, kCFNumberFloatType)
 GET(doubleValue, double, kCFNumberDoubleType)
 GET(integerValue, NSInteger, kCFNumberNSIntegerType)
 - (unsigned int)unsignedIntValue { return (unsigned int)self.longLongValue; }
+- (short)shortValue { return (short)self.longLongValue; }
+- (unsigned short)unsignedShortValue { return (unsigned short)self.longLongValue; }
 - (unsigned long)unsignedLongValue { return (unsigned long)self.longLongValue; }
 - (unsigned long long)unsignedLongLongValue { return (unsigned long long)self.longLongValue; }
 - (NSUInteger)unsignedIntegerValue { return (NSUInteger)self.longLongValue; }

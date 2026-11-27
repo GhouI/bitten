@@ -123,6 +123,33 @@ static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0
     free(bytes);
     return result;
 }
++ (instancetype)dataWithContentsOfFile:(NSString *)path options:(NSDataReadingOptions)options error:(NSError **)error {
+    return [[self alloc] initWithContentsOfFile:path options:options error:error];
+}
++ (instancetype)dataWithContentsOfURL:(NSURL *)url { return [[self alloc] initWithContentsOfURL:url]; }
++ (instancetype)dataWithContentsOfURL:(NSURL *)url options:(NSDataReadingOptions)options error:(NSError **)error {
+    return [[self alloc] initWithContentsOfURL:url options:options error:error];
+}
+- (instancetype)initWithContentsOfFile:(NSString *)path options:(NSDataReadingOptions)options error:(NSError **)error {
+    size_t length = 0;
+    void *bytes = path ? BNReadFile(path.fileSystemRepresentation, &length) : NULL;
+    if (!bytes) {
+        if (!path) errno = ENOENT;
+        BNSetPOSIXError(error, path, YES);
+        return nil;
+    }
+    id result = make_data(self, bytes, length);
+    free(bytes);
+    return result;
+}
+- (instancetype)initWithContentsOfURL:(NSURL *)url { return [self initWithContentsOfURL:url options:0 error:NULL]; }
+- (instancetype)initWithContentsOfURL:(NSURL *)url options:(NSDataReadingOptions)options error:(NSError **)error {
+    if (url.isFileURL) return [self initWithContentsOfFile:url.path options:options error:error];
+    if (error)
+        *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSFileReadUnsupportedSchemeError
+                                 userInfo:url ? @{NSURLErrorKey : url} : nil];
+    return nil;
+}
 - (instancetype)initWithBase64EncodedString:(NSString *)string options:(NSDataBase64DecodingOptions)options {
     const char *in = string.UTF8String;
     if (!in) return nil;
@@ -191,6 +218,22 @@ static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0
 - (BOOL)isEqual:(id)other { return other == self || ([other isKindOfClass:[NSData class]] && [self isEqualToData:other]); }
 - (BOOL)writeToFile:(NSString *)path atomically:(BOOL)atomically {
     return path && BNWriteFile(path.fileSystemRepresentation, self.bytes, self.length, atomically);
+}
+- (BOOL)writeToURL:(NSURL *)url atomically:(BOOL)atomically {
+    return url.isFileURL && [self writeToFile:url.path atomically:atomically];
+}
+- (BOOL)writeToFile:(NSString *)path options:(NSDataWritingOptions)options error:(NSError **)error {
+    if ([self writeToFile:path atomically:(options & NSDataWritingAtomic) != 0]) return YES;
+    if (!path) errno = ENOENT;
+    BNSetPOSIXError(error, path, NO);
+    return NO;
+}
+- (BOOL)writeToURL:(NSURL *)url options:(NSDataWritingOptions)options error:(NSError **)error {
+    if (url.isFileURL) return [self writeToFile:url.path options:options error:error];
+    if (error)
+        *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSFileWriteUnsupportedSchemeError
+                                 userInfo:url ? @{NSURLErrorKey : url} : nil];
+    return NO;
 }
 - (NSString *)base64EncodedStringWithOptions:(NSDataBase64EncodingOptions)options {
     const uint8_t *in = self.bytes;

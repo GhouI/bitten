@@ -3915,3 +3915,42 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   [image]` runs the same render test in the runtime image as its user.
 - Target app (total `^MISSING`): 0 -> 0. In `docker run` its renderer
   compiles its `default.metallib` and builds its 5 pipelines.
+
+## Foundation: the rest of what the update framework calls
+
+- The target app survives its first launch on a fresh HOME. Its update
+  framework went on from the no-copy NSData call (#188) to
+  `-[NSString enumerateLinesUsingBlock:]` and died there. This time every
+  selector the framework references was checked against the classes bitten
+  registers, and the Foundation ones were filled in together.
+- NSString: `enumerateSubstringsInRange:options:usingBlock:` (lines,
+  paragraphs, composed characters, words, sentences; reverse;
+  substring-not-required), `enumerateLinesUsingBlock:`,
+  `stringByAddingPercentEncodingWithAllowedCharacters:`,
+  `stringByRemovingPercentEncoding`, and reading and writing through URLs.
+- NSCharacterSet: the six `URL…AllowedCharacterSet` sets.
+- NSURL: `URLWithString:relativeToURL:` (RFC 3986 resolution, returned as
+  an absolute URL), `URLByAppendingPathComponent:isDirectory:`,
+  `URLByAppendingPathExtension:`, `URLByDeletingPathExtension`,
+  `URLByStandardizingPath`, `URLByResolvingSymlinksInPath`,
+  `fileSystemRepresentation`, `getFileSystemRepresentation:maxLength:`,
+  `initFileURLWithFileSystemRepresentation:isDirectory:relativeToURL:`, and
+  `getResourceValue:forKey:error:` / `resourceValuesForKeys:error:` (names,
+  kinds, sizes, dates, access and package flags, from lstat/stat).
+- NSFileManager: `enumeratorAtPath:` and
+  `enumeratorAtURL:includingPropertiesForKeys:options:errorHandler:`, with a
+  lazy NSDirectoryEnumerator (`skipDescendants`, `level`, file attributes).
+- NSData: `dataWithContentsOfFile:options:error:`, the `…ContentsOfURL:`
+  forms, `writeToURL:atomically:`, `writeToFile:options:error:` and
+  `writeToURL:options:error:`.
+- Smaller ones: `arrayByAddingObjectsFromArray:`,
+  `dictionaryWithObjects:forKeys:`, NSNumber `shortValue` and
+  `unsignedShortValue`, NSBundle `preferredLocalizationsFromArray:` and
+  `URLForAuxiliaryExecutable:`, NSProcessInfo `isMacCatalystApp` and
+  `isiOSAppOnMac`.
+- AppKit settings the update alert sets: NSWindow
+  `autorecalculatesKeyViewLoop` and `allowsToolTipsWhenApplicationIsInactive`,
+  NSWindowController `shouldCascadeWindows`, NSTextView
+  `usesAdaptiveColorMappingForDarkAppearance`.
+- Test: tests/foundation/sparkle.m.
+- Target app (total `^MISSING`): 0 -> 0.

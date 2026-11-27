@@ -37,7 +37,102 @@ void BNSetPOSIXError(NSError **error, NSString *path, BOOL reading) {
 
 static const char *FS(NSString *path) { return path.fileSystemRepresentation; }
 
+/* Walks a directory tree depth-first without following symbolic links. */
+@implementation NSDirectoryEnumerator {
+    NSFileManager *_manager;
+    NSURL *_rootURL;
+    NSString *_root, *_current, *_pendingDir;
+    NSMutableArray<NSArray<NSString *> *> *_names;
+    NSMutableArray<NSString *> *_dirs;
+    NSMutableArray<NSNumber *> *_positions;
+    NSDirectoryEnumerationOptions _options;
+    BOOL (^_errorHandler)(NSURL *, NSError *);
+    NSUInteger _level;
+    BOOL _stopped;
+}
+- (instancetype)_initWithManager:(NSFileManager *)manager path:(NSString *)root URL:(NSURL *)rootURL
+                         options:(NSDirectoryEnumerationOptions)options errorHandler:(BOOL (^)(NSURL *, NSError *))handler {
+    if (!(self = [super init])) return nil;
+    _manager = manager;
+    _root = root;
+    _rootURL = rootURL;
+    _options = options;
+    _errorHandler = [handler copy];
+    _names = [NSMutableArray array];
+    _dirs = [NSMutableArray array];
+    _positions = [NSMutableArray array];
+    [self _push:@""];
+    return self;
+}
+- (BOOL)_push:(NSString *)relative {
+    NSString *full = relative.length ? [_root stringByAppendingPathComponent:relative] : _root;
+    NSError *error = nil;
+    NSArray *names = [_manager contentsOfDirectoryAtPath:full error:&error];
+    if (!names) {
+        if (_errorHandler && !_errorHandler([NSURL fileURLWithPath:full], error)) _stopped = YES;
+        return NO;
+    }
+    [_names addObject:[names sortedArrayUsingSelector:@selector(compare:)]];
+    [_dirs addObject:relative];
+    [_positions addObject:@0];
+    return YES;
+}
+- (id)nextObject {
+    if (_pendingDir) {
+        NSString *dir = _pendingDir;
+        _pendingDir = nil;
+        [self _push:dir];
+    }
+    while (!_stopped && _names.count) {
+        NSArray<NSString *> *names = _names.lastObject;
+        NSUInteger i = _positions.lastObject.unsignedIntegerValue;
+        if (i >= names.count) {
+            [_names removeLastObject];
+            [_dirs removeLastObject];
+            [_positions removeLastObject];
+            continue;
+        }
+        _positions[_positions.count - 1] = @(i + 1);
+        NSString *name = names[i];
+        if ((_options & NSDirectoryEnumerationSkipsHiddenFiles) && [name hasPrefix:@"."]) continue;
+        NSString *relative = [_dirs.lastObject stringByAppendingPathComponent:name];
+        struct stat st;
+        NSString *full = [_root stringByAppendingPathComponent:relative];
+        BOOL dir = lstat(FS(full), &st) == 0 && S_ISDIR(st.st_mode);
+        BOOL package = dir && [@[ @"app", @"bundle", @"framework", @"plugin", @"kext", @"xpc", @"appex" ]
+                                   containsObject:name.pathExtension.lowercaseString];
+        if (dir && !(_options & NSDirectoryEnumerationSkipsSubdirectoryDescendants) &&
+            !(package && (_options & NSDirectoryEnumerationSkipsPackageDescendants)))
+            _pendingDir = relative;
+        _current = relative;
+        _level = _names.count;
+        if (!_rootURL) return relative;
+        return [NSURL fileURLWithPath:full isDirectory:dir];
+    }
+    return nil;
+}
+- (void)skipDescendants { _pendingDir = nil; }
+- (void)skipDescendents { _pendingDir = nil; }
+- (NSUInteger)level { return _level; }
+- (BOOL)isEnumeratingDirectoryPostOrder { return NO; }
+- (NSDictionary<NSFileAttributeKey, id> *)fileAttributes {
+    return _current ? [_manager attributesOfItemAtPath:[_root stringByAppendingPathComponent:_current] error:NULL] : nil;
+}
+- (NSDictionary<NSFileAttributeKey, id> *)directoryAttributes {
+    return [_manager attributesOfItemAtPath:_root error:NULL];
+}
+@end
+
 @implementation NSFileManager
+- (NSDirectoryEnumerator<NSString *> *)enumeratorAtPath:(NSString *)path {
+    return path ? [[NSDirectoryEnumerator alloc] _initWithManager:self path:path URL:nil options:0 errorHandler:nil] : nil;
+}
+- (NSDirectoryEnumerator<NSURL *> *)enumeratorAtURL:(NSURL *)url includingPropertiesForKeys:(NSArray<NSURLResourceKey> *)keys
+                                            options:(NSDirectoryEnumerationOptions)mask
+                                       errorHandler:(BOOL (^)(NSURL *, NSError *))handler {
+    if (!url.isFileURL) return nil;
+    return [[NSDirectoryEnumerator alloc] _initWithManager:self path:url.path URL:url options:mask errorHandler:handler];
+}
 + (NSFileManager *)defaultManager {
     static NSFileManager *shared;
     @synchronized(self) {
@@ -434,6 +529,23 @@ NSArray<NSString *> *NSSearchPathForDirectoriesInDomains(NSSearchPathDirectory d
         *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSFileReadInapplicableStringEncodingError
                                  userInfo:@{NSFilePathErrorKey: path}];
     return s;
+}
++ (instancetype)stringWithContentsOfURL:(NSURL *)url encoding:(NSStringEncoding)enc error:(NSError **)error {
+    return [[self alloc] initWithContentsOfURL:url encoding:enc error:error];
+}
+- (instancetype)initWithContentsOfURL:(NSURL *)url encoding:(NSStringEncoding)enc error:(NSError **)error {
+    if (url.isFileURL) return [self initWithContentsOfFile:url.path encoding:enc error:error];
+    if (error)
+        *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSFileReadUnsupportedSchemeError
+                                 userInfo:url ? @{NSURLErrorKey : url} : nil];
+    return nil;
+}
+- (BOOL)writeToURL:(NSURL *)url atomically:(BOOL)atomically encoding:(NSStringEncoding)enc error:(NSError **)error {
+    if (url.isFileURL) return [self writeToFile:url.path atomically:atomically encoding:enc error:error];
+    if (error)
+        *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSFileWriteUnsupportedSchemeError
+                                 userInfo:url ? @{NSURLErrorKey : url} : nil];
+    return NO;
 }
 - (BOOL)writeToFile:(NSString *)path atomically:(BOOL)atomically encoding:(NSStringEncoding)enc error:(NSError **)error {
     NSData *data = [self dataUsingEncoding:enc];

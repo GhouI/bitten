@@ -879,6 +879,12 @@ static void tv_set_flag(id tv, unsigned bit, BOOL on) {
 
 @implementation NSTextView (BittenWritingTools)
 WRITING_TOOLS
+- (BOOL)usesAdaptiveColorMappingForDarkAppearance {
+    return [objc_getAssociatedObject(self, @selector(usesAdaptiveColorMappingForDarkAppearance)) boolValue];
+}
+- (void)setUsesAdaptiveColorMappingForDarkAppearance:(BOOL)b {
+    objc_setAssociatedObject(self, @selector(usesAdaptiveColorMappingForDarkAppearance), @(b), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
 @end
 
 /* The cell class set for a control class (cells: AppKitCells.m). */
