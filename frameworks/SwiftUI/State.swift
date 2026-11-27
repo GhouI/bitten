@@ -13,11 +13,34 @@ open class AnyLocation<Value>: AnyLocationBase {
 }
 final class StoredLocation<Value>: AnyLocation<Value> {
   var value: Value
+  /// The host whose graph keeps this state (none outside a graph).
+  weak var owner: _RenderContext?
   init(_ value: Value) { self.value = value }
   override func get() -> Value { return value }
   override func set(_ value: Value, transaction: Transaction) {
+    let same = _bn_sameValue(self.value, value)
     self.value = value
-    _GraphHost.invalidate()
+    // As SwiftUI: storing the value already there changes nothing on screen.
+    if !same { _bn_invalidate(owner) }
+  }
+}
+
+/// A change to state kept in `owner`'s graph: that host rebuilds (it hands
+/// new values on to any it hosts in turn); without one, every host does.
+internal func _bn_invalidate(_ owner: _RenderContext?) {
+  if let o = owner { o.invalidate() } else { _GraphHost.invalidate() }
+}
+
+/// Whether `a` and `b` are the same value, as far as can be told: equal
+/// when the type is Equatable (false when it can't be compared).
+internal func _bn_sameValue<T>(_ a: T, _ b: T) -> Bool {
+  guard let ea = a as? any Equatable else { return false }
+  return ea._bn_isEqual(to: b)
+}
+extension Equatable {
+  fileprivate func _bn_isEqual(to other: Any) -> Bool {
+    guard let o = other as? Self else { return false }
+    return self == o
   }
 }
 final class FunctionalLocation<Value>: AnyLocation<Value> {
@@ -73,6 +96,7 @@ extension State: _GraphInstallable {
   mutating func _install(key: String, inputs: _ViewInputs) {
     let initial = _value
     let box = inputs.base.context.store(key) { StoredLocation(initial) }
+    box.owner = inputs.base.context
     _location = box
   }
 }
@@ -105,7 +129,9 @@ extension StateObject: _GraphInstallable {
 extension LazyState: _GraphInstallable {
   mutating func _install(key: String, inputs: _ViewInputs) {
     let me = self
-    _box = inputs.base.context.store(key) { _LazyStateBox(me._resolved()) }
+    let box = inputs.base.context.store(key) { _LazyStateBox(me._resolved()) }
+    box.owner = inputs.base.context
+    _box = box
   }
 }
 final class _ObjectBox<T: AnyObject> {
@@ -269,7 +295,9 @@ public struct LazyState<Value>: DynamicProperty {
 @usableFromInline
 internal final class _LazyStateBox<Value> {
   var value: Value {
-    didSet { _GraphHost.invalidate() }
+    didSet { if !_bn_sameValue(oldValue, value) { _bn_invalidate(owner) } }
   }
+  /// The host whose graph keeps this state.
+  weak var owner: _RenderContext?
   init(_ v: Value) { value = v }
 }

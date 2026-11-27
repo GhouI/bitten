@@ -1427,8 +1427,9 @@ extension FocusState {
 @usableFromInline
 final class _FocusBox<Value>: AnyLocation<Value> {
   var value: Value {
-    didSet { _GraphHost.invalidate() }
+    didSet { if !_bn_sameValue(oldValue, value) { _bn_invalidate(owner) } }
   }
+  weak var owner: _RenderContext?
   init(_ v: Value) {
     value = v
     super.init()
@@ -1439,7 +1440,9 @@ final class _FocusBox<Value>: AnyLocation<Value> {
 extension FocusState: _GraphInstallable {
   mutating func _install(key: String, inputs: _ViewInputs) {
     let initial = _value
-    _box = inputs.base.context.store(key) { _FocusBox(initial) }
+    let box = inputs.base.context.store(key) { _FocusBox(initial) }
+    box.owner = inputs.base.context
+    _box = box
   }
 }
 extension View {

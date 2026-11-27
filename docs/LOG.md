@@ -5061,3 +5061,22 @@ Debugging aids:
 - Test: `tests/appkit/drawing.m` draws into a rep, reads pixels back and
   round-trips it through PNG.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: a state change rebuilds only its own host
+
+- Every `@State`, `@FocusState`, observed-object and observation change
+  used to rebuild every hosting view in every window. Now a change to
+  state a host's graph keeps rebuilds that host only. A host hands new
+  values on to the views it hosts as it rebuilds. `@AppStorage` still
+  rebuilds all hosts.
+- Storing the value a state already holds (for Equatable types) no
+  longer rebuilds anything, as in SwiftUI.
+- A program marking a hosting view as needing display, when its tree is
+  built and placed at its size, no longer repaints it. On macOS that
+  redraws only the view's own empty layer. The target app does this about
+  20 times a second on its Settings window. With the two changes above,
+  that repainted both windows in full every 1.5 s, which made Settings
+  respond slowly.
+- With Settings open, the target app idles at 5% CPU, and its windows
+  send no frames when nothing changes. Test: `statescope`.
+- Target app (total `^MISSING`): 0 -> 0.

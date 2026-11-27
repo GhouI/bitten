@@ -572,6 +572,47 @@ struct StoringParent: View {
   }
 }
 
+/// Shows a counter kept in @State and hands out a binding to it.
+struct Counting: View {
+  @State var n = 0
+  let builds: StoreCount
+  let expose: (Binding<Int>) -> Void
+  var body: some View {
+    let _ = builds.bump()
+    let _ = expose($n)
+    Text("\(n)")
+  }
+}
+
+/// A state change rebuilds only the host whose graph keeps the state, and
+/// storing the value already there rebuilds nothing.
+@_silgen_name("swl_swiftui_statescope") public func stateScope() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    let aBuilds = StoreCount(), bBuilds = StoreCount()
+    var binding: Binding<Int>?
+    let a = Counting(builds: aBuilds, expose: { binding = $0 })
+    let b = Counting(builds: bBuilds, expose: { _ in })
+    let hostA = NSHostingView(rootView: a), hostB = NSHostingView(rootView: b)
+    @MainActor func settle() {
+      RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.05))
+      _ = render(a, 20, 20, host: hostA)
+      _ = render(b, 20, 20, host: hostB)
+    }
+    settle()
+    let a0 = aBuilds.n, b0 = bBuilds.n
+    binding?.wrappedValue = 1
+    settle()
+    if aBuilds.n == a0 { bad |= 1 }   // its own host rebuilt
+    if bBuilds.n != b0 { bad |= 2 }   // the other did not
+    let a1 = aBuilds.n
+    binding?.wrappedValue = 1
+    settle()
+    if aBuilds.n != a1 { bad |= 4 }   // the same value: no rebuild
+    return bad
+  }
+}
+
 /// A button's keyboard shortcut performs it: Escape a .cancelAction
 /// button, a command key a ⌘ shortcut; a disabled one doesn't.
 @_silgen_name("swl_swiftui_shortcuts") public func shortcuts() -> Int {

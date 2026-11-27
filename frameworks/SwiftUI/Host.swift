@@ -188,6 +188,16 @@ enum _GraphHost {
       for h in hosts { h.view?._bn_invalidate() }
     }
   }
+  /// One host's rebuild, once per main-queue turn.
+  nonisolated static func invalidate(_ host: _WeakHost) {
+    Task { @MainActor in
+      guard let v = host.view, !v._invalidateScheduled else { return }
+      v._invalidateScheduled = true
+      await Task.yield()
+      v._invalidateScheduled = false
+      v._bn_invalidate()
+    }
+  }
 }
 final class _WeakHost {
   weak var view: _HostingViewBase?
@@ -285,10 +295,35 @@ open class _HostingViewBase: NSView {
   var _environment = EnvironmentValues()
   var _pressed: _ViewNode?
   var _placedIn = CGSize(width: -1, height: -1)
+  /// A rebuild of this host alone is waiting for the main queue.
+  var _invalidateScheduled = false
+  /// Set while the host asks for its own repaint.
+  var _bn_ownRepaint = false
+  /// Repaints all of the host (its tree changed in ways it can't bound).
+  func _bn_repaintWhole() {
+    _bn_ownRepaint = true
+    needsDisplay = true
+    _bn_ownRepaint = false
+  }
+  /// On macOS a hosting view's own layer is empty and its SwiftUI content
+  /// draws itself when it changes, so a program marking the view as needing
+  /// display redraws nothing. Here the view draws the tree: when the tree is
+  /// built and placed at this size, drawing it again would show the same
+  /// pixels, so such a request is let go.
+  override open var needsDisplay: Bool {
+    get { return super.needsDisplay }
+    set {
+      if newValue, !_bn_ownRepaint, window != nil, _root != nil, !_rebuildRepaint, _placedIn == bounds.size { return }
+      super.needsDisplay = newValue
+    }
+  }
 
   override public init(frame: NSRect) {
     super.init(frame: frame)
-    _context.invalidate = { _GraphHost.invalidate() }
+    // A change to what this host's graph keeps or watches rebuilds this
+    // host only (it updates any it hosts itself).
+    let me = _WeakHost(self)
+    _context.invalidate = { _GraphHost.invalidate(me) }
     _context.hostView = self
     _GraphHost.hosts.append(_WeakHost(self))
   }
@@ -343,7 +378,7 @@ open class _HostingViewBase: NSView {
     if getenv("BITTEN_DISPLAY_DEBUG") != nil {
       _dbg("bitten: swiftui host repaints whole: window \(window != nil) old tree \(old != nil) \(type(of: self))".prefix(200).description)
     }
-    needsDisplay = true
+    _bn_repaintWhole()
   }
   /// Set when a rebuild is to repaint only where the trees draw.
   var _rebuildRepaint = false
@@ -356,7 +391,7 @@ open class _HostingViewBase: NSView {
     if let w = window, _bn_drawnArea(r, &area) {
       if let a = area { w._bn_invalidateRect(convert(a, to: nil)) }
     } else {
-      needsDisplay = true
+      _bn_repaintWhole()
     }
   }
 
@@ -497,7 +532,7 @@ open class _HostingViewBase: NSView {
     if !_dragging && Swift.abs(p.x - _pressPoint.x) + Swift.abs(p.y - _pressPoint.y) < 3 { return }
     if pressed.drag(from: _pressPoint, to: p, ended: false) {
       _dragging = true
-      needsDisplay = true
+      _bn_repaintWhole()
     }
   }
   override open func mouseUp(with event: NSEvent) {
@@ -524,13 +559,13 @@ open class _HostingViewBase: NSView {
     if _layout().scroll(at: p, dx: event.scrollingDeltaX, dy: event.scrollingDeltaY) {
       // Scrolling moves content without rebuilding it.
       _placedIn = CGSize(width: -1, height: -1)
-      needsDisplay = true
+      _bn_repaintWhole()
     }
   }
   override open var acceptsFirstResponder: Bool { return true }
   override open func keyDown(with event: NSEvent) {
     if _layout().key(event.characters ?? "", keyCode: event.keyCode) {
-      needsDisplay = true
+      _bn_repaintWhole()
       return
     }
     // Not the tree's: on along the responder chain (to the window, which
