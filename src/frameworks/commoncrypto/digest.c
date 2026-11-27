@@ -1,4 +1,7 @@
+#include <dlfcn.h>
 #include <errno.h>
+#include <pthread.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/random.h>
 
@@ -97,7 +100,7 @@ static const uint64_t sha_k[80] = {
     0x4cc5d4becb3e42b6ULL, 0x597f299cfc657e2aULL, 0x5fcb6fab3ad6faecULL, 0x6c44198c4a475817ULL,
 };
 
-static void sha256_block(uint32_t *h, const uint8_t *p) {
+static void sha256_block_portable(uint32_t *h, const uint8_t *p) {
     uint32_t w[64];
     for (unsigned i = 0; i < 16; i++) w[i] = load32(p + 4*i, 0);
     for (unsigned i = 16; i < 64; i++) {
@@ -115,6 +118,35 @@ static void sha256_block(uint32_t *h, const uint8_t *p) {
     }
     h[0] += a; h[1] += b; h[2] += c; h[3] += d;
     h[4] += e; h[5] += f; h[6] += g; h[7] += j;
+}
+
+/* The host's OpenSSL (libcrypto), when it is there, has SHA-256 tuned for
+ * the processor (SHA extensions, AVX2): about twice the portable code's
+ * speed without the extensions, ten times with them. Programs hash large
+ * files at launch (their own helpers, say), so it matters. SHA256_Transform
+ * runs one block on a context whose first eight words are the state.
+ * BITTEN_NO_OPENSSL=1 keeps to the portable code. */
+struct ossl_sha256_ctx { uint32_t h[8], nl, nh, data[16], num, md_len; };
+static void (*ossl_sha256_transform)(struct ossl_sha256_ctx *, const uint8_t *);
+static pthread_once_t ossl_once = PTHREAD_ONCE_INIT;
+static void ossl_load(void) {
+    const char *off = getenv("BITTEN_NO_OPENSSL");
+    if (off && *off == '1') return;
+    void *l = dlopen("libcrypto.so.3", RTLD_NOW | RTLD_LOCAL);
+    if (!l) l = dlopen("libcrypto.so", RTLD_NOW | RTLD_LOCAL);
+    if (l) ossl_sha256_transform = (void (*)(struct ossl_sha256_ctx *, const uint8_t *))dlsym(l, "SHA256_Transform");
+}
+
+static void sha256_block(uint32_t *h, const uint8_t *p) {
+    pthread_once(&ossl_once, ossl_load);
+    if (ossl_sha256_transform) {
+        struct ossl_sha256_ctx c;
+        memcpy(c.h, h, sizeof c.h);
+        ossl_sha256_transform(&c, p);
+        memcpy(h, c.h, sizeof c.h);
+        return;
+    }
+    sha256_block_portable(h, p);
 }
 
 static void sha512_block(uint64_t *h, const uint8_t *p) {

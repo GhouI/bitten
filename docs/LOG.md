@@ -4875,3 +4875,14 @@ Debugging aids:
 - Launch to the first interactive terminal: 5.3–5.6 s → 4.3–4.75 s.
   Images look the same.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SHA-256 through the host's OpenSSL
+
+- CommonCrypto (digest.c): SHA-256 blocks go through the host libcrypto's
+  SHA256_Transform when it is installed (OpenSSL picks SHA extensions or
+  AVX2 for the processor), else the portable code; BITTEN_NO_OPENSSL=1
+  forces the portable code. 281 against 173 MB/s here (no SHA extensions);
+  CryptoKit's SHA256 uses the same blocks. The target app hashes its
+  bundled helper and the installed copy (92 MB each) at every launch.
+- Tests: tests/c/crypto.c, tests/swiftlib/cryptokit (both paths).
+- Target app (total `^MISSING`): 0 -> 0.
