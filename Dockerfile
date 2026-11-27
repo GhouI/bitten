@@ -46,6 +46,9 @@ RUN make -j"$(nproc)" BUILD=/out check && make check-dmgx
 FROM debian:trixie-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 zsh procps less ca-certificates libx11-6 \
+        # Metal: tools/metal-compile.py builds an app's shaders with clang
+        # (it reads Apple's AIR) into a shared object on first use
+        clang libc6-dev binutils \
         # open fonts: CoreText maps Apple's font names to these
         fonts-dejavu-core fonts-noto-core \
     && rm -rf /var/lib/apt/lists/* \
@@ -56,6 +59,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && chown mac:mac /Applications /Users/mac
 COPY --from=build /out/mrun /usr/local/bin/mrun
 COPY --from=build /out/root /usr/local/lib/bitten/root
+COPY --from=build /out/tools /usr/local/lib/bitten/tools
 COPY tools/dmgx /usr/local/bin/dmgx
 COPY docker/bitten /usr/local/bin/bitten
 # macOS programs start shells through `login -fpl user ...`
