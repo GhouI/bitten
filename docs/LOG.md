@@ -4905,3 +4905,12 @@ Debugging aids:
   seconds. The main window, palette, Settings, context menu, grip
   resize, and pane zoom/restore were checked for stale pixels; none.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Who asks for full redraws
+
+- `BITTEN_DISPLAY_DEBUG` now also logs, with callers, each request for a
+  full window redraw (`display`, and a root view needing display). The
+  target app's remaining full frames at launch come from its root SwiftUI
+  hosting view asking to repaint after rebuilds; our SwiftUI host doesn't
+  track finer regions.
+- Target app (total `^MISSING`): 0 -> 0.
