@@ -5302,3 +5302,14 @@ Debugging aids:
   (`renderInContext:`); the window's drawing still paints views directly.
 - Test: `tests/appkit/drawing.m`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: a view's layers that blend are composited as a group
+
+- When any sublayer of a view's backing layer (or theirs) has a
+  `compositingFilter`, AppKit now draws those sublayers inside their own
+  transparency layer, as Core Animation composites a layer tree by
+  itself. A blending layer, such as the target app's spotlight cut-out
+  erasing its dimming layer, then blends only with that view's layers,
+  not with the window content under it. The blend itself is drawn by
+  QuartzCore's layer rendering (raised with that side).
+- Target app (total `^MISSING`): 0 -> 0.

@@ -340,6 +340,7 @@ void NSEraseRect(NSRect r) {
 @property BOOL masksToBounds;
 @property (copy) NSArray *sublayers;
 @property (weak) id delegate;
+@property (strong) id compositingFilter;
 - (CGAffineTransform)_bn_toSuper;
 - (void)_bn_render:(CGContextRef)ctx;
 - (void)_bn_drawContents:(CGContextRef)ctx inRect:(CGRect)b flipped:(BOOL)flipped;
@@ -380,12 +381,27 @@ static void bn_layer_background(BNBackingLayer *layer, CGContextRef c, CGRect b)
         CGPathRelease(p);
     }
 }
+/* Whether any of these layers (or theirs) has a compositingFilter. */
+static BOOL bn_layers_filter(NSArray *layers, int depth) {
+    if (depth > 8) return NO;
+    for (id l in layers) {
+        if ([l respondsToSelector:@selector(compositingFilter)] && [l compositingFilter]) return YES;
+        if (bn_layers_filter([l sublayers], depth + 1)) return YES;
+    }
+    return NO;
+}
 static void bn_layer_sublayers(BNBackingLayer *layer, CGContextRef c, BOOL flipped) {
     /* As in AppKit, a flipped view's backing layer has flipped geometry,
      * so text and contents in its sublayers come out upright. */
     if (layer.sublayers.count && [(id)layer respondsToSelector:@selector(setGeometryFlipped:)] &&
         [[(id)layer valueForKey:@"geometryFlipped"] boolValue] != flipped)
         [(id)layer setValue:@(flipped) forKey:@"geometryFlipped"];
+    /* Sublayers that blend with what is under them (a compositingFilter such
+     * as destinationOut cutting a hole in a dimming layer) blend within the
+     * view's layers, as Core Animation composites a layer tree on its own,
+     * not with the window's other drawing. */
+    BOOL grouped = bn_layers_filter(layer.sublayers, 0);
+    if (grouped) CGContextBeginTransparencyLayer(c, NULL);
     for (BNBackingLayer *sub in layer.sublayers) {
         if ([sub.delegate isKindOfClass:[NSView class]]) continue;
         CGContextSaveGState(c);
@@ -393,6 +409,7 @@ static void bn_layer_sublayers(BNBackingLayer *layer, CGContextRef c, BOOL flipp
         [sub _bn_render:c];
         CGContextRestoreGState(c);
     }
+    if (grouped) CGContextEndTransparencyLayer(c);
 }
 static void bn_layer_border(BNBackingLayer *layer, CGContextRef c, CGRect b) {
     CGFloat w = layer.borderWidth;
