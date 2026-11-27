@@ -8,6 +8,8 @@
 #import <AppKit/AppKit.h>
 #include <math.h>
 #include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #define MAXTOK 12
 
@@ -472,6 +474,18 @@ __attribute__((visibility("default"))) void bn_draw_symbol(CGContextRef c, const
         inner = CGAffineTransformConcat(CGAffineTransformMake(0.56, 0, 0, 0.56, 0.22, 0.22), unit);
     struct pen glyphpen = {CGPathCreateMutable(), CGPathCreateMutable(), inner};
     int known = glyph(&glyphpen, &s);
+    if (getenv("BITTEN_SYMBOL_DEBUG")) {
+        /* each name once: whether it is drawn as itself or as a stand-in */
+        static NSMutableSet *seen;
+        @synchronized([NSImage class]) {
+            if (!seen) seen = [NSMutableSet set];
+            NSString *n = @(name);
+            if (![seen containsObject:n]) {
+                [seen addObject:n];
+                fprintf(stderr, "bitten: symbol %s%s\n", name, known || boxed ? "" : " (unknown: stand-in)");
+            }
+        }
+    }
     if (!known && !boxed) {
         /* Unknown: a small outlined square, quieter than a filled block. */
         CGPathAddRoundedRect(glyphpen.stroke, &unit, CGRectMake(0.22, 0.22, 0.56, 0.56), 0.1, 0.1);

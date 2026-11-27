@@ -4024,7 +4024,6 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   changes of matching views, with callers.
 - Target app (total `^MISSING`): 0 -> 0.
 
-
 ## AppKit: x86-64 text alignment values; text fields bezeled, not bordered
 
 - `NSTextAlignment` uses the x86-64 macOS values (Right 1, Center 2). The
@@ -4348,4 +4347,19 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   `midY` and `maxY` on a rectangle whose width and height are negative.
   They come from the standardized rectangle, as on macOS. Test only; the
   getters are the `swift_name` ones from #169. Salvaged from #164.
+
+## Images drawn by a handler composite in their own buffer
+
+- `-[NSImage drawInRect:]` now runs an image's drawing handler inside a
+  transparency layer clipped to the image. Before, the handler drew
+  straight into the destination. Apps tint a symbol by drawing it and then
+  filling the image's rect source-atop, so that fill landed on whatever was
+  behind the image. In the target app's command palette (⇧⌘P), each
+  chevron and the search magnifier sat in a dark box, and the selected
+  row's chevron was a solid white square. They now draw as plain glyphs.
+  tests/appkit/compositing.m covers this.
+- `BITTEN_SYMBOL_DEBUG=1` prints each system symbol name once as it is
+  drawn (noting names drawn as a stand-in), and any SwiftUI named image
+  that falls back to the placeholder.
+
 - Target app (total `^MISSING`): 0 -> 0.
