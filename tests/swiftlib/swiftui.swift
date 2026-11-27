@@ -648,6 +648,29 @@ struct Counting: View {
   }
 }
 
+/// A grid cell spanning columns and unsized horizontally doesn't widen the
+/// first column: the next row's cells sit side by side.
+@_silgen_name("swl_swiftui_gridspan") public func gridSpan() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    let grid = Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
+      GridRow {
+        Color(.sRGB, red: 1, green: 0, blue: 0).frame(maxWidth: .infinity).frame(height: 10)
+          .gridCellColumns(2).gridCellUnsizedAxes(.horizontal)
+      }
+      GridRow {
+        Color(.sRGB, red: 0, green: 0, blue: 1).frame(width: 20, height: 10)
+        Color(.sRGB, red: 0, green: 1, blue: 0).frame(width: 20, height: 10)
+      }
+    }
+    let px = render(grid.frame(width: 40, height: 20, alignment: .topLeading), 40, 20)
+    if px(30, 15) != 0x00FF00 { bad |= 1 }   // the second column right after the first
+    if px(5, 15) != blue { bad |= 2 }
+    if px(35, 5) != red { bad |= 4 }         // the header spans both columns
+    return bad
+  }
+}
+
 /// A button's keyboard shortcut performs it: Escape a .cancelAction
 /// button, a command key a ⌘ shortcut; a disabled one doesn't.
 @_silgen_name("swl_swiftui_shortcuts") public func shortcuts() -> Int {
