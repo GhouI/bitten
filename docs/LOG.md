@@ -3892,3 +3892,26 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - `rangeOfData:options:range:` handles backwards and anchored searches.
 - Tests: tests/foundation/nocopy.m, tests/foundation/datasearch.m.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Docker: the Metal shader compiler in the test stage and the runtime image
+
+- `docker build --target test .` failed `tests/metal/render` ("tools/metal-compile.py
+  not found"). `find_tool()` looks for the compiler next to mrun
+  (`<mrun dir>/../tools` or `<mrun dir>/tools`) or in
+  `/usr/local/lib/bitten/tools`. In the image mrun is `/out/mrun` and the
+  sources are in `/src`, so none of those existed.
+- `make` now stages `tools/metal-compile.py` and `tools/metal-runtime.c` in
+  `$(BUILD)/tools`, next to mrun as `root/` already is. Any build tree
+  compiles Metal libraries, including one away from the sources.
+- The runtime image copies `/out/tools` to `/usr/local/lib/bitten/tools` and
+  installs Debian's clang, libc6-dev and binutils. clang reads Apple's AIR
+  and links the shaders' shared object. Without them an app's renderer
+  could not compile its shaders in the shipped container. The apt layer
+  grows to about 524 MB (the image is 835 MB on disk).
+- The "not found" error names where it looked and `BITTEN_METAL_COMPILER`.
+- Tests: `tests/metal/staged.sh` (in `make check`) runs the render test
+  with a copy of mrun and `$(BUILD)/tools` in a directory with no source
+  tree beside it, on a cold shader cache. `tests/e2e/docker-metal.sh
+  [image]` runs the same render test in the runtime image as its user.
+- Target app (total `^MISSING`): 0 -> 0. In `docker run` its renderer
+  compiles its `default.metallib` and builds its 5 pipelines.

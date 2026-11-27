@@ -111,7 +111,9 @@ struct bn_metal_lib *bitten_metal_open(const void *data, size_t len, char *why, 
         char toolbuf[PATH_MAX];
         const char *tool = find_tool(toolbuf, sizeof toolbuf);
         if (!tool) {
-            snprintf(why, whylen, "tools/metal-compile.py not found");
+            snprintf(why, whylen,
+                     "tools/metal-compile.py not found next to mrun or in /usr/local/lib/bitten/tools "
+                     "(set BITTEN_METAL_COMPILER)");
             return NULL;
         }
         /* build in a scratch directory, then move it into place */

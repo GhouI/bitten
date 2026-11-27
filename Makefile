@@ -139,6 +139,15 @@ $(METAL): $(METAL_OBJS) $(FOUNDATION) $(BUILD)/sdk/libSystem.tbd
 	    -install_name /System/Library/Frameworks/Metal.framework/Versions/A/Metal \
 	    -L$(BUILD)/sdk -lSystem $(FOUNDATION) -o $@ $(METAL_OBJS)
 
+# The shader compiler, next to mrun as root/ is (find_tool in
+# src/frameworks/metal/metal.c), so a build tree away from the sources
+# (the Docker image's /out) compiles Metal libraries too.
+METAL_TOOLS := $(BUILD)/tools/metal-compile.py $(BUILD)/tools/metal-runtime.c
+all: $(METAL_TOOLS)
+$(BUILD)/tools/%: tools/%
+	@mkdir -p $(dir $@)
+	cp $< $@
+
 # Metal tests, like the AppKit ones.
 TEST_METAL     := $(wildcard tests/metal/*.m)
 TEST_METALBINS := $(if $(HAVE_MACHO),$(patsubst tests/metal/%.m,$(BUILD)/tests/metal/%,$(TEST_METAL)))
@@ -617,8 +626,9 @@ $(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTC
 
 test-bins: $(TEST_APPKITBINS) $(TEST_UNBINS) $(TEST_QCBINS) $(TEST_METALBINS) $(TEST_MEDIABINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
 
-check: $(BUILD)/mrun $(FRAMEWORKS) $(TEST_APPKITBINS) $(TEST_UNBINS) $(TEST_QCBINS) $(TEST_METALBINS) $(TEST_MEDIABINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
+check: $(BUILD)/mrun $(FRAMEWORKS) $(METAL_TOOLS) $(TEST_APPKITBINS) $(TEST_UNBINS) $(TEST_QCBINS) $(TEST_METALBINS) $(TEST_MEDIABINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
 	BUILD=$(BUILD) tests/run.sh
+	$(if $(HAVE_MACHO),BUILD=$(BUILD) tests/metal/staged.sh)
 
 check-dmgx:
 	python3 -m unittest discover -s tests/dmgx
