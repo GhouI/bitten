@@ -17,7 +17,7 @@ in this repository or in the image.
 
 ## Progress
 
-![How close bitten is to running the target Mac app's window](https://raw.githubusercontent.com/GhouI/bitten/progress/progress.svg)
+![Target app imports still missing](https://raw.githubusercontent.com/GhouI/bitten/progress/progress.svg)
 
 Redrawn after every change to `main` by `tools/progress-update.sh` (measured
 with `mrun --check` on a local copy of App.dmg; only counts are published, on
@@ -38,16 +38,13 @@ the [`progress`](https://github.com/GhouI/bitten/tree/progress) branch).
 | AppKit | Partial but large: windows, views, controls, text, menus, toolbars, popovers, alerts, open/save panels, split views, drag and drop, Auto Layout (a Cassowary solver), stack views, layers |
 | SwiftUI | Partial: views, modifiers, state, environment, navigation, tables, charts; drawn through AppKit |
 | CoreGraphics, CoreText, ImageIO | Runs for drawing, paths, gradients, text layout with real font files, PNG and JPEG |
-| Windows on screen | Shown in a web page served by `mrun` (default http://localhost:7681), with mouse and keyboard |
-| Metal | Not yet: no device. The next large piece (see below) |
+| Windows on screen | A browser page served by `mrun` (default http://localhost:7681), or X11 windows; both accept mouse and keyboard input |
+| Metal | A software device compiles supported Metal library shaders for x86-64 and rasterises draws on the CPU. It renders the target app's terminal frames |
+| Asset catalogs | AppKit reads named bitmap images from `Assets.car`, including packed atlases. Vector renditions are not drawn |
 | launchd | Emulated: `launchctl` bootstrap/bootout/kickstart/print/list work against a job table |
 | Objective-C or C++ exceptions | Not yet: no unwinder for Mach-O unwind tables |
 | arm64-only binaries | No: x86-64 slices only (universal binaries are fine) |
 | APFS-formatted disk images | Not yet: HFS+ images only |
-
-The honest summary: bitten runs real macOS command-line and server
-programs, and real AppKit and SwiftUI apps get far: windows, layout, text
-and controls work, but anything drawn with Metal does not appear yet.
 
 ### The target app
 
@@ -57,13 +54,13 @@ The project's yardstick is a real terminal app shipped as a `.dmg` (called
 | Program in the bundle | What it is | Status |
 | --- | --- | --- |
 | `Contents/Helpers/Server.app/Contents/MacOS/app-server` | The app's server and CLI (Go, cgo, SQLite) | **Runs unmodified.** Server, sessions, terminals, shells, `send`, `capture`, the control API |
-| `Contents/MacOS/App` | The window: SwiftUI + AppKit + Metal | **Runs and stays up.** Of its 5,688 imports, 11 are unimplemented (5,377 were, at the start). It installs and starts its server as a LaunchAgent through bitten's `launchctl`, opens its windows (onboarding, tab bar, sidebar, toolbar) in the browser page, and talks to its server. The terminal surface itself is drawn with Metal and stays empty until bitten has a Metal device |
+| `Contents/MacOS/App` | The window: SwiftUI + AppKit + Metal | Opens onboarding, workspace and settings windows, starts its server through bitten's `launchctl` and connects to it. There are no missing required imports (80 unbound weak imports). A fresh home directory still exposes startup failures |
 
 The app's terminal *engine* can also be used on its own, without the
-window:
+window. Replace `appcli` with the bundled CLI's name:
 
 ```
-APP_DMG=/path/to/App.dmg APPCLI=<the app's CLI> docker compose -f examples/mac-terminal/compose.yaml up
+APP_DMG=/path/to/App.dmg APPCLI=appcli docker compose -f examples/mac-terminal/compose.yaml up
 # open http://localhost:7680
 ```
 
@@ -73,15 +70,11 @@ command-line program), both served by the unmodified macOS binary.
 
 ### What is next
 
-- **Metal.** The app's renderer ships its shaders as a `default.metallib`.
-  Its functions are AIR, which is LLVM bitcode, and clang compiles them to
-  x86-64 as they are. The plan is a software Metal device: buffers,
-  textures, samplers, render pipelines built from the compiled shaders,
-  a rasteriser for their draws, and AIR's intrinsics (math, texture
-  sampling) written in C, presenting into the app's `CAMetalLayer`.
-- **Asset catalogs.** `Assets.car` readers on top of LZFSE, so named
-  images show their real pixels instead of placeholders.
-- The remaining unimplemented imports and drawing fidelity.
+The software Metal device renders the shell prompt, typed text and output.
+The terminal pane stays white because AppKit draws the view's sublayers
+but skips its backing layer's own `contents`. The runtime Docker image
+also lacks the shader compiler needed to produce those frames. See
+[docs/NEXT.md](docs/NEXT.md) for these gaps and the first-launch failures.
 
 ## Using it
 
@@ -95,9 +88,11 @@ docker run --rm -it -v /path/App.dmg:/dmg/app.dmg:ro bitten [COMMAND]
   check NAME           list every import of NAME that is not implemented
 ```
 
-The app's windows appear on a page at http://localhost:7681 (add
-`-p 7681:7681`). To get them as windows on your Linux desktop instead (X11,
-or Wayland through Xwayland), pass the X server in:
+Without `DISPLAY`, the container shows windows on a page at
+http://localhost:7681 (add `-p 127.0.0.1:7681:7681`). With `DISPLAY` set,
+the entrypoint selects `BITTEN_DISPLAY=x11` unless you selected another
+back end. For a local X server (including Xwayland), pass in its socket
+and a readable authority file:
 
 ```
 docker run --rm -it -e DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix \
@@ -126,6 +121,10 @@ BITTEN_DISPLAY_PORT=7681 build/mrun App.app/Contents/MacOS/App   # windows at ht
 BITTEN_DISPLAY=x11 build/mrun App.app/Contents/MacOS/App         # windows on the desktop ($DISPLAY)
 tools/dmgx extract App.dmg outdir            # unpack a disk image
 ```
+
+Outside the container, select X11 explicitly; `DISPLAY` alone does not
+select it. X11 headers are optional at build time and `libX11.so.6` is
+loaded at run time. If X11 cannot open, `mrun` uses the browser page.
 
 ## How it works
 
@@ -165,15 +164,17 @@ docs/            architecture, target app analysis, decisions, work log
 ## Tests
 
 ```
-make check        # about 110 Mach-O tests; needs clang, lld and swiftc; Go tests need Go
+make check        # Mach-O tests; needs clang, lld and swiftc; Go tests need Go
 make check-dmgx   # disk-image reader
 docker build --target test .   # everything, in a clean container
 ```
 
-With an App.dmg of your own, `APP_DMG=/path/App.dmg tests/e2e/target-app.sh` checks
-the whole path in a container, down to a command typed into the app's terminal.
+With a local image built as `bitten`, set `APP_DMG` to your disk image and
+`APPCLI` to the bundled CLI's name. Then `tests/e2e/target-app.sh` checks
+the server and CLI in a container, down to a command typed into bitten's
+terminal viewer. It does not exercise the app's own window.
 
-A GitHub Actions workflow that runs the last command is in
+A GitHub Actions workflow that builds the test and runtime images is in
 `ci/github-actions.yml`; copy it to `.github/workflows/ci.yml` to switch it
 on.
 

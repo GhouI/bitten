@@ -1,65 +1,71 @@
 # Roadmap
 
-bitten aims to be a place where macOS software runs inside ordinary Linux
-containers, for developers who want "Mac containers" in Docker. Every
-library a program needs is built here, from scratch. There is no deadline;
-the order below is dictated by dependencies.
+bitten runs x86-64 macOS programs as Linux processes, including inside
+Docker. [ARCHITECTURE.md](ARCHITECTURE.md) explains how the layers fit
+together; [NEXT.md](NEXT.md) is the handoff for the next change.
 
-**Yardstick:** App.dmg. A milestone counts when it moves a measured number
-for the Mac app (imports implemented, initialisers run, first window) or makes a
-whole class of other programs run. To resume work, start from
-[NEXT.md](NEXT.md). `mrun --check` on the Mac app window reports
-311 of 5,688 imports implemented at the start of this roadmap and 361 after layers 3 to 6.
+## Yardstick: beyond binding imports
 
-## Layers, bottom up
+At `b034ee1`, `mrun --check` found **zero missing required imports**
+for both the window executable and its server/CLI. The window had 80
+unbound weak imports and the server/CLI had none. In the GUI run, the server ran,
+AppKit and SwiftUI opened interactive windows, and keyboard input reached
+the shell after attachment. The terminal still appeared blank: Metal had
+produced the pixels, but AppKit had not drawn them into the window. These
+are measured paths, not a claim that all macOS APIs work.
 
-| # | Layer | State | Unlocks |
-| --- | --- | --- | --- |
-| 1 | Loader, libSystem core, sockets, kqueue, raw syscalls | done | C and Go command-line and server programs |
-| 2 | CoreFoundation basics, libproc, resolver | done (subset) | the Mac app server and CLI |
-| 3 | Blocks runtime | done | any code using `^{ }` closures |
-| 4 | Objective-C runtime (`libobjc`): classes, messaging, categories, protocols, ARC entry points, associated objects, `NSObject` | done, except exceptions and `NSInvocation` forwarding | every Objective-C and Swift/Cocoa program |
-| 5 | libdispatch (GCD): queues, groups, semaphores, sources, `dispatch_once` | done, except `dispatch_io` | nearly all modern macOS code |
-| 6 | CommonCrypto, zlib, iconv, libcompression | done for the common algorithms | hashing/crypto/compression users, many CLI tools |
-| 7 | C++ runtime (`libc++`, `libc++abi`) and Mach-O exception unwinding | not started | C++ programs, Objective-C exceptions |
-| 8 | CoreFoundation, complete: run loops, bundles, property lists, preferences, URLs, toll-free bridging | bridging done; the rest not started | Foundation |
-| 9 | **Foundation**: strings, collections, files, URLs, JSON, notifications, `NSRunLoop`, key-value coding and observing, `NSInvocation` | in progress: strings, collections, data, dates, files, URLs, JSON, notifications, locks, threads | Objective-C command-line tools |
-| 10 | X.509 and TLS trust evaluation, keychain | not started | outbound HTTPS from macOS programs |
-| 11 | Mach ports and messages, bootstrap, XPC, launchd services | not started | apps with helper services |
-| 12 | **Swift runtime and standard library** | runtime done; standard library in progress (our own Swift source, `stdlib/`); see `NEXT.md` | all Swift programs |
-| 13 | CoreGraphics, CoreText, ImageIO | in progress: geometry (rects, affine transforms) and the Swift overlay | drawing and text |
-| 14 | QuartzCore, AppKit | in progress: every AppKit class and constant the Mac app links against; views, windows, the application life cycle | windows (X11/Wayland or a browser canvas) |
-| 15 | Metal | not started | GPU rendering, the Mac app terminal grid |
-| 16 | SwiftUI, Combine, Observation | in progress: Combine and Observation | the Mac app window |
-| 17 | Network, CryptoKit, AppIntents, Charts and other app frameworks | not started | the rest of the Mac app's imports |
+## Next milestones
 
-Sideways items that matter to people using the container:
+The following gaps are relative to main at `b034ee1`; proposed and
+in-flight fixes are not counted as shipped.
 
-- APFS disk images, encrypted and segmented images.
-- `.pkg` installers and `.app.zip` archives as inputs alongside `.dmg`.
-- A base image others can build `FROM`, with transparent execution of Mach-O
-  files (`./tool` instead of `mrun ./tool`).
-- arm64: not planned until there is an instruction translator, which is its
-  own project.
+1. **Show a presented drawable in its window.** Draw the backing layer's
+   own contents and invalidate the owning view on presentation. Check the
+   window bitmap after presenting, not just the texture before presentation.
+2. **Compile shaders in the container on a cold cache.** The runtime image
+   ships bitten's Swift libraries but not its Metal compiler helper,
+   companion C source or clang. In the Docker test stage the tools are
+   under `/src/tools`, outside the search paths for `/out/mrun`. Verify a
+   shader actually compiles and draws in the image.
+3. **Make a fresh session reliable.** Exercise first-run helper startup,
+   Foundation's no-copy data selectors and Swift tuple casts during
+   onboarding. A warm home directory can hide all three failures.
+4. **Reduce the wait for an interactive terminal and check drawing
+   fidelity.** Profile the wait for the shell to attach separately from
+   painting its first frame. All settings pages opened in the later
+   `b034ee1` check ([LOG.md](LOG.md)); verify that their controls, previews
+   and labels actually draw and respond, not just that the page opens.
 
-## Honest notes on the big ones
+## Layers on main
 
-- **Swift standard library (12).** It is tens of thousands of entry points
-  whose ABI is fixed by Apple's compiler. Building it here means writing a
-  compatible standard library, mostly in C/assembly or by bootstrapping a
-  Swift compiler for this target. It is the largest single item and will be
-  approached symbol-family by symbol-family, driven by what the Mac app and test
-  programs import.
-- **SwiftUI (16).** Closed source with behaviour defined by implementation.
-  It will be built against observed behaviour of real programs, the way
-  AppKit will be.
-- These two decide when the Mac app window appears. Everything above them in the
-  table is useful to other software long before that.
+| Layer | What works | Boundary |
+| --- | --- | --- |
+| Loader and libSystem | Mach-O loading and binding; translated file, process, socket, kqueue and raw BSD calls run C and Go programs | x86-64 slices and implemented Darwin calls only |
+| Blocks, Objective-C and C++ | Block copy/dispose, class registration, message dispatch, ARC, forwarding targets; C++ allocation operators | No full C++ standard library or Mach-O exception unwinder; no full Objective-C invocation forwarding |
+| Dispatch, compression and CommonCrypto | Queues, groups, semaphores, sources; zlib, LZFSE/LZVN, hashes and AES | Selected APIs, not the entire system libraries |
+| CoreFoundation and Foundation | Bridged collections, files, bundles, plists, defaults, run loops, timers, KVC/KVO, invocation, tasks and pipes; URLSession uses host libcurl | A class being present does not imply it implements every selector |
+| Security and services | Certificate and policy objects; anonymous in-process XPC; a per-user job table behind `launchctl` | No system keychain, Security trust evaluation, Mach bootstrap service or named XPC services |
+| Swift | Native metadata, generics, casts and async runtime; bitten's Swift standard library, collections, Foundation and concurrency overlays | Compatibility depends on frozen layouts, witnesses and runtime behavior as well as exported names |
+| CoreGraphics, CoreText, ImageIO and asset catalogs | CPU bitmap drawing, paths, gradients, TrueType glyphs, PNG and baseline JPEG; named bitmap and atlas renditions from `Assets.car` | No full text shaping or PDF/SVG catalog rendering |
+| QuartzCore and AppKit | Layer trees, window bitmaps, controls, text, menus, panels and Auto Layout; browser or X11 display and input | Drawing a sublayer works; compositing a view's own backing-layer contents is a separate gap |
+| Metal | Memory-backed buffers and textures, supported AIR vertex/fragment shaders, triangle rasterisation, blending and drawable presentation | Software only; no compute encoder. Off-screen rendering and visible presentation are separate milestones |
+| SwiftUI, Combine and Observation | A hosted view graph, layout, controls, state and environment drive real AppKit windows | View coverage, layout fidelity and runtime stability remain incomplete |
+| Other app frameworks | Network connections/listeners over sockets, CryptoKit hashing and keys, Swift Charts marks, AppIntents declarations | Frameworks differ in scope: for example, no Secure Enclave or system service to invoke intents |
 
-## Working rules
+The in-tree tests use synthetic Mach-O programs. In particular,
+`tests/metal/render.m` checks texture pixels, `tests/appkit/layers.m`
+checks a view's layer decoration, and `tests/appkit/deepmap2.m` exercises
+catalog bitmap decoding. None of these alone proves that an app's Metal
+frame reached the user's window.
 
-- One branch and one pull request per milestone or meaningful change; tests
-  are real Mach-O programs run under `mrun`.
-- Each PR updates `docs/LOG.md`; support tables in the README move only when
-  a test shows it.
-- Nothing proprietary enters the repository.
+## Longer-term work
+
+- Extend disk-image input beyond HFS+/HFSX (APFS, encrypted or segmented
+  images), and consider package installers or zipped app bundles.
+- Consider transparent Mach-O execution in a reusable base image, rather
+  than requiring an explicit `mrun` invocation.
+- arm64-only binaries remain out of scope without a CPU translator.
+
+Each small change gets a branch, a pull request and an entry in
+[LOG.md](LOG.md). Move a support claim when a test or an observed run
+demonstrates it. Nothing proprietary enters the repository.
