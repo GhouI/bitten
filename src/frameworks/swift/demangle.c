@@ -59,8 +59,47 @@ static int is_identifier(const char *s) {
  * depend on how (or whether yet) they are implemented. Loaded images come
  * first, as with dyld: a Mach-O image may define standard-library types
  * itself (tests compiled as the module Swift do). */
+/* Demangling looks the same few names up again and again (standard types
+ * such as Optional, tried as "_$sSqN" and then "_$sSqMn"), and each lookup
+ * walks every image's export trie, so the answers are kept. A name that
+ * wasn't found is looked up again once another image has loaded. */
+#define RT_CACHE 1024
+static struct rt_entry {
+    char *name;
+    void *value;
+    uint32_t images; /* image count when it was looked up (for misses) */
+} rt_cache[RT_CACHE];
+static pthread_mutex_t rt_lock = PTHREAD_MUTEX_INITIALIZER;
 static void *rt(const char *name) {
-    return dx_global_lookup(name);
+    uint32_t h = 2166136261u;
+    for (const char *c = name; *c; c++) h = (h ^ (unsigned char)*c) * 16777619u;
+    uint32_t images = dx_image_count();
+    pthread_mutex_lock(&rt_lock);
+    for (unsigned i = 0; i < RT_CACHE; i++) {
+        struct rt_entry *e = &rt_cache[(h + i) % RT_CACHE];
+        if (!e->name) break;
+        if (!strcmp(e->name, name)) {
+            if (e->value || e->images == images) {
+                void *v = e->value;
+                pthread_mutex_unlock(&rt_lock);
+                return v;
+            }
+            break;
+        }
+    }
+    pthread_mutex_unlock(&rt_lock);
+    void *v = dx_global_lookup(name);
+    pthread_mutex_lock(&rt_lock);
+    for (unsigned i = 0; i < RT_CACHE / 2; i++) {
+        struct rt_entry *e = &rt_cache[(h + i) % RT_CACHE];
+        if (e->name && strcmp(e->name, name)) continue;
+        if (!e->name) e->name = strdup(name);
+        e->value = v;
+        e->images = images;
+        break;
+    }
+    pthread_mutex_unlock(&rt_lock);
+    return v;
 }
 #define RT(type, var, sym)          \
     static __typeof__(type) var;    \
