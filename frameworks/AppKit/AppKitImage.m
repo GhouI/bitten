@@ -646,7 +646,10 @@ static NSMutableSet<NSString *> *missing_images;
     CGContextClipToRect(c, rect);
     CGContextBeginTransparencyLayerWithRect(c, rect, NULL);
     [self drawInRect:rect];
-    CGContextSetBlendMode(c, kCGBlendModeSourceAtop);
+    /* The colour where the image has coverage, at the colour's own opacity
+     * (source-in: a translucent tint, like a disabled control's, lightens
+     * the image instead of leaving its own colour showing). */
+    CGContextSetBlendMode(c, kCGBlendModeSourceIn);
     CGContextSetFillColorWithColor(c, (color ?: NSColor.labelColor).CGColor);
     CGContextFillRect(c, rect);
     CGContextEndTransparencyLayer(c);

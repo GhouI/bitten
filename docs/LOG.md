@@ -5202,3 +5202,15 @@ Debugging aids:
 - `BITTEN_TOOLBAR_DEBUG` logs each toolbar's items as they're made.
 - Test: `tests/appkit/split.m`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: template images take translucent colours
+
+- A template image was tinted with source-atop. Where the tint is
+  translucent, that leaves the image's own colour showing, so a disabled
+  button's symbol (drawn in the 25% disabled text colour) looked as dark
+  as an enabled one. Tinting now uses source-in: the colour where the
+  image has coverage, at the colour's own opacity. Opaque tints draw as
+  before. The target app's Settings back and forward buttons now look
+  disabled when there's no page to go to.
+- Test: `tests/appkit/drawing.m`.
+- Target app (total `^MISSING`): 0 -> 0.

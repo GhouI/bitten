@@ -161,6 +161,29 @@ int main(void) {
         NSBitmapImageRep *back = [NSBitmapImageRep imageRepWithData:png];
         CHECK(back && back.pixelsWide == 4 && back.pixelsHigh == 4);
         CHECK([back colorAtX:2 y:3].redComponent > 0.99 && [back colorAtX:2 y:0].alphaComponent < 0.01);
+        /* A template image takes its button's colour at that colour's
+         * opacity: a disabled button's symbol is light. */
+        CGFloat darkest[2];
+        for (int enabled = 0; enabled < 2; enabled++) {
+            NSBitmapImageRep *r = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:NULL pixelsWide:24 pixelsHigh:24
+                bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSDeviceRGBColorSpace
+                bytesPerRow:0 bitsPerPixel:0];
+            NSButton *b = [[NSButton alloc] initWithFrame:NSMakeRect(0, 0, 24, 24)];
+            b.bordered = NO;
+            b.title = @"";
+            b.image = [NSImage imageWithSystemSymbolName:@"chevron.left" accessibilityDescription:nil];
+            b.enabled = enabled;
+            [NSGraphicsContext saveGraphicsState];
+            [NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithBitmapImageRep:r]];
+            [[NSColor whiteColor] setFill];
+            NSRectFill(NSMakeRect(0, 0, 24, 24));
+            [b drawRect:b.bounds];
+            [NSGraphicsContext restoreGraphicsState];
+            darkest[enabled] = 1;
+            for (int y = 0; y < 24; y++)
+                for (int x = 0; x < 24; x++) darkest[enabled] = MIN(darkest[enabled], [r colorAtX:x y:y].redComponent);
+        }
+        CHECK(darkest[1] < 0.4 && darkest[0] > 0.6);
         [w close];
         printf("ok\n");
     }
