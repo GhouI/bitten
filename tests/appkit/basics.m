@@ -72,6 +72,18 @@ static NSEvent *seen_current;
 - (void)updateLayer { self.updates++; }
 @end
 
+/* Takes a command-key equivalent before the main menu does. */
+@interface KeyTaker : NSView
+@property int taken;
+@end
+@implementation KeyTaker
+- (BOOL)performKeyEquivalent:(NSEvent *)e {
+    if (![e.charactersIgnoringModifiers isEqualToString:@"k"]) return NO;
+    self.taken++;
+    return YES;
+}
+@end
+
 @interface Delegate : NSObject <NSApplicationDelegate>
 @property int launched;
 @end
@@ -242,6 +254,16 @@ int main(void) {
     size_t bpr = CGBitmapContextGetBytesPerRow(backing), bh = CGBitmapContextGetHeight(backing);
     const unsigned char *pix = bp + (bh - 42) * bpr + 42 * 4;   /* BGRA, rows top down */
     CHECK(pix[0] > 200 && pix[1] > 200 && pix[2] > 200);      /* white-ish in dark */
+
+    /* Command keys go to the key window's views before the main menu. */
+    KeyTaker *taker = [[KeyTaker alloc] initWithFrame:NSMakeRect(0, 0, 5, 5)];
+    [w.contentView addSubview:taker];
+    [w makeKeyAndOrderFront:nil];
+    NSEvent *cmdK = [NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:NSEventModifierFlagCommand
+                                    timestamp:0 windowNumber:w.windowNumber context:nil characters:@"k"
+                  charactersIgnoringModifiers:@"k" isARepeat:NO keyCode:40];
+    [app sendEvent:cmdK];
+    CHECK(taker.taken == 1);
     puts("AppKit basics ok");
     return 0;
 }
