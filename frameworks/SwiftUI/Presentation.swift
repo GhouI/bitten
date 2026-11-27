@@ -30,6 +30,23 @@ internal struct _PresentationModifier<Presented: View>: ViewModifier {
       binding.wrappedValue = false
       m.onDismiss?()
     }
+    if m.style == .sheet, let host = inputs.base.context.hostView {
+      // A sheet on macOS is a window of its own over the presenting one,
+      // as large as its content wants.
+      let context = inputs.base.context
+      let key = inputs.base.path + "#sheet"
+      var env = inputs.environment
+      env[_DismissKey.self] = DismissAction(action: dismiss)
+      let view = AnyView(m.presented())
+      MainActor.assumeIsolated {
+        let sheet = context.store(key) { _SheetBox() }
+        sheet.show(view, environment: env, over: host)
+        context.lifecycle(key, appear: nil, disappear: { [weak sheet] in
+          MainActor.assumeIsolated { sheet?.close() }
+        })
+      }
+      return _ViewOutputs(content)
+    }
     var inner = inputs.named("presented")
     inner.environment[_DismissKey.self] = DismissAction(action: dismiss)
     if m.style == .alert { inner.environment._afterButtonTap = dismiss }
@@ -1060,4 +1077,50 @@ extension ModifiedContent where Modifier == AccessibilityAttachmentModifier {
     -> ModifiedContent<Content, Modifier> { return self }
   public func accessibilityAction(_ actionKind: AccessibilityActionKind = .default, _ handler: @escaping () -> Void)
     -> ModifiedContent<Content, Modifier> { return self }
+}
+
+/// The window a presented sheet lives in, kept while it is presented.
+@MainActor
+internal final class _SheetBox {
+  var window: NSWindow?
+  var host: NSHostingView<AnyView>?
+
+  func show(_ content: AnyView, environment: EnvironmentValues, over presenter: NSView) {
+    // A sheet's card: the window background, rounded, with a hairline edge
+    // so it stands apart from the window under it.
+    let shape = RoundedRectangle(cornerRadius: 10)
+    let view = AnyView(content
+      .background(shape.fill(Color._windowBackground))
+      .overlay(shape.stroke(Color.primary.opacity(0.22), lineWidth: 1)))
+    if let host = host {
+      host._environment = environment
+      host.rootView = view
+      return
+    }
+    let host = NSHostingView(rootView: view)
+    host._environment = environment
+    self.host = host
+    // Opened once the presenting view's update is over: it may be in the
+    // middle of a layout pass now.
+    DispatchQueue.main.async { [weak self, weak presenter] in
+      guard let self = self, self.host === host, let parent = presenter?.window else { return }
+      let ideal = host.fittingContentSize
+      let size = CGSize(width: max(ideal.width, 1), height: max(ideal.height, 1))
+      let w = NSWindow(contentRect: NSMakeRect(0, 0, size.width, size.height), styleMask: [],
+                       backing: .buffered, defer: false)
+      w.isReleasedWhenClosed = false
+      w.isOpaque = false
+      w.backgroundColor = .clear
+      w.contentView = host
+      self.window = w
+      parent.beginSheet(w, completionHandler: nil)
+    }
+  }
+
+  func close() {
+    host = nil
+    guard let w = window else { return }
+    window = nil
+    if let parent = w.sheetParent { parent.endSheet(w) } else { w.orderOut(nil) }
+  }
 }

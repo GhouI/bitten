@@ -613,6 +613,31 @@ struct Counting: View {
   }
 }
 
+/// A sheet is a window of its own over the presenting window, as large as
+/// its content, and goes when it is no longer presented.
+@_silgen_name("swl_swiftui_sheetwindow") public func sheetWindow() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    @MainActor func page(_ shown: Bool) -> some View {
+      Color.white.frame(width: 300, height: 200)
+        .sheet(isPresented: .constant(shown)) { Color.red.frame(width: 120, height: 80) }
+    }
+    let host = NSHostingView(rootView: AnyView(page(true)))
+    let w = NSWindow(contentRect: NSMakeRect(0, 0, 300, 200), styleMask: [.titled], backing: .buffered, defer: false)
+    w.contentView = host
+    _ = render(AnyView(page(true)), 300, 200, host: host)
+    RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
+    guard let sheet = w.attachedSheet else { return 1 }
+    if sheet.frame.size.width != 120 || sheet.frame.size.height != 80 { bad |= 2 }
+    host.rootView = AnyView(page(false))
+    _ = render(AnyView(page(false)), 300, 200, host: host)
+    RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
+    if w.attachedSheet != nil { bad |= 4 }
+    w.close()
+    return bad
+  }
+}
+
 /// A button's keyboard shortcut performs it: Escape a .cancelAction
 /// button, a command key a ⌘ shortcut; a disabled one doesn't.
 @_silgen_name("swl_swiftui_shortcuts") public func shortcuts() -> Int {

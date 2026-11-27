@@ -808,7 +808,7 @@ static const char kDrawingKey;
         size_t w = CGBitmapContextGetWidth(c), h = CGBitmapContextGetHeight(c), bpr = CGBitmapContextGetBytesPerRow(c), opaque = 0;
         for (size_t y = 0; y < h; y++)
             for (size_t x = 0; x < w; x++) opaque += px[y * bpr + x * 4 + 3] != 0;
-        fprintf(stderr, "bitten: presented %s %zux%zu, %zu pixels not transparent\n", self.title.UTF8String ?: "", w, h, opaque);
+        fprintf(stderr, "bitten: presented %s (window %ld) %zux%zu, %zu pixels not transparent\n", self.title.UTF8String ?: "", (long)self.windowNumber, w, h, opaque);
     }
     /* The page's coordinates run down from the top of the main screen. */
     NSRect screen = [NSScreen mainScreen].frame;
