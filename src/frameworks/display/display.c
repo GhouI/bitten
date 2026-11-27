@@ -502,6 +502,38 @@ DX_EXPORT("_bitten_display_listen", bitten_display_listen);
 int bitten_display_port(void) { return server_port; }
 DX_EXPORT("_bitten_display_port", bitten_display_port);
 
+/* The rect (x0, y0, w, h) of a bitmap as straight-alpha RGBA bytes, into
+ * dst (rows of dst_width pixels). 8-bit colour with premultiplied alpha
+ * (what windows draw into) is converted with integers. */
+static void to_rgba(const struct cg_surface *s, size_t x0, size_t y0, size_t w, size_t h, uint8_t *dst, size_t dst_width) {
+    const struct cg_format *f = &s->format;
+    bool fast = f->bytes == 4 && !f->gray && !f->alpha_only && f->a >= 0;
+    for (size_t r = y0; r < y0 + h; r++) {
+        const uint8_t *row = s->data + r * s->row_bytes;
+        uint8_t *d = dst + (r * dst_width + x0) * 4;
+        if (fast) {
+            for (size_t c = x0; c < x0 + w; c++, d += 4) {
+                const uint8_t *p = row + c * 4;
+                unsigned a = p[f->a], rgb[3] = {p[f->r], p[f->g], p[f->b]};
+                for (int k = 0; k < 3; k++) {
+                    unsigned v = rgb[k];
+                    if (!f->straight && a && a < 255) v = (v * 510 + a) / (2 * a);
+                    d[k] = (uint8_t)(v > 255 ? 255 : v);
+                }
+                d[3] = (uint8_t)a;
+            }
+            continue;
+        }
+        for (size_t c = x0; c < x0 + w; c++, d += 4) {
+            CGFloat px[4];
+            cg_read_pixel(s, c, r, px);
+            if (!f->straight && px[3] > 0 && px[3] < 1)
+                for (int k = 0; k < 3; k++) px[k] /= px[3];
+            for (int k = 0; k < 4; k++) d[k] = (uint8_t)(fmin(fmax(px[k], 0), 1) * 255 + 0.5);
+        }
+    }
+}
+
 /* Show (or update) window `id`: its pixels, as a bitmap context holds
  * them (8-bit RGB with alpha in any CGBitmapInfo layout), its position on
  * the page (origin top left) and its title. Returns 0, or -1 when the
@@ -514,15 +546,7 @@ int bitten_display_present(uint32_t id, const void *pixels, size_t width, size_t
     uint8_t *rgba = malloc(width * height * 4 + 1);
     if (!rgba) return -1;
     struct cg_surface s = {(uint8_t *)pixels, width, height, row_bytes, f};
-    for (size_t r = 0; r < height; r++)
-        for (size_t c = 0; c < width; c++) {
-            CGFloat px[4];
-            cg_read_pixel(&s, c, r, px);
-            if (!f.straight && px[3] > 0 && px[3] < 1)
-                for (int k = 0; k < 3; k++) px[k] /= px[3];
-            uint8_t *d = rgba + (r * width + c) * 4;
-            for (int k = 0; k < 4; k++) d[k] = (uint8_t)(fmin(fmax(px[k], 0), 1) * 255 + 0.5);
-        }
+    to_rgba(&s, 0, 0, width, height, rgba, width);
     pthread_mutex_lock(&display_lock);
     struct window *w = find_or_add(id);
     if (!w) { pthread_mutex_unlock(&display_lock); free(rgba); return -1; }
@@ -569,15 +593,7 @@ int bitten_display_present_rect(uint32_t id, const void *pixels, size_t width, s
         return bitten_display_present(id, pixels, width, height, row_bytes, bitmap_info, x, y, title);
     }
     struct cg_surface s = {(uint8_t *)pixels, width, height, row_bytes, f};
-    for (size_t r = ry; r < ry + rh; r++)
-        for (size_t c = rx; c < rx + rw; c++) {
-            CGFloat px[4];
-            cg_read_pixel(&s, c, r, px);
-            if (!f.straight && px[3] > 0 && px[3] < 1)
-                for (int k = 0; k < 3; k++) px[k] /= px[3];
-            uint8_t *d = w->rgba + (r * width + c) * 4;
-            for (int k = 0; k < 4; k++) d[k] = (uint8_t)(fmin(fmax(px[k], 0), 1) * 255 + 0.5);
-        }
+    to_rgba(&s, rx, ry, rw, rh, w->rgba, width);
     w->x = (int32_t)x;
     w->y = (int32_t)y;
     snprintf(w->title, sizeof w->title, "%s", title ? title : "");
