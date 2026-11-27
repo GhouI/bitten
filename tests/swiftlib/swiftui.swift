@@ -2,6 +2,7 @@
 // spacers, padding, frames, shapes, backgrounds), and state that survives
 // rebuilds and drives them.
 import AppKit
+import Observation
 import SwiftUI
 
 /// Renders `view` at `w`x`h` and returns a function giving 0xRRGGBB at
@@ -472,5 +473,64 @@ struct Forwarding: PrimitiveButtonStyle {
     if px(84, 18) != blue { bad |= 2 }
     if px(84, 32) != white { bad |= 4 }
     return bad
+  }
+}
+
+final class StoreCount {
+  var n = 0
+  func bump() { n += 1 }
+}
+/// An observable model, as the @Observable macro writes one.
+final class Shown: Observable {
+  let registrar = ObservationRegistrar()
+  var _value = 0
+  var value: Int {
+    get { registrar.access(self, keyPath: \.value); return _value }
+    set { registrar.withMutation(of: self, keyPath: \.value) { _value = newValue } }
+  }
+}
+/// Stores what it is given when created (as a view's initialiser storing
+/// into a model does), and shows the model.
+struct Storing: View {
+  let model: Shown
+  let builds: StoreCount
+  init(model: Shown, builds: StoreCount) {
+    self.model = model
+    self.builds = builds
+    model.value = 0
+  }
+  var body: some View {
+    let _ = builds.bump()
+    Text("\(model.value)")
+  }
+}
+struct StoringParent: View {
+  let model: Shown
+  let builds: StoreCount
+  var body: some View { Storing(model: model, builds: builds) }
+}
+
+/// A write made while the tree is rebuilt, to a property the previous tree
+/// read, does not make the new tree rebuild again (and again).
+@_silgen_name("swl_swiftui_rebuildwrites") public func rebuildWrites() -> Int {
+  return MainActor.assumeIsolated {
+    let model = Shown(), builds = StoreCount()
+    let view = StoringParent(model: model, builds: builds)
+    let host = NSHostingView(rootView: view)
+    @MainActor func spinThenDraw() {
+      RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.05))
+      _ = render(view, 20, 20, host: host)
+    }
+    spinThenDraw()
+    host.rootView = view
+    spinThenDraw()
+    let settled = builds.n
+    spinThenDraw()
+    spinThenDraw()
+    if builds.n != settled { return 1 }
+    // A write from outside the build still rebuilds.
+    model.value = 1
+    spinThenDraw()
+    return builds.n > settled ? 0 : 2
   }
 }

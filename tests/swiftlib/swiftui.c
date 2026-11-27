@@ -15,6 +15,7 @@ long swl_swiftui_labels(void);
 long swl_swiftui_hover(void);
 long swl_swiftui_togglemarks(void);
 long swl_swiftui_flexrows(void);
+long swl_swiftui_rebuildwrites(void);
 
 static int check(const char *what, long bad) {
     if (bad) printf("%s: failed checks %#lx\n", what, bad);
@@ -36,6 +37,7 @@ int main(void) {
     ok &= check("hover", swl_swiftui_hover());
     ok &= check("togglemarks", swl_swiftui_togglemarks());
     ok &= check("flexrows", swl_swiftui_flexrows());
+    ok &= check("rebuildwrites", swl_swiftui_rebuildwrites());
     CHECK(ok);
     puts("swift swiftui ok");
     return 0;

@@ -4426,3 +4426,21 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Test: `tests/swiftlib/swiftui.swift` (timelines): a running timeline
   rebuilds, a paused one does not, and one removed from the tree stops.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: a write while the tree is rebuilt does not rebuild it again
+
+- Observation registered by a tree that has since been rebuilt fires when
+  a property it read changes, even after the tree is gone. A view that
+  stores into a model while it is created (an initialiser storing what it
+  was given) did that on every rebuild, so every rebuild asked for
+  another, without end.
+- A hosting view now counts its builds. A change seen by an earlier
+  build's observation is ignored. Writes from outside the build, or to
+  properties the current build has read, still rebuild.
+- In the target app, the main window's content stored its presentation
+  into its model on every rebuild, which kept the window rebuilding and
+  redrawing at the rate it could draw.
+- Debugging: `BITTEN_OBSERVATION_DEBUG` logs each write that fires a
+  tracked change, with its key path.
+- Test: `tests/swiftlib/swiftui.swift` (rebuildwrites).
+- Target app (total `^MISSING`): 0 -> 0.
