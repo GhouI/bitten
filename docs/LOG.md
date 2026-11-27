@@ -4766,3 +4766,16 @@ Debugging aids:
   first time an instance of a matching class is made (Objective-C or
   Swift), its methods are printed with their implementations.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Task.sleep honours cancellation
+
+- `Task.sleep` (for:, nanoseconds:, until:clock:) and the clocks' `sleep`
+  ignored cancellation: a cancelled task slept out its time and carried
+  on. As in Swift, a task already cancelled now throws `CancellationError`
+  at once, and one cancelled while it sleeps wakes then and throws. The
+  timer and the cancellation handler race to finish the sleep exactly
+  once.
+- Code that restarts a delayed action by cancelling the previous task
+  (the target app's hover tips do) no longer runs the stale ones.
+  tests/swiftlib/handoff.swift covers all three cases.
+- Target app (total `^MISSING`): 0 -> 0.
