@@ -805,9 +805,27 @@ static const struct { unsigned short code; char plain, shifted; } bn_us_keys[] =
 
 /* ---- NSMenu and NSMenuItem ----------------------------------------------------------------------- */
 
+@interface NSMenuItem (BittenOwner)
+- (void)_bn_setMenu:(NSMenu *)menu;
+@end
+@interface NSMenu (BittenOwner)
+- (void)_bn_setSupermenu:(NSMenu *)menu;
+@end
+
 @implementation NSMenu {
     NSMutableArray *_items;
+    __weak NSMenu *_supermenu;
 }
+/* Items know their menu, and submenus the menu holding them. */
+- (void)_bn_adopt:(NSMenuItem *)item {
+    [item _bn_setMenu:self];
+    [item.submenu _bn_setSupermenu:self];
+}
+- (void)_bn_release:(NSMenuItem *)item {
+    if (item.menu == self) [item _bn_setMenu:nil];
+    if (item.submenu.supermenu == self) [item.submenu _bn_setSupermenu:nil];
+}
+- (void)_bn_setSupermenu:(NSMenu *)menu { _supermenu = menu; }
 @synthesize title = _title;
 - (instancetype)init { return [self initWithTitle:@""]; }
 - (instancetype)initWithTitle:(NSString *)title {
@@ -819,19 +837,35 @@ static const struct { unsigned short code; char plain, shifted; } bn_us_keys[] =
 }
 - (NSArray *)itemArray { return [_items copy]; }
 - (NSInteger)numberOfItems { return (NSInteger)_items.count; }
-- (void)addItem:(NSMenuItem *)item { [_items addObject:item]; }
+- (void)addItem:(NSMenuItem *)item {
+    if (!item) return;
+    [_items addObject:item];
+    [self _bn_adopt:item];
+}
 - (NSMenuItem *)addItemWithTitle:(NSString *)title action:(SEL)action keyEquivalent:(NSString *)key {
     NSMenuItem *i = [[NSMenuItem alloc] initWithTitle:title action:action keyEquivalent:key];
     [self addItem:i];
     return i;
 }
-- (void)removeAllItems { [_items removeAllObjects]; }
-- (void)insertItem:(NSMenuItem *)item atIndex:(NSInteger)index {
-    [_items insertObject:item atIndex:(NSUInteger)MAX(0, MIN(index, (NSInteger)_items.count))];
+- (void)removeAllItems {
+    for (NSMenuItem *i in _items) [self _bn_release:i];
+    [_items removeAllObjects];
 }
-- (void)removeItem:(NSMenuItem *)item { [_items removeObjectIdenticalTo:item]; }
+- (void)insertItem:(NSMenuItem *)item atIndex:(NSInteger)index {
+    if (!item) return;
+    [_items insertObject:item atIndex:(NSUInteger)MAX(0, MIN(index, (NSInteger)_items.count))];
+    [self _bn_adopt:item];
+}
+- (void)removeItem:(NSMenuItem *)item {
+    if ([_items indexOfObjectIdenticalTo:item] == NSNotFound) return;
+    [_items removeObjectIdenticalTo:item];
+    [self _bn_release:item];
+}
 - (void)removeItemAtIndex:(NSInteger)index {
-    if (index >= 0 && (NSUInteger)index < _items.count) [_items removeObjectAtIndex:(NSUInteger)index];
+    if (index < 0 || (NSUInteger)index >= _items.count) return;
+    NSMenuItem *item = _items[(NSUInteger)index];
+    [_items removeObjectAtIndex:(NSUInteger)index];
+    [self _bn_release:item];
 }
 - (NSMenuItem *)itemAtIndex:(NSInteger)index {
     return index >= 0 && (NSUInteger)index < _items.count ? _items[(NSUInteger)index] : nil;
@@ -849,9 +883,13 @@ static const struct { unsigned short code; char plain, shifted; } bn_us_keys[] =
     return i == NSNotFound ? -1 : (NSInteger)i;
 }
 - (NSArray<NSMenuItem *> *)items { return [_items copy]; }
-- (void)setItems:(NSArray<NSMenuItem *> *)items { _items = [items mutableCopy]; }
-- (NSMenu *)supermenu { return nil; }
-- (void)setSupermenu:(NSMenu *)m {}
+- (void)setItems:(NSArray<NSMenuItem *> *)items {
+    for (NSMenuItem *i in _items) [self _bn_release:i];
+    _items = [items mutableCopy] ?: [NSMutableArray array];
+    for (NSMenuItem *i in _items) [self _bn_adopt:i];
+}
+- (NSMenu *)supermenu { return _supermenu; }
+- (void)setSupermenu:(NSMenu *)m { _supermenu = m; }
 - (BOOL)autoenablesItems { return YES; }
 - (void)setAutoenablesItems:(BOOL)a {}
 - (void)update {}
@@ -884,7 +922,8 @@ static const NSEventModifierFlags bn_shortcut_mask = NSEventModifierFlagCommand 
 @end
 
 @implementation NSMenuItem {
-    BOOL _disabled, _hidden;
+    BOOL _disabled, _hidden, _separator;
+    __weak NSMenu *_menu;
     NSEventModifierFlags _mask;
     NSInteger _state;
     NSImage *_image;
@@ -892,7 +931,11 @@ static const NSEventModifierFlags bn_shortcut_mask = NSEventModifierFlagCommand 
 }
 @synthesize title = _title, action = _action, target = _target, keyEquivalent = _keyEquivalent,
             submenu = _submenu, tag = _tag, representedObject = _representedObject;
-+ (NSMenuItem *)separatorItem { return [[self alloc] initWithTitle:@"" action:NULL keyEquivalent:@""]; }
++ (NSMenuItem *)separatorItem {
+    NSMenuItem *i = [[self alloc] initWithTitle:@"" action:NULL keyEquivalent:@""];
+    i->_separator = YES;
+    return i;
+}
 - (instancetype)init { return [self initWithTitle:@"" action:NULL keyEquivalent:@""]; }
 - (instancetype)initWithTitle:(NSString *)title action:(SEL)action keyEquivalent:(NSString *)key {
     if ((self = [super init])) {
@@ -903,11 +946,17 @@ static const NSEventModifierFlags bn_shortcut_mask = NSEventModifierFlagCommand 
     }
     return self;
 }
-- (NSMenu *)menu { return nil; }
+- (NSMenu *)menu { return _menu; }
+- (void)_bn_setMenu:(NSMenu *)menu { _menu = menu; }
+- (void)setSubmenu:(NSMenu *)submenu {
+    if (_submenu.supermenu == _menu) [_submenu _bn_setSupermenu:nil];
+    _submenu = submenu;
+    if (_menu) [submenu _bn_setSupermenu:_menu];
+}
 - (NSEventModifierFlags)keyEquivalentModifierMask { return _mask; }
 - (void)setKeyEquivalentModifierMask:(NSEventModifierFlags)m { _mask = m; }
 - (BOOL)hasSubmenu { return _submenu != nil; }
-- (BOOL)isSeparatorItem { return !_title.length && !_action && !_submenu; }
+- (BOOL)isSeparatorItem { return _separator; }
 - (NSInteger)state { return _state; }
 - (void)setState:(NSInteger)s { _state = s; }
 - (BOOL)isHidden { return _hidden; }

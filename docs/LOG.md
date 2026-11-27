@@ -4154,3 +4154,30 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - What remains in the idle app is sending the whole frame to the display,
   and the terminal renderer redrawing its whole drawable.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: pop-up and context menus on screen
+
+- Menus show in a window of their own at the pop-up menu level. Before,
+  they had no window: a pop-up only told the delegate it opened and closed.
+  - Each row shows its title, image, checkmark or mixed state, and key
+    equivalent (⌃⌥⇧⌘ glyphs), or a submenu arrow. Separators are drawn and
+    disabled items are greyed.
+  - The row under the pointer highlights through a tracking area. Hovering
+    a submenu row opens the submenu beside it.
+  - The arrow keys move through enabled rows, Return or a click picks an
+    item and sends its action, and Escape or a click outside closes the
+    menu.
+  - Items are enabled as AppKit's automatic validation decides: a target
+    for the action, and `validateMenuItem:`.
+- `popUpMenuPositioningItem:atLocation:inView:` and `popUpContextMenu:`
+  show the menu and return at once (AppKit tracks it in a nested loop
+  there). The chosen action and `menuDidClose:` come when the menu is used.
+- NSView's `rightMouseDown:` shows `menuForEvent:` as AppKit does. The
+  target app's terminal context menu (Copy, Paste, Split, Float, Zoom,
+  Close Pane, Reset Terminal) opens and its items work.
+- `NSMenuItem.menu` and `NSMenu.supermenu` are kept; they were always nil.
+  Separators are the items made by `+separatorItem`; any untitled item
+  without an action used to count as one.
+- SDK: function-key characters (`NSUpArrowFunctionKey`…) and
+  `menuForEvent:`.
+- Target app (total `^MISSING`): 0 -> 0.

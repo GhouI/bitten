@@ -1,7 +1,5 @@
 /* NSMenu and NSMenuItem state beyond the core: menu delegates (asked to
- * update a menu before it is shown), fonts and widths, pop-up and context
- * menus (shown through the delegate's open/close calls; there is no menu
- * window), item views, represented objects and subtitles. */
+ * update a menu before it is shown), fonts and widths, item views, represented objects and subtitles. */
 
 #import <AppKit/AppKit.h>
 #import <objc/runtime.h>
@@ -52,21 +50,7 @@ static const char k_delegate, k_min_width, k_font, k_selection_mode, k_view, k_r
     if ([d respondsToSelector:@selector(menuNeedsUpdate:)]) [d menuNeedsUpdate:self];
     [self update];
 }
-- (BOOL)popUpMenuPositioningItem:(NSMenuItem *)item atLocation:(NSPoint)location inView:(NSView *)view {
-    [self _bn_prepareForDisplay];
-    id<NSMenuDelegate> d = self.delegate;
-    if ([d respondsToSelector:@selector(menuWillOpen:)]) [d menuWillOpen:self];
-    if ([d respondsToSelector:@selector(menuDidClose:)]) [d menuDidClose:self];
-    return NO;
-}
-+ (void)popUpContextMenu:(NSMenu *)menu withEvent:(NSEvent *)event forView:(NSView *)view {
-    [menu popUpMenuPositioningItem:nil atLocation:event.locationInWindow inView:view];
-}
-+ (void)popUpContextMenu:(NSMenu *)menu withEvent:(NSEvent *)event forView:(NSView *)view withFont:(NSFont *)font {
-    [self popUpContextMenu:menu withEvent:event forView:view];
-}
-- (void)cancelTracking {}
-- (void)cancelTrackingWithoutAnimation {}
+/* Showing menus: AppKitMenuWindow.m. */
 @end
 
 @implementation NSMenuItem (BittenExtras)

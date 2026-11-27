@@ -41,6 +41,15 @@ static NSEvent *seen_current;
 - (void)mouseMoved:(NSEvent *)e { self.moved++; }
 @end
 
+/* The target of menu items. */
+@interface Picker : NSObject
+@property int picked;
+- (void)pick:(id)sender;
+@end
+@implementation Picker
+- (void)pick:(NSMenuItem *)sender { self.picked = (int)sender.tag; }
+@end
+
 @interface Delegate : NSObject <NSApplicationDelegate>
 @property int launched;
 @end
@@ -123,6 +132,35 @@ int main(void) {
     CHECK(!panel.keyWindow && w.keyWindow && became == 1);
     [[NSNotificationCenter defaultCenter] removeObserver:o1];
     [[NSNotificationCenter defaultCenter] removeObserver:o2];
+
+    /* Menus: items know their menu; separators are made as such; a pop-up
+     * menu shows in a window of its own, and the keyboard picks an item. */
+    Picker *picker = [Picker new];
+    NSMenu *menu = [[NSMenu alloc] initWithTitle:@"m"];
+    NSMenuItem *first = [menu addItemWithTitle:@"First" action:@selector(pick:) keyEquivalent:@""];
+    [menu addItem:[NSMenuItem separatorItem]];
+    NSMenuItem *second = [menu addItemWithTitle:@"Second" action:@selector(pick:) keyEquivalent:@"s"];
+    NSMenuItem *blank = [menu addItemWithTitle:@"" action:NULL keyEquivalent:@""];
+    first.target = second.target = picker;
+    first.tag = 1, second.tag = 2;
+    NSMenu *sub = [[NSMenu alloc] initWithTitle:@"sub"];
+    blank.submenu = sub;
+    CHECK(first.menu == menu && sub.supermenu == menu && [menu itemAtIndex:1].isSeparatorItem && !blank.isSeparatorItem);
+    NSUInteger before = app.windows.count;
+    [menu popUpMenuPositioningItem:nil atLocation:NSMakePoint(10, 10) inView:w.contentView];
+    NSWindow *menuWindow = app.windows.lastObject;
+    CHECK(app.windows.count == before + 1 && menuWindow.level == NSPopUpMenuWindowLevel && menuWindow.visible &&
+          menuWindow.keyWindow);
+    NSEvent * (^key)(unichar) = ^(unichar c) {
+        NSString *s = [NSString stringWithCharacters:&c length:1];
+        return [NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:0 timestamp:0
+                            windowNumber:menuWindow.windowNumber context:nil characters:s charactersIgnoringModifiers:s
+                               isARepeat:NO keyCode:0];
+    };
+    [menuWindow sendEvent:key(NSDownArrowFunctionKey)];  /* First */
+    [menuWindow sendEvent:key(NSDownArrowFunctionKey)];  /* over the separator: Second */
+    [menuWindow sendEvent:key('\r')];
+    CHECK(picker.picked == 2 && !menuWindow.visible && w.keyWindow);
     puts("AppKit basics ok");
     return 0;
 }
