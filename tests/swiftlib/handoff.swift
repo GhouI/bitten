@@ -108,6 +108,27 @@ actor Library {
       for _ in 0..<500 { _ = withObservationTracking({ counter.n }, onChange: {}) }
     }
     check(counter.n > 0, #line)
+    // Task.sleep and cancellation: a task cancelled before it sleeps throws
+    // at once; one cancelled while it sleeps wakes then, throwing; an
+    // uncancelled sleep ends normally.
+    do {
+      let early = Task { () -> Bool in
+        withUnsafeCurrentTask { $0?.cancel() }
+        do { try await Task.sleep(for: .seconds(5)); return false } catch { return error is CancellationError }
+      }
+      check(await early.value, #line)
+      let started = ContinuousClock.now
+      let sleeper = Task { () -> Bool in
+        do { try await Task.sleep(for: .seconds(5)); return false } catch { return error is CancellationError }
+      }
+      try? await Task.sleep(for: .milliseconds(50))
+      sleeper.cancel()
+      check(await sleeper.value, #line)
+      check(ContinuousClock.now - started < .seconds(2), #line)
+      var slept = false
+      do { try await Task.sleep(for: .milliseconds(10)); slept = true } catch {}
+      check(slept, #line)
+    }
     // A property read inside nested tracking is watched by the enclosing
     // tracking too (Observation merges the inner accesses outward).
     final class Flag: @unchecked Sendable { var fired = false }

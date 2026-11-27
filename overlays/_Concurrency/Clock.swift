@@ -43,6 +43,54 @@ internal func _sleep(nanoseconds: UInt64) async {
   }
 }
 
+/// A sleep that a timer or the task's cancellation ends, whichever comes
+/// first (exactly once).
+internal final class _SleepState: @unchecked Sendable {
+  let lock: UnsafeMutablePointer<UInt32>
+  var continuation: UnsafeContinuation<Void, Error>?
+  var finished = false
+  init() {
+    lock = .allocate(capacity: 1)
+    lock.initialize(to: 0)
+  }
+  deinit { lock.deallocate() }
+  func finish(_ error: Error?) {
+    _bitten_lock(lock)
+    let c = finished ? nil : continuation
+    finished = true
+    continuation = nil
+    _bitten_unlock(lock)
+    guard let c = c else { return }
+    if let e = error { c.resume(throwing: e) } else { c.resume() }
+  }
+}
+
+/// Suspends the current task for `nanoseconds`, as Task.sleep does: a task
+/// already cancelled throws at once, and one cancelled while it sleeps
+/// wakes then, throwing CancellationError.
+internal func _sleepCancellable(nanoseconds: UInt64) async throws {
+  try Task.checkCancellation()
+  let state = _SleepState()
+  try await withTaskCancellationHandler {
+    try await withUnsafeThrowingContinuation { (c: UnsafeContinuation<Void, Error>) in
+      _bitten_lock(state.lock)
+      if state.finished {
+        _bitten_unlock(state.lock)
+        c.resume(throwing: CancellationError())
+        return
+      }
+      state.continuation = c
+      _bitten_unlock(state.lock)
+      let ctx = Unmanaged.passRetained(state).toOpaque()
+      _after(nanoseconds, ctx) { raw in
+        Unmanaged<_SleepState>.fromOpaque(raw).takeRetainedValue().finish(nil)
+      }
+    }
+  } onCancel: {
+    state.finish(CancellationError())
+  }
+}
+
 internal func _nanoseconds(_ d: Duration) -> UInt64 {
   if d <= .zero { return 0 }
   let c = d.components
@@ -59,7 +107,7 @@ public struct ContinuousClock: Clock, Sendable {
   public static var now: Instant { return Instant(_value: _now(1)) }
   public var minimumResolution: Swift.Duration { return .nanoseconds(1) }
   public func sleep(until deadline: Instant, tolerance: Swift.Duration? = nil) async throws {
-    await _sleep(nanoseconds: _nanoseconds(deadline._value - now._value))
+    try await _sleepCancellable(nanoseconds: _nanoseconds(deadline._value - now._value))
   }
 }
 
@@ -91,7 +139,7 @@ public struct SuspendingClock: Clock, Sendable {
   public static var now: Instant { return Instant(_value: _now(2)) }
   public var minimumResolution: Swift.Duration { return .nanoseconds(1) }
   public func sleep(until deadline: Instant, tolerance: Swift.Duration? = nil) async throws {
-    await _sleep(nanoseconds: _nanoseconds(deadline._value - now._value))
+    try await _sleepCancellable(nanoseconds: _nanoseconds(deadline._value - now._value))
   }
 }
 
@@ -127,9 +175,9 @@ extension Task where Success == Never, Failure == Never {
     try await clock.sleep(until: deadline, tolerance: tolerance)
   }
   public static func sleep(for duration: Duration) async throws {
-    await _sleep(nanoseconds: _nanoseconds(duration))
+    try await _sleepCancellable(nanoseconds: _nanoseconds(duration))
   }
   public static func sleep(nanoseconds duration: UInt64) async throws {
-    await _sleep(nanoseconds: duration)
+    try await _sleepCancellable(nanoseconds: duration)
   }
 }
