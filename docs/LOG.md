@@ -4968,3 +4968,24 @@ Debugging aids:
   in AppKit, instead of a grey square. Both have dark-appearance colours.
   Checked in the target app's Settings → Interface ("Tint with theme").
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI stacks: shortfalls shared as SwiftUI shares them; measurements remembered
+
+- When a stack's children want more than it has, they now share the
+  shortfall as SwiftUI's stacks do: by layout priority, then least
+  flexible first, each offered an equal share of what is left.
+  `layoutPriority` is now honoured there. When everything fits, the
+  stack lays out as before: children that don't grow get their ideal
+  size, and flexible ones share the rest. Among those, children that stop
+  growing at some size (a frame's `maxWidth`) now come before those that
+  would take anything.
+- Each view node remembers its sizes for the rest of a layout pass
+  (`measure`), so nested stacks, which ask their children several times,
+  don't multiply the work level by level. `BITTEN_NO_MEASURE_CACHE=1`
+  turns it off.
+- The target app's Terminal settings typography row still squeezes its
+  first column. Its other columns are fixed-width and the Settings window
+  is 720 points wide. On macOS the window is likely wider: SwiftUI sizes
+  it to the content's ideal width, and ours under-measures an AppKit
+  split view inside it.
+- Target app (total `^MISSING`): 0 -> 0.
