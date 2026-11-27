@@ -4444,3 +4444,14 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   tracked change, with its key path.
 - Test: `tests/swiftlib/swiftui.swift` (rebuildwrites).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: a click survives a rebuild between press and release
+
+- The tree is rebuilt whenever state changes, and a release used to tap a
+  control only if it found the same node the press found. A rebuild in
+  between (state changing while the button was held, or a timer) lost the
+  click. A release now taps the node at the same place in the new tree.
+- In the target app, onboarding's "Skip for now" did nothing while the
+  window kept rebuilding.
+- Test: `tests/swiftlib/swiftui.swift` (pressrebuild).
+- Target app (total `^MISSING`): 0 -> 0.

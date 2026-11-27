@@ -288,6 +288,26 @@ struct Forwarding: PrimitiveButtonStyle {
   }
 }
 
+/// A click whose press and release straddle a rebuild of the tree (state
+/// changing while the button is held) still taps the button.
+@_silgen_name("swl_swiftui_pressrebuild") public func pressRebuild() -> Int {
+  return MainActor.assumeIsolated {
+    let taps = Taps()
+    let view = Button(action: { taps.n += 1 }) { Color(.sRGB, red: 0, green: 0, blue: 1).frame(width: 10, height: 10) }
+      .buttonStyle(.plain)
+    let host = NSHostingView(rootView: view)
+    _ = render(view, 30, 30, host: host)
+    let at = NSMakePoint(15, 15)
+    host.mouseDown(with: NSEvent.mouseEvent(with: .leftMouseDown, location: at, modifierFlags: [], timestamp: 0,
+                                            windowNumber: 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!)
+    host.rootView = view
+    _ = render(view, 30, 30, host: host)
+    host.mouseUp(with: NSEvent.mouseEvent(with: .leftMouseUp, location: at, modifierFlags: [], timestamp: 0,
+                                          windowNumber: 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 0)!)
+    return taps.n == 1 ? 0 : 1
+  }
+}
+
 @_silgen_name("swl_swiftui_hits") public func hits() -> Int {
   return MainActor.assumeIsolated {
     var bad = 0

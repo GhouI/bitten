@@ -7,6 +7,7 @@ long swl_swiftui_lazy(void);
 long swl_swiftui_timelines(void);
 long swl_swiftui_order(void);
 long swl_swiftui_styles(void);
+long swl_swiftui_pressrebuild(void);
 long swl_swiftui_hits(void);
 long swl_swiftui_scrollstack(void);
 long swl_swiftui_aspect(void);
@@ -29,6 +30,7 @@ int main(void) {
     ok &= check("timelines", swl_swiftui_timelines());
     ok &= check("order", swl_swiftui_order());
     ok &= check("styles", swl_swiftui_styles());
+    ok &= check("pressrebuild", swl_swiftui_pressrebuild());
     ok &= check("hits", swl_swiftui_hits());
     ok &= check("scrollstack", swl_swiftui_scrollstack());
     ok &= check("aspect", swl_swiftui_aspect());
