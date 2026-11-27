@@ -2243,7 +2243,8 @@ typedef NS_ENUM(NSInteger, NSMenuSelectionMode) {
 @property (readonly) CGFloat menuBarHeight;
 @property (readonly) NSSize size;
 - (NSInteger)indexOfItemWithTitle:(NSString *)title;
-- (BOOL)popUpMenuPositioningItem:(nullable NSMenuItem *)item atLocation:(NSPoint)location inView:(nullable NSView *)view;
+- (BOOL)popUpMenuPositioningItem:(nullable NSMenuItem *)item atLocation:(NSPoint)location inView:(nullable NSView *)view
+    NS_SWIFT_NAME(popUp(positioning:at:in:));
 + (void)popUpContextMenu:(NSMenu *)menu withEvent:(NSEvent *)event forView:(NSView *)view;
 + (void)popUpContextMenu:(NSMenu *)menu withEvent:(NSEvent *)event forView:(NSView *)view withFont:(nullable NSFont *)font;
 - (void)cancelTracking;
