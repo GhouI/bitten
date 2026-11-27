@@ -53,7 +53,7 @@ TEST_C    := $(filter-out $(EXCLUDE),$(wildcard tests/c/*.c))
 TEST_BINS := $(patsubst tests/c/%.c,$(BUILD)/tests/c/%,$(TEST_C))
 $(BUILD)/sdk/libSystem.tbd: $(BUILD)/mrun tools/gen-tbd.sh
 	@mkdir -p $(dir $@)
-	tools/gen-tbd.sh $(BUILD)/mrun > $@
+	tools/gen-tbd.sh $(BUILD)/mrun > $@.tmp && mv $@.tmp $@
 
 $(BUILD)/tests/c/%: tests/c/%.c $(BUILD)/sdk/libSystem.tbd tests/include/darwin.h
 	@mkdir -p $(dir $@)
@@ -627,6 +627,7 @@ $(BUILD)/tests/swiftlib/%: tests/swiftlib/%.swift tests/swiftlib/%.c $(LIBSWIFTC
 test-bins: $(TEST_APPKITBINS) $(TEST_UNBINS) $(TEST_QCBINS) $(TEST_METALBINS) $(TEST_MEDIABINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
 
 check: $(BUILD)/mrun $(FRAMEWORKS) $(METAL_TOOLS) $(TEST_APPKITBINS) $(TEST_UNBINS) $(TEST_QCBINS) $(TEST_METALBINS) $(TEST_MEDIABINS) $(TEST_BINS) $(TEST_OBJCBINS) $(TEST_FNDBINS) $(TEST_GOBINS) $(TEST_SWIFTBINS) $(TEST_SWLIBBINS)
+	tests/gen-tbd.sh
 	BUILD=$(BUILD) tests/run.sh
 	$(if $(HAVE_MACHO),BUILD=$(BUILD) tests/metal/staged.sh)
 
