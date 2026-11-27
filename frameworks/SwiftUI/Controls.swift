@@ -876,6 +876,8 @@ internal final class _ToggleMarkNode: _ViewNode {
   override func sizeThatFits(_ proposal: ProposedViewSize) -> CGSize {
     return CGSize(width: proposal.width ?? (isSwitch ? 32 : 14), height: proposal.height ?? (isSwitch ? 16 : 14))
   }
+  /// The switch or box it draws is what a click lands on.
+  override func hitsContent(_ point: CGPoint) -> Bool { return frame._contains(point) }
   override func draw(_ context: CGContext) {
     let f = frame
     let accent = Color.accentColor.resolve(in: environment).paint
