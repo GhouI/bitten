@@ -40,6 +40,7 @@ struct bitten_display_event {
 enum {
     EV_MOUSE_DOWN = 1, EV_MOUSE_UP = 2, EV_MOUSE_MOVED = 3, EV_MOUSE_DRAGGED = 4, EV_SCROLL = 5,
     EV_KEY_DOWN = 6, EV_KEY_UP = 7, EV_CLOSE = 8, EV_RESIZE = 9, EV_MOVE = 10,
+    EV_MINIATURIZE = 11, EV_ZOOM = 12, EV_DEMINIATURIZE = 13,   /* the title bar's buttons, the dock's chips */
 };
 
 extern pthread_mutex_t display_lock;

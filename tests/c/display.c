@@ -122,6 +122,19 @@ int main(void) {
     CHECK(!strcmp(e.characters, "a\xc3\xa9"));
     CHECK(!bitten_display_next_event(&e));
 
+    /* the title bar's minimise and zoom dots, and the dock chip */
+    const char *wm[] = {"{\"t\":\"miniaturize\",\"w\":7}", "{\"t\":\"zoom\",\"w\":7}",
+                        "{\"t\":\"deminiaturize\",\"w\":7}"};
+    for (int k = 0; k < 3; k++) {
+        unsigned long l = strlen(wm[k]);
+        unsigned char o[64] = {0x81, (unsigned char)(0x80 | l), 1, 2, 3, 4};
+        for (unsigned long i = 0; i < l; i++) o[6 + i] = (unsigned char)wm[k][i] ^ o[2 + i % 4];
+        CHECK(send(fd, o, 6 + l, 0) == (long)(6 + l));
+        got = 0;
+        for (int i = 0; i < 200 && !got; i++) { got = bitten_display_next_event(&e); if (!got) usleep(10000); }
+        CHECK(got && e.type == 11 + k && e.window == 7);
+    }
+
     /* ordering it front resends it, raised */
     bitten_display_order_front(7);
     CHECK(read_some(fd, hdr, 2) == 2 && hdr[0] == 0x82 && hdr[1] == len);

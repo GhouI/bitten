@@ -633,6 +633,8 @@ typedef NSString *NSUserInterfaceItemIdentifier NS_TYPED_EXTENSIBLE_ENUM;
 @interface NSWindow (BittenDisplay)
 - (void)_bn_scheduleDisplay;
 - (void)_bn_sendStyle;
+- (void)_bn_hideKeepingDisplay;
+- (void)_post:(NSNotificationName)name;
 - (void)_bn_orderFrontOnDisplay;
 - (void)_bn_closeDisplay;
 - (void)displayIfNeeded;

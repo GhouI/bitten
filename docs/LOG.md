@@ -4321,3 +4321,23 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   later) and records ⌘N, now that command keys reach views first (#208).
   The Swift field offsets it reads were slid correctly by the runtime.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Window management: resize grip, zoom, minimise to a dock
+
+- The display page gives resizable windows a grip at the bottom right.
+  Dragging it sends `resize` (throttled to one per animation frame), and
+  AppKit keeps the window's top left corner where it was. The yellow and
+  green title-bar dots now send `miniaturize` and `zoom` (events 11 and
+  12), and are grey when the window can't do either.
+- `_bn_sendStyle` adds style flags 16 (resizable), 32 (miniaturizable),
+  64 (zoomable) and 128 (miniaturized), taken from the style mask.
+- `-[NSWindow miniaturize:]` hides the window but leaves it with the
+  display, which shows it as a chip in a dock along the bottom of the page.
+  Clicking the chip sends `deminiaturize` (event 13). Both directions pass
+  key status on and post the will/did (de)miniaturize notifications, and
+  `NSWindowWillMiniaturizeNotification` is now defined.
+- Checked in the target app: the main window resizes from the grip, zooms,
+  and minimises to a chip and comes back. Full redraws during a resize are
+  slow, about 0.3–1 s each, and most of that time is CG compositing
+  (`cg_blend_pixel`, `cg_read_pixel` in transparency layers).
+- Target app (total `^MISSING`): 0 -> 0.
