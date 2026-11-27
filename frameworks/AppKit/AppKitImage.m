@@ -244,25 +244,41 @@ static BOOL asset_catalog_has(NSBundle *bundle, NSString *name) {
             catalogs[path] = car;
         }
     }
-    NSData *needle = [name dataUsingEncoding:NSUTF8StringEncoding];
-    if (!needle.length || car.length < needle.length) return NO;
-    const unsigned char *h = car.bytes, *n = needle.bytes;
-    size_t hl = car.length, nl = needle.length;
-    for (size_t i = 0; i + nl <= hl; i++) {
-        if (h[i] != n[0] || memcmp(h + i, n, nl)) continue;
-        /* A whole name: not part of a longer identifier. */
-        unsigned char after = i + nl < hl ? h[i + nl] : 0;
-        unsigned char before = i ? h[i - 1] : 0;
-        if (after > ' ' && after != '"' && after < 0x80 && (isalnum(after) || after == '.' || after == '_' || after == '-')) continue;
-        if (before && (isalnum(before) || before == '.' || before == '_' || before == '-')) continue;
-        return YES;
+    /* Each name is looked for once per catalog (a catalog is megabytes). */
+    static NSMutableDictionary<NSString *, NSNumber *> *answers;
+    NSString *key = [path stringByAppendingFormat:@"\n%@", name];
+    @synchronized([NSImage class]) {
+        if (!answers) answers = [NSMutableDictionary dictionary];
+        NSNumber *known = answers[key];
+        if (known) return known.boolValue;
     }
-    return NO;
+    BOOL found = NO;
+    NSData *needle = [name dataUsingEncoding:NSUTF8StringEncoding];
+    if (needle.length && car.length >= needle.length) {
+        const unsigned char *h = car.bytes, *n = needle.bytes;
+        size_t hl = car.length, nl = needle.length;
+        for (const unsigned char *at = memmem(h, hl, n, nl); at; at = memmem(at + 1, hl - (size_t)(at + 1 - h), n, nl)) {
+            size_t i = (size_t)(at - h);
+            /* A whole name: not part of a longer identifier. */
+            unsigned char after = i + nl < hl ? h[i + nl] : 0;
+            unsigned char before = i ? h[i - 1] : 0;
+            if (after > ' ' && after != '"' && after < 0x80 && (isalnum(after) || after == '.' || after == '_' || after == '-')) continue;
+            if (before && (isalnum(before) || before == '.' || before == '_' || before == '-')) continue;
+            found = YES;
+            break;
+        }
+    }
+    @synchronized([NSImage class]) { answers[key] = @(found); }
+    return found;
 }
+/* Names looked up and not found: asked again, they cost nothing (until
+ * an image takes the name). */
+static NSMutableSet<NSString *> *missing_images;
 + (NSImage *)imageNamed:(NSImageName)name {
     if (!name) return nil;
     NSImage *cached = named_images[name];
     if (cached) return cached;
+    if ([missing_images containsObject:name]) return nil;
     NSBundle *b = [NSBundle mainBundle];
     NSString *path = nil;
     for (NSString *ext in @[ @"png", @"tiff", @"jpg", @"icns", @"pdf" ]) {
@@ -278,7 +294,11 @@ static BOOL asset_catalog_has(NSBundle *bundle, NSString *name) {
          * on the image existing, as it does on macOS). */
         img = [[NSImage alloc] initWithSize:NSMakeSize(16, 16)];
     }
-    if (!img) return nil;
+    if (!img) {
+        if (!missing_images) missing_images = [NSMutableSet set];
+        [missing_images addObject:[name copy]];
+        return nil;
+    }
     img->_name = [name copy];
     if (!named_images) named_images = [NSMutableDictionary dictionary];
     named_images[name] = img;
@@ -315,6 +335,7 @@ static BOOL asset_catalog_has(NSBundle *bundle, NSString *name) {
 - (BOOL)isValid { return _reps.count || _handler || _symbol || (_size.width > 0 && _size.height > 0); }
 - (NSImageName)name { return _name; }
 - (BOOL)setName:(NSImageName)n {
+    if (n) [missing_images removeObject:n];
     if (_name) [named_images removeObjectForKey:_name];
     _name = [n copy];
     if (n) {
