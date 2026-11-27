@@ -308,6 +308,17 @@ int main(void) {
     CHECK(![edit performKeyEquivalent:cmdC] && copier.copies == 0);   /* nothing selected */
     copier.hasSelection = YES;
     CHECK([edit performKeyEquivalent:cmdC] && copier.copies == 1);
+
+    /* A key nothing along the responder chain takes ends at the window,
+     * which offers it as a key equivalent: Escape presses a Cancel button. */
+    NSButton *cancel = [NSButton buttonWithTitle:@"Cancel" target:copier action:@selector(copy:)];
+    cancel.keyEquivalent = @"\e";
+    [w.contentView addSubview:cancel];
+    NSEvent *esc = [NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:0 timestamp:0
+                                windowNumber:w.windowNumber context:nil characters:@"\e" charactersIgnoringModifiers:@"\e"
+                                   isARepeat:NO keyCode:53];
+    [w sendEvent:esc];
+    CHECK(copier.copies == 2);
     puts("AppKit basics ok");
     return 0;
 }

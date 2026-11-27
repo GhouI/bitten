@@ -1245,6 +1245,10 @@ typedef NS_ENUM(NSInteger, NSScrollElasticity) {
 - (void)reflectScrolledClipView:(NSClipView *)clipView;
 @end
 
+@interface NSView (BittenKeyEquivalents)
+/* Offers a key equivalent to the view and its subviews (AppKitEvents.m). */
+- (BOOL)performKeyEquivalent:(NSEvent *)event NS_SWIFT_NAME(performKeyEquivalent(with:));
+@end
 @interface NSView (BittenSubviews)
 - (void)addSubview:(NSView *)view positioned:(NSWindowOrderingMode)place relativeTo:(nullable NSView *)otherView;
 - (void)replaceSubview:(NSView *)oldView with:(NSView *)newView;

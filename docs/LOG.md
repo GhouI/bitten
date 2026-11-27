@@ -4555,3 +4555,25 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Test: `tests/gen-tbd.sh`, run by `make check`, uses an mrun that fails.
   From #55.
 - Target app (total `^MISSING`): unaffected; build tooling only.
+
+## Keyboard shortcuts on buttons, and unhandled keys reaching the window
+
+- SwiftUI performs a button's `keyboardShortcut`. The hosting view's
+  `performKeyEquivalent(with:)` finds the enabled button whose shortcut
+  matches the key: ⌘ shortcuts, Return for `.defaultAction` (Enter too),
+  and Escape for `.cancelAction`. Before, shortcuts were only used for
+  menu items.
+- A key nothing along the responder chain takes ends at the window, which
+  offers it as a key equivalent (`-[NSWindow keyDown:]`). So does an
+  Escape or Return that a text view turns into `cancelOperation:` /
+  `insertNewline:` when nothing takes the command. The SwiftUI host now
+  passes keys its tree doesn't handle up the responder chain instead of
+  dropping them. NSView's `performKeyEquivalent:` is declared, with
+  Swift name `performKeyEquivalent(with:)`.
+- In the target app, Escape now cancels Settings → Remote Hosts → Add
+  Remote Host. Escape still closes the command palette, and typing still
+  goes to the terminal.
+- Tests: tests/appkit/basics.m (Escape to a Cancel button),
+  tests/swiftlib/swiftui.swift (`shortcuts`).
+- Target app (total `^MISSING`): 0 -> 0.
+

@@ -554,3 +554,28 @@ struct StoringParent: View {
     return builds.n > settled ? 0 : 2
   }
 }
+
+/// A button's keyboard shortcut performs it: Escape a .cancelAction
+/// button, a command key a ⌘ shortcut; a disabled one doesn't.
+@_silgen_name("swl_swiftui_shortcuts") public func shortcuts() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    var cancelled = 0, saved = 0, off = 0
+    let view = VStack {
+      Button("Cancel") { cancelled += 1 }.keyboardShortcut(.cancelAction)
+      Button("Save") { saved += 1 }.keyboardShortcut("s")
+      Button("Off") { off += 1 }.keyboardShortcut("o").disabled(true)
+    }
+    let host = NSHostingView(rootView: view)
+    _ = render(view, 100, 80, host: host)
+    func key(_ c: String, _ code: UInt16, _ mods: NSEvent.ModifierFlags) -> NSEvent {
+      return NSEvent.keyEvent(with: .keyDown, location: NSPoint(x: 0, y: 0), modifierFlags: mods, timestamp: 0, windowNumber: 0,
+                              context: nil, characters: c, charactersIgnoringModifiers: c, isARepeat: false, keyCode: code)!
+    }
+    if !host.performKeyEquivalent(with: key("\u{1B}", 53, [])) || cancelled != 1 { bad |= 1 }
+    if !host.performKeyEquivalent(with: key("s", 1, .command)) || saved != 1 { bad |= 2 }
+    if host.performKeyEquivalent(with: key("s", 1, [])) || saved != 1 { bad |= 4 }   /* without ⌘: not it */
+    if host.performKeyEquivalent(with: key("o", 31, .command)) || off != 0 { bad |= 8 }
+    return bad
+  }
+}
