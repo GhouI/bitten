@@ -426,8 +426,8 @@ public struct GridLayout: _StackRoot, _VariadicView_UnaryViewRoot {
     self.verticalSpacing = verticalSpacing
   }
   func makeNode(_ children: [_ViewNode], environment: EnvironmentValues) -> _ViewNode {
-    return _TableGridNode(hSpacing: horizontalSpacing ?? 8, vSpacing: verticalSpacing ?? 8, environment: environment,
-                          children: children)
+    return _TableGridNode(hSpacing: horizontalSpacing ?? 8, vSpacing: verticalSpacing ?? 8, alignment: alignment,
+                          environment: environment, children: children)
   }
 }
 @frozen
@@ -449,7 +449,9 @@ public struct _GridRowLayout: _StackRoot, _VariadicView_UnaryViewRoot {
   public var alignment: VerticalAlignment?
   @inlinable public init(alignment: VerticalAlignment? = nil) { self.alignment = alignment }
   func makeNode(_ children: [_ViewNode], environment: EnvironmentValues) -> _ViewNode {
-    return _GridRowNode(environment: environment, children: children)
+    let row = _GridRowNode(environment: environment, children: children)
+    row.alignment = alignment
+    return row
   }
 }
 /// Apple's GridRow stores its alignment and its content as two fields:
@@ -472,47 +474,145 @@ public struct GridRow<Content: View>: View {
     return _VariadicView.Tree<_GridRowLayout, Content>._makeView(view: view[\._tree], inputs: inputs)
   }
 }
-internal final class _GridRowNode: _ViewNode {}
+internal final class _GridRowNode: _ViewNode {
+  var alignment: VerticalAlignment?
+}
 
-/// Rows of cells in shared columns, each column as wide as its widest cell.
+/// What grid cell modifiers say about a cell: the columns it spans, the
+/// axes it doesn't size the grid in, its column's alignment and anchor.
+internal final class _GridCellNode: _ViewNode {
+  var columns = 1
+  var unsized: Axis.Set = []
+  var columnAlignment: HorizontalAlignment?
+  var anchor: UnitPoint?
+  init(content: _ViewNode, environment: EnvironmentValues) {
+    super.init(environment: environment, children: [content])
+  }
+  /// The settings of `node` and the cell nodes right under it.
+  static func info(_ node: _ViewNode) -> (columns: Int, unsized: Axis.Set, column: HorizontalAlignment?, anchor: UnitPoint?) {
+    var columns: Int?, unsized: Axis.Set = [], column: HorizontalAlignment?, anchor: UnitPoint?
+    var n: _ViewNode? = node
+    while let c = n as? _GridCellNode {
+      if columns == nil, c.columns != 1 { columns = c.columns }
+      unsized.formUnion(c.unsized)
+      if column == nil { column = c.columnAlignment }
+      if anchor == nil { anchor = c.anchor }
+      n = c.children.first
+    }
+    return (max(1, columns ?? 1), unsized, column, anchor)
+  }
+}
+
+/// SwiftUI's Grid: rows of cells in shared columns. A column is as wide as
+/// its widest cell; a cell can span columns (gridCellColumns), and a cell
+/// unsized on an axis (gridCellUnsizedAxes) takes the size the others give
+/// it there. A view that isn't a GridRow is a row spanning every column.
 internal final class _TableGridNode: _ViewNode {
   let hSpacing: CGFloat, vSpacing: CGFloat
-  init(hSpacing: CGFloat, vSpacing: CGFloat, environment: EnvironmentValues, children: [_ViewNode]) {
+  let alignment: Alignment
+  init(hSpacing: CGFloat, vSpacing: CGFloat, alignment: Alignment = .center, environment: EnvironmentValues,
+       children: [_ViewNode]) {
     self.hSpacing = hSpacing
     self.vSpacing = vSpacing
+    self.alignment = alignment
     super.init(environment: environment, children: children)
   }
-  var rows: [[_ViewNode]] { return children.map { ($0 as? _GridRowNode)?.children ?? [$0] } }
-  func widths() -> [CGFloat] {
-    var w: [CGFloat] = []
-    for row in rows {
-      for (i, c) in row.enumerated() {
-        let s = c.sizeThatFits(.unspecified).width
-        if i < w.count { w[i] = max(w[i], s) } else { w.append(s) }
+  struct Cell {
+    let node: _ViewNode
+    let column: Int, span: Int
+    let unsized: Axis.Set
+    let columnAlignment: HorizontalAlignment?
+  }
+  struct Row {
+    let cells: [Cell]
+    let full: Bool
+    let alignment: VerticalAlignment?
+  }
+  /// The rows, with each cell's place; and the number of columns.
+  func layoutRows() -> ([Row], Int) {
+    var rows: [Row] = []
+    var columns = 0
+    for child in children {
+      if let r = child as? _GridRowNode {
+        var at = 0
+        var cells: [Cell] = []
+        for c in r.children {
+          let i = _GridCellNode.info(c)
+          cells.append(Cell(node: c, column: at, span: i.columns, unsized: i.unsized, columnAlignment: i.column))
+          at += i.columns
+        }
+        columns = max(columns, at)
+        rows.append(Row(cells: cells, full: false, alignment: r.alignment))
+      } else {
+        let i = _GridCellNode.info(child)
+        rows.append(Row(cells: [Cell(node: child, column: 0, span: 0, unsized: i.unsized, columnAlignment: nil)],
+                        full: true, alignment: nil))
+      }
+    }
+    return (rows, columns)
+  }
+  /// Column widths at their ideal sizes (spanning cells widen the last
+  /// column they span when they need more).
+  func widths(_ rows: [Row], _ n: Int) -> [CGFloat] {
+    var w = Array(repeating: CGFloat(0), count: n)
+    for row in rows where !row.full {
+      for c in row.cells where c.span == 1 && !c.unsized.contains(.horizontal) && c.column < n {
+        w[c.column] = max(w[c.column], c.node.measure(.unspecified).width)
+      }
+    }
+    for row in rows where !row.full {
+      for c in row.cells where c.span > 1 && !c.unsized.contains(.horizontal) {
+        let last = min(n, c.column + c.span) - 1
+        guard last >= c.column else { continue }
+        let have = w[c.column...last].reduce(0, +) + hSpacing * CGFloat(last - c.column)
+        let want = c.node.measure(.unspecified).width
+        if want > have { w[last] += want - have }
       }
     }
     return w
   }
+  func span(_ w: [CGFloat], _ c: Cell, _ n: Int) -> CGFloat {
+    if c.span == 0 { return w.reduce(0, +) + hSpacing * CGFloat(max(0, n - 1)) }
+    let last = min(n, c.column + c.span) - 1
+    guard last >= c.column else { return 0 }
+    return w[c.column...last].reduce(0, +) + hSpacing * CGFloat(last - c.column)
+  }
+  func heights(_ rows: [Row], _ w: [CGFloat], _ n: Int) -> [CGFloat] {
+    return rows.map { row in
+      row.cells.filter { !$0.unsized.contains(.vertical) }
+        .map { $0.node.measure(ProposedViewSize(width: span(w, $0, n), height: nil)).height }.max() ?? 0
+    }
+  }
   override func sizeThatFits(_ proposal: ProposedViewSize) -> CGSize {
-    let w = widths()
-    let h = rows.map { $0.map { $0.sizeThatFits(.unspecified).height }.max() ?? 0 }
-    return CGSize(width: w.reduce(0, +) + hSpacing * CGFloat(max(0, w.count - 1)),
-                  height: h.reduce(0, +) + vSpacing * CGFloat(max(0, h.count - 1)))
+    let (rows, n) = layoutRows()
+    var w = widths(rows, n)
+    // Full-width rows not sized horizontally only take what there is.
+    var width = w.reduce(0, +) + hSpacing * CGFloat(max(0, n - 1))
+    for row in rows where row.full && !row.cells[0].unsized.contains(.horizontal) {
+      width = max(width, row.cells[0].node.measure(.unspecified).width)
+    }
+    if n == 0 { w = [] }
+    let h = heights(rows, w, n)
+    return CGSize(width: width, height: h.reduce(0, +) + vSpacing * CGFloat(max(0, h.count - 1)))
   }
   override func place(in rect: CGRect) {
     frame = rect
-    let w = widths()
+    let (rows, n) = layoutRows()
+    let w = widths(rows, n)
+    let h = heights(rows, w, n)
     var y = rect._minY
-    for row in rows {
-      let h = row.map { $0.sizeThatFits(.unspecified).height }.max() ?? 0
-      var x = rect._minX
-      for (i, c) in row.enumerated() {
-        let cell = CGRect(_x: x, y: y, width: w[i], height: h)
-        let s = c.sizeThatFits(ProposedViewSize(cell.size))
-        c.place(in: CGRect(origin: Alignment.leading.origin(of: s, in: cell), size: s))
-        x += w[i] + hSpacing
+    for (ri, row) in rows.enumerated() {
+      for c in row.cells {
+        var x = rect._minX
+        for i in 0..<min(c.column, n) { x += w[i] + hSpacing }
+        let cell = CGRect(_x: x, y: y, width: c.span == 0 ? rect._width : span(w, c, n), height: h[ri])
+        let s = c.node.measure(ProposedViewSize(cell.size))
+        let a = Alignment(horizontal: c.columnAlignment ?? alignment.horizontal,
+                          vertical: row.alignment ?? alignment.vertical)
+        let size = CGSize(width: min(s.width, cell._width), height: min(s.height, cell._height))
+        c.node.place(in: CGRect(origin: a.origin(of: size, in: cell), size: size))
       }
-      y += h + vSpacing
+      y += h[ri] + vSpacing
     }
   }
 }
@@ -521,25 +621,41 @@ internal final class _TableGridNode: _ViewNode {
 public struct _GridCellSizeModifier: _NodeModifier {
   @usableFromInline var columnCount: Int
   @inlinable init(columnCount: Int) { self.columnCount = columnCount }
-  func makeNode(content: _ViewNode, environment: EnvironmentValues) -> _ViewNode { return content }
+  func makeNode(content: _ViewNode, environment: EnvironmentValues) -> _ViewNode {
+    let c = _GridCellNode(content: content, environment: environment)
+    c.columns = columnCount
+    return c
+  }
 }
 @frozen
 public struct _GridUnsizedAxesModifier: _NodeModifier {
   @usableFromInline var axes: Axis.Set
   @inlinable init(axes: Axis.Set) { self.axes = axes }
-  func makeNode(content: _ViewNode, environment: EnvironmentValues) -> _ViewNode { return content }
+  func makeNode(content: _ViewNode, environment: EnvironmentValues) -> _ViewNode {
+    let c = _GridCellNode(content: content, environment: environment)
+    c.unsized = axes
+    return c
+  }
 }
 @frozen
 public struct _GridAlignmentModifier: _NodeModifier {
   @usableFromInline var alignment: HorizontalAlignment
   @inlinable init(alignment: HorizontalAlignment) { self.alignment = alignment }
-  func makeNode(content: _ViewNode, environment: EnvironmentValues) -> _ViewNode { return content }
+  func makeNode(content: _ViewNode, environment: EnvironmentValues) -> _ViewNode {
+    let c = _GridCellNode(content: content, environment: environment)
+    c.columnAlignment = alignment
+    return c
+  }
 }
 @frozen
 public struct _GridAnchorModifier: _NodeModifier {
   @usableFromInline var anchor: UnitPoint
   @inlinable init(anchor: UnitPoint) { self.anchor = anchor }
-  func makeNode(content: _ViewNode, environment: EnvironmentValues) -> _ViewNode { return content }
+  func makeNode(content: _ViewNode, environment: EnvironmentValues) -> _ViewNode {
+    let c = _GridCellNode(content: content, environment: environment)
+    c.anchor = anchor
+    return c
+  }
 }
 extension View {
   @inlinable public func gridCellColumns(_ count: Int) -> some View { return modifier(_GridCellSizeModifier(columnCount: count)) }

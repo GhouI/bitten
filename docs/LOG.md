@@ -5114,3 +5114,19 @@ Debugging aids:
 - The theme editor now opens as a sheet over Settings. Its ANSI rows
   show only their first and last swatches; that is next.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI Grid: spanning and unsized cells, alignment
+
+- `Grid` now lays out as SwiftUI's does. `gridCellColumns` makes a cell
+  span columns (it widens the last one only when it needs more room).
+  `gridCellUnsizedAxes` cells don't size their columns or row; they take
+  the size the other cells give. A view in a grid that isn't a `GridRow`
+  is a row spanning every column. Cells are placed by the grid's
+  alignment, a row's `GridRow(alignment:)` and `gridColumnAlignment`.
+  Before, every cell was one column wide, sized the grid, and was
+  placed at the leading edge.
+- In the target app's theme editor, the ANSI Standard and Bright rows
+  showed only Black and Red. Their spanning heading widened the first
+  column to the whole width. All eight swatches now show in each row.
+- Test: `gridspan`.
+- Target app (total `^MISSING`): 0 -> 0.
