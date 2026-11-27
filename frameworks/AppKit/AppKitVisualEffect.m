@@ -45,6 +45,10 @@
     case NSVisualEffectMaterialMenu: case NSVisualEffectMaterialPopover: alpha = 0.9; break;
     default: alpha = 0.75;
     }
+    /* Without a blur, what lies under a material (a palette window over
+     * terminal text) would stay legible; macOS blurs it past reading, so
+     * the material is all but opaque. */
+    alpha = MAX(alpha, 0.96);
     [[NSColor colorWithWhite:dark ? 0.15 : 0.93 alpha:alpha] setFill];
     NSRectFill(self.bounds);
 }
