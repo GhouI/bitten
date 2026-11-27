@@ -46,6 +46,11 @@ on macOS.
   `BITTEN_MONITOR_DEBUG` event monitors, `BITTEN_WINDOW_DEBUG` window
   frames, creation and freeing, `BITTEN_SYMBOL_DEBUG` symbol images.
 - `BITTEN_CRASH_REPORT=stderr` gives a backtrace on a fatal error.
+- Heap corruption ("corrupted size vs. prev_size" and friends):
+  `cc -O1 -g -shared -fPIC -o build/redzone.so tools/redzone.c -ldl`, then
+  run with `LD_PRELOAD=build/redzone.so`. It names the overrun block, its
+  size and who allocated and freed it (`REDZONE_SCAN=N` checks every live
+  block each N frees). Valgrind doesn't get far with the target app.
 - Drive the browser display with Playwright (one connection per run).
   Before testing, check no stale `mrun` holds the display port.
 

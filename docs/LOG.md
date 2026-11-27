@@ -5214,3 +5214,28 @@ Debugging aids:
   disabled when there's no page to go to.
 - Test: `tests/appkit/drawing.m`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Regex: captured components make typed values; a red-zone allocator
+
+- Opening Settings ▸ Terminal ▸ Advanced Font Settings corrupted the heap
+  ("corrupted double-linked list"). The app matches the character spacing
+  with `Regex { …; Capture(.localizedDouble(locale:)); … }`, whose
+  Output is `(Substring, Double)` (40 bytes). Our Regex wrote every
+  output element as a 32-byte Substring, overrunning the buffer by 24
+  bytes.
+  - Captures now keep the value a captured component makes (its
+    transform), through `accumulate`, `orderedChoice`, quantifiers and
+    case-insensitivity.
+  - A capture whose value can't be made fails the match.
+  - The output tuple is written element by element at the offsets and
+    with the types its metadata gives (Substring, the value, or an
+    optional of either).
+  - The page now opens and shows the spacing.
+  - Test: `formatstyle` (a captured `localizedDouble`).
+- `tools/redzone.c` is an `LD_PRELOAD` allocator for heap overruns. It
+  gives every block a header and a red zone, checks the zone on
+  free/realloc, and reports the block's size, its allocation site and
+  the freeing site. That found this bug in one run (allocated by
+  `swift_slowAlloc`, overrun and freed in `Regex._output`).
+  `docs/NEXT.md` says how to use it.
+- Target app (total `^MISSING`): 0 -> 0.
