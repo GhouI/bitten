@@ -566,34 +566,128 @@ static struct ct_desc *d_CTFontDescriptorCreateCopyWithAttributes(const struct c
 }
 DX_FN(CTFontDescriptorCreateCopyWithAttributes);
 
-/* The descriptors that match: for a name or family, the installed face
- * (or the stand-in for an Apple font), described by its names; nothing
- * for a font that is not there. Other descriptors match themselves. */
+/* ---- matching against the installed faces ---- */
+
+static double number_value(Ref n, double fallback) {
+    double v = fallback;
+    if (n) CALL(Boolean, CFNumberGetValue, (Ref, CFIndex, void *))(n, 13, &v);
+    return v;
+}
+
 static struct ct_font *d_CTFontCreateWithFontDescriptor(const struct ct_desc *d, CGFloat size, const CGAffineTransform *m);
-static Ref d_CTFontDescriptorCreateMatchingFontDescriptors(const struct ct_desc *d, Ref mandatory) {
-    if (!d) return NULL;
+static Ref d_CTFontCopyTraits(const struct ct_font *f);
+
+/* A descriptor for an installed face: its names, style, traits and file. */
+static struct ct_desc *face_desc(struct ttf *face, Ref url) {
+    Ref own = NULL;
+    if (!url && face->path)
+    {
+        Ref path = ct_cfstring(face->path);
+        url = own = CALL(Ref, CFURLCreateWithFileSystemPath, (Ref, Ref, CFIndex, Boolean))(NULL, path, 0, 0);
+        cg_release(path);
+    }
+    Ref name = ct_cfstring(face->postscript[0] ? face->postscript : face->full), family = ct_cfstring(face->family);
+    Ref style = ct_cfstring(face->style[0] ? face->style : "Regular"), full = ct_cfstring(face->full[0] ? face->full : face->family);
+    /* the face's traits, as a font made from it reports them */
+    struct ct_font *f = ct_font_new(face, 12, NULL, NULL);
+    Ref traits = f ? d_CTFontCopyTraits(f) : NULL;
+    const void *keys[6] = {d_kCTFontNameAttribute, d_kCTFontFamilyNameAttribute, d_kCTFontStyleNameAttribute,
+                           d_kCTFontDisplayNameAttribute};
+    const void *vals[6] = {name, family, style, full};
+    CFIndex n = 4;
+    if (url) { keys[n] = d_kCTFontURLAttribute; vals[n++] = url; }
+    if (traits) { keys[n] = d_kCTFontTraitsAttribute; vals[n++] = traits; }
+    Ref dict = make_dict(keys, vals, n);
+    struct ct_desc *d = desc_new(dict);
+    cg_release(dict); cg_release(name); cg_release(family); cg_release(style); cg_release(full);
+    if (f) cg_release(f);
+    if (traits) cg_release(traits);
+    if (own) cg_release(own);
+    return d;
+}
+
+static bool same(Ref s, const char *v) {
+    char a[256] = "";
+    cstring(s, a, sizeof a);
+    return !strcasecmp(a, v);
+}
+/* Whether an installed face has every attribute the descriptor gives that
+ * fonts can be told apart by: name (PostScript or full), family, style,
+ * symbolic traits (bold, italic, monospace) and file. Other attributes
+ * (size, matrix, features...) do not choose faces. */
+static bool face_matches(const struct ttf *face, const struct ct_desc *d) {
+    Ref v;
+    if ((v = d_CFDictionaryGetValue(d->attributes, d_kCTFontNameAttribute)) &&
+        !same(v, face->postscript) && !same(v, face->full))
+        return false;
+    if ((v = d_CFDictionaryGetValue(d->attributes, d_kCTFontFamilyNameAttribute)) && !same(v, face->family)) return false;
+    if ((v = d_CFDictionaryGetValue(d->attributes, d_kCTFontStyleNameAttribute)) &&
+        !same(v, face->style[0] ? face->style : "Regular"))
+        return false;
+    if ((v = d_CFDictionaryGetValue(d->attributes, d_kCTFontTraitsAttribute))) {
+        uint32_t sym = (uint32_t)number_value(d_CFDictionaryGetValue(v, d_kCTFontSymbolicTrait), 0);
+        if ((sym & TRAIT_MONO) && !face->monospace) return false;
+        if ((sym & TRAIT_BOLD) && face->weight < 600) return false;
+        if ((sym & TRAIT_ITALIC) && !face->italic) return false;
+    }
+    if ((v = d_CFDictionaryGetValue(d->attributes, d_kCTFontURLAttribute))) {
+        char path[1024];
+        if (!CALL(Boolean, CFURLGetFileSystemRepresentation, (Ref, Boolean, uint8_t *, CFIndex))(v, 1, (uint8_t *)path, sizeof path) ||
+            !face->path || strcmp(path, face->path))
+            return false;
+    }
+    return true;
+}
+/* families alphabetically, then lighter before bolder, upright before italic */
+static int face_order(const void *pa, const void *pb) {
+    const struct ttf *a = *(struct ttf *const *)pa, *b = *(struct ttf *const *)pb;
+    int c = strcasecmp(a->family, b->family);
+    if (c) return c;
+    if (a->weight != b->weight) return a->weight - b->weight;
+    if (a->italic != b->italic) return a->italic - b->italic;
+    return strcmp(a->postscript, b->postscript);
+}
+/* Descriptors for the installed faces matching any of `descs` (all faces
+ * when there are none), sorted; each face once. */
+static Ref matching_faces(const struct ct_desc *const *descs, CFIndex n) {
+    int count = ct_face_count();
+    struct ttf **hits = calloc((size_t)(count ? count : 1), sizeof *hits);
+    int nhits = 0;
+    for (int i = 0; i < count; i++) {
+        struct ttf *face = ct_face_at(i);
+        if (!face) continue;
+        bool ok = n == 0;
+        for (CFIndex k = 0; k < n && !ok; k++) ok = descs[k] && face_matches(face, descs[k]);
+        if (ok) hits[nhits++] = face;
+    }
+    qsort(hits, (size_t)nhits, sizeof *hits, face_order);
+    /* one face per PostScript name, as on a Mac (a font installed in two
+     * font directories counts once) */
+    int kept = 0;
+    for (int i = 0; i < nhits; i++) {
+        bool dup = false;
+        for (int j = 0; j < kept && !dup; j++)
+            dup = hits[i]->postscript[0] && !strcmp(hits[j]->postscript, hits[i]->postscript);
+        if (!dup) hits[kept++] = hits[i];
+    }
+    nhits = kept;
+    const void **out = calloc((size_t)(nhits ? nhits : 1), sizeof *out);
+    for (int i = 0; i < nhits; i++) out[i] = face_desc(hits[i], NULL);
+    Ref arr = make_array(out, nhits);
+    for (int i = 0; i < nhits; i++) cg_release(out[i]);
+    free(out);
+    free(hits);
+    return arr;
+}
+
+/* An Apple font asked for by name or family: the stand-in face, described
+ * by the Apple font's names (fonts.c maps them to open families). */
+static Ref apple_stand_in(const struct ct_desc *d) {
     char a[256] = "", b[256] = "";
     cstring(d_CFDictionaryGetValue(d->attributes, d_kCTFontNameAttribute), a, sizeof a);
     cstring(d_CFDictionaryGetValue(d->attributes, d_kCTFontFamilyNameAttribute), b, sizeof b);
-    CT_TRACE("matching name=%s family=%s\n", a, b);
-    if (d_CFDictionaryGetValue(d->attributes, d_kCTFontURLAttribute) || (!a[0] && !b[0])) {
-        const void *one[] = {d};
-        return make_array(one, 1);
-    }
     const char *want = a[0] ? a : b;
-    struct ttf *face = ct_face_for_name(want);
-    if (!face) return NULL;
-    int apple = apple_index(want) >= 0;
-    int real = !strcasecmp(face->family, want) || !strcasecmp(face->postscript, want) || !strcasecmp(face->full, want);
-    if (!real && !apple) {
-        /* a family's member asked for by family and style */
-        char base[256];
-        snprintf(base, sizeof base, "%s", want);
-        char *dash = strchr(base, '-');
-        if (dash) *dash = 0;
-        real = !strcasecmp(face->family, base);
-    }
-    if (!real && !apple) return NULL;
+    if (!want[0] || apple_index(want) < 0 || !ct_face_for_name(want)) return NULL;
     struct ct_font *f = d_CTFontCreateWithFontDescriptor(d, 12, NULL);
     if (!f) return NULL;
     Ref ps = d_CTFontCopyPostScriptName(f), fam = d_CTFontCopyFamilyName(f);
@@ -606,6 +700,23 @@ static Ref d_CTFontDescriptorCreateMatchingFontDescriptors(const struct ct_desc 
     cg_release(r); cg_release(dict); cg_release(ps); cg_release(fam); cg_release(f);
     return arr;
 }
+
+/* The installed faces a descriptor matches (a family gives all its faces;
+ * an Apple font its stand-in, under the Apple names), or NULL when none. */
+static Ref d_CTFontDescriptorCreateMatchingFontDescriptors(const struct ct_desc *d, Ref mandatory) {
+    if (!d) return NULL;
+    const struct ct_desc *one[] = {d};
+    Ref arr = matching_faces(one, 1);
+    CT_TRACE("matching -> %ld faces\n", (long)d_CFArrayGetCount(arr));
+    if (d_CFArrayGetCount(arr) > 0) return arr;
+    cg_release(arr);
+    if (d_CFDictionaryGetValue(d->attributes, d_kCTFontURLAttribute)) {
+        /* a file not registered yet: itself */
+        const void *self[] = {d};
+        return make_array(self, 1);
+    }
+    return apple_stand_in(d);
+}
 DX_FN(CTFontDescriptorCreateMatchingFontDescriptors);
 
 static struct ct_desc *d_CTFontDescriptorCreateMatchingFontDescriptor(const struct ct_desc *d, Ref mandatory) {
@@ -614,11 +725,6 @@ static struct ct_desc *d_CTFontDescriptorCreateMatchingFontDescriptor(const stru
 DX_FN(CTFontDescriptorCreateMatchingFontDescriptor);
 CF_TYPE_ID(CTFontDescriptor, CF_CT_DESCRIPTOR);
 
-static double number_value(Ref n, double fallback) {
-    double v = fallback;
-    if (n) CALL(Boolean, CFNumberGetValue, (Ref, CFIndex, void *))(n, 13, &v);
-    return v;
-}
 
 static struct ct_font *d_CTFontCreateWithFontDescriptor(const struct ct_desc *d, CGFloat size, const CGAffineTransform *m) {
     char name[256] = "";
@@ -698,10 +804,73 @@ static struct ct_collection *d_CTFontCollectionCreateWithFontDescriptors(Ref des
 }
 DX_FN(CTFontCollectionCreateWithFontDescriptors);
 
+/* The installed faces matching any of the collection's descriptors (all
+ * of them for an empty collection), plus the stand-ins for Apple fonts the
+ * descriptors name; NULL when nothing matches. */
 static Ref d_CTFontCollectionCreateMatchingFontDescriptors(const struct ct_collection *c) {
-    return c ? cg_retain(c->descriptors) : NULL;
+    if (!c) return NULL;
+    CFIndex n = d_CFArrayGetCount(c->descriptors);
+    const struct ct_desc **descs = calloc((size_t)(n ? n : 1), sizeof *descs);
+    for (CFIndex i = 0; i < n; i++) descs[i] = d_CFArrayGetValueAtIndex(c->descriptors, i);
+    Ref arr = matching_faces(descs, n);
+    for (CFIndex i = 0; i < n; i++) {
+        bool hit = false;
+        for (int k = 0; k < ct_face_count() && !hit; k++) {
+            struct ttf *face = ct_face_at(k);
+            hit = face && face_matches(face, descs[i]);
+        }
+        Ref extra = hit ? NULL : apple_stand_in(descs[i]);
+        if (extra) {
+            Ref merged = CALL(Ref, CFArrayCreateMutableCopy, (Ref, CFIndex, Ref))(NULL, 0, arr);
+            for (CFIndex k = 0; k < d_CFArrayGetCount(extra); k++)
+                CALL(void, CFArrayAppendValue, (Ref, const void *))(merged, d_CFArrayGetValueAtIndex(extra, k));
+            cg_release(arr);
+            cg_release(extra);
+            arr = merged;
+        }
+    }
+    free(descs);
+    if (!d_CFArrayGetCount(arr)) {
+        cg_release(arr);
+        return NULL;
+    }
+    return arr;
 }
 DX_FN(CTFontCollectionCreateMatchingFontDescriptors);
+
+static struct ct_collection *d_CTFontCollectionCreateFromAvailableFonts(Ref options) {
+    return d_CTFontCollectionCreateWithFontDescriptors(NULL, options);
+}
+DX_FN(CTFontCollectionCreateFromAvailableFonts);
+
+/* Every installed family, or PostScript name, sorted, each once. */
+static Ref available_names(bool families) {
+    int count = ct_face_count();
+    struct ttf **all = calloc((size_t)(count ? count : 1), sizeof *all);
+    int n = 0;
+    for (int i = 0; i < count; i++)
+        if ((all[n] = ct_face_at(i))) n++;
+    qsort(all, (size_t)n, sizeof *all, face_order);
+    const void **names = calloc((size_t)(n ? n : 1), sizeof *names);
+    int k = 0;
+    for (int i = 0; i < n; i++) {
+        const char *v = families ? all[i]->family : (all[i]->postscript[0] ? all[i]->postscript : all[i]->full);
+        if (!v[0]) continue;
+        bool dup = false;
+        for (int j = 0; j < i && !dup; j++)
+            dup = !strcmp(v, families ? all[j]->family : (all[j]->postscript[0] ? all[j]->postscript : all[j]->full));
+        if (!dup) names[k++] = ct_cfstring(v);
+    }
+    Ref arr = make_array(names, k);
+    for (int i = 0; i < k; i++) cg_release(names[i]);
+    free(names);
+    free(all);
+    return arr;
+}
+static Ref d_CTFontManagerCopyAvailableFontFamilyNames(void) { return available_names(true); }
+DX_FN(CTFontManagerCopyAvailableFontFamilyNames);
+static Ref d_CTFontManagerCopyAvailablePostScriptNames(void) { return available_names(false); }
+DX_FN(CTFontManagerCopyAvailablePostScriptNames);
 CF_TYPE_ID(CTFontCollection, CF_CT_COLLECTION);
 
 static struct ct_font *d_CTFontCreateWithFontDescriptor(const struct ct_desc *d, CGFloat size, const CGAffineTransform *m);
@@ -714,26 +883,10 @@ static Ref d_CTFontManagerCreateFontDescriptorsFromURL(Ref url) {
     struct ttf *face = ct_register_file(path);
     CT_TRACE("descriptors from %s -> %s", path, face ? face->family : "(none)");
     if (!face) return NULL;
-    Ref name = ct_cfstring(face->postscript[0] ? face->postscript : face->full), family = ct_cfstring(face->family);
-    Ref style = ct_cfstring(face->style[0] ? face->style : "Regular"), full = ct_cfstring(face->full[0] ? face->full : face->family);
-    /* the face's traits, as a font made from it reports them */
-    const void *k3[] = {d_kCTFontNameAttribute, d_kCTFontFamilyNameAttribute, d_kCTFontURLAttribute};
-    const void *v3[] = {name, family, url};
-    Ref basic = make_dict(k3, v3, 3);
-    struct ct_desc *bd = desc_new(basic);
-    struct ct_font *f = d_CTFontCreateWithFontDescriptor(bd, 12, NULL);
-    Ref traits = f ? d_CTFontCopyTraits(f) : NULL;
-    const void *keys[] = {d_kCTFontNameAttribute, d_kCTFontFamilyNameAttribute, d_kCTFontURLAttribute,
-                          d_kCTFontStyleNameAttribute, d_kCTFontDisplayNameAttribute, d_kCTFontTraitsAttribute};
-    const void *vals[] = {name, family, url, style, full, traits};
-    Ref dict = make_dict(keys, vals, traits ? 6 : 5);
-    struct ct_desc *d = desc_new(dict);
+    struct ct_desc *d = face_desc(face, url);
     const void *one[] = {d};
     Ref a = make_array(one, 1);
-    cg_release(d); cg_release(dict); cg_release(name); cg_release(family); cg_release(style); cg_release(full);
-    cg_release(bd); cg_release(basic);
-    if (f) cg_release(f);
-    if (traits) cg_release(traits);
+    cg_release(d);
     return a;
 }
 DX_FN(CTFontManagerCreateFontDescriptorsFromURL);

@@ -5263,3 +5263,20 @@ Debugging aids:
   aligned with the Choose… button: that is its design.)
 - Test: `tests/appkit/controls.m`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Font collections and descriptors match the installed fonts
+
+- CoreText (font.c, fonts.c): CTFontCollectionCreateMatchingFontDescriptors
+  returns the installed faces matching any of the collection's
+  descriptors (every face for an empty collection), plus the stand-ins for
+  Apple fonts they name; it used to return the descriptors it was given,
+  so font pickers listed nothing. CTFontDescriptorCreateMatchingFontDescriptors
+  matches the same way: a family gives all its faces, and name, style,
+  symbolic traits (bold, italic, monospace) and file narrow it.
+  Results are sorted by family, weight and slant, one per PostScript name,
+  and described by name, family, style, display name, traits and URL.
+  New: CTFontCollectionCreateFromAvailableFonts,
+  CTFontManagerCopyAvailableFontFamilyNames and
+  CTFontManagerCopyAvailablePostScriptNames.
+- Test: tests/c/coretext.c.
+- Target app (total `^MISSING`): 0 -> 0.

@@ -54,6 +54,8 @@ struct ttf *ct_face_covering(const struct ttf *f, uint32_t codepoint);
 /* Register the faces in a font file (CTFontManager); the first, or NULL. */
 struct ttf *ct_register_file(const char *path);
 int ct_face_count(void);
+/* Installed (and registered) face i, 0 <= i < ct_face_count(). */
+struct ttf *ct_face_at(int i);
 
 /* ---- CTFont (font.c) ----------------------------------------------------- */
 
