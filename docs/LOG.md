@@ -4845,3 +4845,19 @@ Debugging aids:
   tests/c/cf.c covers 20,000 appends, indexing past a non-ASCII append,
   and a self-append.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Swift runtime: lookups that hit skip the lock
+
+- Before the target app's `main`, about 10% of the time was taken or
+  released locks. Much of it was in caches that only ever grow, locked
+  even when they already held the answer: associated type witnesses and
+  generic metadata.
+- Each thread now keeps the entries it looked up recently, in a small
+  direct-mapped table, and only a miss takes the lock. Generic metadata
+  entries are checked against their descriptor and key arguments before
+  use.
+- `dx_alloc_note` (`BITTEN_ALLOC_STATS` / `BITTEN_METHODS`) costs a single
+  load per allocation when both are off.
+- Launch: time to `main` 1.28 → 1.22 s; first interactive terminal
+  5.3–5.6 s.
+- Target app (total `^MISSING`): 0 -> 0.

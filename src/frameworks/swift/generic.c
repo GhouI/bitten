@@ -84,8 +84,17 @@ static sw_response d_swift_getGenericMetadata(sw_request req, const void *const 
     if (normal) args = sw_normalize_pack_args(&g->base, args, normal);
     size_t h = key_hash(desc, args, n);
 
+    /* Entries are never removed: each thread keeps the ones it has used
+     * recently, and only a miss takes the lock. */
+    static __thread struct gm_entry *recent[256];
+    struct gm_entry *e = recent[h & 255];
+    if (e && e->desc == desc && e->hash == h && e->nkeys == n && !memcmp(e->keys, args, n * sizeof(void *))) {
+        uintptr_t st = e->md->state;
+        if (st > (req & SW_REQUEST_STATE_MASK)) st = sw_md_complete(e->md, req);
+        return (sw_response){e->md->metadata, st};
+    }
     sw_md_lock();
-    struct gm_entry *e = find(desc, args, n, h);
+    e = find(desc, args, n, h);
     if (!e) {
         const sw_generic_metadata_pattern *pat = default_pattern(desc);
         sw_metadata_instantiation_fn inst = (sw_metadata_instantiation_fn)sw_rel(&pat->instantiation_function);
@@ -99,6 +108,7 @@ static sw_response d_swift_getGenericMetadata(sw_request req, const void *const 
         insert(e);
     }
     sw_md_unlock();
+    recent[h & 255] = e;
     uintptr_t st = e->md->state;
     if (st > (req & SW_REQUEST_STATE_MASK)) st = sw_md_complete(e->md, req);
     return (sw_response){e->md->metadata, st};

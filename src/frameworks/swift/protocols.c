@@ -381,10 +381,18 @@ const sw_metadata *sw_get_assoc_type_witness(const sw_witness_table *wt, const s
     size_t slot = req - req_base;
     uintptr_t v = (uintptr_t)((const void *const *)wt)[slot];
     if (!(v & 1)) return (const sw_metadata *)v;
+    /* Resolved witnesses never change: each thread keeps the ones it has
+     * looked up recently, and only a miss takes the lock. */
+    static __thread struct { const void *wt; size_t slot; const sw_metadata *m; } recent[256];
+    size_t at = (((uintptr_t)wt >> 4) ^ (slot * 0x9e37)) & 255;
+    if (recent[at].wt == wt && recent[at].slot == slot) return recent[at].m;
     pthread_mutex_lock(&lock);
     const sw_metadata *m = sw_map_get(&resolved, (uintptr_t)wt, slot, NULL);
     pthread_mutex_unlock(&lock);
-    if (m) return m;
+    if (m) {
+        recent[at].wt = wt, recent[at].slot = slot, recent[at].m = m;
+        return m;
+    }
     const char *name = (const char *)(v & ~(uintptr_t)1);
     struct sw_env e;
     const sw_metadata *level = conforming_level(type, wt);
@@ -406,6 +414,7 @@ const sw_metadata *sw_get_assoc_type_witness(const sw_witness_table *wt, const s
     pthread_mutex_lock(&lock);
     sw_map_put(&resolved, (uintptr_t)wt, slot, (void *)m);
     pthread_mutex_unlock(&lock);
+    recent[at].wt = wt, recent[at].slot = slot, recent[at].m = m;
     return m;
 }
 
