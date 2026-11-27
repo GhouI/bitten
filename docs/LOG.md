@@ -5239,3 +5239,15 @@ Debugging aids:
   `swift_slowAlloc`, overrun and freed in `Regex._output`).
   `docs/NEXT.md` says how to use it.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: font lists read descriptors through CoreText
+
+- `-[NSFontManager availableFontFamilies]` and `availableFonts` asked each
+  font descriptor for its family and name with `objectForKey:`, as if
+  descriptors were dictionaries. They now use
+  `CTFontDescriptorCopyAttribute`. Both lists stay empty until CoreText's
+  `CTFontCollectionCreateMatchingFontDescriptors` matches installed fonts
+  (it returns the collection's own descriptors today; the other session
+  has the details). Then the target app's font pickers ("No fonts found"
+  under Fallback fonts ▸ Add…) get their lists.
+- Target app (total `^MISSING`): 0 -> 0.
