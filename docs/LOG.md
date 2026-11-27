@@ -4341,3 +4341,11 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   slow, about 0.3–1 s each, and most of that time is CG compositing
   (`cg_blend_pixel`, `cg_read_pixel` in transparency layers).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## CoreGraphics: CGRect members of a rectangle with negative extents
+
+- The Swift CoreGraphics fixture checks `minX`, `midX`, `maxX`, `minY`,
+  `midY` and `maxY` on a rectangle whose width and height are negative.
+  They come from the standardized rectangle, as on macOS. Test only; the
+  getters are the `swift_name` ones from #169. Salvaged from #164.
+- Target app (total `^MISSING`): 0 -> 0.

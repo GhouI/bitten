@@ -80,5 +80,8 @@ func rect(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> CGRect {
   if !r.intersects(s) || r.intersection(s).width != 10 || r.union(s).maxX != 60 { bad |= 0x20 }
   if !r.equalTo(r) || CGRect(origin: CGPoint(x: 1, y: 1), size: CGSize(width: -2, height: 2)).standardized.minX != -1 { bad |= 0x40 }
   if r.applying(CGAffineTransformMakeTranslation(1, 1)).minX != 11 || CGPoint(x: 1, y: 2).applying(CGAffineTransformIdentity) != CGPoint(x: 1, y: 2) { bad |= 0x80 }
+  let reversed = CGRect(origin: CGPoint(x: 9, y: 8), size: CGSize(width: -6, height: -4))
+  if reversed.minX != 3 || reversed.midX != 6 || reversed.maxX != 9 ||
+     reversed.minY != 4 || reversed.midY != 6 || reversed.maxY != 8 { bad |= 0x100 }
   return bad
 }
