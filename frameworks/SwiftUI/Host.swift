@@ -304,13 +304,23 @@ open class _HostingViewBase: NSView {
   override open func mouseEntered(with event: NSEvent) { _hover(at: convert(event.locationInWindow, from: nil)) }
   override open func mouseExited(with event: NSEvent) { _hover(at: nil) }
 
+  var _pressedPath: [Int]?
+  private func _path(of node: _ViewNode, in root: _ViewNode) -> [Int]? {
+    if node === root { return [] }
+    for (i, c) in root.children.enumerated() {
+      if let p = _path(of: node, in: c) { return [i] + p }
+    }
+    return nil
+  }
   var _pressPoint = CGPoint(x: 0, y: 0)
   var _dragging = false
   override open func mouseDown(with event: NSEvent) {
     let p = convert(event.locationInWindow, from: nil)
     _pressPoint = p
     _dragging = false
-    _pressed = _layout().hit(p)
+    let root = _layout()
+    _pressed = root.hit(p)
+    _pressedPath = _pressed.flatMap { _path(of: $0, in: root) }
     if getenv("BITTEN_EVENT_DEBUG") != nil {
       _dbg("bitten: swiftui press at \(p) on \(_pressed.map { String(describing: type(of: $0)) } ?? "nothing")")
     }
@@ -330,12 +340,18 @@ open class _HostingViewBase: NSView {
     if let pressed = _pressed {
       if _dragging {
         _ = pressed.drag(from: _pressPoint, to: p, ended: true)
-      } else if _layout().hit(p) === pressed {
-        pressed.press(at: p)
-        pressed.tap()
+      } else {
+        // The tree may have been rebuilt since the press: the same control
+        // is the node at the same place in the new tree.
+        let root = _layout()
+        if let hit = root.hit(p), hit === pressed || (_pressedPath != nil && _path(of: hit, in: root) == _pressedPath) {
+          hit.press(at: p)
+          hit.tap()
+        }
       }
     }
     _pressed = nil
+    _pressedPath = nil
     _dragging = false
   }
   override open func scrollWheel(with event: NSEvent) {
