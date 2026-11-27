@@ -5096,3 +5096,21 @@ Debugging aids:
   presents.
 - Test: `sheetwindow`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Themes ▸ New opens: GridRow's fields, NSColorWell
+
+- Settings ▸ Themes ▸ New crashed the target app with a segfault in a
+  value copy. Apple's frozen `GridRow` stores two fields, `alignment` and
+  then `content`. Ours stored one `_tree`. Bytes are the same, but when
+  a row's content has a size only known at run time, the program reads
+  the content's offset from the metadata's field offsets (entry 1).
+  Ours had only one entry, so it read whatever followed: offset 0
+  instead of 16. Everything in the row was then read 16 bytes early.
+  `GridRow` now stores `alignment` and `content`. Test: `gridrowfields`.
+- `NSColorWell` was only a generated placeholder. It now keeps its colour,
+  style (`colorWellStyle`), `supportsAlpha` and bordered state, draws its
+  swatch, and activates on a click (there is no colour panel yet). The
+  theme editor's swatches subclass it. Test: `tests/appkit/controls.m`.
+- The theme editor now opens as a sheet over Settings. Its ANSI rows
+  show only their first and last swatches; that is next.
+- Target app (total `^MISSING`): 0 -> 0.

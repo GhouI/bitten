@@ -5,8 +5,6 @@
 #pragma clang assume_nonnull begin
 @interface NSSecureTextField : NSTextField
 @end
-@interface NSColorWell : NSControl
-@end
 @interface NSTouchBar : NSObject
 @end
 @interface NSTouchBarItem : NSObject

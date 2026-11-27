@@ -19,6 +19,7 @@ long swl_swiftui_flexrows(void);
 long swl_swiftui_minframe(void);
 long swl_swiftui_statescope(void);
 long swl_swiftui_sheetwindow(void);
+long swl_swiftui_gridrowfields(void);
 long swl_swiftui_shortcuts(void);
 long swl_swiftui_toggleclick(void);
 long swl_swiftui_rebuildwrites(void);
@@ -47,6 +48,7 @@ int main(void) {
     ok &= check("minframe", swl_swiftui_minframe());
     ok &= check("statescope", swl_swiftui_statescope());
     ok &= check("sheetwindow", swl_swiftui_sheetwindow());
+    ok &= check("gridrowfields", swl_swiftui_gridrowfields());
     ok &= check("shortcuts", swl_swiftui_shortcuts());
     ok &= check("toggleclick", swl_swiftui_toggleclick());
     ok &= check("rebuildwrites", swl_swiftui_rebuildwrites());
