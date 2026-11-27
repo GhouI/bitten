@@ -121,6 +121,9 @@ static int left_window, views_freed;
 - (BOOL)resignFirstResponder { self.resigned++; return NO; }   /* refuses: removal goes ahead anyway */
 @end
 
+@interface NSEvent (BittenMouse)
++ (void)_bn_setMouseLocation:(NSPoint)p flags:(NSEventModifierFlags)f;
+@end
 @interface NSWindow (BittenBacking)
 - (CGContextRef)_bn_backingContext;
 @end
@@ -355,6 +358,11 @@ int main(void) {
         parent = nil;
     }
     CHECK(kept.superview == nil);
+
+    /* A window knows where the mouse is now, in its own coordinates. */
+    [NSEvent _bn_setMouseLocation:NSMakePoint(w.frame.origin.x + 30, w.frame.origin.y + 40) flags:0];
+    NSPoint at = w.mouseLocationOutsideOfEventStream;
+    CHECK(at.x == 30 && at.y == 40);
     puts("AppKit basics ok");
     return 0;
 }

@@ -129,7 +129,10 @@
 /* ---- events ---- */
 
 @implementation NSEvent (BittenCompat)
-+ (NSUInteger)pressedMouseButtons { return 0; }
+/* Buttons held down now (bit 0 left, bit 1 right), from the events the
+ * display has delivered (AppKitEvents.m). */
+NSUInteger bn_pressed_buttons;
++ (NSUInteger)pressedMouseButtons { return bn_pressed_buttons; }
 + (NSTimeInterval)doubleClickInterval { return 0.4; }
 + (NSTimeInterval)keyRepeatDelay { return 0.5; }
 + (NSTimeInterval)keyRepeatInterval { return 0.05; }
