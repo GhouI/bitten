@@ -22,6 +22,7 @@ long swl_swiftui_sheetwindow(void);
 long swl_swiftui_gridrowfields(void);
 long swl_swiftui_gridspan(void);
 long swl_swiftui_nohitrep(void);
+long swl_swiftui_truncate(void);
 long swl_swiftui_shortcuts(void);
 long swl_swiftui_toggleclick(void);
 long swl_swiftui_rebuildwrites(void);
@@ -53,6 +54,7 @@ int main(void) {
     ok &= check("gridrowfields", swl_swiftui_gridrowfields());
     ok &= check("gridspan", swl_swiftui_gridspan());
     ok &= check("nohitrep", swl_swiftui_nohitrep());
+    ok &= check("truncate", swl_swiftui_truncate());
     ok &= check("shortcuts", swl_swiftui_shortcuts());
     ok &= check("toggleclick", swl_swiftui_toggleclick());
     ok &= check("rebuildwrites", swl_swiftui_rebuildwrites());
