@@ -4091,3 +4091,13 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Debugging: `BITTEN_EVENT_DEBUG` logs key commands and the responders that
   handle them.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: switch knobs and checkmarks; centred unavailable-content text
+
+- Toggles draw their marks as macOS does. A switch is a track with a white
+  knob at the end it is set to (it had no knob, so on and off differed only
+  in colour). A checkbox that is on shows a white check.
+- `ContentUnavailableView` centres its title and description lines. A
+  wrapped description, such as the target app's "No Remote Hosts" text, had
+  its second line at the left.
+- Target app (total `^MISSING`): 0 -> 0.
