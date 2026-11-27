@@ -228,9 +228,22 @@ static void bn_autoresize_axis(CGFloat delta, BOOL flexLo, BOOL flexLen, BOOL fl
         unsigned n = 0;
         Method *ms = class_copyMethodList(object_getClass(self), &n);
         fprintf(stderr, "bitten: %s methods:", object_getClassName(self));
-        for (unsigned i = 0; i < n; i++) fprintf(stderr, " %s", sel_getName(method_getName(ms[i])));
+        for (unsigned i = 0; i < n; i++)
+            fprintf(stderr, " %s@%p", sel_getName(method_getName(ms[i])), (void *)method_getImplementation(ms[i]));
         fprintf(stderr, "\n");
         free(ms);
+        void (^ivars)(const char *) = ^(const char *when) {
+            unsigned ni = 0;
+            Ivar *iv = class_copyIvarList(object_getClass(self), &ni);
+            fprintf(stderr, "bitten: %s ivars %s:", object_getClassName(self), when);
+            for (unsigned i = 0; i < ni; i++)
+                fprintf(stderr, " %s@%td=%02x", ivar_getName(iv[i]), ivar_getOffset(iv[i]),
+                        ((const unsigned char *)(__bridge void *)self)[ivar_getOffset(iv[i])]);
+            fprintf(stderr, "\n");
+            free(iv);
+        };
+        ivars("joining");
+        dispatch_async(dispatch_get_main_queue(), ^{ ivars("a turn later"); });
     }
     /* a controller's view appears with a visible window, and goes with it */
     if (window.isVisible != was) bn_view_visibility(self, window.isVisible);
