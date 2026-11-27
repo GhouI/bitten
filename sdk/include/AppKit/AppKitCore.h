@@ -1622,6 +1622,26 @@ typedef NS_ENUM(NSInteger, NSSegmentDistribution) {
     NSSegmentDistributionFillEqually,
     NSSegmentDistributionFillProportionally,
 };
+typedef NS_ENUM(NSInteger, NSColorWellStyle) {
+    NSColorWellStyleDefault = 0, NSColorWellStyleMinimal = 1, NSColorWellStyleExpanded = 2
+};
+/* A swatch of a colour; activated, it is the colour panel's well. */
+@interface NSColorWell : NSControl
++ (instancetype)colorWellWithStyle:(NSColorWellStyle)style;
+@property (copy) NSColor *color;
+@property NSColorWellStyle colorWellStyle;
+@property BOOL supportsAlpha;
+@property (getter=isBordered) BOOL bordered;
+@property (readonly, getter=isActive) BOOL active;
+@property (nullable, strong) NSImage *image;
+@property (nullable, weak) id pulldownTarget;
+@property (nullable) SEL pulldownAction;
+- (void)activate:(BOOL)exclusive;
+- (void)deactivate;
+- (void)drawWellInside:(NSRect)insideRect;
+- (void)takeColorFrom:(nullable id)sender;
+@end
+
 @interface NSSegmentedControl : NSControl
 + (instancetype)segmentedControlWithLabels:(NSArray<NSString *> *)labels trackingMode:(NSSegmentSwitchTracking)trackingMode
                                     target:(nullable id)target action:(nullable SEL)action;

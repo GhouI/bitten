@@ -100,6 +100,17 @@ int main(void) {
 
         NSSize s = [@"text" sizeWithAttributes:@{NSFontAttributeName : [NSFont systemFontOfSize:13]}];
         CHECK(s.width > 10 && s.height > 10);
+        /* A colour well keeps its colour and style, and activates on a click. */
+        NSColorWell *well = [NSColorWell colorWellWithStyle:NSColorWellStyleMinimal];
+        CHECK(well.colorWellStyle == NSColorWellStyleMinimal && !well.isActive);
+        well.color = [NSColor redColor];
+        well.supportsAlpha = YES;
+        CHECK(well.supportsAlpha && well.color.redComponent > 0.99 && well.color.greenComponent < 0.01);
+        [well activate:YES];
+        CHECK(well.isActive);
+        [well deactivate];
+        CHECK(!well.isActive);
+
         puts("appkit controls ok");
     }
     return 0;

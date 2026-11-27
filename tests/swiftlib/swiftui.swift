@@ -638,6 +638,16 @@ struct Counting: View {
   }
 }
 
+/// GridRow stores its alignment and its content as two fields, in that
+/// order (programs read the content's offset from the field offsets).
+@_silgen_name("swl_swiftui_gridrowfields") public func gridRowFields() -> Int {
+  return MainActor.assumeIsolated {
+    let row = GridRow(alignment: .top) { Text("a") }
+    let labels = Mirror(reflecting: row).children.map { $0.label ?? "" }
+    return labels == ["alignment", "content"] ? 0 : 1
+  }
+}
+
 /// A button's keyboard shortcut performs it: Escape a .cancelAction
 /// button, a command key a ⌘ shortcut; a disabled one doesn't.
 @_silgen_name("swl_swiftui_shortcuts") public func shortcuts() -> Int {

@@ -297,6 +297,82 @@ static NSSize fit(NSSize s, NSSize in) {
 }
 @end
 
+/* ---- NSColorWell ---- */
+
+@implementation NSColorWell {
+    NSColor *_color;
+    NSColorWellStyle _style;
+    BOOL _supportsAlpha, _unbordered, _active;
+    NSImage *_image;
+    __weak id _pulldownTarget;
+    SEL _pulldownAction;
+}
++ (instancetype)colorWellWithStyle:(NSColorWellStyle)style {
+    NSColorWell *w = [[self alloc] initWithFrame:NSMakeRect(0, 0, 44, 23)];
+    w.colorWellStyle = style;
+    return w;
+}
+- (NSColor *)color { return _color ?: [NSColor whiteColor]; }
+- (void)setColor:(NSColor *)c {
+    _color = [c copy];
+    self.needsDisplay = YES;
+}
+- (NSColorWellStyle)colorWellStyle { return _style; }
+- (void)setColorWellStyle:(NSColorWellStyle)s {
+    _style = s;
+    self.needsDisplay = YES;
+}
+- (BOOL)supportsAlpha { return _supportsAlpha; }
+- (void)setSupportsAlpha:(BOOL)b { _supportsAlpha = b; }
+- (BOOL)isBordered { return !_unbordered; }
+- (void)setBordered:(BOOL)b {
+    _unbordered = !b;
+    self.needsDisplay = YES;
+}
+- (BOOL)isActive { return _active; }
+- (NSImage *)image { return _image; }
+- (void)setImage:(NSImage *)i { _image = i; }
+- (id)pulldownTarget { return _pulldownTarget; }
+- (void)setPulldownTarget:(id)t { _pulldownTarget = t; }
+- (SEL)pulldownAction { return _pulldownAction; }
+- (void)setPulldownAction:(SEL)a { _pulldownAction = a; }
+- (id)objectValue { return self.color; }
+- (void)setObjectValue:(id)v {
+    if ([v isKindOfClass:[NSColor class]]) self.color = v;
+}
+/* No colour panel to show: an active well only looks active. */
+- (void)activate:(BOOL)exclusive {
+    _active = YES;
+    self.needsDisplay = YES;
+}
+- (void)deactivate {
+    _active = NO;
+    self.needsDisplay = YES;
+}
+- (void)takeColorFrom:(id)sender {
+    if ([sender respondsToSelector:@selector(color)]) self.color = [sender color];
+}
+- (void)mouseDown:(NSEvent *)e {
+    if (!self.enabled) return;
+    if (_active) [self deactivate]; else [self activate:YES];
+}
+- (void)drawWellInside:(NSRect)r {
+    [self.color setFill];
+    [[NSBezierPath bezierPathWithRoundedRect:r xRadius:3 yRadius:3] fill];
+}
+- (void)drawRect:(NSRect)dirty {
+    NSRect b = self.bounds;
+    if (self.isBordered && _style != NSColorWellStyleMinimal) {
+        [[NSColor colorWithWhite:_active ? 0.75 : 0.9 alpha:1] setFill];
+        [[NSBezierPath bezierPathWithRoundedRect:b xRadius:5 yRadius:5] fill];
+        [[NSColor colorWithWhite:0 alpha:0.2] setStroke];
+        [[NSBezierPath bezierPathWithRoundedRect:NSInsetRect(b, 0.5, 0.5) xRadius:5 yRadius:5] stroke];
+        b = NSInsetRect(b, 4, 4);
+    }
+    [self drawWellInside:b];
+}
+@end
+
 /* ---- NSProgressIndicator ---- */
 
 @implementation NSProgressIndicator {

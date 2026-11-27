@@ -452,11 +452,19 @@ public struct _GridRowLayout: _StackRoot, _VariadicView_UnaryViewRoot {
     return _GridRowNode(environment: environment, children: children)
   }
 }
+/// Apple's GridRow stores its alignment and its content as two fields:
+/// programs read the content's offset from the metadata's field offsets
+/// (the second entry) when its size is only known at run time.
 @frozen
 public struct GridRow<Content: View>: View {
-  @usableFromInline internal var _tree: _VariadicView.Tree<_GridRowLayout, Content>
+  @usableFromInline internal var alignment: VerticalAlignment?
+  @usableFromInline internal var content: Content
   @inlinable public init(alignment: VerticalAlignment? = nil, @ViewBuilder content: () -> Content) {
-    _tree = .init(root: _GridRowLayout(alignment: alignment), content: content())
+    self.alignment = alignment
+    self.content = content()
+  }
+  internal var _tree: _VariadicView.Tree<_GridRowLayout, Content> {
+    return .init(root: _GridRowLayout(alignment: alignment), content: content)
   }
   public typealias Body = Never
   public var body: Never { return fatalError("GridRow has no body") }
