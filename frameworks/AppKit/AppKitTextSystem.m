@@ -657,7 +657,79 @@ static NSTextInputContext *current_context;
     NSRect local = [self _bn_rectForIndex:r.location];
     return self.window ? [self.window convertRectToScreen:[self convertRect:local toView:nil]] : local;
 }
-- (NSUInteger)characterIndexForPoint:(NSPoint)screenPoint { return _selected.location; }
+/* The insertion point nearest `p` (view coordinates): on the line under
+ * it, the character boundary closest to its x. */
+- (NSUInteger)_bn_indexForPoint:(NSPoint)p {
+    NSString *str = _storage.string;
+    NSUInteger n = str.length;
+    NSFont *f = self.font;
+    CGFloat lh = ceil(f.ascender - f.descender);
+    NSInteger line = lh > 0 ? (NSInteger)floor((p.y - _inset.height) / lh) : 0;
+    if (line < 0) return 0;
+    NSUInteger start = 0;
+    for (NSInteger k = 0; k < line; k++) {
+        NSRange nl = [str rangeOfString:@"\n" options:0 range:NSMakeRange(start, n - start)];
+        if (nl.location == NSNotFound) return n;   /* below the last line */
+        start = nl.location + 1;
+    }
+    NSRange nl = [str rangeOfString:@"\n" options:0 range:NSMakeRange(start, n - start)];
+    NSUInteger end = nl.location == NSNotFound ? n : nl.location;
+    CGFloat x = p.x - _inset.width - _container.lineFragmentPadding, before = 0;
+    NSDictionary *attrs = self._bn_attributes;
+    for (NSUInteger i = start; i < end;) {
+        NSRange c = [str rangeOfComposedCharacterSequenceAtIndex:i];
+        CGFloat after = [[str substringWithRange:NSMakeRange(start, NSMaxRange(c) - start)] sizeWithAttributes:attrs].width;
+        if (x < (before + after) / 2) return i;
+        before = after;
+        i = NSMaxRange(c);
+    }
+    return end;
+}
+- (NSUInteger)characterIndexForInsertionAtPoint:(NSPoint)p { return [self _bn_indexForPoint:p]; }
+- (NSUInteger)characterIndexForPoint:(NSPoint)screenPoint {
+    NSPoint p = screenPoint;
+    if (self.window) p = [self convertPoint:[self.window convertPointFromScreen:screenPoint] fromView:nil];
+    return [self _bn_indexForPoint:p];
+}
+/* A click puts the insertion point there (shift extends the selection, a
+ * double click selects the word); dragging selects from where it began. */
+static const char k_tv_anchor;
+- (void)mouseDown:(NSEvent *)event {
+    if (!self.isSelectable && !self.isEditable) {
+        [super mouseDown:event];
+        return;
+    }
+    NSUInteger i = [self _bn_indexForPoint:[self convertPoint:event.locationInWindow fromView:nil]];
+    NSUInteger anchor = i;
+    if (event.modifierFlags & NSEventModifierFlagShift) {
+        anchor = i < _selected.location ? NSMaxRange(_selected) : _selected.location;
+        self.selectedRange = NSMakeRange(MIN(anchor, i), (NSUInteger)labs((long)anchor - (long)i));
+    } else if (event.clickCount == 2 && _storage.length) {
+        /* the run of letters and digits around the click (or the one character) */
+        NSString *str = _storage.string;
+        NSCharacterSet *word = NSCharacterSet.alphanumericCharacterSet;
+        NSUInteger at = MIN(i, str.length - 1), lo = at, hi = at + 1;
+        if ([word characterIsMember:[str characterAtIndex:at]]) {
+            while (lo > 0 && [word characterIsMember:[str characterAtIndex:lo - 1]]) lo--;
+            while (hi < str.length && [word characterIsMember:[str characterAtIndex:hi]]) hi++;
+        }
+        NSRange w = NSMakeRange(lo, hi - lo);
+        self.selectedRange = w;
+        anchor = w.location;
+    } else {
+        self.selectedRange = NSMakeRange(i, 0);
+    }
+    objc_setAssociatedObject(self, &k_tv_anchor, @(anchor), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+- (void)mouseDragged:(NSEvent *)event {
+    NSNumber *a = objc_getAssociatedObject(self, &k_tv_anchor);
+    if (!a) return;
+    NSUInteger anchor = a.unsignedIntegerValue, i = [self _bn_indexForPoint:[self convertPoint:event.locationInWindow fromView:nil]];
+    self.selectedRange = NSMakeRange(MIN(anchor, i), (NSUInteger)labs((long)anchor - (long)i));
+}
+- (void)mouseUp:(NSEvent *)event {
+    objc_setAssociatedObject(self, &k_tv_anchor, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
 - (void)drawRect:(NSRect)dirty {
     NSRect b = self.bounds;
     if (_drawsBackground && _backgroundColor) {

@@ -953,6 +953,22 @@ static const struct { unsigned short code; char plain, shifted; } bn_us_keys[] =
 - (void)update {}
 static const NSEventModifierFlags bn_shortcut_mask = NSEventModifierFlagCommand | NSEventModifierFlagShift |
                                                      NSEventModifierFlagOption | NSEventModifierFlagControl;
+/* As menus auto-enable their items (AppKit validates them before a key
+ * equivalent is matched): an item counts when something handles its
+ * action, its target or else the responder chain, and that something's
+ * validateMenuItem: (or validateUserInterfaceItem:) agrees. */
+static BOOL bn_item_valid(NSMenuItem *item) {
+    SEL a = item.action;
+    if (!a) return NO;
+    id t = item.target;
+    if (t && ![t respondsToSelector:a]) return NO;
+    if (!t) t = [NSApp targetForAction:a to:nil from:item];
+    if (!t) return NO;
+    SEL v = @selector(validateMenuItem:);
+    if (![t respondsToSelector:v]) v = @selector(validateUserInterfaceItem:);
+    if ([t respondsToSelector:v]) return ((BOOL (*)(id, SEL, id))objc_msgSend)(t, v, item);
+    return YES;
+}
 - (BOOL)performKeyEquivalent:(NSEvent *)event {
     if (event.type != NSEventTypeKeyDown) return NO;
     NSString *key = event.charactersIgnoringModifiers.lowercaseString;
@@ -965,6 +981,7 @@ static const NSEventModifierFlags bn_shortcut_mask = NSEventModifierFlagCommand 
         /* An uppercase key equivalent implies shift. */
         if (![want.lowercaseString isEqualToString:want]) wantMods |= NSEventModifierFlagShift;
         if ([want.lowercaseString isEqualToString:key] && wantMods == mods) {
+            if (!bn_item_valid(item)) continue;
             [self performActionForItemAtIndex:[self indexOfItem:item]];
             return YES;
         }

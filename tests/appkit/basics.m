@@ -84,6 +84,17 @@ static NSEvent *seen_current;
 }
 @end
 
+/* Takes copy: when it has something to copy. */
+@interface Copier : NSView
+@property int copies;
+@property BOOL hasSelection;
+@end
+@implementation Copier
+- (BOOL)acceptsFirstResponder { return YES; }
+- (void)copy:(id)sender { self.copies++; }
+- (BOOL)validateMenuItem:(NSMenuItem *)item { return self.hasSelection; }
+@end
+
 @interface Delegate : NSObject <NSApplicationDelegate>
 @property int launched;
 @end
@@ -282,6 +293,21 @@ int main(void) {
     CHECK([w makeFirstResponder:focus] && w.firstResponder == focus);
     [holder removeFromSuperview];
     CHECK(w.firstResponder == w && focus.resigned == 1);
+
+    /* A menu item's key equivalent counts only when something along the
+     * responder chain takes its action and validates the item. */
+    NSMenu *edit = [[NSMenu alloc] initWithTitle:@"Edit"];
+    [edit addItemWithTitle:@"Copy" action:@selector(copy:) keyEquivalent:@"c"];
+    NSEvent *cmdC = [NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:NSEventModifierFlagCommand
+                                    timestamp:0 windowNumber:w.windowNumber context:nil characters:@"c"
+                  charactersIgnoringModifiers:@"c" isARepeat:NO keyCode:8];
+    CHECK(![edit performKeyEquivalent:cmdC]);                /* nobody copies */
+    Copier *copier = [[Copier alloc] initWithFrame:NSMakeRect(0, 0, 5, 5)];
+    [w.contentView addSubview:copier];
+    [w makeFirstResponder:copier];
+    CHECK(![edit performKeyEquivalent:cmdC] && copier.copies == 0);   /* nothing selected */
+    copier.hasSelection = YES;
+    CHECK([edit performKeyEquivalent:cmdC] && copier.copies == 1);
     puts("AppKit basics ok");
     return 0;
 }

@@ -2079,6 +2079,7 @@ typedef NSString *NSTextInputSourceIdentifier NS_SWIFT_NAME(NSTextInputSourceIde
 @interface NSTextView : NSText <NSTextInputClient>
 - (instancetype)initWithFrame:(NSRect)frameRect textContainer:(nullable NSTextContainer *)container;
 + (NSScrollView *)scrollableTextView;
+- (NSUInteger)characterIndexForInsertionAtPoint:(NSPoint)point;
 @property (nullable, readonly, strong) NSMutableAttributedString *textStorage;
 @property (nullable, strong) NSTextContainer *textContainer;
 @property (nullable, readonly, strong) NSLayoutManager *layoutManager;

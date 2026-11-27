@@ -316,7 +316,16 @@ func _installMainMenu(_ commands: _ResolvedCommands) {
             Group(placement: "appTermination", items: [_selectorItem("Quit \(name)", #selector(NSApplication.terminate(_:)), "q")])]),
     ("File", [Group(placement: "newItem", items: []), Group(placement: "saveItem", items: []),
               Group(placement: "importExport", items: []), Group(placement: "printItem", items: [])]),
-    ("Edit", [Group(placement: "undoRedo", items: []), Group(placement: "pasteboard", items: []),
+    // The standard editing items go to the first responder (each counts
+    // only when something along the responder chain takes its action).
+    ("Edit", [Group(placement: "undoRedo", items: [_selectorItem("Undo", Selector(("undo:")), "z"),
+                                                   _selectorItem("Redo", Selector(("redo:")), "Z")]),
+              Group(placement: "pasteboard", items: [_selectorItem("Cut", Selector(("cut:")), "x"),
+                                                     _selectorItem("Copy", Selector(("copy:")), "c"),
+                                                     _selectorItem("Paste", Selector(("paste:")), "v"),
+                                                     _selectorItem("Paste and Match Style", Selector(("pasteAsPlainText:")), "V", [.command, .option]),
+                                                     _selectorItem("Delete", Selector(("delete:"))),
+                                                     _selectorItem("Select All", Selector(("selectAll:")), "a")]),
               Group(placement: "textEditing", items: []), Group(placement: "textFormatting", items: [])]),
     ("View", [Group(placement: "toolbar", items: []), Group(placement: "sidebar", items: [])]),
     ("Window", [Group(placement: "windowSize", items: [_selectorItem("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m"),
