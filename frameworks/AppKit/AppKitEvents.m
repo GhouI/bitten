@@ -50,6 +50,16 @@ static const char kFirstResponderKey, kTrackingKey;
     NSResponder *r = objc_getAssociatedObject(self, &kFirstResponderKey);
     return r ?: self;
 }
+/* Ends editing in a field editor, for `object` (the control it edits) or
+ * any: the window takes first responder, without asking the editor (as
+ * AppKit forces it). */
+- (void)endEditingFor:(id)object {
+    NSResponder *current = objc_getAssociatedObject(self, &kFirstResponderKey);
+    if (![current isKindOfClass:[NSText class]] || ![(NSTextView *)current isFieldEditor]) return;
+    if (object && [(NSTextView *)current delegate] != object) return;
+    [current resignFirstResponder];
+    objc_setAssociatedObject(self, &kFirstResponderKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
 - (BOOL)makeFirstResponder:(NSResponder *)responder {
     NSResponder *current = objc_getAssociatedObject(self, &kFirstResponderKey);
     if (current == responder) return YES;

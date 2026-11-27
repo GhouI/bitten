@@ -19,6 +19,9 @@
 @end
 @interface Model : NSObject
 @property (nonatomic) int level;
+@property (nonatomic) NSRect area;
+@property (nonatomic) NSRange span;
+@property (nonatomic) short small;
 @end
 @implementation Model
 @end
@@ -124,6 +127,17 @@ int main(void) {
         Model *model = [Model new];
         [model setValue:@5 forKey:@"level"];
         CHECK(model.level == 5 && [[model valueForKey:@"level"] intValue] == 5);
+        // Structs go in and out boxed in NSValues.
+        [model setValue:[NSValue valueWithRect:NSMakeRect(1, 2, 3, 4)] forKey:@"area"];
+        CHECK(NSEqualRects(model.area, NSMakeRect(1, 2, 3, 4)));
+        CHECK(NSEqualRects([[model valueForKey:@"area"] rectValue], NSMakeRect(1, 2, 3, 4)));
+        [model setValue:[NSValue valueWithRange:NSMakeRange(7, 2)] forKey:@"span"];
+        CHECK(model.span.location == 7 && [[model valueForKey:@"span"] rangeValue].length == 2);
+        [model setValue:@-3 forKey:@"small"];
+        CHECK(model.small == -3 && [[model valueForKey:@"small"] intValue] == -3);
+        NSUInteger size = 0, align = 0;
+        const char *rest = NSGetSizeAndAlignment(@encode(NSRect), &size, &align);
+        CHECK(size == 32 && align == 8 && *rest == 0);
         Watcher *watcher = [Watcher new];
         [model addObserver:watcher forKeyPath:@"level"
                    options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld | NSKeyValueObservingOptionInitial

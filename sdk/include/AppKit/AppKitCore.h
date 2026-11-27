@@ -619,6 +619,7 @@ typedef NSString *NSUserInterfaceItemIdentifier NS_TYPED_EXTENSIBLE_ENUM;
 @interface NSWindow (NSEvents)
 @property (readonly, weak) NSResponder *firstResponder;
 - (BOOL)makeFirstResponder:(nullable NSResponder *)responder;
+- (void)endEditingFor:(nullable id)object;
 - (void)sendEvent:(NSEvent *)event;
 - (void)performClose:(nullable id)sender;
 @end

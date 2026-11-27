@@ -63,6 +63,51 @@ static void notify(id object, BNObserverEntry *e, NSDictionary *change) {
     [observer observeValueForKeyPath:e->keyPath ofObject:object change:change context:e->context];
 }
 
+/* Structs and other values without a case of their own (CGRect, NSRange,
+ * short integers) go through an invocation, boxed in an NSValue. */
+static id kvc_get_boxed(id self, SEL sel) {
+    NSMethodSignature *sig = [self methodSignatureForSelector:sel];
+    if (!sig) return nil;
+    NSInvocation *inv = [NSInvocation invocationWithMethodSignature:sig];
+    inv.selector = sel;
+    NSUInteger size = sig.methodReturnLength;
+    void *buf = calloc(1, size ? size : 1);
+    [inv invokeWithTarget:self];
+    [inv getReturnValue:buf];
+    const char *t = sig.methodReturnType;
+    id v;
+    switch (*t) {
+    case 's': v = @(*(short *)buf); break;
+    case 'S': v = @(*(unsigned short *)buf); break;
+    case 'C': v = @(*(unsigned char *)buf); break;
+    default: v = [NSValue valueWithBytes:buf objCType:t]; break;
+    }
+    free(buf);
+    return v;
+}
+static void kvc_set_boxed(id self, SEL sel, id value) {
+    NSMethodSignature *sig = [self methodSignatureForSelector:sel];
+    if (!sig || sig.numberOfArguments < 3) return;
+    const char *t = [sig getArgumentTypeAtIndex:2];
+    NSUInteger size = 0;
+    NSGetSizeAndAlignment(t, &size, NULL);
+    void *buf = calloc(1, size ? size : 1);
+    switch (*t) {
+    case 's': *(short *)buf = [value shortValue]; break;
+    case 'S': *(unsigned short *)buf = [value unsignedShortValue]; break;
+    case 'C': *(unsigned char *)buf = (unsigned char)[value unsignedIntValue]; break;
+    default:
+        /* nil for a struct sets it to zero, as setNilValueForKey: would */
+        if ([value isKindOfClass:[NSValue class]]) [(NSValue *)value getValue:buf size:size];
+        break;
+    }
+    NSInvocation *inv = [NSInvocation invocationWithMethodSignature:sig];
+    inv.selector = sel;
+    [inv setArgument:buf atIndex:2];
+    [inv invokeWithTarget:self];
+    free(buf);
+}
+
 @implementation NSObject (BittenKeyValueCoding)
 
 /* The getter for `key`: key, isKey, getKey; then an ivar _key / key. */
@@ -83,7 +128,8 @@ static void notify(id object, BNObserverEntry *e, NSDictionary *change) {
         case 'Q': case 'L': return @(((unsigned long long(*)(id, SEL))objc_msgSend)(self, sel));
         case 'd': return @(((double(*)(id, SEL))objc_msgSend)(self, sel));
         case 'f': return @(((float(*)(id, SEL))objc_msgSend)(self, sel));
-        default: return nil;
+        case 'v': return nil;
+        default: return kvc_get_boxed(self, sel);
         }
     }
     for (NSString *name in @[ [@"_" stringByAppendingString:key], key ]) {
@@ -124,7 +170,8 @@ static void notify(id object, BNObserverEntry *e, NSDictionary *change) {
         case 'Q': case 'L': ((void (*)(id, SEL, unsigned long long))objc_msgSend)(self, sel, [value unsignedLongLongValue]); break;
         case 'd': ((void (*)(id, SEL, double))objc_msgSend)(self, sel, [value doubleValue]); break;
         case 'f': ((void (*)(id, SEL, float))objc_msgSend)(self, sel, [value floatValue]); break;
-        default: ((void (*)(id, SEL, id))objc_msgSend)(self, sel, value); break;
+        case '@': case '#': ((void (*)(id, SEL, id))objc_msgSend)(self, sel, value); break;
+        default: kvc_set_boxed(self, sel, value); break;
         }
         [self didChangeValueForKey:key];
         return;

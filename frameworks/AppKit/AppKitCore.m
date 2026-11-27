@@ -8,6 +8,9 @@
 #include <dispatch/dispatch.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+void bn_debug_callers(void);
 
 NSApplication *NSApp;
 
@@ -50,16 +53,35 @@ NSApplication *NSApp;
     if (!NSEqualSizes(frame.size, _frame.size)) [self setFrameSize:frame.size];
 }
 - (void)setFrameOrigin:(NSPoint)origin {
+    static const char *debug_class;
+    static int inited;
+    if (!inited) { debug_class = getenv("BITTEN_FRAME_DEBUG"); inited = 1; }
+    if (debug_class && strstr(object_getClassName(self), debug_class)) {
+        fprintf(stderr, "bitten: %s origin %s -> %s from", object_getClassName(self),
+                NSStringFromPoint(_frame.origin).UTF8String, NSStringFromPoint(origin).UTF8String);
+        bn_debug_callers();
+    }
     _frame.origin = origin;
     _needsDisplay = YES;
+    [self _bn_syncLayerGeometry];
+}
+/* A backing layer has the view's geometry: its bounds are the view's
+ * bounds and its frame, in the superview's coordinates, the view's frame. */
+- (void)_bn_syncLayerGeometry {
+    id l = self.layer;
+    if (!l) return;
+    [l setValue:[NSValue valueWithRect:_bounds] forKey:@"bounds"];
+    NSPoint anchor = [[l valueForKey:@"anchorPoint"] pointValue];
+    [l setValue:[NSValue valueWithPoint:NSMakePoint(_frame.origin.x + anchor.x * _frame.size.width,
+                                                    _frame.origin.y + anchor.y * _frame.size.height)]
+         forKey:@"position"];
 }
 - (void)setFrameSize:(NSSize)size {
     NSSize old = _frame.size;
     _frame.size = size;
     _bounds.size = size;
     _needsDisplay = YES;
-    id l = self.layer;
-    if (l) [l setValue:[NSValue valueWithRect:_bounds] forKey:@"bounds"];
+    [self _bn_syncLayerGeometry];
     if (!NSEqualSizes(old, size) && self.autoresizesSubviews) [self resizeSubviewsWithOldSize:old];
 }
 
@@ -104,14 +126,19 @@ static void bn_autoresize_axis(CGFloat delta, BOOL flexLo, BOOL flexLen, BOOL fl
     if (!NSEqualRects(f, _frame)) [self setFrame:f];
 }
 - (NSRect)bounds { return _bounds; }
-- (void)setBounds:(NSRect)bounds { _bounds = bounds; }
+- (void)setBounds:(NSRect)bounds {
+    _bounds = bounds;
+    [self _bn_syncLayerGeometry];
+}
 - (void)setBoundsOrigin:(NSPoint)origin {
     _bounds.origin = origin;
     _needsDisplay = YES;
+    [self _bn_syncLayerGeometry];
 }
 - (void)setBoundsSize:(NSSize)size {
     _bounds.size = size;
     _needsDisplay = YES;
+    [self _bn_syncLayerGeometry];
 }
 - (NSArray *)subviews { return [_subviews copy]; }
 - (NSView *)superview { return _superview; }
@@ -138,7 +165,6 @@ static void bn_autoresize_axis(CGFloat delta, BOOL flexLo, BOOL flexLen, BOOL fl
     Class cls = objc_getClass("CALayer");
     id l = cls ? [cls new] : nil;
     if (l) {
-        [l setValue:[NSValue valueWithRect:self.bounds] forKey:@"bounds"];
         [l setValue:@(self.window ? self.window.backingScaleFactor : 1.0) forKey:@"contentsScale"];
     }
     return l;
@@ -147,6 +173,7 @@ static void bn_autoresize_axis(CGFloat delta, BOOL flexLo, BOOL flexLen, BOOL fl
 - (void)setLayer:(CALayer *)layer {
     objc_setAssociatedObject(self, @selector(layer), layer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     if (layer) [(id)layer setValue:self forKey:@"delegate"];
+    [self _bn_syncLayerGeometry];
 }
 - (BOOL)wantsUpdateLayer { return NO; }
 - (void)updateLayer {}

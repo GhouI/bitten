@@ -597,6 +597,107 @@ static CFTimeInterval from_root(CALayer *l, CFTimeInterval t) {
 - (CFTimeInterval)convertTime:(CFTimeInterval)t toLayer:(CALayer *)l { return from_root(l, to_root(self, t)); }
 @end
 
+/* Key paths into the layer's structs, as Core Animation's KVC extensions:
+ * transform.scale / .rotation / .translation (with .x .y .z) for the
+ * transform and sublayer transform, and fields of the geometry structs
+ * (position.x, bounds.size.width, anchorPoint.y, ...). */
+static BOOL transform_field(CATransform3D *t, NSString *field, double *get, const double *set) {
+    double sx = sqrt(t->m11 * t->m11 + t->m12 * t->m12), sy = sqrt(t->m21 * t->m21 + t->m22 * t->m22);
+    double angle = atan2(t->m12, t->m11);
+    if ([field isEqualToString:@"scale"]) {
+        if (get) *get = (sx + sy + t->m33) / 3;
+        if (set) { sx = sy = *set; t->m33 = *set; }
+    } else if ([field isEqualToString:@"scale.x"]) {
+        if (get) *get = sx;
+        if (set) sx = *set;
+    } else if ([field isEqualToString:@"scale.y"]) {
+        if (get) *get = sy;
+        if (set) sy = *set;
+    } else if ([field isEqualToString:@"scale.z"]) {
+        if (get) *get = t->m33;
+        if (set) t->m33 = *set;
+        return YES;
+    } else if ([field isEqualToString:@"rotation"] || [field isEqualToString:@"rotation.z"]) {
+        if (get) *get = angle;
+        if (set) angle = *set;
+    } else if ([field isEqualToString:@"translation.x"]) {
+        if (get) *get = t->m41;
+        if (set) t->m41 = *set;
+        return YES;
+    } else if ([field isEqualToString:@"translation.y"]) {
+        if (get) *get = t->m42;
+        if (set) t->m42 = *set;
+        return YES;
+    } else if ([field isEqualToString:@"translation.z"]) {
+        if (get) *get = t->m43;
+        if (set) t->m43 = *set;
+        return YES;
+    } else return NO;
+    if (set) {
+        t->m11 = sx * cos(angle); t->m12 = sx * sin(angle);
+        t->m21 = -sy * sin(angle); t->m22 = sy * cos(angle);
+    }
+    return YES;
+}
+/* A field of a point, size or rect: x y, width height, origin(.x) size(.width). */
+static double *geometry_field(void *base, const char *type, NSString *field) {
+    double *d = base;
+    BOOL rect = !strncmp(type, "{CGRect=", 8), point = !strncmp(type, "{CGPoint=", 9), size = !strncmp(type, "{CGSize=", 8);
+    if (rect) {
+        if ([field hasPrefix:@"origin."]) { field = [field substringFromIndex:7]; point = YES; }
+        else if ([field hasPrefix:@"size."]) { field = [field substringFromIndex:5]; size = YES; d += 2; }
+        else return NULL;
+    }
+    if (point && [field isEqualToString:@"x"]) return d;
+    if (point && [field isEqualToString:@"y"]) return d + 1;
+    if (size && [field isEqualToString:@"width"]) return d;
+    if (size && [field isEqualToString:@"height"]) return d + 1;
+    return NULL;
+}
+@implementation CALayer (BittenKeyPaths)
+- (BOOL)_bn_structKeyPath:(NSString *)keyPath get:(id *)get set:(id)set {
+    NSRange dot = [keyPath rangeOfString:@"."];
+    if (dot.location == NSNotFound) return NO;
+    NSString *key = [keyPath substringToIndex:dot.location], *field = [keyPath substringFromIndex:dot.location + 1];
+    if ([key isEqualToString:@"transform"] || [key isEqualToString:@"sublayerTransform"]) {
+        BOOL sub = key.length > 9;
+        CATransform3D t = sub ? self.sublayerTransform : self.transform;
+        double v = [set doubleValue], out = 0;
+        if (!transform_field(&t, field, get ? &out : NULL, set ? &v : NULL)) return NO;
+        if (get) *get = @(out);
+        if (set) { if (sub) self.sublayerTransform = t; else self.transform = t; }
+        return YES;
+    }
+    double buf[4] = {0};
+    const char *type;
+    if ([key isEqualToString:@"position"]) { *(CGPoint *)buf = self.position; type = @encode(CGPoint); }
+    else if ([key isEqualToString:@"anchorPoint"]) { *(CGPoint *)buf = self.anchorPoint; type = @encode(CGPoint); }
+    else if ([key isEqualToString:@"bounds"]) { *(CGRect *)buf = self.bounds; type = @encode(CGRect); }
+    else if ([key isEqualToString:@"frame"]) { *(CGRect *)buf = self.frame; type = @encode(CGRect); }
+    else return NO;
+    double *f = geometry_field(buf, type, field);
+    if (!f) return NO;
+    if (get) *get = @(*f);
+    if (set) {
+        *f = [set doubleValue];
+        if ([key isEqualToString:@"position"]) self.position = *(CGPoint *)buf;
+        else if ([key isEqualToString:@"anchorPoint"]) self.anchorPoint = *(CGPoint *)buf;
+        else if ([key isEqualToString:@"bounds"]) self.bounds = *(CGRect *)buf;
+        else self.frame = *(CGRect *)buf;
+    }
+    return YES;
+}
+- (id)valueForKeyPath:(NSString *)keyPath {
+    id v = nil;
+    if ([self _bn_structKeyPath:keyPath get:&v set:nil]) return v;
+    return [super valueForKeyPath:keyPath];
+}
+- (void)setValue:(id)value forKeyPath:(NSString *)keyPath {
+    if ([self _bn_structKeyPath:keyPath get:NULL set:value ?: @0]) return;
+    [super setValue:value forKeyPath:keyPath];
+}
+@end
+
 /* ---- shape, gradient, text and Metal layers ------------------------------------------------- */
 
 @implementation CAShapeLayer {

@@ -4000,3 +4000,27 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Target app (total `^MISSING`): 0 -> 0. Ran `docker run ... bitten run`
   (browser display) on main: onboarding appears, "Skip for now" opens a zsh
   terminal, and `echo hi` typed in the window prints `hi` in the window.
+
+## Foundation/AppKit: struct values through key-value coding; layer geometry
+
+- `setValue:forKey:` and `valueForKey:` now handle struct and other
+  non-object values (CGRect, NSRange, short) through an invocation, boxed
+  in `NSValue`. Before, a struct setter received the NSValue pointer as its
+  bytes, and AppKit sets backing layers' bounds that way, so every layer had
+  garbage bounds. Added `NSGetSizeAndAlignment` and `-[NSValue
+  getValue:size:]`; NSValue sizes any struct encoding.
+- A view's backing layer follows the view's bounds and frame (its position
+  is now set too). The target app reads `layer.frame` to place its tab-bar
+  selection surfaces. With garbage frames, a grey bar sat at the window's
+  top-left; now the tab group's capsule and the selected tab's pill show as
+  on macOS.
+- `NSView.alphaValue` fades a view and its subviews when drawn, together
+  with its layer's opacity.
+- CALayer key paths into its structs, as Core Animation has them:
+  `transform.scale` / `.rotation` / `.translation` (with `.x .y .z`), and
+  geometry fields such as `position.x` and `bounds.size.width`.
+- `-[NSWindow endEditingFor:]` (the activity popup called it on close).
+- Debugging: `BITTEN_FRAME_DEBUG=ClassName` logs frame-origin and alpha
+  changes of matching views, with callers.
+- Target app (total `^MISSING`): 0 -> 0.
+

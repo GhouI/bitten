@@ -20,7 +20,9 @@ static size_t size_of_type(const char *type) {
     if (!strncmp(type, "{_NSRange=", 10)) return sizeof(NSRange);
     if (!strncmp(type, "{CGPoint=", 9) || !strncmp(type, "{CGSize=", 8)) return 16;
     if (!strncmp(type, "{CGRect=", 8)) return 32;
-    return 0;
+    NSUInteger size = 0;
+    if (type[0] == '{' || type[0] == '(' || type[0] == '[') NSGetSizeAndAlignment(type, &size, NULL);
+    return size;
 }
 
 @implementation BNConcreteValue
@@ -29,6 +31,12 @@ static size_t size_of_type(const char *type) {
     free(_type);
 }
 - (void)getValue:(void *)value { memcpy(value, _bytes, _size); }
+- (void)getValue:(void *)value size:(NSUInteger)size {
+    if (size != _size)
+        BNRaise("NSInvalidArgumentException", "-[NSValue getValue:size:]: size %lu does not match the value's %lu",
+                (unsigned long)size, (unsigned long)_size);
+    memcpy(value, _bytes, _size);
+}
 - (const char *)objCType { return _type; }
 - (void *)pointerValue { return _size >= sizeof(void *) ? *(void **)_bytes : NULL; }
 - (id)nonretainedObjectValue { return (__bridge id)self.pointerValue; }
@@ -63,6 +71,7 @@ static size_t size_of_type(const char *type) {
 - (void)getValue:(void *)value {
     BNRaise("NSInvalidArgumentException", "-[%s getValue:]: not supported for this kind of value", object_getClassName(self));
 }
+- (void)getValue:(void *)value size:(NSUInteger)size { [self getValue:value]; }
 - (BOOL)isEqualToValue:(NSValue *)value { return [self isEqual:value]; }
 + (NSValue *)valueWithBytes:(const void *)value objCType:(const char *)type {
     size_t size = size_of_type(type);
