@@ -3833,3 +3833,19 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   title.
 - Target app (total `^MISSING`): 0 -> 0.
 
+## Swift: dynamic casts between tuple types
+
+- `swift_dynamicCast` now casts a tuple to another tuple type, as Apple's
+  runtime does (`tryCastToTuple`). The element counts must match, and so
+  must every label that both sides have, so `(Int, String)` casts to
+  `(x: Int, y: String)` and back, `(x:, y:)` does not cast to `(a:, b:)`,
+  and a partly labeled tuple matches on the labels it has. Each element is
+  cast into the target's offset with the general cast, so `(Any, Any)` casts
+  to `(Int, String)`. When an element fails, the elements already cast are
+  destroyed.
+- Fixes the target app's crash on "Skip for now" in onboarding: it casts
+  an unlabeled `(TabID, BlockID)` to `(tabID:, blockID:)`.
+- Test: tests/swiftlib/tuplecasts.swift (labels, element-wise casts,
+  failure cleanup).
+- Target app (total `^MISSING`): 0 -> 0. "Skip for now" goes to the
+  workspace.
