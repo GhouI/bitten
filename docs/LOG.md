@@ -4740,3 +4740,13 @@ Debugging aids:
   side bands or the centre) now skip the clip; the rect clip already
   bounds them. Pane corners look the same.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Materials stand in for their blur
+
+- NSVisualEffectView paints its material as a translucent colour (75–90%
+  opaque) without blurring. The target app's command palette, a
+  transparent window, showed the terminal text behind it clearly enough to
+  read. macOS blurs what is behind a material past reading, so materials
+  other than selection are now at least 96% opaque. Settings and its
+  sidebar look the same.
+- Target app (total `^MISSING`): 0 -> 0.
