@@ -2,6 +2,7 @@
 // segmented controls, text fields, scroll views, toolbars built from their
 // delegate, alerts, popovers, the status bar, colours and attributed text.
 #import <AppKit/AppKit.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -82,6 +83,13 @@ int main(void) {
         pop.contentViewController = vc;
         [pop showRelativeToRect:NSZeroRect ofView:w.contentView preferredEdge:NSRectEdgeMaxY];
         CHECK(pop.isShown && w.childWindows.count == 1);
+        /* Resized while shown, it stays centred on its anchor's edge. */
+        NSWindow *pw = w.childWindows.firstObject;
+        CGFloat mid = NSMidX(pw.frame);
+        pop.contentSize = NSMakeSize(200, 80);
+        CHECK(fabs(NSMidX(pw.frame) - mid) < 1 && pw.frame.size.width == 200);
+        [pw setContentSize:NSMakeSize(260, 80)];
+        CHECK(fabs(NSMidX(pw.frame) - mid) < 1);
         [pop close];
         CHECK(!pop.isShown && w.childWindows.count == 0);
 
