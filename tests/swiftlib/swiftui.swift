@@ -684,6 +684,24 @@ struct Counting: View {
   }
 }
 
+/// Text too wide for its frame is cut with an ellipsis and drawn inside
+/// the frame.
+@_silgen_name("swl_swiftui_truncate") public func truncate() -> Int {
+  return MainActor.assumeIsolated {
+    let view = HStack(spacing: 0) {
+      Text("WWWWWWWWWWWWWWWWWWWWWWWW").font(.system(size: 12)).foregroundStyle(Color.black)
+        .lineLimit(1).truncationMode(.middle).frame(width: 60)
+      Spacer(minLength: 0)
+    }.frame(width: 120, height: 20)
+    let px = render(view, 120, 20)
+    var outside = 0
+    for x in 64..<120 { for y in 0..<20 where px(x, y) != white { outside += 1 } }
+    var inside = 0
+    for x in 0..<60 { for y in 0..<20 where px(x, y) != white { inside += 1 } }
+    return (outside == 0 ? 0 : 1) | (inside > 0 ? 0 : 2)
+  }
+}
+
 /// A button's keyboard shortcut performs it: Escape a .cancelAction
 /// button, a command key a ⌘ shortcut; a disabled one doesn't.
 @_silgen_name("swl_swiftui_shortcuts") public func shortcuts() -> Int {

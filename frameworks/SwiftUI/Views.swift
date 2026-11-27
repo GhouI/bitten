@@ -1052,7 +1052,7 @@ internal final class _TextNode: _ViewNode {
   var lineHeight: CGFloat { return _TextRenderer.metrics(font).lineHeight }
   func width(of s: Substring) -> CGFloat { return _TextRenderer.width(String(s), font: font) }
   /// Greedy word wrapping into `width`.
-  func lines(in width: CGFloat?) -> [Substring] {
+  func lines(in width: CGFloat?, limited: Bool = true) -> [Substring] {
     var out: [Substring] = []
     for para in string.split(separator: "\n", omittingEmptySubsequences: false) {
       guard let w = width, self.width(of: para) > w else {
@@ -1071,7 +1071,7 @@ internal final class _TextNode: _ViewNode {
       }
       out.append(line)
     }
-    if let limit = environment.lineLimit, out.count > limit { out = Array(out.prefix(max(1, limit))) }
+    if limited, let limit = environment.lineLimit, out.count > limit { out = Array(out.prefix(max(1, limit))) }
     return out
   }
   override func sizeThatFits(_ proposal: ProposedViewSize) -> CGSize {
@@ -1080,11 +1080,35 @@ internal final class _TextNode: _ViewNode {
     let w = ls.reduce(0) { max($0, width(of: $1)) }
     return CGSize(width: proposal.width.map { min($0, w) } ?? w, height: CGFloat(ls.count) * lineHeight)
   }
+  /// `line` cut to fit `width` with an ellipsis where the truncation mode
+  /// says (or at the end when more text follows it).
+  func fitted(_ line: Substring, in width: CGFloat, more: Bool) -> String {
+    if !more && self.width(of: line) <= width { return String(line) }
+    let chars = Array(line)
+    let mode: Text.TruncationMode = more ? .tail : environment.truncationMode
+    func make(_ k: Int) -> String {
+      switch mode {
+      case .tail: return String(chars.prefix(k)) + "…"
+      case .head: return "…" + String(chars.suffix(k))
+      case .middle: return String(chars.prefix((k + 1) / 2)) + "…" + String(chars.suffix(k / 2))
+      }
+    }
+    // The most characters that still fit.
+    var lo = 0, hi = chars.count - (more ? 0 : 1)
+    while lo < hi {
+      let mid = (lo + hi + 1) / 2
+      if _TextRenderer.width(make(mid), font: font) <= width { lo = mid } else { hi = mid - 1 }
+    }
+    return make(lo)
+  }
   override func draw(_ context: CGContext) {
     var y = frame._minY
     let ls = lines(in: frame._width + 0.5)
     let alignment = ls.count > 1 ? environment.multilineTextAlignment : .leading
-    for line in ls {
+    // Lines dropped by the line limit: the last one shown ends in an ellipsis.
+    let dropped = ls.count < lines(in: frame._width + 0.5, limited: false).count
+    for (i, raw) in ls.enumerated() {
+      let line = Substring(fitted(raw, in: frame._width + 0.5, more: dropped && i == ls.count - 1))
       // Lines of wrapped text line up as multilineTextAlignment says.
       var x = frame._minX
       if alignment != .leading {

@@ -5161,3 +5161,14 @@ Debugging aids:
   view.
 - Test: `nohitrep`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: text truncates
+
+- Text wider than its frame used to be drawn whole, past the frame, over
+  whatever came next. A line that doesn't fit is now cut with an ellipsis
+  as `truncationMode` says (tail, head or middle). When `lineLimit`
+  drops lines, the last line shown ends in an ellipsis. In the target
+  app's Developer settings, the included commit and SHA-256 hashes ran
+  under their copy buttons; they now read `202b1b3fc0…e2d47daa9`.
+- Test: `truncate`.
+- Target app (total `^MISSING`): 0 -> 0.
