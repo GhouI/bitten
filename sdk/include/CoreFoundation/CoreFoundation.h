@@ -70,6 +70,8 @@ typedef enum {
 } CFNumberType;
 
 extern const CFAllocatorRef kCFAllocatorDefault;
+extern const CFAllocatorRef kCFAllocatorMalloc;
+extern const CFAllocatorRef kCFAllocatorNull;
 extern const CFBooleanRef kCFBooleanTrue, kCFBooleanFalse;
 extern const CFNullRef kCFNull;
 typedef struct {
@@ -156,6 +158,7 @@ CFSetRef CFSetCreateCopy(CFAllocatorRef, CFSetRef) CF_RETURNS_RETAINED;
 
 CFTypeID CFDataGetTypeID(void);
 CFDataRef CFDataCreate(CFAllocatorRef, const uint8_t *, CFIndex) CF_RETURNS_RETAINED;
+CFDataRef CFDataCreateWithBytesNoCopy(CFAllocatorRef, const uint8_t *, CFIndex, CFAllocatorRef) CF_RETURNS_RETAINED;
 CFMutableDataRef CFDataCreateMutable(CFAllocatorRef, CFIndex) CF_RETURNS_RETAINED;
 CFMutableDataRef CFDataCreateMutableCopy(CFAllocatorRef, CFIndex, CFDataRef) CF_RETURNS_RETAINED;
 CFIndex CFDataGetLength(CFDataRef);

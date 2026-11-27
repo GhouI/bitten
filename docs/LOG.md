@@ -3871,3 +3871,24 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Target app (total `^MISSING`): 0 -> 0. Its terminal surface now shows
   the frames its Metal renderer presents: the prompt, typed commands and
   their output, and the cursor.
+
+## Foundation: NSData no-copy initialisers and rangeOfData (the update-check crash)
+
+- Fixed the target app dying about 10 s after its first launch. Its
+  update check calls `+[NSData dataWithBytesNoCopy:length:freeWhenDone:]`,
+  which NSData did not have, and right after that
+  `-[NSData rangeOfData:options:range:]`, which it did not have either.
+- `dataWithBytesNoCopy:length:`, `…freeWhenDone:`, and
+  `initWithBytesNoCopy:length:`, `…freeWhenDone:` and `…deallocator:`. NSData
+  borrows the caller's buffer and gives it back exactly once when the data
+  is destroyed: `free()` for freeWhenDone, the deallocator block, or nothing.
+  NSMutableData copies the bytes, so it can grow, and gives the buffer back
+  straight away.
+- CoreFoundation gains `CFDataCreateWithBytesNoCopy` (kCFAllocatorNull
+  borrows, any other deallocator frees) and the private
+  `bitten_cf_data_create_no_copy`, which takes a release callback for the
+  block case. `kCFAllocatorMalloc` and `kCFAllocatorNull` are in the SDK
+  header now.
+- `rangeOfData:options:range:` handles backwards and anchored searches.
+- Tests: tests/foundation/nocopy.m, tests/foundation/datasearch.m.
+- Target app (total `^MISSING`): 0 -> 0.

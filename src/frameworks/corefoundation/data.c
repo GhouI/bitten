@@ -8,10 +8,13 @@ struct cf_data {
     CFIndex length;
     size_t capacity;
     Boolean mutable;
+    void (*release)(void *context, void *bytes, CFIndex length);
+    void *release_context;
 };
 static void data_destroy(void *object) {
     struct cf_data *d = object;
-    free(d->bytes);
+    if (d->release) d->release(d->release_context, d->bytes, d->length);
+    else free(d->bytes);
 }
 static Boolean data_equal(const void *left, const void *right) {
     const struct cf_data *a = left, *b = right;
@@ -47,6 +50,32 @@ struct cf_data *d_CFDataCreate(const void *allocator, const uint8_t *bytes, CFIn
     return d;
 }
 DX_FN(CFDataCreate);
+
+static void data_release_nothing(void *context, void *bytes, CFIndex length) {}
+static void data_release_free(void *context, void *bytes, CFIndex length) { free(bytes); }
+
+/* An immutable CFData that borrows bytes; release(context, bytes, length) runs once when it is destroyed. */
+struct cf_data *bitten_cf_data_create_no_copy(const void *allocator, const uint8_t *bytes, CFIndex length,
+                                             void (*release)(void *, void *, CFIndex), void *context) {
+    if (length < 0 || (length && !bytes)) return NULL;
+    struct cf_data *d = data_create(allocator, 0, 0);
+    if (!d) return NULL;
+    d->bytes = (uint8_t *)bytes;
+    d->length = length;
+    d->release = release ? release : data_release_nothing;
+    d->release_context = context;
+    return d;
+}
+DX_EXPORT("_bitten_cf_data_create_no_copy", bitten_cf_data_create_no_copy);
+
+static struct cf_data *d_CFDataCreateWithBytesNoCopy(const void *allocator, const uint8_t *bytes, CFIndex length,
+                                                     const void *bytesDeallocator) {
+    return bitten_cf_data_create_no_copy(allocator, bytes, length,
+                                         bytesDeallocator == d_kCFAllocatorNull ? data_release_nothing
+                                                                                : data_release_free,
+                                         NULL);
+}
+DX_FN(CFDataCreateWithBytesNoCopy);
 
 static struct cf_data *d_CFDataCreateMutable(const void *allocator, CFIndex capacity) {
     return data_create(allocator, capacity, 1);
