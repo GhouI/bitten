@@ -13,6 +13,9 @@
 void bn_debug_callers(void);
 void bn_view_visibility(NSView *view, BOOL visible); /* AppKitControllers.m */
 void bn_tree_visibility(NSView *root, BOOL visible);
+@interface NSWindow (BittenAppearanceChange)
+- (void)_bn_appearanceChanged; /* AppKitAppearance.m */
+@end
 @interface NSView (BittenContentsDiff)
 - (BOOL)_bn_contentsChange:(NSRect *)changed; /* AppKitDrawing.m */
 @end
@@ -547,8 +550,15 @@ static NSUInteger next_window_number = 1;
     BOOL _running, _active, _launched;
     NSMenu *_mainMenu;
     NSApplicationActivationPolicy _policy;
+    NSAppearance *_appearance;
 }
-@synthesize delegate = _delegate, appearance = _appearance;
+@synthesize delegate = _delegate;
+- (NSAppearance *)appearance { return _appearance; }
+/* Every window follows (those without an appearance of their own). */
+- (void)setAppearance:(NSAppearance *)appearance {
+    _appearance = appearance;
+    for (NSWindow *w in all_windows) [w _bn_appearanceChanged];
+}
 + (NSApplication *)sharedApplication {
     static dispatch_once_t once;
     dispatch_once(&once, ^{
@@ -762,7 +772,8 @@ static const struct { unsigned short code; char plain, shifted; } bn_us_keys[] =
 - (CGFloat)blueComponent { return _b; }
 - (CGFloat)alphaComponent { return _a; }
 - (NSColor *)colorWithAlphaComponent:(CGFloat)a { return [NSColor colorWithSRGBRed:_r green:_g blue:_b alpha:a]; }
-/* The named colours of the light appearance. */
+/* The fixed named colours (the system colours that change with the
+ * appearance are in AppKitDynamicColor.m). */
 + (NSColor *)blackColor { return [self colorWithWhite:0 alpha:1]; }
 + (NSColor *)whiteColor { return [self colorWithWhite:1 alpha:1]; }
 + (NSColor *)clearColor { return [self colorWithWhite:0 alpha:0]; }
@@ -770,14 +781,7 @@ static const struct { unsigned short code; char plain, shifted; } bn_us_keys[] =
 + (NSColor *)redColor { return [self colorWithSRGBRed:1 green:0 blue:0 alpha:1]; }
 + (NSColor *)greenColor { return [self colorWithSRGBRed:0 green:1 blue:0 alpha:1]; }
 + (NSColor *)blueColor { return [self colorWithSRGBRed:0 green:0 blue:1 alpha:1]; }
-+ (NSColor *)labelColor { return [self colorWithWhite:0 alpha:0.85]; }
-+ (NSColor *)secondaryLabelColor { return [self colorWithWhite:0 alpha:0.5]; }
-+ (NSColor *)textColor { return [self blackColor]; }
-+ (NSColor *)textBackgroundColor { return [self whiteColor]; }
-+ (NSColor *)windowBackgroundColor { return [self colorWithWhite:0.93 alpha:1]; }
-+ (NSColor *)controlBackgroundColor { return [self whiteColor]; }
 + (NSColor *)controlAccentColor { return [self colorWithSRGBRed:0 green:0.48 blue:1 alpha:1]; }
-+ (NSColor *)separatorColor { return [self colorWithWhite:0 alpha:0.1]; }
 + (NSColor *)selectedContentBackgroundColor { return [self controlAccentColor]; }
 @end
 

@@ -18,6 +18,10 @@ static NSSize fit(NSSize s, NSSize in) {
 
 /* ---- NSImageView ---- */
 
+@interface NSImage (BittenTemplate)
+- (void)_bn_drawTemplateInRect:(NSRect)rect color:(NSColor *)color; /* AppKitImage.m */
+@end
+
 @implementation NSImageView {
     NSImage *_image;
     NSImageScaling _scaling;
@@ -74,7 +78,7 @@ static NSSize fit(NSSize s, NSSize in) {
     default: break;
     }
     NSRect r = NSMakeRect(NSMidX(b) - s.width / 2, NSMidY(b) - s.height / 2, s.width, s.height);
-    [_image drawInRect:r];
+    [_image _bn_drawTemplateInRect:r color:_tint];
 }
 @end
 
@@ -285,7 +289,8 @@ static NSSize fit(NSSize s, NSSize in) {
     CGFloat total = ts.width + is.width + (ts.width && is.width ? 4 : 0);
     CGFloat x = self._bn_isCheck ? NSMinX(content) : NSMidX(content) - total / 2;
     if (is.width) {
-        [img drawInRect:NSMakeRect(x, NSMidY(content) - is.height / 2, is.width, is.height)];
+        [img _bn_drawTemplateInRect:NSMakeRect(x, NSMidY(content) - is.height / 2, is.width, is.height)
+                              color:_tint ?: fg];
         x += is.width + 4;
     }
     if (ts.width) [title drawAtPoint:NSMakePoint(x, NSMidY(content) - ts.height / 2) withAttributes:attrs];

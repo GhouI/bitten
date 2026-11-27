@@ -180,6 +180,16 @@ open class _HostingViewBase: NSView {
   /// tree is dropped once placing is done, not under the nodes running.
   var _invalidatedWhilePlacing = false
 
+  /// The colour scheme the view's appearance gives its content, as
+  /// SwiftUI's hosting views do (a view's own .colorScheme still wins).
+  var _appearanceScheme: ColorScheme {
+    return String(describing: effectiveAppearance.name).contains("Dark") ? .dark : .light
+  }
+  override open func viewDidChangeEffectiveAppearance() {
+    super.viewDidChangeEffectiveAppearance()
+    if _environment.colorScheme != _appearanceScheme { _bn_invalidate() }
+  }
+
   func _bn_invalidate() {
     if _placing {
       _invalidatedWhilePlacing = true
@@ -360,6 +370,7 @@ open class NSHostingView<Content: View>: _HostingViewBase {
     super.init(frame: NSMakeRect(0, 0, 100, 100))
   }
   override func _makeRoot() -> _ViewNode {
+    _environment.colorScheme = _appearanceScheme
     let inputs = _ViewInputs(_GraphInputs(environment: _environment, context: _context, path: ""))
     _context.beginBuild()
     // Observable reads made while building but outside any view's body

@@ -17,6 +17,9 @@ size_t bitten_cg_gstate_depth(CGContextRef c);
 void bitten_cg_restore_to_depth(CGContextRef c, size_t depth);
 int bitten_display_present(uint32_t window, const void *pixels, size_t width, size_t height, size_t row_bytes,
                            uint32_t bitmap_info, double x, double y, const char *title);
+@interface NSAppearance (BittenDrawing)
++ (NSAppearance *)_bn_swapDrawingAppearance:(NSAppearance *)appearance; /* AppKitAppearance.m */
+@end
 int bitten_display_present_rect(uint32_t window, const void *pixels, size_t width, size_t height, size_t row_bytes,
                                 uint32_t bitmap_info, double x, double y, const char *title, size_t rx, size_t ry,
                                 size_t rw, size_t rh);
@@ -431,6 +434,15 @@ static void profile_add(id view, double ms) {
     }
     CGContextTranslateCTM(c, -b.origin.x, -b.origin.y);
     BNBackingLayer *layer = (BNBackingLayer *)self.layer;
+    /* A view that keeps its looks in its layer updates the layer, when it
+     * needs display, instead of drawing (AppKit's wantsUpdateLayer); before
+     * the layer is painted, in the view's appearance. */
+    BOOL updatesLayer = layer && [self wantsUpdateLayer];
+    if (updatesLayer && self.needsDisplay) {
+        NSAppearance *before = [NSAppearance _bn_swapDrawingAppearance:self.effectiveAppearance];
+        [self updateLayer];
+        [NSAppearance _bn_swapDrawingAppearance:before];
+    }
     /* The view's alpha and its layer's opacity both fade it and its subviews. */
     CGFloat alpha = self.alphaValue * (layer ? layer.opacity : 1);
     if (alpha <= 0 || layer.isHidden) {
@@ -455,13 +467,16 @@ static void profile_add(id view, double ms) {
     }
     NSGraphicsContext *previous = [NSGraphicsContext currentContext];
     [NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithCGContext:c flipped:flipped]];
+    /* dynamic colours resolve for this view's appearance */
+    NSAppearance *drawingBefore = [NSAppearance _bn_swapDrawingAppearance:self.effectiveAppearance];
     size_t depth = bitten_cg_gstate_depth(c);
-    [self drawRect:b];
+    if (!updatesLayer) [self drawRect:b];
     if (bitten_cg_gstate_depth(c) != depth && getenv("BITTEN_DEBUG"))
         fprintf(stderr, "bitten: %s drawRect: left %ld graphics states unbalanced\n", object_getClassName(self),
                 (long)bitten_cg_gstate_depth(c) - (long)depth);
     bitten_cg_restore_to_depth(c, depth); /* states the drawing saved and left */
     [NSGraphicsContext setCurrentContext:previous];
+    [NSAppearance _bn_swapDrawingAppearance:drawingBefore];
     if (layer) {
         depth = bitten_cg_gstate_depth(c);
         bn_layer_sublayers(layer, c, flipped);
@@ -623,7 +638,19 @@ static const char kFullKey;  /* @YES: the next frame repaints everything */
     objc_setAssociatedObject(self, &kFullKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [self _bn_displayPending];
 }
+static const char kDrawingKey;
 - (void)_bn_displayPending {
+    /* A display asked for while this window draws (a view changing the
+     * window as it draws) comes after this frame, not inside it. */
+    if ([objc_getAssociatedObject(self, &kDrawingKey) boolValue]) {
+        [self _bn_queueDisplay];
+        return;
+    }
+    objc_setAssociatedObject(self, &kDrawingKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [self _bn_drawPending];
+    objc_setAssociatedObject(self, &kDrawingKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+- (void)_bn_drawPending {
     BOOL full = [objc_getAssociatedObject(self, &kFullKey) boolValue];
     NSValue *dirtyValue = objc_getAssociatedObject(self, &kDirtyKey);
     objc_setAssociatedObject(self, &kFullKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -670,7 +697,9 @@ static const char kFullKey;  /* @YES: the next frame repaints everything */
         CGContextClipToRect(c, dirty);
     }
     NSColor *bg = self.backgroundColor;
+    NSAppearance *drawingBefore = [NSAppearance _bn_swapDrawingAppearance:self.effectiveAppearance];
     CGContextSetFillColorWithColor(c, bg.CGColor);
+    [NSAppearance _bn_swapDrawingAppearance:drawingBefore];
     CGContextFillRect(c, CGRectMake(0, 0, content.size.width, content.size.height));
     if (getenv("BITTEN_VIEW_TREE")) bn_dump_tree(self.contentView, 0);
     double frame0 = now_ms();

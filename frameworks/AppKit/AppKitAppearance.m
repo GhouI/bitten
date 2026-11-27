@@ -66,16 +66,30 @@ static void make_drawing_key(void) { pthread_key_create(&drawing_key, NULL); }
     return a ?: [NSApplication sharedApplication].effectiveAppearance;
 }
 + (NSAppearance *)currentAppearance { return [self currentDrawingAppearance]; }
-+ (void)setCurrentAppearance:(NSAppearance *)appearance {
+/* The thread's drawing appearance is owned by the thread (retained). */
+static void set_drawing(NSAppearance *appearance) {
     pthread_once(&drawing_once, make_drawing_key);
-    pthread_setspecific(drawing_key, (__bridge void *)appearance);
+    void *old = pthread_getspecific(drawing_key);
+    pthread_setspecific(drawing_key, appearance ? (__bridge_retained void *)appearance : NULL);
+    if (old) (void)(__bridge_transfer NSAppearance *)old;
+}
++ (void)setCurrentAppearance:(NSAppearance *)appearance { set_drawing(appearance); }
+/* Sets the drawing appearance and returns what was set before (nil when
+ * nothing was: the application's appearance applied). */
++ (NSAppearance *)_bn_swapDrawingAppearance:(NSAppearance *)appearance {
+    pthread_once(&drawing_once, make_drawing_key);
+    void *raw = pthread_getspecific(drawing_key);
+    NSAppearance *previous = raw ? (__bridge NSAppearance *)raw : nil;
+    set_drawing(appearance);
+    return previous;
 }
 - (void)performAsCurrentDrawingAppearance:(NS_NOESCAPE void (^)(void))block {
     pthread_once(&drawing_once, make_drawing_key);
-    void *previous = pthread_getspecific(drawing_key);
-    pthread_setspecific(drawing_key, (__bridge void *)self);
+    void *raw = pthread_getspecific(drawing_key);
+    NSAppearance *previous = raw ? (__bridge NSAppearance *)raw : nil;
+    set_drawing(self);
     block();
-    pthread_setspecific(drawing_key, previous);
+    set_drawing(previous);
 }
 
 + (BOOL)supportsSecureCoding { return YES; }
@@ -86,10 +100,25 @@ static void make_drawing_key(void) { pthread_key_create(&drawing_key, NULL); }
 - (NSAppearance *)effectiveAppearance { return self.appearance ?: [NSAppearance _bn_systemAppearance]; }
 @end
 
+/* Views whose effective appearance may have changed hear of it, and redraw. */
+static void tell_appearance_changed(NSView *v) {
+    [v viewDidChangeEffectiveAppearance];
+    v.needsDisplay = YES;
+    for (NSView *s in v.subviews) tell_appearance_changed(s);
+}
+
+@interface NSWindow (BittenScheduleDisplay)
+- (void)_bn_scheduleDisplay;
+@end
 @implementation NSWindow (BittenAppearance)
 - (NSAppearance *)appearance { return objc_getAssociatedObject(self, @selector(appearance)); }
 - (void)setAppearance:(NSAppearance *)appearance {
     objc_setAssociatedObject(self, @selector(appearance), appearance, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [self _bn_appearanceChanged];
+}
+- (void)_bn_appearanceChanged {
+    if (self.contentView) tell_appearance_changed(self.contentView);
+    if (self.isVisible) [self _bn_scheduleDisplay]; /* may come in the middle of drawing */
 }
 - (NSAppearance *)effectiveAppearance { return self.appearance ?: [NSApplication sharedApplication].effectiveAppearance; }
 @end
@@ -97,7 +126,10 @@ static void make_drawing_key(void) { pthread_key_create(&drawing_key, NULL); }
 @implementation NSView (BittenAppearance)
 - (NSAppearance *)appearance { return objc_getAssociatedObject(self, @selector(appearance)); }
 - (void)setAppearance:(NSAppearance *)appearance {
+    if (appearance == self.appearance) return;
     objc_setAssociatedObject(self, @selector(appearance), appearance, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    tell_appearance_changed(self);
+    self.needsDisplay = YES;
 }
 - (NSAppearance *)effectiveAppearance {
     NSAppearance *a = self.appearance;
