@@ -54,6 +54,17 @@
     }
     return self;
 }
+/* Registrations that can no longer be delivered: a selector observer that
+ * has gone (as on macOS, it needn't remove itself), or one for a sender
+ * that has gone. Called with the lock held. */
+- (void)_bn_prune {
+    for (NSUInteger i = _observations.count; i-- > 0;) {
+        BNObservation *o = _observations[i];
+        BOOL observerGone = !o->block && !o->observer;
+        BOOL senderGone = o->has_object && !o->object;
+        if (observerGone || senderGone) [_observations removeObjectAtIndex:i];
+    }
+}
 - (void)addObserver:(id)observer selector:(SEL)selector name:(NSNotificationName)name object:(id)object {
     if (!observer || !selector) return;
     BNObservation *o = [BNObservation new];
@@ -64,6 +75,7 @@
     o->object = object;
     o->has_object = object != nil;
     [_lock lock];
+    [self _bn_prune];
     [_observations addObject:o];
     [_lock unlock];
 }
@@ -99,6 +111,7 @@
         fprintf(stderr, "bitten: notification %s object %s\n", note.name.UTF8String ?: "",
                 note.object ? object_getClassName(note.object) : "nil");
     [_lock lock];
+    [self _bn_prune];
     NSArray<BNObservation *> *snapshot = [_observations copy];
     [_lock unlock];
     for (BNObservation *o in snapshot) {

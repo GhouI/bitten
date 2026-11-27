@@ -107,6 +107,17 @@ final class _AppHost {
   func show(_ w: NSWindow) {
     w.makeKeyAndOrderFront(nil)
     windows.append(w)
+    // A window that closes is let go, as SwiftUI releases the windows it
+    // closes (Settings opened again gets a new one).
+    let closing = ObjectIdentifier(w)
+    var token: NSObjectProtocol?
+    token = NotificationCenter.default.addObserver(forName: NSNotification.Name("NSWindowWillCloseNotification"), object: w, queue: nil) { _ in
+      MainActor.assumeIsolated {
+        _AppHost.shared.windows.removeAll { ObjectIdentifier($0) == closing }
+        if let t = token { NotificationCenter.default.removeObserver(t) }
+        token = nil
+      }
+    }
   }
 
   func registerWindow<V: View>(id: String, title: String, content: @escaping () -> V) {
@@ -203,6 +214,8 @@ open class _HostingViewBase: NSView {
     _context.hostView = self
     _GraphHost.hosts.append(_WeakHost(self))
   }
+  /// What the tree watched goes with the view.
+  deinit { _context.cancelObservation() }
 
   /// A button's `keyboardShortcut` (⌘-keys, Return for `.defaultAction`,
   /// Escape for `.cancelAction`) performs it, as SwiftUI does.
@@ -268,8 +281,11 @@ open class _HostingViewBase: NSView {
     // Content built while laying out (geometry readers) is watched as well.
     let ctx = _context
     let generation = ctx.generation
-    withObservationTracking({ r.place(in: CGRect(origin: origin, size: size)) },
-                            onChange: { if generation == ctx.generation { ctx.invalidate() } })
+    let (_, token) = _bitten_withObservationTracking({ r.place(in: CGRect(origin: origin, size: size)) },
+                                                     onChange: { [weak ctx] in
+                                                       if let ctx = ctx, generation == ctx.generation { ctx.invalidate() }
+                                                     })
+    if let t = token { ctx.trackings.append(t) }
     _placedIn = bounds.size
     if _debugTree { _dbg("bitten: swiftui tree in \(bounds.size)"); r._dumpTree() }
     _orderPlatformViews(r)

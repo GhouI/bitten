@@ -52,5 +52,7 @@ void dx_objc_move_weak(void **dst, void **src);
 /* Forgets an object that is being freed: clears __weak variables pointing
  * to it and releases its associated objects. */
 void dx_objc_object_destroyed(void *obj);
+/* BITTEN_ALLOC_STATS: an instance of `cls` made (+1) or freed (-1). */
+void dx_alloc_note(const void *cls, int delta);
 
 #endif

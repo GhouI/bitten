@@ -4589,3 +4589,59 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   settings appear) and back off. tests/swiftlib/swiftui.swift
   (`toggleclick`) clicks a switch and a checkbox.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Closed windows are freed: view ownership, observation, monitors
+
+Each time the target app opened Settings it kept about 12 MB that never
+came back (Settings opened and closed 20 times: 137 → 376 MB). There were
+several causes:
+
+- **Retain cycles in the view tree.** NSView's `_superview` and `_window`
+  were strong under ARC, so every view tree was a retain cycle (subview ↔
+  superview, content view ↔ window) and nothing in a dropped hierarchy was
+  freed. They are now `__unsafe_unretained`, as AppKit doesn't own them
+  either. A view's `-dealloc` clears its subviews' superview. A window's
+  `-dealloc` drops its first responder and tells its views they left it
+  (`viewWillMoveToWindow: nil`, `viewDidMoveToWindow`). The window is
+  forgotten first, so nothing can reach it while it goes.
+- **Backing bitmaps.** A window's backing bitmap was kept in an `NSValue`
+  holding a raw pointer and was never released. A holder object now
+  releases it with the window, or when a resize replaces it.
+- **SwiftUI window list.** SwiftUI's window list kept every window it had
+  shown. A window is now dropped from it when it closes.
+- **Observation that never fired.** `withObservationTracking` registrations
+  on properties that never change waited forever, and their onChange
+  closures kept whole SwiftUI trees alive. Our Observation now gives
+  SwiftUI a token (`_bitten_withObservationTracking`,
+  `_bitten_cancelObservationTracking`). A host cancels its tree's
+  observation when it rebuilds and when it goes, and the closures hold the
+  render context weakly.
+- **Dead NotificationCenter registrations.** Selector registrations whose
+  observer has gone, and registrations for a sender that has gone, are
+  pruned, as on macOS where observers needn't remove themselves.
+- **Event monitors.** The app's shortcut recorder fields remove their event
+  monitors when they leave their window. They now get told they left it,
+  so the 200 monitors each visit to Settings → Shortcuts added are
+  removed. Before, every event ran through all of them.
+- **Keys after a window closes.** Keys the display sends to a window that
+  has closed (the one the page last had focused) now go to the key window
+  instead of being dropped. Before, after closing Settings from its
+  Shortcuts page, ⌘, did nothing.
+
+Result: opening and closing Settings 16 times went from +240 MB to about
++65 MB, mostly heap that isn't returned to the OS. Live objects stay flat;
+the remainder is the app's own observation loops.
+
+Tests: tests/appkit/basics.m. A released window is freed with its views,
+which are told they left it, and a view kept after its superview goes has
+no superview.
+
+Debugging aids:
+- `BITTEN_ALLOC_STATS=N` prints, every N seconds, the classes with the most
+  live instances (Objective-C objects and Swift class instances) and how
+  many were made since the last report.
+- `BITTEN_MONITOR_DEBUG` logs event monitors added (with callers) and
+  removed.
+- `BITTEN_WINDOW_DEBUG` also logs windows being freed.
+
+- Target app (total `^MISSING`): 0 -> 0.

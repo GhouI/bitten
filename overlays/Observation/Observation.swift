@@ -73,6 +73,7 @@ public struct ObservationRegistrar: Sendable {
         // Fire once, and stop listening to the other properties it read.
         for other in t.observed where other != key {
           waiting[other]?.removeAll { $0 === t }
+          if waiting[other]?.isEmpty == true { waiting[other] = nil }
         }
         if let change = t.onChange { out.append(change) }
         t.onChange = nil
@@ -107,6 +108,28 @@ extension ObservationRegistrar: Hashable {
 }
 
 public func withObservationTracking<T>(_ apply: () -> T, onChange: @autoclosure () -> @Sendable () -> Void) -> T {
+  return _track(apply, onChange()).0
+}
+
+/// For SwiftUI here: tracks as withObservationTracking does, and returns a
+/// token that stops the wait for a change (a view's tree rebuilt or gone
+/// no longer needs to hear of the properties it read).
+public func _bitten_withObservationTracking<T>(_ apply: () -> T,
+                                               onChange: @escaping @Sendable () -> Void) -> (T, AnyObject?) {
+  return _track(apply, onChange)
+}
+public func _bitten_cancelObservationTracking(_ token: AnyObject) {
+  guard let t = token as? _Tracking else { return }
+  locked {
+    for key in t.observed {
+      waiting[key]?.removeAll { $0 === t }
+      if waiting[key]?.isEmpty == true { waiting[key] = nil }
+    }
+    t.onChange = nil
+  }
+}
+
+private func _track<T>(_ apply: () -> T, _ onChange: @autoclosure () -> @Sendable () -> Void) -> (T, AnyObject?) {
   let t = _Tracking()
   let thread = _bitten_thread()
   locked { trackingStacks[thread, default: []].append(t) }
@@ -119,12 +142,11 @@ public func withObservationTracking<T>(_ apply: () -> T, onChange: @autoclosure 
     trackingStacks[thread]?.last?.observed.formUnion(t.observed)
     return t.observed
   }
-  if !observed.isEmpty {
-    let change = onChange()
-    locked {
-      t.onChange = change
-      for key in observed { waiting[key, default: []].append(t) }
-    }
+  if observed.isEmpty { return (result, nil) }
+  let change = onChange()
+  locked {
+    t.onChange = change
+    for key in observed { waiting[key, default: []].append(t) }
   }
-  return result
+  return (result, t)
 }

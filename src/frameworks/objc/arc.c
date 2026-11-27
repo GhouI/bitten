@@ -407,6 +407,7 @@ void dx_objc_object_destroyed(void *object) {
 
 void object_dispose_impl(id obj) {
     if (!obj) return;
+    dx_alloc_note(obj->isa, -1);
     d_objc_destructInstance(obj);
     /* BITTEN_HEAP_QUARANTINE=3: keep freed objects' memory, poisoned (debugging) */
     const char *q = getenv("BITTEN_HEAP_QUARANTINE");
