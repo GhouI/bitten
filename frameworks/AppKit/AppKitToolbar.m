@@ -331,6 +331,9 @@ static BOOL standard_identifier(NSString *i) {
     NSWindow *_window;
     __weak id<NSPopoverDelegate> _delegate;
     NSRect _positioningRect;
+    __weak NSView *_anchorView;
+    NSRectEdge _edge;
+    BOOL _placing;
 }
 - (instancetype)init {
     self = [super init];
@@ -349,8 +352,36 @@ static BOOL standard_identifier(NSString *i) {
     if (_window) {
         NSRect f = _window.frame;
         f.size = s;
-        [_window setFrame:f display:YES];
+        [_window setFrame:[self _bn_frameForSize:s] display:YES];
     }
+}
+/* Where the popover goes for a size: beside its anchor on the chosen edge,
+ * centred along it, kept on the screen. */
+- (NSRect)_bn_frameForSize:(NSSize)size {
+    NSView *view = _anchorView;
+    NSWindow *parent = view.window;
+    if (!parent) return _window ? (NSRect){_window.frame.origin, size} : (NSRect){NSZeroPoint, size};
+    NSRect rect = _positioningRect;
+    NSRect anchor = [parent convertRectToScreen:[view convertRect:NSIsEmptyRect(rect) ? view.bounds : rect toView:nil]];
+    NSPoint o;
+    switch (_edge) {
+    case NSRectEdgeMinX: o = NSMakePoint(NSMinX(anchor) - size.width, NSMidY(anchor) - size.height / 2); break;
+    case NSRectEdgeMaxX: o = NSMakePoint(NSMaxX(anchor), NSMidY(anchor) - size.height / 2); break;
+    case NSRectEdgeMaxY: o = NSMakePoint(NSMidX(anchor) - size.width / 2, NSMaxY(anchor)); break;
+    default: o = NSMakePoint(NSMidX(anchor) - size.width / 2, NSMinY(anchor) - size.height); break;
+    }
+    NSRect screen = [NSScreen mainScreen].visibleFrame;
+    o.x = MAX(NSMinX(screen), MIN(o.x, NSMaxX(screen) - size.width));
+    o.y = MAX(NSMinY(screen), MIN(o.y, NSMaxY(screen) - size.height));
+    return (NSRect){o, size};
+}
+/* The content changed the popover window's size: back beside the anchor. */
+- (void)_bn_windowResized:(NSNotification *)n {
+    if (_placing || !_shown) return;
+    _placing = YES;
+    NSRect f = [self _bn_frameForSize:_window.frame.size];
+    if (!NSEqualPoints(f.origin, _window.frame.origin)) [_window setFrameOrigin:f.origin];
+    _placing = NO;
 }
 - (NSPopoverBehavior)behavior { return _behavior; }
 - (void)setBehavior:(NSPopoverBehavior)b { _behavior = b; }
@@ -373,21 +404,18 @@ static BOOL standard_identifier(NSString *i) {
     id<NSPopoverDelegate> d = _delegate;
     [[NSNotificationCenter defaultCenter] postNotificationName:NSPopoverWillShowNotification object:self];
     _positioningRect = rect;
+    _anchorView = view;
+    _edge = edge;
     NSSize size = self.contentSize;
-    NSRect anchor = [parent convertRectToScreen:[view convertRect:NSIsEmptyRect(rect) ? view.bounds : rect toView:nil]];
-    NSPoint o;
-    switch (edge) {
-    case NSRectEdgeMinX: o = NSMakePoint(NSMinX(anchor) - size.width, NSMidY(anchor) - size.height / 2); break;
-    case NSRectEdgeMaxX: o = NSMakePoint(NSMaxX(anchor), NSMidY(anchor) - size.height / 2); break;
-    case NSRectEdgeMaxY: o = NSMakePoint(NSMidX(anchor) - size.width / 2, NSMaxY(anchor)); break;
-    default: o = NSMakePoint(NSMidX(anchor) - size.width / 2, NSMinY(anchor) - size.height); break;
-    }
+    NSPoint o = [self _bn_frameForSize:size].origin;
     if (!_window) {
         _window = [[NSPanel alloc] initWithContentRect:NSMakeRect(o.x, o.y, size.width, size.height)
                                              styleMask:NSWindowStyleMaskBorderless
                                                backing:NSBackingStoreBuffered
                                                  defer:NO];
         _window.releasedWhenClosed = NO;
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_bn_windowResized:)
+                                                     name:NSWindowDidResizeNotification object:_window];
     } else {
         [_window setFrame:NSMakeRect(o.x, o.y, size.width, size.height) display:NO];
     }

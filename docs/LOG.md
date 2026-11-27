@@ -5251,3 +5251,15 @@ Debugging aids:
   has the details). Then the target app's font pickers ("No fonts found"
   under Fallback fonts ▸ Add…) get their lists.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: a resized popover stays beside its anchor
+
+- `NSPopover` placed its window once. When the content changed the size
+  afterwards (`contentSize`, or the window resized by its content), the
+  window grew from its corner and drifted off the anchor. A shown popover
+  now goes back beside its anchor, centred along the chosen edge and
+  kept on screen, whenever its size changes.
+- (The target app's font chooser is its own panel, placed by the app, top
+  aligned with the Choose… button: that is its design.)
+- Test: `tests/appkit/controls.m`.
+- Target app (total `^MISSING`): 0 -> 0.
