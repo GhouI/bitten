@@ -39,6 +39,9 @@ long recv(int, void *, unsigned long, int);
 int close(int);
 int usleep(unsigned int);
 char *strstr(const char *, const char *);
+struct timespec { long tv_sec, tv_nsec; };
+int clock_gettime(int, struct timespec *);
+#define CLOCK_MONOTONIC 6
 
 static int dial(int port) {
     int fd = socket(2, 1, 0);
@@ -161,6 +164,42 @@ int main(void) {
     bitten_display_close(7);
     CHECK(read_some(fd, hdr, 2) == 2 && hdr[0] == 0x82 && hdr[1] == 5);
     CHECK(read_some(fd, msg, 5) == 5 && msg[0] == 2 && msg[1] == 7);
+
+    /* premultiplied BGRA becomes straight RGBA as CoreGraphics reads it:
+     * colour / alpha, rounded */
+    static const unsigned char alphas[16] = {0, 1, 2, 3, 17, 64, 85, 127, 128, 129, 170, 200, 230, 254, 255, 255};
+    unsigned char bgra[16 * 4];
+    for (int i = 0; i < 16; i++) {
+        unsigned a = alphas[i];
+        bgra[4 * i] = (unsigned char)(a * 3 / 7);         /* blue */
+        bgra[4 * i + 1] = (unsigned char)(a / 2);         /* green */
+        bgra[4 * i + 2] = (unsigned char)(a ? a - 1 : 0); /* red */
+        bgra[4 * i + 3] = (unsigned char)a;
+    }
+    CHECK(bitten_display_present(8, bgra, 16, 1, 64, 2 | 0x2000, 0, 0, "A") == 0);
+    CHECK(read_some(fd, hdr, 2) == 2 && hdr[0] == 0x82 && hdr[1] == 35 + 1 + 16 * 4);
+    CHECK(read_some(fd, msg, hdr[1]) == hdr[1] && msg[0] == 1 && msg[1] == 8);
+    for (int i = 0; i < 16; i++) {
+        const unsigned char *got = msg + 36 + 4 * i, *in = bgra + 4 * i;
+        double a = in[3] / 255.0;
+        for (int k = 0; k < 3; k++) {
+            double v = in[2 - k] / 255.0;
+            if (a > 0 && a < 1) v /= a;
+            int want = (int)((v > 1 ? 1 : v) * 255 + 0.5);
+            if (got[k] != want) printf("alpha %u channel %d: %u, want %d\n", in[3], k, got[k], want);
+            CHECK(got[k] == want);
+        }
+        CHECK(got[3] == in[3]);
+    }
+    /* how long a window-sized frame takes to convert (reported) */
+    static unsigned char frame[1087 * 700 * 4];
+    for (unsigned long i = 0; i < sizeof frame; i++) frame[i] = (unsigned char)(i % 4 == 3 ? 255 : i * 7);
+    struct timespec t0, t1;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+    for (int i = 0; i < 10; i++) CHECK(bitten_display_present(9, frame, 1087, 700, 1087 * 4, 2 | 0x2000, 0, 0, "B") == 0);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    printf("display: a 1087x700 frame takes %.1f ms\n",
+           ((t1.tv_sec - t0.tv_sec) * 1e3 + (t1.tv_nsec - t0.tv_nsec) / 1e6) / 10);
     close(fd);
     puts("display ok");
     return 0;

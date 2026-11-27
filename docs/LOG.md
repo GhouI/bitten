@@ -4455,3 +4455,16 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   window kept rebuilding.
 - Test: `tests/swiftlib/swiftui.swift` (pressrebuild).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Display: frames convert with integers
+
+- Windows hand the display premultiplied 8-bit BGRA, and the page wants
+  straight RGBA. Each pixel went through CoreGraphics' general reader as
+  doubles. 8-bit colour with alpha now converts with integer arithmetic,
+  with the same result: rounded colour / alpha.
+- A 1087x700 frame: 65 ms -> 6.3 ms (`tests/c/display.c` reports it). In
+  the target app this was about a quarter of the CPU spent redrawing a
+  window.
+- Test: `tests/c/display.c` checks the conversion over 16 alphas
+  against the old formula.
+- Target app (total `^MISSING`): 0 -> 0.
