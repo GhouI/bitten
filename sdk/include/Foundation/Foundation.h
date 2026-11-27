@@ -249,6 +249,7 @@ __attribute__((swift_bridge("Swift.String")))
 @property (readonly, copy) NSString *stringByExpandingTildeInPath;
 @property (readonly, copy) NSString *stringByStandardizingPath;
 @property (readonly) const char *fileSystemRepresentation;
+- (BOOL)getFileSystemRepresentation:(char *)cname maxLength:(NSUInteger)max;
 @property (readonly, copy) NSString *capitalizedString;
 - (NSString *)stringByTrimmingCharactersInSet:(NSCharacterSet *)set;
 - (NSArray<NSString *> *)componentsSeparatedByCharactersInSet:(NSCharacterSet *)set;
@@ -821,6 +822,16 @@ __attribute__((swift_bridge("Foundation.URL")))
 @property (nullable, readonly, copy) NSURL *URLByResolvingSymlinksInPath;
 - (BOOL)getResourceValue:(out id _Nullable *_Nonnull)value forKey:(NSString *)key error:(NSError **)error;
 - (nullable NSDictionary<NSString *, id> *)resourceValuesForKeys:(NSArray<NSString *> *)keys error:(NSError **)error;
+- (nullable NSData *)bookmarkDataWithOptions:(NSUInteger)options includingResourceValuesForKeys:(nullable NSArray<NSString *> *)keys
+                               relativeToURL:(nullable NSURL *)relativeURL error:(NSError **)error;
+- (nullable instancetype)initByResolvingBookmarkData:(NSData *)bookmarkData options:(NSUInteger)options
+                                       relativeToURL:(nullable NSURL *)relativeURL
+                                 bookmarkDataIsStale:(nullable BOOL *)isStale error:(NSError **)error;
++ (nullable instancetype)URLByResolvingBookmarkData:(NSData *)bookmarkData options:(NSUInteger)options
+                                      relativeToURL:(nullable NSURL *)relativeURL
+                                bookmarkDataIsStale:(nullable BOOL *)isStale error:(NSError **)error;
+- (BOOL)startAccessingSecurityScopedResource;
+- (void)stopAccessingSecurityScopedResource;
 @end
 
 typedef NSUInteger NSJSONReadingOptions;

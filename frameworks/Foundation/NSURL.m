@@ -351,6 +351,31 @@ static NSString *file_type(mode_t m) {
     }
     return NO;
 }
+/* Bookmarks: the file's absolute URL; resolving it needs the file to exist. */
+static NSString *const kBookmarkPrefix = @"bitten-bookmark:";
+- (NSData *)bookmarkDataWithOptions:(NSUInteger)options includingResourceValuesForKeys:(NSArray *)keys
+                      relativeToURL:(NSURL *)relativeURL error:(NSError **)error {
+    if (![self checkResourceIsReachableAndReturnError:error]) return nil;
+    return [[kBookmarkPrefix stringByAppendingString:self.absoluteString] dataUsingEncoding:NSUTF8StringEncoding];
+}
+- (instancetype)initByResolvingBookmarkData:(NSData *)data options:(NSUInteger)options relativeToURL:(NSURL *)relativeURL
+                        bookmarkDataIsStale:(BOOL *)isStale error:(NSError **)error {
+    NSString *s = data ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : nil;
+    if (isStale) *isStale = NO;
+    if (![s hasPrefix:kBookmarkPrefix]) {
+        if (error) *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSFileReadNoSuchFileError userInfo:nil];
+        return nil;
+    }
+    self = [self initWithString:[s substringFromIndex:kBookmarkPrefix.length]];
+    return self && [self checkResourceIsReachableAndReturnError:error] ? self : nil;
+}
++ (instancetype)URLByResolvingBookmarkData:(NSData *)data options:(NSUInteger)options relativeToURL:(NSURL *)relativeURL
+                       bookmarkDataIsStale:(BOOL *)isStale error:(NSError **)error {
+    return [[self alloc] initByResolvingBookmarkData:data options:options relativeToURL:relativeURL
+                                 bookmarkDataIsStale:isStale error:error];
+}
+- (BOOL)startAccessingSecurityScopedResource { return YES; }
+- (void)stopAccessingSecurityScopedResource {}
 - (BOOL)checkPromisedItemIsReachableAndReturnError:(NSError **)error {
     return [self checkResourceIsReachableAndReturnError:error];
 }

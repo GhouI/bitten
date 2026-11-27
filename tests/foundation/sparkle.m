@@ -1,7 +1,7 @@
 // Foundation selectors the target app's update framework calls: string
 // enumeration and percent-encoding, URL resolution, file-system
 // representations and resource values, directory enumerators, and the
-// URL-based reading and writing of strings and data.
+// URL-based reading and writing of strings and data, and bookmarks.
 #import <Foundation/Foundation.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -108,6 +108,20 @@ int main(void) {
         CHECK([values[NSURLIsRegularFileKey] boolValue] && [values[NSURLContentModificationDateKey] isKindOfClass:[NSDate class]]);
         NSString *resolved = [NSURL fileURLWithPath:[root stringByAppendingPathComponent:@"sub/../sub/file.txt"]].URLByResolvingSymlinksInPath.path;
         CHECK([resolved hasSuffix:@"/sub/file.txt"] && [resolved rangeOfString:@".."].location == NSNotFound);
+        char fsr[1024];
+        CHECK([file.path getFileSystemRepresentation:fsr maxLength:sizeof fsr] && !strcmp(fsr, file.path.UTF8String));
+        CHECK(![file.path getFileSystemRepresentation:fsr maxLength:3]);
+        /* bookmarks: the file's URL, which resolves while the file exists */
+        NSData *mark = [file bookmarkDataWithOptions:0 includingResourceValuesForKeys:nil relativeToURL:nil error:&error];
+        BOOL stale = YES;
+        NSURL *back = [NSURL URLByResolvingBookmarkData:mark options:0 relativeToURL:nil bookmarkDataIsStale:&stale error:&error];
+        CHECK(mark.length && [back.path isEqualToString:file.path] && !stale);
+        CHECK([[NSURL fileURLWithPath:@"/nonexistent/x"] bookmarkDataWithOptions:0 includingResourceValuesForKeys:nil
+                                                                    relativeToURL:nil error:&error] == nil);
+        CHECK([NSURL URLByResolvingBookmarkData:[NSData data] options:0 relativeToURL:nil bookmarkDataIsStale:&stale
+                                          error:&error] == nil);
+        CHECK([back startAccessingSecurityScopedResource]);
+        [back stopAccessingSecurityScopedResource];
 
         NSMutableArray *seen = [NSMutableArray array];
         NSDirectoryEnumerator *e = [fm enumeratorAtPath:root];
