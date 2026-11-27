@@ -15,6 +15,7 @@ struct cf_string {
     CFIndex length;
     CFIndex max_length;
     Boolean mutable;
+    size_t capacity;   /* bytes allocated for a mutable string's appends (0: just size + 1) */
 };
 
 static uint32_t utf8_next(const char **cursor, const char *end) {
@@ -361,6 +362,10 @@ static struct cf_string *d_CFStringCreateMutableCopy(const void *allocator, CFIn
 DX_FN(CFStringCreateMutableCopy);
 
 static size_t byte_offset(const struct cf_string *s, CFIndex index) {
+    /* The end, and any index in ASCII text (a byte per character), need no
+     * walk: appending and indexing stay linear overall. */
+    if (index == s->length) return s->size;
+    if (s->size == (size_t)s->length) return index >= 0 && index <= s->length ? (size_t)index : SIZE_MAX;
     const char *p = s->bytes, *end = p + s->size;
     while (index > 0) {
         index -= utf8_next(&p, end) >= 0x10000 ? 2 : 1;
@@ -380,6 +385,23 @@ static void d_CFStringReplace(struct cf_string *s, CFRange range, const struct c
     if (start == SIZE_MAX || end == SIZE_MAX ||
         replacement->size > (size_t)LONG_MAX - (s->size - (end - start))) return;
     size_t size = s->size - (end - start) + replacement->size;
+    if (start == s->size && end == s->size && replacement != s) {
+        /* An append: grow the buffer geometrically and add at the end. */
+        size_t cap = s->capacity ? s->capacity : s->size + 1;
+        if (size + 1 > cap) {
+            size_t want = cap * 2 > size + 1 ? cap * 2 : size + 1;
+            char *grown = realloc(s->bytes, want);
+            if (!grown) return;
+            s->bytes = grown;
+            cap = want;
+        }
+        memcpy(s->bytes + start, replacement->bytes, replacement->size);
+        s->bytes[size] = 0;
+        s->capacity = cap;
+        s->size = size;
+        s->length = length;
+        return;
+    }
     char *bytes = malloc(size + 1);
     if (!bytes) return;
     memcpy(bytes, s->bytes, start);
@@ -389,6 +411,7 @@ static void d_CFStringReplace(struct cf_string *s, CFRange range, const struct c
     s->bytes = bytes;
     s->size = size;
     s->length = length;
+    s->capacity = 0;
 }
 DX_FN(CFStringReplace);
 
