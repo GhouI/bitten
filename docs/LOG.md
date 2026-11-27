@@ -4701,3 +4701,21 @@ Debugging aids:
 - Test: tests/c/cg.c (a rectangle under a translated CTM, a clip, a
   layer whose state is popped).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Clips that change nothing are skipped; clipped-out views aren't drawn
+
+- In a resize profile, each clipping view's `CGContextClipToRect`
+  (clip views, views that clip to their bounds, layers that mask) cost
+  about 6% of the main thread, since CG builds a mask each time.
+- While a window draws, AppKit now tracks what of the bitmap the frame can
+  still change, in device space: the repainted area, narrowed by each
+  clipping view on the way down. A clip that wouldn't narrow it is
+  skipped. A clipping view wholly outside it is not drawn at all, for
+  example rows of a long list scrolled out of a clip view. This applies
+  only to the window's own context.
+- Checked in the target app: the main window, the command palette, Settings
+  pages, and scrolling the Shortcuts list (rows scrolled in draw).
+  Together with #235's bounded transparency layers, idle CPU is about 10%
+  (from 16–17% earlier today), and memset no longer shows in the idle
+  profile.
+- Target app (total `^MISSING`): 0 -> 0.

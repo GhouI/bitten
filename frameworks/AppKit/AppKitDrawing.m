@@ -413,6 +413,13 @@ static void profile_add(id view, double ms) {
     NSString *k = NSStringFromClass([view class]);
     draw_profile[k] = @(draw_profile[k].doubleValue + ms);
 }
+/* What of the window's bitmap the frame in progress can still change
+ * (device space): the repainted area, narrowed by each clipping view on
+ * the way down. A clip that would not narrow it is skipped, and a
+ * clipping view wholly outside it is not drawn at all. Only for the
+ * window's own context (bn_visible_ctx). */
+static CGContextRef bn_visible_ctx;
+static CGRect bn_visible;
 - (void)_bn_drawIn:(CGContextRef)c parentFlipped:(BOOL)parentFlipped {
     if (self.isHidden) return;
     static int profiling = -1;
@@ -424,9 +431,22 @@ static void profile_add(id view, double ms) {
     /* Views draw outside their bounds unless they clip (clipsToBounds is
      * NO by default for programs built with the macOS 14 SDK or later);
      * clip views and layers that mask to bounds always clip. */
+    CGRect savedVisible = bn_visible;
     if (self.clipsToBounds || ((BNBackingLayer *)self.layer).masksToBounds || [self isKindOfClass:[NSClipView class]] ||
-        self.superview == nil)
-        CGContextClipToRect(c, CGRectMake(0, 0, f.size.width, f.size.height));
+        self.superview == nil) {
+        CGRect own = CGRectMake(0, 0, f.size.width, f.size.height);
+        if (c == bn_visible_ctx) {
+            CGRect device = CGRectApplyAffineTransform(own, CGContextGetCTM(c));
+            if (!CGRectIntersectsRect(device, bn_visible)) {
+                CGContextRestoreGState(c);
+                return;
+            }
+            if (!CGRectContainsRect(device, bn_visible)) CGContextClipToRect(c, own);
+            bn_visible = CGRectIntersection(bn_visible, device);
+        } else {
+            CGContextClipToRect(c, own);
+        }
+    }
     BOOL flipped = self.isFlipped;
     if (flipped != parentFlipped) {
         CGContextTranslateCTM(c, 0, f.size.height);
@@ -446,6 +466,7 @@ static void profile_add(id view, double ms) {
     /* The view's alpha and its layer's opacity both fade it and its subviews. */
     CGFloat alpha = self.alphaValue * (layer ? layer.opacity : 1);
     if (alpha <= 0 || layer.isHidden) {
+        bn_visible = savedVisible;
         CGContextRestoreGState(c);
         return;
     }
@@ -493,6 +514,7 @@ static void profile_add(id view, double ms) {
     }
     if (group) CGContextEndTransparencyLayer(c);
     CGContextRestoreGState(c);
+    bn_visible = savedVisible;
     self.needsDisplay = NO;
     if (profiling) profile_add(self, now_ms() - t0 - kids);
 }
@@ -732,7 +754,13 @@ static const char kDrawingKey;
     CGColorRelease(bgColor);
     if (getenv("BITTEN_VIEW_TREE")) bn_dump_tree(self.contentView, 0);
     double frame0 = now_ms();
+    CGContextRef visibleBefore = bn_visible_ctx;
+    CGRect visibleRectBefore = bn_visible;
+    bn_visible_ctx = c;
+    bn_visible = full ? CGRectMake(0, 0, content.size.width, content.size.height) : CGRectMake(dirty.origin.x, dirty.origin.y, dirty.size.width, dirty.size.height);
     [self.contentView _bn_drawIn:c parentFlipped:NO];
+    bn_visible_ctx = visibleBefore;
+    bn_visible = visibleRectBefore;
     CGContextRestoreGState(c);
     if (draw_profile) {
         static int frames;
