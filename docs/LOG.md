@@ -4378,3 +4378,12 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   first. Both keyboard paths now show the tab's panes.
   tests/appkit/basics.m covers this.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Split symbols: columns by rows
+
+- `rectangle.split.CxR` symbols are drawn as C columns by R rows.
+  `split.2x1` is side by side and `split.1x2` one above the other. Before,
+  every split had a single vertical divider, so the target app's pane
+  menu showed Split Down/Up with the same icon as Split Right/Left.
+  tests/appkit/symbols.m covers both.
+- Target app (total `^MISSING`): 0 -> 0.

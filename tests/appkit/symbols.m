@@ -16,6 +16,7 @@ static const char *names[] = {
     "questionmark.circle", "info.circle", "line.3.horizontal", "bolt.horizontal.circle",
     "clock", "globe", "lock", "circle.lefthalf.filled",
     "arrow.up.and.down", "chevron.left.forwardslash.chevron.right", "person", "no.such.symbol",
+    "rectangle.split.2x1", "rectangle.split.1x2",
 };
 enum { N = sizeof names / sizeof *names, S = 32, COLS = 8 };
 
@@ -46,6 +47,14 @@ int main(void) {
         int col = 7 % COLS, row = 7 / COLS, cx = col * S + S / 2, cy = row * S + S / 2;
         CHECK(px[(cy * W + cx) * 4] > 0xC0);
         CHECK(px[(cy * W + cx + 5) * 4] < 0x80);
+        /* split.2x1 is divided side by side, split.1x2 one above the other:
+         * left of the middle, on the middle row, only 1x2 has ink */
+        int dark[2] = {0, 0};
+        for (int k = 0; k < 2; k++) {
+            int i = 32 + k, x = (i % COLS) * S + 11, y0 = (i / COLS) * S + 14;
+            for (int y = y0; y < y0 + 4; y++) dark[k] |= px[(y * W + x) * 4] < 0x80;
+        }
+        CHECK(!dark[0] && dark[1]);
         if (getenv("SYMBOLS_PPM")) {
             FILE *f = fopen(getenv("SYMBOLS_PPM"), "wb");
             fprintf(f, "P6 %d %d 255\n", W, H);
