@@ -391,9 +391,18 @@ static NSString *bn_key_characters(unsigned short code) {
         case 8:
             [window performClose:nil];
             continue;
-        case 9:
-            [window setContentSize:NSMakeSize(e.width, e.height)];
+        case 9: {
+            /* Resized by the page's grip: the top left corner stays put. */
+            NSRect frame = window.frame;
+            NSRect c = [window contentRectForFrameRect:frame];
+            c.origin.y += c.size.height - e.height;
+            c.size = NSMakeSize(e.width, e.height);
+            [window setFrame:[window frameRectForContentRect:c] display:YES];
             continue;
+        }
+        case 11: [window performMiniaturize:nil]; continue;
+        case 12: [window performZoom:nil]; continue;
+        case 13: [window deminiaturize:nil]; continue;
         case 10: {
             /* Moved on the display: (x, y) is the content's top left, down from the screen's top. */
             NSRect moved = content;

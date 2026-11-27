@@ -756,6 +756,11 @@ static const char kStyleKey;
     if (self.titleVisibility == NSWindowTitleHidden) flags |= 8;
     CGFloat bgAlpha = self.backgroundColor ? self.backgroundColor.alphaComponent : 1;
     if (!self.isOpaque || bgAlpha < 1) flags |= 2;
+    /* which of the title bar's controls the window has */
+    BOOL titled = (self.styleMask & NSWindowStyleMaskTitled) != 0;
+    if (titled && (self.styleMask & NSWindowStyleMaskResizable)) flags |= 16 | 64;
+    if (titled && (self.styleMask & NSWindowStyleMaskMiniaturizable)) flags |= 32;
+    if (self.isMiniaturized) flags |= 128;
     int32_t level = (int32_t)self.level;
     uint64_t packed = (uint64_t)flags << 32 | (uint32_t)level;
     NSNumber *sent = objc_getAssociatedObject(self, &kStyleKey);

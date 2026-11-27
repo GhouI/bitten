@@ -555,6 +555,12 @@ static NSUInteger next_window_number = 1;
     [self _bn_closeDisplay];
     [self _bn_passKeyOn];
 }
+/* Hidden but still known to the display (miniaturized: shown as a chip). */
+- (void)_bn_hideKeepingDisplay {
+    if (_visible) bn_tree_visibility(_contentView, NO);
+    _visible = NO;
+    [self _bn_passKeyOn];
+}
 - (void)close {
     if ([_delegate respondsToSelector:@selector(windowWillClose:)])
         [_delegate windowWillClose:[NSNotification notificationWithName:NSWindowWillCloseNotification

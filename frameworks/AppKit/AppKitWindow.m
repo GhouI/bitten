@@ -172,13 +172,28 @@ SIZE_PROP(resizeIncrements, setResizeIncrements, "resizeIncrements", NSMakeSize(
 - (NSInteger)orderedIndex { return [[NSApp windows] indexOfObjectIdenticalTo:self]; }
 - (BOOL)isMiniaturized { return getb(self, @"miniaturized", NO); }
 - (BOOL)isZoomed { return getb(self, @"zoomed", NO); }
+/* Miniaturized, a window is hidden and the display shows it as a chip
+ * (style flag 128) that brings it back. */
 - (void)miniaturize:(id)sender {
+    if (self.isMiniaturized) return;
+    [self _post:NSWindowWillMiniaturizeNotification];
     set(self, @"miniaturized", @YES);
-    [self orderOut:sender];
+    [self _bn_hideKeepingDisplay];
+    [self _bn_sendStyle];
+    if ([self.delegate respondsToSelector:@selector(windowDidMiniaturize:)])
+        [(id)self.delegate performSelector:@selector(windowDidMiniaturize:) withObject:[NSNotification notificationWithName:NSWindowDidMiniaturizeNotification
+                                                                               object:self userInfo:nil]];
+    [self _post:NSWindowDidMiniaturizeNotification];
 }
 - (void)deminiaturize:(id)sender {
+    if (!self.isMiniaturized) return;
     set(self, @"miniaturized", @NO);
-    [self orderFront:sender];
+    [self makeKeyAndOrderFront:sender];
+    [self _bn_sendStyle];
+    if ([self.delegate respondsToSelector:@selector(windowDidDeminiaturize:)])
+        [(id)self.delegate performSelector:@selector(windowDidDeminiaturize:) withObject:[NSNotification notificationWithName:NSWindowDidDeminiaturizeNotification
+                                                                                 object:self userInfo:nil]];
+    [self _post:NSWindowDidDeminiaturizeNotification];
 }
 - (void)performMiniaturize:(id)sender { [self miniaturize:sender]; }
 - (void)zoom:(id)sender {

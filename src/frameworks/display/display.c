@@ -21,7 +21,8 @@
  *     width, u32 height of a rect in the window, and its RGBA bytes; the
  *     rest of the window is as the last frame left it
  * page to server, text messages, one JSON object each:
- *   {"t":"down"|"up"|"move"|"drag"|"scroll"|"key"|"keyup"|"close"|"resize",
+ *   {"t":"down"|"up"|"move"|"drag"|"scroll"|"key"|"keyup"|"close"|"resize"|
+ *        "miniaturize"|"zoom"|"deminiaturize",
  *    "w":window, "x":..., "y":..., "b":button, "m":modifier flags,
  *    "k":virtual key code, "c":"characters", "dx":..., "dy":..., "cw":..., "ch":...}
  * Integers are little-endian. */
@@ -255,6 +256,7 @@ static void handle_input(const char *json) {
         {"\"down\"", EV_MOUSE_DOWN}, {"\"up\"", EV_MOUSE_UP}, {"\"move\"", EV_MOUSE_MOVED},
         {"\"drag\"", EV_MOUSE_DRAGGED}, {"\"scroll\"", EV_SCROLL}, {"\"key\"", EV_KEY_DOWN},
         {"\"keyup\"", EV_KEY_UP}, {"\"close\"", EV_CLOSE}, {"\"resize\"", EV_RESIZE},
+        {"\"miniaturize\"", EV_MINIATURIZE}, {"\"zoom\"", EV_ZOOM}, {"\"deminiaturize\"", EV_DEMINIATURIZE},
     };
     const char *t = strstr(json, "\"t\":");
     if (!t) return;
@@ -600,7 +602,10 @@ DX_EXPORT("_bitten_display_present_rect", bitten_display_present_rect);
 /* A window's look and stacking: flags 1 borderless (no title bar or
  * frame), 2 transparent (the page shows through where alpha < 1), 4 full-size
  * content (the title bar lies over the frame's top instead of above it),
- * 8 title hidden (the bar shows its buttons only); level is
+ * 8 title hidden (the bar shows its buttons only), 16 resizable (the page
+ * offers a grip), 32 miniaturizable and 64 zoomable (the yellow and green
+ * buttons work), 128 miniaturized (the page shows it as a chip in its
+ * dock instead); level is
  * the NSWindow level, which orders windows before focus does. May come
  * before the window's first frame. */
 int bitten_display_set_style(uint32_t id, uint32_t flags, int32_t level) {

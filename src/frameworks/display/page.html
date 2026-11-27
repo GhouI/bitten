@@ -23,8 +23,19 @@
   .win.fullsize .dot { pointer-events: auto; }
   .win.notitle .bar span { display: none; }
   canvas { display: block; outline: none; }
+  /* resizable windows: a grip at the bottom right */
+  .grip { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize; display: none;
+    z-index: 2; background: linear-gradient(135deg, transparent 50%, rgba(0,0,0,.18) 50%); }
+  .win.resizable .grip { display: block; }
+  /* buttons the window does not have are grey */
+  .win.nomin .dot.min, .win.nozoom .dot.max { background: #d0d0d0; }
+  /* miniaturized windows wait as chips in a dock along the bottom */
+  #dock { position: fixed; left: 50%; bottom: 8px; transform: translateX(-50%); display: flex; gap: 6px; }
+  .chip { background: rgba(255,255,255,.9); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: #333;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25); cursor: pointer; max-width: 200px; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; }
 </style></head>
-<body><div id="status">connecting...</div>
+<body><div id="status">connecting...</div><div id="dock"></div>
 <script>
 "use strict";
 // bitten's display: every window of the Mac program, drawn from the
@@ -56,6 +67,17 @@ function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
 // the order windows were brought forward, by a click here or by the program.
 function restack(w) { const band = Math.max(-1, Math.min(w.level, 2000)) + 2; w.el.style.zIndex = band * 1e6 + w.seq; }
 function focus(id) { focused = id; const w = wins.get(id); if (w) { w.seq = ++z; restack(w); } }
+// A miniaturized window is hidden and kept as a chip in the dock; the
+// chip brings it back.
+function miniaturized(id, w, on) {
+  w.el.style.display = on ? "none" : "";
+  if (on && !w.chip) {
+    w.chip = document.createElement("div"); w.chip.className = "chip";
+    w.chip.textContent = w.title.textContent || "Window";
+    w.chip.onclick = () => send({t: "deminiaturize", w: id});
+    document.getElementById("dock").append(w.chip);
+  } else if (!on && w.chip) { w.chip.remove(); w.chip = null; }
+}
 function makeWindow(id) {
   const el = document.createElement("div"); el.className = "win";
   const bar = document.createElement("div"); bar.className = "bar";
@@ -65,6 +87,21 @@ function makeWindow(id) {
   const w = {el, bar, canvas, ctx: canvas.getContext("2d"), title: bar.querySelector("span"), buttons: 0, moved: false,
     level: 0, seq: 0, front: 0, flags: 0};
   bar.querySelector(".close").onclick = () => send({t: "close", w: id});
+  bar.querySelector(".min").onclick = () => { if (w.flags & 32) send({t: "miniaturize", w: id}); };
+  bar.querySelector(".max").onclick = () => { if (w.flags & 64) send({t: "zoom", w: id}); };
+  // The grip resizes the window's content (the program lays it out anew).
+  const grip = document.createElement("div"); grip.className = "grip"; el.append(grip);
+  grip.onpointerdown = (e) => {
+    if (!(w.flags & 16)) return;
+    e.preventDefault(); e.stopPropagation(); focus(id); grip.setPointerCapture(e.pointerId);
+    const sx = e.clientX, sy = e.clientY, cw = canvas.width, ch = canvas.height;
+    let pending = null;
+    grip.onpointermove = (m) => {
+      pending = {t: "resize", w: id, cw: Math.max(160, cw + m.clientX - sx), ch: Math.max(80, ch + m.clientY - sy)};
+      requestAnimationFrame(() => { if (pending) { send(pending); pending = null; } });
+    };
+    grip.onpointerup = () => { grip.onpointermove = null; grip.onpointerup = null; };
+  };
   // Dragging the title bar moves the window on the page only.
   bar.onpointerdown = (e) => {
     if (e.target.classList.contains("dot")) return;
@@ -99,7 +136,7 @@ addEventListener("keydown", (e) => key(e, "key"));
 addEventListener("keyup", (e) => key(e, "keyup"));
 function frame(buf) {
   const v = new DataView(buf); const type = v.getUint8(0), id = v.getUint32(1, true);
-  if (type === 2) { const w = wins.get(id); if (w) { w.el.remove(); wins.delete(id); } return; }
+  if (type === 2) { const w = wins.get(id); if (w) { miniaturized(id, w, false); w.el.remove(); wins.delete(id); } return; }
   const x = v.getInt32(5, true), y = v.getInt32(9, true), width = v.getUint32(13, true), height = v.getUint32(17, true);
   const flags = v.getUint32(21, true), level = v.getInt32(25, true), front = v.getUint32(29, true);
   const tl = v.getUint16(33, true), title = new TextDecoder().decode(new Uint8Array(buf, 35, tl));
@@ -110,6 +147,10 @@ function frame(buf) {
     w.el.classList.toggle("transparent", !!(flags & 2));
     w.el.classList.toggle("fullsize", !!(flags & 4));
     w.el.classList.toggle("notitle", !!(flags & 8));
+    w.el.classList.toggle("resizable", !!(flags & 16) && !(flags & 1));
+    w.el.classList.toggle("nomin", !(flags & 32));
+    w.el.classList.toggle("nozoom", !(flags & 64));
+    miniaturized(id, w, !!(flags & 128));
   }
   // Ordered front by the program: up within its level, without focus.
   if (front !== w.front) { w.front = front; w.seq = ++z; }
@@ -123,6 +164,7 @@ function frame(buf) {
     w.el.style.left = left + "px"; w.el.style.top = top + "px";
   }
   w.title.textContent = title; if (!(flags & 1) && title) document.title = title;
+  if (w.chip) w.chip.textContent = title || "Window";
   if (type === 3) {
     // Part of the frame: a rect's pixels over what the canvas shows.
     const rx = v.getUint32(35 + tl, true), ry = v.getUint32(39 + tl, true);
