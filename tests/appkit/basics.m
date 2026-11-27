@@ -95,6 +95,17 @@ static NSEvent *seen_current;
 - (BOOL)validateMenuItem:(NSMenuItem *)item { return self.hasSelection; }
 @end
 
+/* Notes when it leaves its window, and when it goes. */
+static int left_window, views_freed;
+@interface Leaver : NSView
+@end
+@implementation Leaver
+- (void)viewDidMoveToWindow {
+    if (!self.window) left_window++;
+}
+- (void)dealloc { views_freed++; }
+@end
+
 @interface Delegate : NSObject <NSApplicationDelegate>
 @property int launched;
 @end
@@ -319,6 +330,31 @@ int main(void) {
                                    isARepeat:NO keyCode:53];
     [w sendEvent:esc];
     CHECK(copier.copies == 2);
+
+    /* Views don't own their window or superview: a window let go is freed
+     * with its views, which are told they left it; a view kept after its
+     * superview goes has no superview. */
+    Leaver *kept = nil;
+    @autoreleasepool {
+        NSWindow *gone = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 50, 50) styleMask:NSWindowStyleMaskTitled
+                                                       backing:NSBackingStoreBuffered defer:NO];
+        Leaver *a = [[Leaver alloc] initWithFrame:NSMakeRect(0, 0, 10, 10)];
+        [gone.contentView addSubview:a];
+        [gone makeFirstResponder:a];
+        [gone close];
+        gone = nil;
+    }
+    /* (a display it had asked for holds it until the main queue runs) */
+    [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+    CHECK(left_window == 1 && views_freed == 1);
+    @autoreleasepool {
+        NSView *parent = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 20, 20)];
+        kept = [[Leaver alloc] initWithFrame:NSMakeRect(0, 0, 10, 10)];
+        [parent addSubview:kept];
+        CHECK(kept.superview == parent);
+        parent = nil;
+    }
+    CHECK(kept.superview == nil);
     puts("AppKit basics ok");
     return 0;
 }

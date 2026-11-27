@@ -596,6 +596,19 @@ static const char kShownContentsKey;
 }
 @end
 
+/* A window's backing bitmap, released with the window (or when replaced). */
+@interface BNBacking : NSObject {
+@public
+    CGContextRef _ctx;
+}
+@end
+@implementation BNBacking
+- (void *)pointerValue { return _ctx; }
+- (void)dealloc {
+    if (_ctx) CGContextRelease(_ctx);
+}
+@end
+
 @implementation NSWindow (BittenDisplay)
 static const char kBackingKey;
 static const char kScheduledKey;
@@ -605,7 +618,6 @@ static const char kScheduledKey;
     CGContextRef c = v ? (CGContextRef)v.pointerValue : NULL;
     size_t w = (size_t)ceil(size.width), h = (size_t)ceil(size.height);
     if (c && CGBitmapContextGetWidth(c) == w && CGBitmapContextGetHeight(c) == h) return c;
-    if (c) CGContextRelease(c);
     if (!w || !h) {
         objc_setAssociatedObject(self, &kBackingKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         return NULL;
@@ -613,7 +625,9 @@ static const char kScheduledKey;
     CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB();
     c = CGBitmapContextCreate(NULL, w, h, 8, w * 4, rgb, kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little);
     CGColorSpaceRelease(rgb);
-    objc_setAssociatedObject(self, &kBackingKey, [NSValue valueWithPointer:c], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    BNBacking *backing = [BNBacking new];
+    backing->_ctx = c;
+    objc_setAssociatedObject(self, &kBackingKey, backing, OBJC_ASSOCIATION_RETAIN_NONATOMIC);   /* the old one goes */
     return c;
 }
 
@@ -677,8 +691,7 @@ static const char kDrawingKey;
      * context; start such a frame from a fresh one (it repaints everything). */
     if (!CGAffineTransformIsIdentity(CGContextGetCTM(c))) {
         if (getenv("BITTEN_DEBUG")) fprintf(stderr, "bitten: window %ld: unbalanced graphics state; context reset\n", (long)self.windowNumber);
-        CGContextRelease(c);
-        objc_setAssociatedObject(self, &kBackingKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(self, &kBackingKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);   /* released */
         c = [self _bn_backing:content.size];
         if (!c) return;
         full = YES;

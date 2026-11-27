@@ -355,6 +355,9 @@ static NSString *bn_key_characters(unsigned short code) {
         NSWindow *window = nil;
         for (NSWindow *w in [NSApp windows])
             if ((uint32_t)w.windowNumber == e.window) window = w;
+        /* Keys the page still sends to a window that has closed (the one it
+         * last had focused) go to the key window, as all keys do. */
+        if (!window && (e.type == 6 || e.type == 7) && NSApp.keyWindow.isVisible) window = NSApp.keyWindow;
         if (!window) continue;
         NSRect content = [window contentRectForFrameRect:window.frame];
         /* The display's coordinates run down from the content's top-left. */
@@ -490,6 +493,10 @@ static NSEvent *bn_run_local_monitors(NSEvent *event) {
     m.mask = mask;
     m.local = block;
     @synchronized(event_monitors()) { [event_monitors() addObject:m]; }
+    if (getenv("BITTEN_MONITOR_DEBUG")) {
+        fprintf(stderr, "bitten: local monitor %p added from", (__bridge void *)m);
+        bn_debug_callers();
+    }
     return m;
 }
 + (id)addGlobalMonitorForEventsMatchingMask:(NSEventMask)mask handler:(void (^)(NSEvent *))block {
@@ -497,9 +504,14 @@ static NSEvent *bn_run_local_monitors(NSEvent *event) {
     m.mask = mask;
     m.global = block;
     @synchronized(event_monitors()) { [event_monitors() addObject:m]; }
+    if (getenv("BITTEN_MONITOR_DEBUG")) {
+        fprintf(stderr, "bitten: global monitor %p added from", (__bridge void *)m);
+        bn_debug_callers();
+    }
     return m;
 }
 + (void)removeMonitor:(id)monitor {
+    if (getenv("BITTEN_MONITOR_DEBUG")) fprintf(stderr, "bitten: monitor %p removed\n", (__bridge void *)monitor);
     @synchronized(event_monitors()) { [event_monitors() removeObjectIdenticalTo:monitor]; }
 }
 @end

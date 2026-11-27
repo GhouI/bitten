@@ -78,7 +78,13 @@ static void report_stale(const char *what, const sw_heap_object *o) {
     }
     fprintf(stderr, "%s\n", line);
 }
+/* Swift class instances (metadata that is also an Objective-C class: its
+ * first word an isa pointer, not a small kind) count in BITTEN_ALLOC_STATS. */
+static const void *counted_class(const sw_metadata *m) {
+    return m && *(const uintptr_t *)m > 0x7FF ? (const void *)m : NULL;
+}
 static void heap_free(sw_heap_object *o) {
+    dx_alloc_note(counted_class(o->metadata), -1);
     if (trace_obj_name) obj_trace("freed", o);
     if (quarantine < 0) quarantine = getenv("BITTEN_HEAP_QUARANTINE") != NULL;
     if (quarantine) {
@@ -198,6 +204,7 @@ sw_heap_object *sw_alloc_object(const sw_metadata *m, size_t size, size_t align_
     sw_heap_object *o = slow_alloc(size, align_mask);
     o->metadata = m;
     o->refcounts = RC_INITIAL;
+    dx_alloc_note(counted_class(m), 1);
     if (trace_obj_name || !trace_obj_inited) obj_trace("made", o);
     if (watch_obj_name || !watch_obj_inited) obj_watch(o);
     return o;

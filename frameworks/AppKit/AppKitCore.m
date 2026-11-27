@@ -48,7 +48,25 @@ NSApplication *NSApp;
 
 /* ---- NSView ------------------------------------------------------------------ */
 
+@interface NSView (BittenForgetWindow)
+- (void)_bn_forgetWindow:(NSWindow *)w;
+@end
 @implementation NSView
+/* A window or superview going away leaves its views without one (they
+ * don't own it, and may outlive it). */
+- (void)_bn_forgetWindow:(NSWindow *)w {
+    if (_window != w) return;
+    /* the window is going (its -dealloc): no view may reach it any more,
+     * so it is forgotten before the views are told they left it */
+    _window = nil;
+    [self viewWillMoveToWindow:nil];
+    for (NSView *s in [_subviews copy]) [s _bn_forgetWindow:w];
+    [self viewDidMoveToWindow];
+}
+- (void)dealloc {
+    for (NSView *s in _subviews)
+        if (s->_superview == self) s->_superview = nil;
+}
 - (instancetype)init { return [self initWithFrame:NSZeroRect]; }
 - (instancetype)initWithFrame:(NSRect)frame {
     if ((self = [super init])) {
@@ -419,6 +437,14 @@ static NSUInteger next_window_number = 1;
     NSColor *_backgroundColor;
 }
 @synthesize delegate = _delegate;
+- (void)dealloc {
+    if (getenv("BITTEN_WINDOW_DEBUG")) fprintf(stderr, "bitten: window %s '%s' freed\n", object_getClassName(self), _title.UTF8String ?: "");
+    /* Its views leave it, told so (viewWillMoveToWindow: nil, ...), as when
+     * AppKit lets a window go: they drop what they set up for it (event
+     * monitors, observers). */
+    [self _bn_dropFirstResponder];
+    [_contentView _bn_forgetWindow:self];
+}
 - (instancetype)initWithContentRect:(NSRect)rect styleMask:(NSWindowStyleMask)style
                             backing:(NSBackingStoreType)backing defer:(BOOL)flag {
     if (getenv("BITTEN_WINDOW_DEBUG")) {

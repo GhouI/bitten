@@ -3,6 +3,9 @@
  * Written against the documented modern Objective-C ABI. */
 #define _GNU_SOURCE
 #include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <pthread.h>
 #include <string.h>
 
 #include "objc_internal.h"
@@ -686,6 +689,83 @@ void add_method(Class cls, const char *sel, IMP imp, const char *types) {
     pthread_mutex_unlock(&dx_objc_lock);
 }
 
+/* ---- BITTEN_ALLOC_STATS=N ----
+ * Live instances per class (Objective-C objects and Swift class instances):
+ * every N seconds, the classes with the most live instances are printed,
+ * with how many were made since the last report (leak hunting). */
+struct alloc_count { const void *cls; long live, made; };
+static struct alloc_count *alloc_table;
+static size_t alloc_cap, alloc_used;
+static pthread_mutex_t alloc_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_once_t alloc_once = PTHREAD_ONCE_INIT;
+static int alloc_period;
+static int by_live(const void *a, const void *b) {
+    long x = ((const struct alloc_count *)a)->live, y = ((const struct alloc_count *)b)->live;
+    return x < y ? 1 : x > y ? -1 : 0;
+}
+static void *alloc_reporter(void *arg) {
+    (void)arg;
+    for (;;) {
+        sleep((unsigned)alloc_period);
+        pthread_mutex_lock(&alloc_lock);
+        size_t n = 0;
+        struct alloc_count *copy = malloc((alloc_used ? alloc_used : 1) * sizeof *copy);
+        for (size_t i = 0; copy && i < alloc_cap; i++)
+            if (alloc_table[i].cls) {
+                copy[n++] = alloc_table[i];
+                alloc_table[i].made = 0;
+            }
+        pthread_mutex_unlock(&alloc_lock);
+        if (!copy) continue;
+        qsort(copy, n, sizeof *copy, by_live);
+        long total = 0;
+        for (size_t i = 0; i < n; i++) total += copy[i].live;
+        fprintf(stderr, "bitten: alloc stats: %ld live objects in %zu classes\n", total, n);
+        for (size_t i = 0; i < n && i < 30; i++)
+            fprintf(stderr, "bitten:   %8ld live  %+7ld made  %s\n", copy[i].live, copy[i].made,
+                    class_name((Class)copy[i].cls));
+        free(copy);
+    }
+    return NULL;
+}
+static void alloc_init(void) {
+    const char *e = getenv("BITTEN_ALLOC_STATS");
+    alloc_period = e ? atoi(e) : 0;
+    if (alloc_period <= 0) return;
+    pthread_t t;
+    pthread_create(&t, NULL, alloc_reporter, NULL);
+    pthread_detach(t);
+}
+void dx_alloc_note(const void *cls, int delta) {
+    pthread_once(&alloc_once, alloc_init);
+    if (alloc_period <= 0 || !cls) return;
+    pthread_mutex_lock(&alloc_lock);
+    if (alloc_used * 2 >= alloc_cap) {
+        size_t cap = alloc_cap ? alloc_cap * 2 : 4096;
+        struct alloc_count *t = calloc(cap, sizeof *t);
+        for (size_t i = 0; t && i < alloc_cap; i++)
+            if (alloc_table[i].cls) {
+                size_t j = ((uintptr_t)alloc_table[i].cls >> 4) & (cap - 1);
+                while (t[j].cls) j = (j + 1) & (cap - 1);
+                t[j] = alloc_table[i];
+            }
+        if (t) {
+            free(alloc_table);
+            alloc_table = t;
+            alloc_cap = cap;
+        }
+    }
+    size_t j = ((uintptr_t)cls >> 4) & (alloc_cap - 1);
+    while (alloc_table[j].cls && alloc_table[j].cls != cls) j = (j + 1) & (alloc_cap - 1);
+    if (!alloc_table[j].cls) {
+        alloc_table[j].cls = cls;
+        alloc_used++;
+    }
+    alloc_table[j].live += delta;
+    if (delta > 0) alloc_table[j].made++;
+    pthread_mutex_unlock(&alloc_lock);
+}
+
 id class_create_instance(Class cls, size_t extra) {
     if (!cls) return NULL;
     if (!class_realized(cls)) {
@@ -698,6 +778,7 @@ id class_create_instance(Class cls, size_t extra) {
     id obj = calloc(1, size);
     if (!obj) return NULL;
     obj->isa = cls;
+    dx_alloc_note(cls, 1);
     /* C++ instance variables: constructors run from the root class down */
     Class chain[64];
     int n = 0;

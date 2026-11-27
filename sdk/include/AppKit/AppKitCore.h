@@ -42,8 +42,10 @@ typedef NS_ENUM(NSInteger, NSViewLayerContentsPlacement) {
     NSRect _frame;
     NSRect _bounds;
     NSMutableArray *_subviews;
-    NSView *_superview;
-    NSWindow *_window;
+    /* not owned (as in AppKit): a view's superview and window outlive it,
+     * and say so when they go (-dealloc clears them) */
+    __unsafe_unretained NSView *_superview;
+    __unsafe_unretained NSWindow *_window;
     BOOL _needsDisplay, _hidden, _wantsLayer;
     NSAutoresizingMaskOptions _autoresizingMask;
 }

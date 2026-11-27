@@ -8,6 +8,7 @@
 
 import CoreGraphics
 import Dispatch
+import Observation
 
 // MARK: - graph types
 
@@ -52,9 +53,17 @@ internal final class _RenderContext {
   /// (a view's initialiser storing what it was given) is not a change the
   /// new tree missed.
   var generation = 0
+  /// What the current tree is watching (Observation); a new build or the
+  /// host going away stops it.
+  var trackings: [AnyObject] = []
+  func cancelObservation() {
+    for t in trackings { _bitten_cancelObservationTracking(t) }
+    trackings = []
+  }
   func beginBuild() {
     seen = []
     generation += 1
+    cancelObservation()
   }
   func lifecycle(_ key: String, appear: (() -> Void)?, disappear: (() -> Void)?) {
     seen.insert(key)
@@ -353,9 +362,11 @@ extension View where Self: Animatable {
 internal func _withObservation<T>(_ inputs: _ViewInputs, _ body: () -> T) -> T {
   let context = inputs.base.context
   let generation = context.generation
-  return withObservationTracking(body, onChange: {
-    guard generation == context.generation else { return }
+  let (result, token) = _bitten_withObservationTracking(body, onChange: { [weak context] in
+    guard let context = context, generation == context.generation else { return }
     if _debugGraph || _debugTree { _dbg("bitten: observed change: rebuilding") }
     context.invalidate()
   })
+  if let t = token { context.trackings.append(t) }
+  return result
 }
