@@ -4655,3 +4655,17 @@ Debugging aids:
   Return in text fields, and the display page's focus after a window
   closes. It also lists the debugging switches that find problems.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Icon tints composite only over the icon
+
+- A profile of a window resize showed drawing a template image costing
+  about 4% of the main thread. A transparency layer covers the whole
+  context, so every tinted icon composited the whole window back.
+- Three places now clip to what they cover before opening the layer:
+  AppKit's template tint (`_bn_drawTemplateInRect:color:`), SwiftUI's
+  template images, and filled symbols' knockouts. They pass the rect
+  (`CGContextBeginTransparencyLayerWithRect`), so a layer bounded by it
+  can be smaller.
+- In the target app, idle CPU with a viewer connected went from 16–17%
+  to about 12%. Icons look the same (command palette, pane menu).
+- Target app (total `^MISSING`): 0 -> 0.

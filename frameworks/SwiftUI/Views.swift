@@ -1361,7 +1361,8 @@ internal final class _ImageNode: _ViewNode {
         CGContextSaveGState(context)
         if image.isTemplate {
           // Templates take the foreground colour: draw, then tint what was drawn.
-          CGContextBeginTransparencyLayer(context, nil)
+          CGContextClipToRect(context, rect)
+          CGContextBeginTransparencyLayerWithRect(context, rect, nil)
           image.draw(in: rect, from: NSZeroRect, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
           CGContextSetBlendMode(context, .sourceAtop)
           CGContextSetRGBFillColor(context, tint.r, tint.g, tint.b, tint.a)

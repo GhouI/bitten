@@ -401,7 +401,9 @@ static BOOL asset_catalog_has(NSBundle *bundle, NSString *name) {
         return;
     }
     CGContextSaveGState(c);
-    CGContextBeginTransparencyLayer(c, NULL);
+    /* a layer the size of the image, not of the whole context */
+    CGContextClipToRect(c, rect);
+    CGContextBeginTransparencyLayerWithRect(c, rect, NULL);
     [self drawInRect:rect];
     CGContextSetBlendMode(c, kCGBlendModeSourceAtop);
     CGContextSetFillColorWithColor(c, (color ?: NSColor.labelColor).CGColor);
