@@ -319,6 +319,19 @@ static BOOL super_flipped(NSView *v) { return v->_superview ? v->_superview.isFl
 /* ---- NSWindow ---------------------------------------------------------------- */
 
 static NSMutableArray<NSWindow *> *all_windows;
+/* Debugging: the return addresses of the caller's frames, to the end of
+ * the line (frames without frame pointers end the walk). */
+__attribute__((noinline)) void bn_debug_callers(void) {
+    void **fp = __builtin_frame_address(1);
+    for (int i = 0; i < 10 && fp; i++) {
+        fprintf(stderr, " %p", fp[1]);
+        void **next = fp[0];
+        if (next <= fp || (char *)next - (char *)fp > (1 << 20)) break;
+        fp = next;
+    }
+    fprintf(stderr, "\n");
+}
+
 static NSUInteger next_window_number = 1;
 
 @implementation NSWindow {
@@ -409,6 +422,10 @@ static NSUInteger next_window_number = 1;
     [self _bn_orderFrontOnDisplay];
 }
 - (void)makeKeyAndOrderFront:(id)sender {
+    if (getenv("BITTEN_EVENT_DEBUG")) {
+        fprintf(stderr, "bitten: window %s made key from", object_getClassName(self));
+        bn_debug_callers();
+    }
     for (NSWindow *w in all_windows) w->_key = NO;
     _key = YES;
     [self orderFront:sender];

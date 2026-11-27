@@ -13,6 +13,14 @@ static int draws;
 - (void)drawRect:(NSRect)r { draws++; }
 @end
 
+/* What a view sees as the application's current event while handling one. */
+static NSEvent *seen_current;
+@interface Clicky : NSView
+@end
+@implementation Clicky
+- (void)mouseDown:(NSEvent *)e { seen_current = NSApp.currentEvent; }
+@end
+
 @interface Delegate : NSObject <NSApplicationDelegate>
 @property int launched;
 @end
@@ -50,6 +58,15 @@ int main(void) {
     CHECK(NSFontWeightBold == 0.4 && [NSWindowDidResizeNotification isEqual:@"NSWindowDidResizeNotification"]);
     [w setContentSize:NSMakeSize(500, 400)];
     CHECK(w.contentView.frame.size.width == 500);
+
+    /* The event being dispatched is the application's current event. */
+    Clicky *clicky = [[Clicky alloc] initWithFrame:NSMakeRect(300, 300, 50, 50)];
+    [w.contentView addSubview:clicky];
+    NSEvent *down = [NSEvent mouseEventWithType:NSEventTypeLeftMouseDown location:NSMakePoint(310, 310)
+                                  modifierFlags:0 timestamp:0 windowNumber:w.windowNumber context:nil
+                                    eventNumber:0 clickCount:1 pressure:1];
+    [app sendEvent:down];
+    CHECK(seen_current == down && app.currentEvent == down);
     puts("AppKit basics ok");
     return 0;
 }

@@ -93,6 +93,11 @@
     [_lock unlock];
 }
 - (void)postNotification:(NSNotification *)note {
+    static int debug = -1;
+    if (debug < 0) debug = getenv("BITTEN_NOTIFICATION_DEBUG") != NULL;
+    if (debug)
+        fprintf(stderr, "bitten: notification %s object %s\n", note.name.UTF8String ?: "",
+                note.object ? object_getClassName(note.object) : "nil");
     [_lock lock];
     NSArray<BNObservation *> *snapshot = [_observations copy];
     [_lock unlock];

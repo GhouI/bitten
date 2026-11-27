@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+void bn_debug_callers(void); /* AppKitCore.m */
+
 static BOOL allows_tabbing = YES;
 static const char props_key;
 
@@ -82,8 +84,10 @@ BOOL_PROP(hasShadow, setHasShadow, "hasShadow", YES)
 - (void)setAlphaValue:(CGFloat)v {
     CGFloat old = self.alphaValue;
     set(self, @"alphaValue", @(v));
-    if (getenv("BITTEN_EVENT_DEBUG") && old != v)
-        fprintf(stderr, "bitten: window %s alpha %g -> %g\n", object_getClassName(self), old, v);
+    if (getenv("BITTEN_EVENT_DEBUG") && old != v) {
+        fprintf(stderr, "bitten: window %s alpha %g -> %g visible %d from", object_getClassName(self), old, v, self.isVisible);
+        bn_debug_callers();
+    }
     /* a window that became (in)visible this way is shown or taken away */
     if ((old <= 0) != (v <= 0) && self.isVisible) [self _bn_scheduleDisplay];
 }

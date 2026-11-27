@@ -76,7 +76,9 @@ static BOOL modal_running;
 OBJ_PROP(NSMenu *, windowsMenu, setWindowsMenu, "windowsMenu")
 OBJ_PROP(NSMenu *, servicesMenu, setServicesMenu, "servicesMenu")
 OBJ_PROP(NSMenu *, helpMenu, setHelpMenu, "helpMenu")
+/* The event being handled: the one most recently taken from the queue. */
 - (NSEvent *)currentEvent { return props(self)[@"currentEvent"]; }
+- (void)_bn_setCurrentEvent:(NSEvent *)event { props(self)[@"currentEvent"] = event; }
 - (void)postEvent:(NSEvent *)event atStart:(BOOL)flag {
     dispatch_async(dispatch_get_main_queue(), ^{ [self sendEvent:event]; });
 }

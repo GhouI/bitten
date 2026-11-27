@@ -464,7 +464,9 @@ int bitten_display_present(uint32_t id, const void *pixels, size_t width, size_t
 DX_EXPORT("_bitten_display_present", bitten_display_present);
 
 /* A window's look and stacking: flags 1 borderless (no title bar or
- * frame), 2 transparent (the page shows through where alpha < 1); level is
+ * frame), 2 transparent (the page shows through where alpha < 1), 4 full-size
+ * content (the title bar lies over the frame's top instead of above it),
+ * 8 title hidden (the bar shows its buttons only); level is
  * the NSWindow level, which orders windows before focus does. May come
  * before the window's first frame. */
 int bitten_display_set_style(uint32_t id, uint32_t flags, int32_t level) {
