@@ -476,7 +476,17 @@ open class _HostingViewBase: NSView {
 
   override open func draw(_ dirtyRect: NSRect) {
     guard let cg = NSGraphicsContext.current?.cgContext else { return }
-    _layout().draw(cg)
+    let root = _layout()
+    // On macOS a hosting view draws into its own layer: blend modes in its
+    // tree (a destinationOut cut-out in a dimming overlay) mix with its own
+    // drawing only, never with the window under it.
+    if _LayerEffectNode._blends(root) {
+      CGContextBeginTransparencyLayer(cg, nil)
+      root.draw(cg)
+      CGContextEndTransparencyLayer(cg)
+    } else {
+      root.draw(cg)
+    }
   }
 
   // MARK: hover

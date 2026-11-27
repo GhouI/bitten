@@ -24,6 +24,7 @@ long swl_swiftui_gridspan(void);
 long swl_swiftui_nohitrep(void);
 long swl_swiftui_truncate(void);
 long swl_swiftui_blendout(void);
+long swl_swiftui_canvashole(void);
 long swl_swiftui_shortcuts(void);
 long swl_swiftui_toggleclick(void);
 long swl_swiftui_rebuildwrites(void);
@@ -57,6 +58,7 @@ int main(void) {
     ok &= check("nohitrep", swl_swiftui_nohitrep());
     ok &= check("truncate", swl_swiftui_truncate());
     ok &= check("blendout", swl_swiftui_blendout());
+    ok &= check("canvashole", swl_swiftui_canvashole());
     ok &= check("shortcuts", swl_swiftui_shortcuts());
     ok &= check("toggleclick", swl_swiftui_toggleclick());
     ok &= check("rebuildwrites", swl_swiftui_rebuildwrites());

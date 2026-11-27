@@ -718,6 +718,26 @@ struct Counting: View {
   }
 }
 
+/// A canvas draws in a layer of its own: a destinationOut fill erases only
+/// the canvas's own drawing, so the view under it shows through the hole.
+@_silgen_name("swl_swiftui_canvashole") public func canvasHole() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    let view = ZStack {
+      Color(.sRGB, red: 0, green: 0, blue: 1)
+      Canvas { g, size in
+        g.fill(Path(CGRect(origin: CGPoint(x: 0, y: 0), size: size)), with: .color(Color(.sRGB, red: 1, green: 0, blue: 0)))
+        g.blendMode = .destinationOut
+        g.fill(Path(CGRect(origin: CGPoint(x: 10, y: 10), size: CGSize(width: 10, height: 10))), with: .color(.black))
+      }
+    }.frame(width: 30, height: 30)
+    let px = render(view, 30, 30)
+    if px(15, 15) != blue { bad |= 1 }   // the view under the hole
+    if px(2, 2) != red { bad |= 2 }
+    return bad
+  }
+}
+
 /// A button's keyboard shortcut performs it: Escape a .cancelAction
 /// button, a command key a ⌘ shortcut; a disabled one doesn't.
 @_silgen_name("swl_swiftui_shortcuts") public func shortcuts() -> Int {
