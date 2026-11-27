@@ -5001,3 +5001,16 @@ Debugging aids:
   the first wins for lookups by name). Lookups by class pointer aren't
   affected.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI window sizing: what decides it, logged
+
+- `BITTEN_WINDOW_DEBUG` now also logs, for each window SwiftUI makes, its
+  default size, resizability and content fitting size, and the size
+  chosen. The target app's Settings sizes to its content: 720 by 520
+  points, which is the content's own ideal size.
+- Tried: making a hosting view report its content's ideal size to AppKit,
+  and sizing representables from their AppKit subviews. Neither changed
+  the Settings width, and the first made layout slower (the solver
+  measured whole trees), so both were left out. NEXT.md has what is
+  known about the squeezed typography row.
+- Target app (total `^MISSING`): 0 -> 0.

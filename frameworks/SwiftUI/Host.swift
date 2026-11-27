@@ -82,6 +82,9 @@ final class _AppHost {
       size = CGSize(width: max(f.width, 300), height: max(f.height, 200))
     }
     if config.resizability == .contentSize, let f = fitting, f.width > 0, f.height > 0 { size = f }
+    if getenv("BITTEN_WINDOW_DEBUG") != nil {
+      _dbg("bitten: swiftui window '\(title)' default \(String(describing: config.defaultSize)) resizability \(config.resizability) fitting \(String(describing: fitting)) -> \(size)")
+    }
     var style: NSWindow.StyleMask = [.titled, .closable, .miniaturizable]
     if config.resizability != .contentSize { style.insert(.resizable) }
     if config.hiddenTitleBar { style.insert(.fullSizeContentView) }
