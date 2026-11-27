@@ -706,6 +706,9 @@ static const char kDrawingKey;
     objc_setAssociatedObject(self, &kDrawingKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [self _bn_drawPending];
     objc_setAssociatedObject(self, &kDrawingKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    /* A turn of the run loop that drew it: the window updates (as AppKit's
+     * updateWindows after each turn), events or not. */
+    if (self.isVisible) [self _bn_tell:NSWindowDidUpdateNotification delegate:@selector(windowDidUpdate:)];
 }
 - (void)_bn_drawPending {
     /* Layout first: views it moves mark where they were and are, and this
