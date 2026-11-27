@@ -5328,3 +5328,24 @@ Debugging aids:
   layer, not only the painted ones.
 - Tests: tests/quartzcore/layers.m, tests/c/cg.c.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: blendMode and compositingGroup draw; toolbar strip background
+
+- `.blendMode(_:)` and `.compositingGroup()` were accepted and ignored.
+  - A blend mode now draws its content as a layer composited with the
+    matching CoreGraphics mode, so `.destinationOut` erases what's under
+    it.
+  - A compositing group draws its content as one layer, so blends inside
+    it mix only with each other.
+  - Test: `blendout`.
+- The toolbar strip of a full-size window now has the window background
+  from the sidebar divider on. Scrolled content goes under it, as under
+  macOS's unified title bar, instead of showing through behind the page
+  heading.
+- `BITTEN_VIEW_TREE` dumps from the window's frame view, so views a
+  program adds over the content show up.
+- The target app's search spotlight still shows a plain card in its
+  cut-out. The dim isn't drawn by the overlay view the app adds (it has
+  no layer or subviews when drawn). What draws it is still open
+  (`docs/NEXT.md`).
+- Target app (total `^MISSING`): 0 -> 0.

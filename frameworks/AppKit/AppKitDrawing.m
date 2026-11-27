@@ -818,7 +818,7 @@ static const char kDrawingKey;
         CGContextFillRect(c, CGRectMake(0, 0, content.size.width, content.size.height));
     }
     CGColorRelease(bgColor);
-    if (getenv("BITTEN_VIEW_TREE")) bn_dump_tree(self.contentView, 0);
+    if (getenv("BITTEN_VIEW_TREE")) bn_dump_tree(self._bn_frameView, 0);
     double frame0 = now_ms();
     CGContextRef visibleBefore = bn_visible_ctx;
     CGRect visibleRectBefore = bn_visible;
