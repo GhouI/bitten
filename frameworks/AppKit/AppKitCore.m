@@ -689,10 +689,6 @@ static NSUInteger next_window_number = 1;
     [self _post:NSApplicationWillTerminateNotification];
     exit(0);
 }
-- (NSEvent *)nextEventMatchingMask:(NSEventMask)mask untilDate:(NSDate *)expiration
-                            inMode:(NSRunLoopMode)mode dequeue:(BOOL)deqFlag {
-    return nil;
-}
 @end
 
 int NSApplicationMain(int argc, const char *argv[]) {

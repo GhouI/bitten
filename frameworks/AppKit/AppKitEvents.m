@@ -322,6 +322,12 @@ extern BOOL bn_dragging_route(NSWindow *w, NSEvent *e);
     else if (event.type == NSEventTypeKeyDown) [self.keyWindow sendEvent:event];
 }
 
+/* The event queue: events a tracking loop has taken from the display but
+ * not asked for yet, and events the program posted; and how many tracking
+ * loops are waiting for events. */
+static NSMutableArray<NSEvent *> *bn_pending;
+static int bn_tracking;
+
 static NSInteger click_count(NSPoint p, NSTimeInterval t) {
     static NSTimeInterval last_time;
     static NSPoint last_point;
@@ -350,6 +356,12 @@ static NSString *bn_key_characters(unsigned short code) {
 }
 
 + (void)_bn_pumpDisplayEvents {
+    /* Events a tracking loop left (or the program posted) go first. */
+    while (!bn_tracking && bn_pending.count) {
+        NSEvent *next = bn_pending.firstObject;
+        [bn_pending removeObjectAtIndex:0];
+        [NSApp sendEvent:next];
+    }
     struct bitten_display_event e;
     while (bitten_display_next_event(&e) == 1) {
         NSWindow *window = nil;
@@ -447,7 +459,11 @@ static NSString *bn_key_characters(unsigned short code) {
         default:
             continue;
         }
-        if (event) [NSApp sendEvent:event];
+        if (!event) continue;
+        /* Inside a tracking loop (nextEventMatchingMask:...) events wait in
+         * the queue for it rather than being sent. */
+        if (bn_tracking) [bn_pending addObject:event];
+        else [NSApp sendEvent:event];
     }
 }
 
@@ -556,5 +572,69 @@ static void bn_tell_live_resize(NSView *v, BOOL start) {
         [w _post:NSWindowDidEndLiveResizeNotification];
         [w display];   /* a last full frame, drawn as views draw outside a live resize */
     });
+}
+@end
+
+/* ---- tracking loops ----
+ * nextEventMatchingMask:untilDate:inMode:dequeue: takes the first queued
+ * event the mask allows, waiting for the display's (and running the run
+ * loop meanwhile, so windows still redraw) until the date; events it
+ * doesn't want stay queued, in order, for later. */
+@implementation NSApplication (BittenEventLoop)
+- (NSEvent *)nextEventMatchingMask:(NSEventMask)mask untilDate:(NSDate *)expiration inMode:(NSRunLoopMode)mode
+                           dequeue:(BOOL)dequeue {
+    if (!bn_pending) bn_pending = [NSMutableArray array];
+    NSDate *until = expiration ?: [NSDate distantPast];
+    NSEvent *found = nil;
+    bn_tracking++;
+    for (;;) {
+        [NSApplication _bn_pumpDisplayEvents];
+        for (NSUInteger i = 0; i < bn_pending.count; i++)
+            if (mask & NSEventMaskFromType(bn_pending[i].type)) {
+                found = bn_pending[i];
+                if (dequeue) [bn_pending removeObjectAtIndex:i];
+                break;
+            }
+        NSTimeInterval left = until.timeIntervalSinceNow;
+        if (found || left <= 0) break;
+        [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:MIN(left, 0.01)]];
+    }
+    bn_tracking--;
+    if (found && dequeue) [self _bn_setCurrentEvent:found];
+    if (!bn_tracking && bn_pending.count)
+        dispatch_async(dispatch_get_main_queue(), ^{ [NSApplication _bn_pumpDisplayEvents]; });
+    return found;
+}
+- (void)postEvent:(NSEvent *)event atStart:(BOOL)atStart {
+    if (!event) return;
+    if (!bn_pending) bn_pending = [NSMutableArray array];
+    if (atStart) [bn_pending insertObject:event atIndex:0];
+    else [bn_pending addObject:event];
+    if (!bn_tracking) dispatch_async(dispatch_get_main_queue(), ^{ [NSApplication _bn_pumpDisplayEvents]; });
+}
+@end
+
+@implementation NSWindow (BittenNextEvent)
+- (NSEvent *)nextEventMatchingMask:(NSEventMask)mask {
+    return [NSApp nextEventMatchingMask:mask untilDate:[NSDate distantFuture] inMode:NSEventTrackingRunLoopMode dequeue:YES];
+}
+- (NSEvent *)nextEventMatchingMask:(NSEventMask)mask untilDate:(NSDate *)expiration inMode:(NSRunLoopMode)mode
+                           dequeue:(BOOL)dequeue {
+    return [NSApp nextEventMatchingMask:mask untilDate:expiration inMode:mode dequeue:dequeue];
+}
+@end
+
+@implementation NSEvent (BittenTrackEvents)
+/* Hands the handler each matching event until it sets *stop, or the
+ * timeout passes (the handler then sees nil). */
++ (void)trackEventsMatchingMask:(NSEventMask)mask timeout:(NSTimeInterval)timeout mode:(NSRunLoopMode)mode
+                        handler:(void (^)(NSEvent *, BOOL *))handler {
+    NSDate *until = timeout >= 1e9 ? [NSDate distantFuture] : [NSDate dateWithTimeIntervalSinceNow:timeout];
+    BOOL stop = NO;
+    while (!stop) {
+        NSEvent *e = [NSApp nextEventMatchingMask:mask untilDate:until inMode:mode dequeue:YES];
+        if (handler) handler(e, &stop);
+        if (!e) break;
+    }
 }
 @end
