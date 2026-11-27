@@ -1582,7 +1582,10 @@ internal final class _ButtonNode: _ViewNode {
   }
   override func sizeThatFits(_ proposal: ProposedViewSize) -> CGSize {
     let i = insets
-    let inner = ProposedViewSize(width: proposal.width.map { max(0, $0 - i.leading - i.trailing) }, height: nil)
+    // A bordered button keeps its bezel's height; other styles are their
+    // label, which takes the height offered as it takes the width.
+    let height = style == .bordered ? nil : proposal.height.map { max(0, $0 - i.top - i.bottom) }
+    let inner = ProposedViewSize(width: proposal.width.map { max(0, $0 - i.leading - i.trailing) }, height: height)
     let s = children[0].sizeThatFits(inner)
     return CGSize(width: s.width + i.leading + i.trailing, height: max(s.height + i.top + i.bottom, style == .bordered ? 22 : 0))
   }

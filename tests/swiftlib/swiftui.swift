@@ -387,3 +387,30 @@ struct Forwarding: PrimitiveButtonStyle {
     return bad
   }
 }
+
+/// Buttons whose labels take all the room offered (`.frame(maxWidth:
+/// .infinity, maxHeight: .infinity)`) share a fixed frame's height between
+/// rows, as their widths are shared within a row.
+@_silgen_name("swl_swiftui_flexrows") public func flexRows() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    @MainActor func cell(_ on: Bool) -> some View {
+      Button(action: {}) {
+        Capsule().fill(on ? Color(.sRGB, red: 1, green: 0, blue: 0) : Color(.sRGB, red: 0, green: 0, blue: 1))
+          .frame(width: 28, height: 14)
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+      }.buttonStyle(.plain)
+    }
+    let grid = VStack(spacing: 0) {
+      HStack(spacing: 0) { cell(false); cell(false); cell(false) }
+      HStack(spacing: 0) { cell(false); cell(false); cell(true) }
+    }.padding(5).frame(width: 112, height: 64)
+    let px = render(grid, 112, 64)
+    // Two rows of 27 between 5-point insets: the lower row's capsules are
+    // centred at y 45.5, the upper's at 18.5.
+    if px(84, 45) != red { bad |= 1 }
+    if px(84, 18) != blue { bad |= 2 }
+    if px(84, 32) != white { bad |= 4 }
+    return bad
+  }
+}

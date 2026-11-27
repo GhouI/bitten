@@ -4399,3 +4399,16 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Checked along the way: the target app's Zoom Pane / Restore Pane work.
   They just take several seconds while full redraws are slow.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Plain buttons offer their label the height they are offered
+
+- A button that isn't bordered now proposes its label the height it is
+  offered, as it already did for width. A label that takes all the room
+  (`.frame(maxWidth: .infinity, maxHeight: .infinity)`) fills its share of
+  a stack in both directions. Bordered buttons keep their bezel height.
+- In the target app's Settings → Notifications, the Notification position
+  picker (a 3×2 grid of capsule buttons in a 112×64 frame) had both rows
+  squeezed together in the middle. The top row now sits at the top and
+  the bottom row at the bottom. tests/swiftlib/swiftui.swift (`flexrows`)
+  covers this.
+- Target app (total `^MISSING`): 0 -> 0.
