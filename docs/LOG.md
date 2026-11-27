@@ -4503,3 +4503,15 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   reports it). In the target app, the terminal's idle redraws (a cursor
   blink) cost 72% CPU before this and the SwiftUI fixes, and 23% after.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Foundation: bookmarks; NSString getFileSystemRepresentation:maxLength:
+
+- `-[NSURL bookmarkDataWithOptions:includingResourceValuesForKeys:relativeToURL:error:]`,
+  `+URLByResolvingBookmarkData:options:relativeToURL:bookmarkDataIsStale:error:`
+  and its initialiser: a bookmark holds the file's URL, and resolves while
+  the file exists. Security-scoped access always succeeds.
+- `-[NSString getFileSystemRepresentation:maxLength:]`.
+- The target app's update framework calls both after it downloads an
+  update. Its first launch with an empty home died there, about 35 s in.
+- Test: `tests/foundation/sparkle.m`.
+- Target app (total `^MISSING`): 0 -> 0.

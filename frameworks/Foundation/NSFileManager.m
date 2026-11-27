@@ -476,6 +476,13 @@ NSArray<NSString *> *NSSearchPathForDirectoriesInDomains(NSSearchPathDirectory d
     return out;
 }
 - (const char *)fileSystemRepresentation { return self.UTF8String; }
+- (BOOL)getFileSystemRepresentation:(char *)buffer maxLength:(NSUInteger)max {
+    const char *s = self.UTF8String;
+    size_t n = s ? strlen(s) : 0;
+    if (!buffer || !s || n >= max) return NO;
+    memcpy(buffer, s, n + 1);
+    return YES;
+}
 - (BOOL)isAbsolutePath { return [self hasPrefix:@"/"] || [self hasPrefix:@"~"]; }
 - (NSArray<NSString *> *)pathComponents {
     NSMutableArray *parts = [NSMutableArray array];
