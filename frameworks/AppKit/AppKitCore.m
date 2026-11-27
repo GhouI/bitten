@@ -11,6 +11,9 @@
 #include <string.h>
 
 void bn_debug_callers(void);
+@interface NSView (BittenTrackingState)
+- (void)_bn_setTrackingAreasNeedUpdate; /* AppKitEvents.m */
+@end
 
 NSApplication *NSApp;
 
@@ -82,6 +85,7 @@ NSApplication *NSApp;
     _bounds.size = size;
     _needsDisplay = YES;
     [self _bn_syncLayerGeometry];
+    if (!NSEqualSizes(old, size)) [self _bn_setTrackingAreasNeedUpdate];
     if (!NSEqualSizes(old, size) && self.autoresizesSubviews) [self resizeSubviewsWithOldSize:old];
 }
 
@@ -200,6 +204,7 @@ static void bn_autoresize_axis(CGFloat delta, BOOL flexLo, BOOL flexLen, BOOL fl
     [self viewWillMoveToWindow:window];
     _window = window;
     for (NSView *v in _subviews) [v _setWindow:window];
+    if (window) [self _bn_setTrackingAreasNeedUpdate];
     [self viewDidMoveToWindow];
 }
 - (void)addSubview:(NSView *)view {

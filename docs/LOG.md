@@ -4038,3 +4038,20 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - `BITTEN_VIEW_TREE` shows text fields' strings, bezel, border, background
   and font.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: tracking areas deliver mouse entered, exited and moved
+
+- As the mouse moves or drags over a window, tracking areas it enters or
+  leaves tell their owners (`mouseEntered:` / `mouseExited:`, `cursorUpdate:`
+  on entry), and areas with `NSTrackingMouseMoved` get `mouseMoved:`.
+  `NSTrackingInVisibleRect` areas follow the view. Events carry their
+  `trackingArea` and `userData`.
+- Views get `updateTrackingAreas` when they join a window or change size,
+  where most programs set up their areas.
+- A plain mouse move goes to the first responder only when the window
+  accepts mouse-moved events, as in AppKit. It used to go to the view under
+  the mouse, on top of the tracking areas.
+- In the target app, hover now works for pane headers, chrome buttons and
+  tooltips, and the pane header's split button splits the pane into a
+  second shell.
+- Target app (total `^MISSING`): 0 -> 0.

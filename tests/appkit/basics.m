@@ -21,6 +21,26 @@ static NSEvent *seen_current;
 - (void)mouseDown:(NSEvent *)e { seen_current = NSApp.currentEvent; }
 @end
 
+/* Records what its tracking area reports. */
+@interface Hover : NSView
+@property int entered, exited, moved, updates;
+@end
+@implementation Hover
+- (void)updateTrackingAreas {
+    self.updates++;
+    for (NSTrackingArea *a in self.trackingAreas) [self removeTrackingArea:a];
+    [self addTrackingArea:[[NSTrackingArea alloc] initWithRect:NSZeroRect
+                                                       options:NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved |
+                                                               NSTrackingActiveAlways | NSTrackingInVisibleRect
+                                                         owner:self userInfo:@{@"k" : @1}]];
+}
+- (void)mouseEntered:(NSEvent *)e {
+    if (e.trackingArea.owner == self && [((__bridge NSDictionary *)e.userData)[@"k"] intValue] == 1) self.entered++;
+}
+- (void)mouseExited:(NSEvent *)e { self.exited++; }
+- (void)mouseMoved:(NSEvent *)e { self.moved++; }
+@end
+
 @interface Delegate : NSObject <NSApplicationDelegate>
 @property int launched;
 @end
@@ -67,6 +87,23 @@ int main(void) {
                                     eventNumber:0 clickCount:1 pressure:1];
     [app sendEvent:down];
     CHECK(seen_current == down && app.currentEvent == down);
+
+    /* Tracking areas: set up when the view joins the window, then told as
+     * the mouse enters, moves inside and leaves. */
+    Hover *hover = [[Hover alloc] initWithFrame:NSMakeRect(100, 100, 50, 50)];
+    [w.contentView addSubview:hover];
+    NSEvent * (^move)(CGFloat, CGFloat) = ^(CGFloat x, CGFloat y) {
+        return [NSEvent mouseEventWithType:NSEventTypeMouseMoved location:NSMakePoint(x, y) modifierFlags:0
+                                 timestamp:0 windowNumber:w.windowNumber context:nil eventNumber:0 clickCount:0
+                                  pressure:0];
+    };
+    [w sendEvent:move(10, 10)];
+    CHECK(hover.updates == 1 && hover.entered == 0);
+    [w sendEvent:move(120, 120)];
+    [w sendEvent:move(125, 125)];
+    CHECK(hover.entered == 1 && hover.moved == 2 && hover.exited == 0);
+    [w sendEvent:move(300, 10)];
+    CHECK(hover.entered == 1 && hover.exited == 1);
     puts("AppKit basics ok");
     return 0;
 }
