@@ -5149,3 +5149,15 @@ Debugging aids:
   the buttons.
 - Test: `tests/appkit/basics.m`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: clicks don't reach representables SwiftUI keeps from them
+
+- Where SwiftUI's hit testing finds nothing, a hosting view asked all its
+  AppKit subviews. That included the views of representables SwiftUI
+  placed under `allowsHitTesting(false)`, which on macOS never get
+  clicks. Now it asks only subviews the program added itself; otherwise
+  the hosting view takes the click. In the target app's Settings, a click
+  on empty space next to a row went to the row's search-spotlight anchor
+  view.
+- Test: `nohitrep`.
+- Target app (total `^MISSING`): 0 -> 0.
