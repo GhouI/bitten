@@ -1110,6 +1110,20 @@ typedef NS_OPTIONS(unsigned long long, NSAlignmentOptions) {
 @end
 
 @class NSScrollView, NSCursor, NSMenu;
+/* Characters of keys that type none of their own (NSEvent.h). */
+enum {
+    NSUpArrowFunctionKey = 0xF700, NSDownArrowFunctionKey = 0xF701, NSLeftArrowFunctionKey = 0xF702,
+    NSRightArrowFunctionKey = 0xF703, NSF1FunctionKey = 0xF704, NSF2FunctionKey = 0xF705, NSF3FunctionKey = 0xF706,
+    NSF4FunctionKey = 0xF707, NSF5FunctionKey = 0xF708, NSF6FunctionKey = 0xF709, NSF7FunctionKey = 0xF70A,
+    NSF8FunctionKey = 0xF70B, NSF9FunctionKey = 0xF70C, NSF10FunctionKey = 0xF70D, NSF11FunctionKey = 0xF70E,
+    NSF12FunctionKey = 0xF70F, NSInsertFunctionKey = 0xF727, NSDeleteFunctionKey = 0xF728, NSHomeFunctionKey = 0xF729,
+    NSBeginFunctionKey = 0xF72A, NSEndFunctionKey = 0xF72B, NSPageUpFunctionKey = 0xF72C, NSPageDownFunctionKey = 0xF72D
+};
+
+@interface NSView (NSContextMenu)
+- (nullable NSMenu *)menuForEvent:(NSEvent *)event;
+@end
+
 @interface NSView (BittenExtras)
 @property CGFloat alphaValue;
 @property (nullable, copy) NSString *toolTip;
