@@ -4959,3 +4959,12 @@ Debugging aids:
   watchdog. The error is gone, and the initial cover resolves in about
   700–830 ms instead of 1008 ms.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Off switches and checkboxes read as controls
+
+- An off switch's track was 85% grey on the 93% grey of a settings page,
+  with no edge, and almost disappeared. It is now a little darker with a
+  thin edge. An unchecked checkbox is a light box with a grey border, as
+  in AppKit, instead of a grey square. Both have dark-appearance colours.
+  Checked in the target app's Settings → Interface ("Tint with theme").
+- Target app (total `^MISSING`): 0 -> 0.
