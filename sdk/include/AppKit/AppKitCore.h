@@ -697,6 +697,13 @@ typedef NSString *NSUserInterfaceItemIdentifier NS_TYPED_EXTENSIBLE_ENUM;
 - (void)noteFileSystemChanged:(NSString *)path;
 @end
 
+typedef NS_ENUM(NSUInteger, NSImageInterpolation) {
+    NSImageInterpolationDefault = 0,
+    NSImageInterpolationNone = 1,
+    NSImageInterpolationLow = 2,
+    NSImageInterpolationMedium = 4,
+    NSImageInterpolationHigh = 3,
+};
 @interface NSGraphicsContext : NSObject
 + (NSGraphicsContext *)graphicsContextWithCGContext:(CGContextRef)graphicsPort flipped:(BOOL)initialFlippedState;
 @property (class, nullable, strong) NSGraphicsContext *currentContext;
@@ -709,6 +716,13 @@ typedef NSString *NSUserInterfaceItemIdentifier NS_TYPED_EXTENSIBLE_ENUM;
 @property (readonly) CGContextRef CGContext;
 @property (readonly, getter=isFlipped) BOOL flipped;
 @property (readonly, getter=isDrawingToScreen) BOOL drawingToScreen;
+@property NSCompositingOperation compositingOperation;
+@property NSImageInterpolation imageInterpolation;
+@property BOOL shouldAntialias;
+@property NSPoint patternPhase;
+@property NSInteger colorRenderingIntent;
+@property (readonly) NSDictionary *attributes;
+@property (readonly) void *graphicsPort;
 @end
 
 APPKIT_EXTERN void NSRectFill(NSRect rect);

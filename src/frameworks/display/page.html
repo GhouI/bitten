@@ -16,6 +16,12 @@
   .win.borderless { border-radius: 0; box-shadow: none; }
   .win.borderless .bar { display: none; }
   .win.transparent { background: transparent; box-shadow: none; }
+  /* full-size content: the bar lies over the window's top 28 points, which
+     the program draws (and takes clicks in); only the buttons stay */
+  .win.fullsize .bar { position: absolute; left: 0; right: 0; top: 0; z-index: 1; background: none;
+    border-bottom: none; pointer-events: none; }
+  .win.fullsize .dot { pointer-events: auto; }
+  .win.notitle .bar span { display: none; }
   canvas { display: block; outline: none; }
 </style></head>
 <body><div id="status">connecting...</div>
@@ -102,6 +108,8 @@ function frame(buf) {
     w.flags = flags;
     w.el.classList.toggle("borderless", !!(flags & 1));
     w.el.classList.toggle("transparent", !!(flags & 2));
+    w.el.classList.toggle("fullsize", !!(flags & 4));
+    w.el.classList.toggle("notitle", !!(flags & 8));
   }
   // Ordered front by the program: up within its level, without focus.
   if (front !== w.front) { w.front = front; w.seq = ++z; }
@@ -109,7 +117,7 @@ function frame(buf) {
   // Where the program put it, kept inside the page: a window placed for a
   // taller screen than this viewport still shows its title bar.
   if (!w.moved) {
-    const bar = (flags & 1) ? 0 : 28;
+    const bar = (flags & 5) ? 0 : 28;
     const left = Math.max(0, Math.min(x, innerWidth - Math.min(width, innerWidth)));
     const top = Math.max(0, Math.min(y, innerHeight - Math.min(height + bar, innerHeight)));
     w.el.style.left = left + "px"; w.el.style.top = top + "px";

@@ -20,6 +20,7 @@ int bitten_display_set_style(uint32_t window, uint32_t flags, int32_t level);
 void bitten_display_order_front(uint32_t window);
 
 /* ---- NSGraphicsContext ---------------------------------------------------- */
+int bn_blend_mode_for_operation(NSCompositingOperation op);
 
 static pthread_key_t current_key;
 static pthread_once_t current_once = PTHREAD_ONCE_INIT;
@@ -28,7 +29,36 @@ static void make_current_key(void) { pthread_key_create(&current_key, NULL); }
 @implementation NSGraphicsContext {
     CGContextRef _cg;
     BOOL _flipped;
+    NSCompositingOperation _operation;
+    NSImageInterpolation _interpolation;
+    BOOL _noAntialias;
+    NSPoint _patternPhase;
+    NSInteger _renderingIntent;
 }
+/* The context's drawing state: each setting goes to the CGContext too. */
+- (NSCompositingOperation)compositingOperation { return _operation; }
+- (void)setCompositingOperation:(NSCompositingOperation)op {
+    _operation = op;
+    CGContextSetBlendMode(_cg, (CGBlendMode)bn_blend_mode_for_operation(op));
+}
+- (NSImageInterpolation)imageInterpolation { return _interpolation; }
+- (void)setImageInterpolation:(NSImageInterpolation)i {
+    _interpolation = i;
+    CGContextSetInterpolationQuality(_cg, (CGInterpolationQuality)i);
+}
+- (BOOL)shouldAntialias { return !_noAntialias; }
+- (void)setShouldAntialias:(BOOL)b {
+    _noAntialias = !b;
+    CGContextSetShouldAntialias(_cg, b);
+}
+- (NSPoint)patternPhase { return _patternPhase; }
+- (void)setPatternPhase:(NSPoint)p {
+    _patternPhase = p; /* patterns are not drawn yet; kept for reading back */
+}
+- (NSInteger)colorRenderingIntent { return _renderingIntent; }
+- (void)setColorRenderingIntent:(NSInteger)i { _renderingIntent = i; }
+- (NSDictionary *)attributes { return @{}; }
+- (void *)graphicsPort { return _cg; }
 + (NSGraphicsContext *)graphicsContextWithCGContext:(CGContextRef)port flipped:(BOOL)flipped {
     NSGraphicsContext *c = [NSGraphicsContext new];
     c->_cg = (CGContextRef)CFRetain(port);
@@ -442,9 +472,10 @@ static void bn_dump_tree(NSView *v, int depth) {
     if (v.layer) {
         CALayer *l = (CALayer *)v.layer;
         CATransform3D t = l.transform;
-        fprintf(stderr, "%*s  layer pos=(%g,%g) bounds=%s anchor=(%g,%g) scale=(%g,%g) tx=(%g,%g) sublayers=%lu\n", depth * 2, "",
-                l.position.x, l.position.y, NSStringFromRect(l.bounds).UTF8String, l.anchorPoint.x, l.anchorPoint.y,
-                t.m11, t.m22, t.m41, t.m42, (unsigned long)l.sublayers.count);
+        fprintf(stderr, "%*s  layer pos=(%g,%g) bounds=%s anchor=(%g,%g) scale=(%g,%g) tx=(%g,%g) sublayers=%lu opacity=%g%s\n",
+                depth * 2, "", l.position.x, l.position.y, NSStringFromRect(l.bounds).UTF8String, l.anchorPoint.x,
+                l.anchorPoint.y, t.m11, t.m22, t.m41, t.m42, (unsigned long)l.sublayers.count, l.opacity,
+                l.isHidden ? " hidden" : "");
     }
     for (NSView *s in v.subviews) bn_dump_tree(s, depth + 1);
 }
@@ -504,6 +535,13 @@ static const char kScheduledKey;
     [self.contentView _bn_drawIn:c parentFlipped:NO];
     CGContextRestoreGState(c);
     [self _bn_sendStyle];
+    if (getenv("BITTEN_DISPLAY_DEBUG")) {
+        const uint8_t *px = CGBitmapContextGetData(c);
+        size_t w = CGBitmapContextGetWidth(c), h = CGBitmapContextGetHeight(c), bpr = CGBitmapContextGetBytesPerRow(c), opaque = 0;
+        for (size_t y = 0; y < h; y++)
+            for (size_t x = 0; x < w; x++) opaque += px[y * bpr + x * 4 + 3] != 0;
+        fprintf(stderr, "bitten: presented %s %zux%zu, %zu pixels not transparent\n", self.title.UTF8String ?: "", w, h, opaque);
+    }
     /* The page's coordinates run down from the top of the main screen. */
     NSRect screen = [NSScreen mainScreen].frame;
     double top = CGRectGetMaxY(screen) - CGRectGetMaxY(self.frame);
@@ -515,12 +553,15 @@ static const char kScheduledKey;
 }
 
 /* How the display should show this window: without a title bar and frame
- * when it has none, see-through when it is not opaque, and stacked by its
+ * when it has none, with the bar over the content when the content runs
+ * under it, see-through when it is not opaque, and stacked by its
  * level (floating panels above normal windows). Sent when it changes. */
 static const char kStyleKey;
 - (void)_bn_sendStyle {
     uint32_t flags = 0;
     if (!(self.styleMask & NSWindowStyleMaskTitled)) flags |= 1;
+    else if (self.styleMask & NSWindowStyleMaskFullSizeContentView) flags |= 4;
+    if (self.titleVisibility == NSWindowTitleHidden) flags |= 8;
     CGFloat bgAlpha = self.backgroundColor ? self.backgroundColor.alphaComponent : 1;
     if (!self.isOpaque || bgAlpha < 1) flags |= 2;
     int32_t level = (int32_t)self.level;
@@ -548,7 +589,11 @@ static const char kStyleKey;
     NSValue *v = objc_getAssociatedObject(self, &kBackingKey);
     return v ? (CGContextRef)v.pointerValue : NULL;
 }
-- (void)_bn_closeDisplay { bitten_display_close((uint32_t)self.windowNumber); }
+- (void)_bn_closeDisplay {
+    bitten_display_close((uint32_t)self.windowNumber);
+    /* the display forgets the window: its style is sent again with it */
+    objc_setAssociatedObject(self, &kStyleKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
 @end
 
 /* Intersects the current clip with r. */

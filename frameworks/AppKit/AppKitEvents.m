@@ -31,6 +31,9 @@ int bitten_display_event_fd(void);
 + (void)_bn_setMouseLocation:(NSPoint)p flags:(NSEventModifierFlags)f;
 - (void)_bn_setScrollDeltaX:(CGFloat)dx y:(CGFloat)dy;
 @end
+@interface NSApplication (BittenCurrentEvent)
+- (void)_bn_setCurrentEvent:(NSEvent *)event;
+@end
 
 static NSTimeInterval now_seconds(void) {
     struct timeval tv;
@@ -156,6 +159,7 @@ extern BOOL bn_dragging_route(NSWindow *w, NSEvent *e);
 - (void)sendEvent:(NSEvent *)event {
     BOOL debug = getenv("BITTEN_EVENT_DEBUG") && (event.type == NSEventTypeKeyDown || event.type == NSEventTypeFlagsChanged);
     NSEvent *original = event;
+    [self _bn_setCurrentEvent:event];
     event = bn_run_local_monitors(event);
     if (!event) {
         if (debug) fprintf(stderr, "bitten: key code %u flags %#lx taken by a local monitor\n", (unsigned)original.keyCode,
@@ -218,6 +222,10 @@ static NSString *bn_key_characters(unsigned short code) {
         NSTimeInterval t = now_seconds();
         [NSEvent _bn_setMouseLocation:NSMakePoint(window.frame.origin.x + loc.x, window.frame.origin.y + loc.y)
                                 flags:flags];
+        if (getenv("BITTEN_EVENT_DEBUG") && e.type >= 1 && e.type <= 4 && e.type != 3)
+            fprintf(stderr, "bitten: display event %u for %s at (%g, %g): in window %s, on screen %s\n", e.type,
+                    object_getClassName(window), e.x, e.y, NSStringFromPoint(loc).UTF8String,
+                    NSStringFromPoint([NSEvent mouseLocation]).UTF8String);
         NSEvent *event = nil;
         switch (e.type) {
         case 1: case 2: case 3: case 4: {

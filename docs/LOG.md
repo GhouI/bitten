@@ -3953,4 +3953,26 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   NSWindowController `shouldCascadeWindows`, NSTextView
   `usesAdaptiveColorMappingForDarkAppearance`.
 - Test: tests/foundation/sparkle.m.
+
+## AppKit: the session picker popup stays open; full-size content windows
+
+- `NSApp.currentEvent` is the event being dispatched; it was always nil.
+  The target app's click-outside monitor reads it when it shows its session
+  picker, to skip the mouse-up of the click that opened it. Without it, that
+  mouse-up dismissed the popup at once.
+- Windows with `NSWindowStyleMaskFullSizeContentView` tell the display
+  (style flag 4) to lay the title bar over the content's top instead of
+  above it, and flag 8 hides the title text (`titleVisibility`). The display
+  had pushed such content 28 points below where AppKit placed it, so clicks
+  and screen-coordinate checks were off by the title bar's height. The target
+  app's tabs now sit beside the window buttons, as on macOS.
+- `NSGraphicsContext` keeps its drawing state (compositing operation as
+  the CG blend mode, image interpolation, antialiasing, pattern phase,
+  rendering intent). A closed window's display style is sent again when it
+  comes back.
+- Debugging: `BITTEN_EVENT_DEBUG` logs display mouse events with window and
+  screen points, plus the callers that make a window key or change its alpha.
+  `BITTEN_DISPLAY_DEBUG` counts each presented frame's non-transparent
+  pixels. `BITTEN_NOTIFICATION_DEBUG` logs every posted notification.
+
 - Target app (total `^MISSING`): 0 -> 0.
