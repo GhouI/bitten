@@ -715,8 +715,13 @@ public struct Form<Content: View>: View {
     let v = view.value
     let stack = _StackNode(axis: .vertical, alignment: Alignment(horizontal: .leading, vertical: .center), spacing: 12,
                            environment: inputs.environment, children: _makeNodes(v.content, inputs: inputs.named("content")))
-    return _ViewOutputs(_PaddingNode(insets: EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16),
-                                     environment: inputs.environment, children: [stack]))
+    let padded = _PaddingNode(insets: EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16),
+                              environment: inputs.environment, children: [stack])
+    // As on macOS, a form scrolls vertically, filling its space with its
+    // rows from the top and as wide as the form.
+    return _ViewOutputs(_ScrollNode(axes: .vertical, key: inputs.base.path + "#form", context: inputs.base.context,
+                                    content: _FillWidthNode(content: padded, environment: inputs.environment),
+                                    environment: inputs.environment))
   }
 }
 public protocol FormStyle {}

@@ -3608,7 +3608,6 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   terminal view, its server and the pty).
 - Target app (total `^MISSING`): 2 -> 2.
 
-
 ## Windows stay upright: NSGraphicsContext saves the current context; drawing cannot leak states
 
 - AppKit: +[NSGraphicsContext saveGraphicsState] and +restoreGraphicsState
@@ -3822,3 +3821,15 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   frames; drawing those frames into the AppKit window is a separate step.
 - Documented how to choose the browser or X11 display, and separated the
   Docker shader-compiler gap and first-launch failures from missing imports.
+
+## SwiftUI: Form scrolls and fills, rows from the top
+
+- `Form` is a vertical scroll view filling its space, with its rows from
+  the top and as wide as the form, as on macOS. It was a padded stack, so a
+  short settings page (the target app's Developer page) sat vertically
+  centred.
+- Debugging: `BITTEN_SWIFTUI_TREE` shows text nodes' strings and logs host
+  invalidations. `BITTEN_DISPLAY_DEBUG` logs each window display with its
+  title.
+- Target app (total `^MISSING`): 0 -> 0.
+
