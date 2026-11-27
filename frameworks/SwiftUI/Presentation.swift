@@ -552,14 +552,48 @@ public enum FrameResizeDirection: Int8, Sendable {
     public static let all: Set = [.inward, .outward]
   }
 }
+/// A region that reports the pointer entering, moving in and leaving it
+/// (its frame; the hosting view tracks the mouse).
+internal final class _HoverNode: _ViewNode {
+  var entered: ((Bool) -> Void)?
+  var moved: ((HoverPhase) -> Void)?
+  override func collectHover(_ point: CGPoint, path: String, into: inout [(String, _HoverNode)]) {
+    if frame._contains(point) { into.append((path, self)) }
+    super.collectHover(point, path: path, into: &into)
+  }
+  /// The pointer is over the region (at `point`, host coordinates) or, nil, left it.
+  func hover(_ point: CGPoint?, entering: Bool) {
+    MainActor.assumeIsolated {
+      if entering || point == nil { entered?(point != nil) }
+      if let p = point {
+        moved?(.active(CGPoint(x: p.x - frame._minX, y: p.y - frame._minY)))
+      } else {
+        moved?(.ended)
+      }
+    }
+  }
+}
+internal struct _ContinuousHoverModifier: ViewModifier {
+  var action: (HoverPhase) -> Void
+  typealias Body = Never
+  func body(content: Content) -> Never { fatalError("no body") }
+  static func _makeView(modifier: _GraphValue<Self>, inputs: _ViewInputs,
+                        body: @escaping (_Graph, _ViewInputs) -> _ViewOutputs) -> _ViewOutputs {
+    let node = _HoverNode(environment: inputs.environment, children: [body(_Graph(), inputs).node])
+    node.moved = modifier.value.action
+    return _ViewOutputs(node)
+  }
+}
 extension View {
-  public func onHover(perform action: @escaping (Bool) -> Void) -> some View { return self }
+  public func onHover(perform action: @escaping (Bool) -> Void) -> some View {
+    return modifier(_HoverRegionModifier(action))
+  }
   public func onContinuousHover<C: CoordinateSpaceProtocol>(coordinateSpace: C,
                                                             perform action: @escaping (HoverPhase) -> Void) -> some View {
-    return self
+    return modifier(_ContinuousHoverModifier(action: action))
   }
   public func onContinuousHover(coordinateSpace: CoordinateSpace = .local, perform action: @escaping (HoverPhase) -> Void) -> some View {
-    return self
+    return modifier(_ContinuousHoverModifier(action: action))
   }
   public func pointerStyle(_ style: PointerStyle?) -> some View { return self }
 }

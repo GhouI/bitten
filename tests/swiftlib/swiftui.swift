@@ -328,3 +328,40 @@ struct Forwarding: PrimitiveButtonStyle {
     return bad
   }
 }
+
+/// `onHover` and `onContinuousHover` hear the pointer enter, move in and
+/// leave their region.
+@_silgen_name("swl_swiftui_hover") public func hover() -> Int {
+  return MainActor.assumeIsolated {
+    final class Log { var events: [String] = [] }
+    let log = Log()
+    let view = HStack(spacing: 0) {
+      Color(.sRGB, red: 1, green: 0, blue: 0).frame(width: 20, height: 20).onHover { log.events.append("hover \($0)") }
+      Color(.sRGB, red: 0, green: 0, blue: 1).frame(width: 20, height: 20).onContinuousHover { phase in
+        switch phase {
+        case .active(let p): log.events.append("at \(Int(p.x)),\(Int(p.y))")
+        case .ended: log.events.append("ended")
+        }
+      }
+    }
+    let host = NSHostingView(rootView: view)
+    _ = render(view, 40, 20, host: host)
+    func move(_ x: CGFloat, _ y: CGFloat) {
+      host.mouseMoved(with: NSEvent.mouseEvent(with: .mouseMoved, location: NSMakePoint(x, y), modifierFlags: [],
+                                               timestamp: 0, windowNumber: 0, context: nil, eventNumber: 0,
+                                               clickCount: 0, pressure: 0)!)
+    }
+    move(5, 5)
+    move(8, 5)
+    move(25, 5)
+    host.mouseExited(with: NSEvent.mouseEvent(with: .mouseExited, location: NSMakePoint(50, 5), modifierFlags: [],
+                                              timestamp: 0, windowNumber: 0, context: nil, eventNumber: 0,
+                                              clickCount: 0, pressure: 0)!)
+    let want = ["hover true", "hover false", "at 5,15", "ended"]  // window points run up; the host is flipped
+    if log.events != want {
+      print("hover events: \(log.events)")
+      return 1
+    }
+    return 0
+  }
+}
