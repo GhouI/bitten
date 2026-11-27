@@ -532,7 +532,7 @@ static NSUInteger next_window_number = 1;
     if (view) {
         /* below anything else in the frame view: views added there draw over it */
         if (view.superview != _frameView) [_frameView addSubview:view positioned:NSWindowBelow relativeTo:nil];
-        view.frame = NSMakeRect(0, 0, c.size.width, c.size.height);
+        view.frame = [self _bn_contentViewFrame];
         view.nextResponder = self;
         [view _setWindow:self];
     }
@@ -540,7 +540,23 @@ static NSUInteger next_window_number = 1;
 - (NSString *)title { return _title; }
 - (void)setTitle:(NSString *)t { _title = [t copy]; }
 - (NSWindowStyleMask)styleMask { return _styleMask; }
-- (void)setStyleMask:(NSWindowStyleMask)m { _styleMask = m; }
+- (void)setStyleMask:(NSWindowStyleMask)m {
+    _styleMask = m;
+    _frameView.frame = NSMakeRect(0, 0, _frame.size.width, _frame.size.height);
+    _contentView.frame = [self _bn_contentViewFrame];
+}
+/* Where the content view goes: all the content rect, but below the title
+ * bar's strip in a full-size-content window whose toolbar shows items
+ * there (the area macOS keeps out of such content's safe area). */
+- (NSRect)_bn_contentViewFrame {
+    NSRect c = [self contentRectForFrameRect:_frame];
+    CGFloat strip = 0;
+    if ((_styleMask & NSWindowStyleMaskTitled) && (_styleMask & NSWindowStyleMaskFullSizeContentView)) {
+        NSToolbar *t = self.toolbar;
+        if (t.isVisible && t.visibleItems.count) strip = 28;
+    }
+    return NSMakeRect(0, 0, c.size.width, MAX(0, c.size.height - strip));
+}
 - (NSRect)frame { return _frame; }
 - (BOOL)isVisible { return _visible; }
 - (BOOL)isKeyWindow { return _key; }
@@ -561,7 +577,7 @@ static NSUInteger next_window_number = 1;
     _frame = frame;
     NSRect c = [self contentRectForFrameRect:frame];
     _frameView.frame = NSMakeRect(0, 0, frame.size.width, frame.size.height);
-    _contentView.frame = NSMakeRect(0, 0, c.size.width, c.size.height);
+    _contentView.frame = [self _bn_contentViewFrame];
     if (resized) {
         if ([_delegate respondsToSelector:@selector(windowDidResize:)])
             [_delegate windowDidResize:[NSNotification notificationWithName:NSWindowDidResizeNotification
