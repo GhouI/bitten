@@ -286,7 +286,8 @@ void NSEraseRect(NSRect r) {
 
 /* What a view's backing layer adds to the view's drawing: its background,
  * rounded corners (which also clip the content when masksToBounds), its
- * border and any sublayers the program added itself. The view's own
+ * contents image (a CAMetalLayer's presented frame, say), its border and
+ * any sublayers the program added itself. The view's own
  * drawing still comes from drawRect:. */
 @interface BNBackingLayer : NSObject
 @property (getter=isHidden) BOOL hidden;
@@ -298,6 +299,7 @@ void NSEraseRect(NSRect r) {
 @property (weak) id delegate;
 - (CGAffineTransform)_bn_toSuper;
 - (void)_bn_render:(CGContextRef)ctx;
+- (void)_bn_drawContents:(CGContextRef)ctx inRect:(CGRect)b flipped:(BOOL)flipped;
 @end
 
 static CGPathRef bn_rounded(CGRect r, CGFloat radius) CF_RETURNS_RETAINED {
@@ -390,6 +392,14 @@ static void bn_layer_border(BNBackingLayer *layer, CGContextRef c, CGRect b) {
             CGContextBeginTransparencyLayer(c, NULL);
         }
         bn_layer_background(layer, c, b);
+        /* In the view's upright space: the layer's top is the view's top. */
+        CGContextSaveGState(c);
+        if (flipped) {
+            CGContextTranslateCTM(c, 0, CGRectGetMinY(b) + CGRectGetMaxY(b));
+            CGContextScaleCTM(c, 1, -1);
+        }
+        [layer _bn_drawContents:c inRect:b flipped:NO];
+        CGContextRestoreGState(c);
     }
     NSGraphicsContext *previous = [NSGraphicsContext currentContext];
     [NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithCGContext:c flipped:flipped]];

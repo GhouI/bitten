@@ -3849,3 +3849,25 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   failure cleanup).
 - Target app (total `^MISSING`): 0 -> 0. "Skip for now" goes to the
   workspace.
+
+## AppKit: layer contents in windows; a Metal present redraws the window
+
+- Layer-backed views now draw their backing layer's `contents` image,
+  after the background and before `drawRect:`, placed by
+  `contentsGravity` and `contentsScale` and upright in flipped views.
+  Until now only sublayers that were not views drew their contents, so a
+  view whose layer was a CAMetalLayer showed nothing. CALayer's own
+  rendering and AppKit share one helper, `-_bn_drawContents:inRect:flipped:`.
+- Presenting a CAMetalLayer drawable marks the nearest view up the layer
+  tree as needing display, so the window redraws at the rate the program
+  presents. Before, it only set the layer's own needs-display flag, which
+  nothing read.
+- Test: tests/appkit/contents.m (stretched, flipped and bottom-left
+  scale-2 contents; a CAMetalLayer-backed view that presents a cleared
+  drawable and shows up with no display call from the test).
+- Open: `contentsRect` and IOSurface contents are not drawn. A custom
+  `makeBackingLayer` layer gets no bounds from its view, so
+  `nextDrawable` needs `drawableSize` set (the target app sets it).
+- Target app (total `^MISSING`): 0 -> 0. Its terminal surface now shows
+  the frames its Metal renderer presents: the prompt, typed commands and
+  their output, and the cursor.

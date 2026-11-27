@@ -500,6 +500,25 @@ static CGRect gravity_rect(NSString *g, CGRect b, CGSize content) {
 size_t bitten_cg_gstate_depth(CGContextRef c);
 void bitten_cg_restore_to_depth(CGContextRef c, size_t depth);
 
+/* Draws the layer's contents image into `b`, placed by contentsGravity
+ * and contentsScale (bottom is minimum Y, as on Apple's systems), upright
+ * when `flipped` says the coordinates run downward. AppKit draws a
+ * view's backing layer contents through this too. */
+- (void)_bn_drawContents:(CGContextRef)ctx inRect:(CGRect)b flipped:(BOOL)flipped {
+    id contents = _contents;
+    if (!contents || CFGetTypeID((__bridge CFTypeRef)contents) != CGImageGetTypeID()) return;
+    CGImageRef img = (__bridge CGImageRef)contents;
+    CGFloat k = _contentsScale > 0 ? _contentsScale : 1;
+    CGRect r = gravity_rect(_contentsGravity, b, CGSizeMake(CGImageGetWidth(img) / k, CGImageGetHeight(img) / k));
+    CGContextSaveGState(ctx);
+    if (flipped) {
+        CGContextTranslateCTM(ctx, 0, CGRectGetMinY(r) + CGRectGetMaxY(r));
+        CGContextScaleCTM(ctx, 1, -1);
+    }
+    CGContextDrawImage(ctx, r, img);
+    CGContextRestoreGState(ctx);
+}
+
 /* Draw this layer and its sublayers, in this layer's coordinates. */
 - (void)_bn_render:(CGContextRef)ctx {
     if (_hidden || _opacity <= 0) return;
@@ -525,22 +544,7 @@ void bitten_cg_restore_to_depth(CGContextRef c, size_t depth);
         CGContextClip(ctx);
         CGPathRelease(shape);
     }
-    id contents = _contents;
-    if (contents && CFGetTypeID((__bridge CFTypeRef)contents) == CGImageGetTypeID()) {
-        CGImageRef img = (__bridge CGImageRef)contents;
-        CGSize size = CGSizeMake(CGImageGetWidth(img) / (_contentsScale > 0 ? _contentsScale : 1),
-                                 CGImageGetHeight(img) / (_contentsScale > 0 ? _contentsScale : 1));
-        CGRect r = gravity_rect(_contentsGravity, _bounds, size);
-        if (self.contentsAreFlipped) {
-            CGContextSaveGState(ctx);
-            CGContextTranslateCTM(ctx, 0, CGRectGetMinY(r) + CGRectGetMaxY(r));
-            CGContextScaleCTM(ctx, 1, -1);
-            CGContextDrawImage(ctx, r, img);
-            CGContextRestoreGState(ctx);
-        } else {
-            CGContextDrawImage(ctx, r, img);
-        }
-    }
+    [self _bn_drawContents:ctx inRect:_bounds flipped:self.contentsAreFlipped];
     size_t depth = bitten_cg_gstate_depth(ctx);
     CGContextSaveGState(ctx);
     [self drawInContext:ctx];
@@ -837,6 +841,15 @@ static CFTimeInterval from_root(CALayer *l, CFTimeInterval t) {
     dispatch_async(dispatch_get_main_queue(), ^{
         self.contents = contents;
         [self setNeedsDisplay];
+        /* The window redraws to show the frame: the nearest view up the
+         * layer tree (AppKit sets itself as its backing layer's delegate). */
+        for (CALayer *l = self; l; l = l.superlayer) {
+            id d = l.delegate;
+            if ([d respondsToSelector:@selector(setNeedsDisplay:)]) {
+                ((void (*)(id, SEL, BOOL))objc_msgSend)(d, @selector(setNeedsDisplay:), YES);
+                break;
+            }
+        }
     });
 }
 @end
