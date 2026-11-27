@@ -3814,3 +3814,11 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - Test: tests/c/osversion.c.
 - Target app (total `^MISSING`): 0 -> 0. Every settings page opens
   without crashing.
+
+## Documentation: from import coverage to a visible terminal
+
+- Refreshed the target-app and framework status. The server and window
+  bind all required imports. The software Metal device produces terminal
+  frames; drawing those frames into the AppKit window is a separate step.
+- Documented how to choose the browser or X11 display, and separated the
+  Docker shader-compiler gap and first-launch failures from missing imports.

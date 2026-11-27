@@ -1,9 +1,10 @@
 # Architecture
 
-bitten is one Linux executable, `mrun`, that plays three roles a macOS
-program expects from its system: the dynamic loader (dyld), the system
-libraries (libSystem and a few frameworks), and, for the calls that bypass
-those libraries, the kernel's system-call interface.
+bitten runs an unmodified x86-64 Mach-O program in a Linux process. The
+Linux executable, `mrun`, loads Mach-O images, supplies Darwin system
+calls and implements low-level library functions. It also loads bitten's
+own Mach-O libraries, including Foundation, the Swift standard library,
+AppKit and SwiftUI, from a framework root beside or installed with it.
 
 Docker containers share the host's Linux kernel, so macOS code cannot run
 "natively" in one. The CPU instructions are the same on an x86-64 host; what
@@ -16,7 +17,7 @@ those requests in user space.
                  v                                    v
    +-----------------------------+        +--------------------------+
    |  Darwin-ABI implementations |<-------|  SIGSYS handler          |
-   |  (libSystem, frameworks)    |        |  (syscall user dispatch) |
+   |  (registry + Mach-O libs)   |        |  (syscall user dispatch) |
    +-----------------------------+        +--------------------------+
                  |  ordinary Linux calls
                  v
@@ -38,10 +39,10 @@ those requests in user space.
 4. **Resolves imports.** A Mach-O dependency that exists as a file (a
    framework bundled inside the app, found through `@rpath`,
    `@loader_path`, `@executable_path`) is loaded as Mach-O and searched
-   through its export trie. Everything else, meaning the system libraries,
-   comes from the *registry* described below. The two-level namespace is
-   deliberately relaxed for registry symbols: one table serves every system
-   library.
+   through its export trie. bitten's own system images use the same loader.
+   Imports not found in the named image can bind to the *registry*
+   described below; for system-library imports the loader can also look
+   in other loaded images to accommodate re-exports.
 5. **Sets up thread-local variables.** Each TLV descriptor gets a thunk
    (`tlv.S`) that returns the variable's address and preserves every other
    register, allocating the thread's copy on first use.
@@ -53,9 +54,11 @@ those requests in user space.
    In both cases argv, envp and the "apple" strings are laid out contiguously
    because programs walk from one to the next.
 
-An import nobody implements is bound to a small stub that reports the
-symbol's name if it is ever called. `mrun --check` lists all of them without
-running the program.
+An unresolved strong function import gets a diagnostic stub; object
+constants and Objective-C classes have their own placeholders. Unbound
+weak imports resolve to null. `mrun --check` reports missing strong imports
+separately from unbound weak ones without running the program. It cannot
+tell whether a selector exists or a resolved function does what its caller needs.
 
 ### The registry
 
@@ -68,9 +71,8 @@ DX_EXPORT("_open$NOCANCEL", d_open);  /* variants share an implementation */
 DX_PASS(strlen);                      /* identical ABI: use the host's */
 ```
 
-The entries land in a linker section and are hashed at start-up. This is the
-only coupling between the loader and the hundreds of functions: adding a
-macOS API means writing a function and one macro line.
+The entries land in a linker section and are hashed at start-up. This
+lets a native implementation export a symbol without editing the loader.
 
 ## The Darwin layer (`src/libsystem`, `src/frameworks`)
 
@@ -91,17 +93,17 @@ is in the places where the systems differ:
 | System info | `sysctl` by name and by MIB, `uname`, `sysconf` constants; the system reports itself as macOS 15.0 |
 | Mach | Only what ordinary programs touch: time, task self, `vm_allocate`, `mach_vm_region` |
 | libproc | Process listings and details from `/proc` |
-| CoreFoundation | A small reference-counted object model: strings, data, arrays, dictionaries, numbers, dates, errors, locales |
-| Security | Object plumbing only. Trust evaluation and the keychain report failure honestly |
+| CoreFoundation | Reference-counted objects and toll-free bridging; run loops, timers, bundle and preference APIs share implementations with Foundation |
+| Security | Certificate and policy objects; no keychain store or certificate trust evaluation. Foundation's URLSession uses the host's libcurl for network transport, including TLS |
 
-Paths are not rewritten. The container simply provides the directories macOS
-programs expect (`/Applications`, `/Users`, `/private/tmp`), and a
-macOS-compatible `/usr/bin/login`.
+Most paths are ordinary Linux paths. The container provides `/Applications`,
+`/Users`, `/private/tmp` and a macOS-compatible `/usr/bin/login`. For missing
+system files under `/System/Library/` and `/usr/lib/swift/`, `dx_path` also
+checks the framework root; it maps a missing `launchctl` to `mrun`.
 
 ## Objective-C and Blocks (`src/frameworks/objc`)
 
-The Objective-C runtime is the gateway to every Cocoa and Swift program, so
-it is implemented in full rather than stubbed:
+Compiled Cocoa code uses bitten's Objective-C runtime directly:
 
 - **Image registration.** After an image's fixups, the loader hands its
   `__objc_*` sections to the runtime: selector references are uniqued,
@@ -131,9 +133,8 @@ created by this runtime, rejected if seen).
 
 ## Frameworks as Mach-O (`frameworks/`, `sdk/`)
 
-Everything up to CoreFoundation is C compiled into `mrun`. Frameworks above
-that line are Objective-C and are far more natural to write in Objective-C,
-so they are: `frameworks/Foundation/*.m` is compiled by clang for the macOS
+Frameworks can combine native code registered in `mrun` with Objective-C or
+Swift compiled for the guest. For example, `frameworks/Foundation/*.m` is compiled by clang for the macOS
 target and linked by `ld64.lld` into a real Mach-O library with the install
 name `/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation`.
 `mrun` finds it under its framework root (`BITTEN_ROOT`, or `root/` beside
@@ -156,6 +157,52 @@ use. CF's own functions accept foreign Objective-C objects too, so a
 subset, `objc/runtime.h`, CoreFoundation, Foundation). They are what the
 frameworks and the Foundation tests compile against, and they are the start
 of an SDK for building macOS-style programs without Apple's.
+
+### Swift (`src/frameworks/swift`, `stdlib/`, `overlays/`)
+
+The native runtime handles metadata and value witnesses, generics, ARC,
+protocols, casts and key paths; `src/frameworks/concurrency` runs async
+tasks. The Linux Swift compiler builds bitten's own module named `Swift`
+as `libswiftCore.dylib`, then builds overlays and frameworks against it.
+Matching a declaration supplies its link name; matching a frozen type's
+layout lets already-compiled code copy it and access its fields. The
+runtime tests in `tests/swift` use builtins without a standard library;
+`tests/swiftlib` exercises this stack with ordinary Swift code.
+
+### From a view to a window
+
+SwiftUI hosts its view graph in AppKit (`frameworks/SwiftUI/Host.swift`).
+AppKit lays out the view tree and draws it into a CoreGraphics bitmap per
+window (`frameworks/AppKit/AppKitDrawing.m`). CoreText draws from host
+font files; ImageIO reads PNG and JPEG. Named images can also come from
+a bundle's `Assets.car`: `AppKitAssets.m` reads bitmap renditions,
+including LZFSE, deepmap2 and atlas slices. It does not draw PDF or SVG
+vector renditions from the catalog.
+
+`src/frameworks/display` takes the finished window bitmap and returns
+mouse, scroll and keyboard events to AppKit. Direct `mrun` serves a
+browser canvas by default. `BITTEN_DISPLAY=x11` requests one X window per
+AppKit window; the Docker entrypoint makes that choice when `DISPLAY` is
+nonempty and no back end was explicitly selected. X11 needs Xlib headers
+at build time and loads libX11 on demand at runtime; if it cannot start,
+the browser back end is used. Neither back end draws the app's controls.
+
+### Metal renders before AppKit presents
+
+`frameworks/Metal/MetalDevice.m` implements a CPU device with buffers,
+textures and render pipelines. On a shader-cache miss, the native bridge
+in `src/frameworks/metal/metal.c` invokes `tools/metal-compile.py` and
+clang to translate supported AIR shaders from a metallib into an x86-64
+shared object. The rasteriser calls the vertex and fragment functions
+and blends the result into the texture. This is not GPU passthrough or
+a general Metal implementation; for example, there is no compute encoder.
+
+Presenting a drawable sets a `CAMetalLayer`'s `contents` to an image.
+On the main revision in [ROADMAP.md](ROADMAP.md), that does **not** mean
+the user sees it: the AppKit view draws its backing layer's background,
+sublayers and border, but skips its own layer's contents. Marking that
+layer dirty does not schedule its owning view to redraw. A correct
+off-screen frame can therefore leave a blank area in either display back end.
 
 ## Raw system calls (`src/loader/rawsys.c`)
 
@@ -182,9 +229,11 @@ mounted image and to find the app bundle and its executables. See
 
 - **CPU emulation.** x86-64 hosts run x86-64 slices. arm64-only apps would
   need a translator.
-- **The Mach kernel.** Mach ports, messages and bootstrap services are not
-  modelled. Programs that need XPC or launchd services will stop at the
-  first such call.
-- **Foundation, the Swift runtime and the GUI frameworks.** These are the
-  bulk of what graphical apps need; see [ROADMAP.md](ROADMAP.md) for the
-  order they will be built in and [TARGET-APP.md](TARGET-APP.md) for a measured example.
+- **A Mach kernel or system service registry.** Foundation connects
+  anonymous XPC listeners inside one process; it cannot reach named XPC
+  services. The `launchctl` implementation manages a per-user job table
+  and starts Linux or Mach-O processes without running launchd.
+- **A complete macOS SDK or desktop.** The framework root contains
+  implementations of selected APIs, not Apple's system frameworks or
+  services. See [ROADMAP.md](ROADMAP.md) for supported paths and limits
+  and [TARGET-APP.md](TARGET-APP.md) for the measured example.

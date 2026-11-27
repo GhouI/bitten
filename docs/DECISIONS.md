@@ -18,29 +18,33 @@ third-party compatibility code. The consequences are accepted knowingly:
 - Small, readable, MIT-licensed, and every line is understood.
 - Command-line and server programs are reachable quickly (the Mac app server ran
   within the first day).
-- Graphical apps are far away: Objective-C, Swift, Foundation, AppKit and
-  SwiftUI all have to be supplied (see [TARGET-APP.md](TARGET-APP.md)).
+- Graphical apps need Objective-C, Swift, Foundation, AppKit and SwiftUI.
+  These now run the target's windows, but each is a subset; a window
+  opening does not mean every view works (see [TARGET-APP.md](TARGET-APP.md)).
 
 No Darling code, headers or binaries were used.
 
 ### What counts as "third party"
-The line drawn: bitten may depend on the host's C library (glibc, libm,
-libresolv), a C compiler, and Python's standard library. It does not vendor
-or call other compatibility layers, disk-image tools, or Apple binaries.
-Tests additionally use clang, LLVM's `ld64.lld` and the Go toolchain to
-*produce* Mach-O test programs; none of that ships in the runtime image.
+bitten implements the Darwin interfaces rather than shipping Apple system
+libraries or calling another compatibility layer. It can use host
+facilities for the work behind those interfaces: glibc for system calls,
+libcurl for URLSession, open fonts for CoreText and optionally libX11 for
+display. clang, LLVM's `ld64.lld` and the open-source Swift compiler build
+bitten's Mach-O libraries; Go also produces test programs. Compiling an
+uncached Metal shader needs Python and a compatible clang at runtime.
 
 ### Implement macOS libraries natively, not by running Apple's
 The alternative design keeps Apple's own userland (`libSystem.dylib`,
 Foundation, ...) and emulates only the kernel beneath it. That needs Apple's
 binaries, which cannot be distributed and are not in a `.dmg` anyway. So
-bitten implements the library interfaces themselves, in C, on Linux.
+bitten implements the library interfaces itself: C and assembly in the
+Linux executable and Objective-C and Swift in Mach-O libraries.
 
-### One flat symbol table for system libraries
-Mach-O binds each import to a specific library. bitten ignores which system
-library was named and looks the symbol up in a single registry. It keeps the
-code small and tolerates Apple moving symbols between libraries across OS
-releases. Bundled Mach-O libraries keep proper two-level lookup.
+### One registry for native implementations
+The loader looks in the named Mach-O library first. Native implementations
+share a registry keyed by symbol name, not library name. For unresolved
+system-library imports the loader can also search other loaded images:
+programs sometimes import a symbol through a different library's re-export.
 
 ### Layer on glibc rather than on raw Linux syscalls
 Using glibc gives a tested `malloc`, stdio, resolver, locale and pthreads
@@ -55,24 +59,26 @@ an address filter and cannot be changed later), and ptrace (slow, needs a
 supervisor process). Syscall user dispatch is the kernel feature built for
 exactly this and costs nothing on the normal path. It requires Linux 5.11.
 
-### Real directories instead of path rewriting
-A path-translation hook exists (`dx_path`, `BITTEN_ROOT`) but the container
-simply has `/Applications`, `/Users`, `/private/tmp` and friends. Fewer
-surprises than rewriting strings inside every call.
+### Real directories except for bitten's system files
+The container has `/Applications`, `/Users`, `/private/tmp` and friends.
+`dx_path` checks the framework root for missing read-only system files
+and redirects a missing `launchctl` to `mrun`. Ordinary application paths
+are left alone.
 
 ### Fail honestly
-- An unimplemented import is bound to a stub that names the symbol when
+- An unimplemented strong function import is bound to a stub that names the symbol when
   called. Nothing returns made-up success by default (`BITTEN_STUBS=zero`
   exists for exploration).
 - Certificate trust evaluation is not implemented, so it answers "not
   trusted". The override that accepts everything is opt-in and logs a
   warning.
-- The Mac app viewer is described everywhere as bitten's viewer, not the Mac app's GUI.
+- The display back end transports windows drawn by the app through
+  bitten's frameworks. It is distinct from the separate terminal viewer.
 
 ### The disk-image reader is Python
 `dmgx` runs once per container start, is I/O-bound, and benefits from the
-standard library's zlib, bz2 and lzma. The loader and the layer are C
-because they define binary interfaces.
+standard library's zlib, bz2 and lzma. The loader stays native because it
+maps and enters executable code.
 
 ### Test with real Mach-O programs
 Tests are compiled to Mach-O and run under `mrun`, rather than unit-testing
@@ -81,12 +87,13 @@ loader, the fixups and the ABI for real. Go programs are part of the suite
 because the Go runtime is a demanding client: it uses signals to rewrite
 register state, its own thread-local slot, kqueue, and `LC_UNIXTHREAD`.
 
-### Frameworks above CoreFoundation are Objective-C, built as Mach-O
+### Ship higher-level frameworks as Mach-O libraries
 Foundation and everything after it (AppKit, ...) is thousands of methods on
 hundreds of classes. Writing those as C functions registered one by one
 would be slow to write and painful to read. Instead bitten compiles its own
 Objective-C sources for the macOS target and ships them as Mach-O
-frameworks that `mrun` loads like any app library. This costs a build-time
+frameworks that `mrun` loads like any app library. Swift overlays and
+frameworks such as SwiftUI use the same loader. Objective-C costs a build-time
 dependency on clang and lld, and buys ARC, categories, literals and blocks
 in the implementation language. The C side keeps what must exist before any
 Mach-O image loads: the runtime, CoreFoundation and the bridged class
@@ -103,27 +110,22 @@ written specifications and then reviewed, built and verified here: the
 disk-image reader, and the CoreFoundation / Security / libproc / resolver
 batch. The pull requests say so.
 
-### Windows are shown in a browser
-A Mac app's windows need somewhere to appear, and a container has no
-display. The choice was between an X11 or Wayland client (the container
-then needs a display server and the host a way to see it) and a page in a
-browser. bitten draws every window itself (CoreGraphics in mrun renders
-into the window's bitmap; AppKit decides what to draw) and serves the
-result from mrun: a small HTTP server (port `BITTEN_DISPLAY_PORT`, 7681 by
-default, loopback unless `BITTEN_DISPLAY_PUBLIC` is set) whose page draws
-each window on a canvas over a WebSocket and sends mouse, scroll and
-keyboard input back as Mac key codes and modifier flags. Nothing is needed
-in the container or on the host but a browser, it follows the terminal
-viewer that came before, and an X11 or Wayland back end can be added
-behind the same interface later (`bitten_display_present` and
-`bitten_display_next_event`, `src/frameworks/display`).
+### Draw once; send the window to a browser or to X11
+AppKit presents a bitmap and reads events through the same interface
+(`src/frameworks/display`) whichever back end is selected. The browser
+needs no host display server: `mrun` serves a page that receives frames
+over a WebSocket, draws a canvas per window and sends input back. The
+server uses port 7681 by default (`BITTEN_DISPLAY_PORT`) and binds to
+loopback unless `BITTEN_DISPLAY_PUBLIC` is set; the container image sets it
+so a published port works.
 
-The X11 back end now exists (`src/frameworks/display/x11.c`, chosen with
-`BITTEN_DISPLAY=x11`; the container's entrypoint sets it when `DISPLAY` is
-passed in). Each Mac window is its own X window, so the desktop's window
-manager frames, moves and stacks it. libX11 is loaded with `dlopen` only
-when it is chosen, so mrun keeps no X11 dependency, and the browser page
-stays the default. On Wayland desktops it works through Xwayland.
+Direct `mrun` uses the browser unless `BITTEN_DISPLAY=x11` requests the
+X11 back end. In contrast, `docker/bitten` defaults to X11 when given a
+nonempty `DISPLAY`, preserving any explicit nonempty `BITTEN_DISPLAY`.
+The X11 back end gives the host window manager a window per Mac window;
+on Wayland this uses Xwayland, not a native Wayland client. Xlib headers
+enable the back end at build time. Only selecting it loads `libX11.so.6`;
+if it cannot start, `mrun` falls back to the browser.
 
 ## Dead ends and corrections
 
@@ -152,14 +154,12 @@ stays the default. On Wayland desktops it works through Xwayland.
   the owner to `scion`, `galapagos` and then `bitten` during the first day.
   Environment variables are `BITTEN_*`.
 
-### Swift tests from the open-source toolchain with -parse-stdlib
-There is no Swift compiler that targets macOS without Apple's SDK, which is
-not ours to use. But the swift.org Linux toolchain's `swiftc` can emit
-`x86_64-apple-macos` objects when the code does not import the standard
-library (`-parse-stdlib`, `Builtin` types only). That code exercises exactly
-the runtime surface (metadata, classes, generics, closures, protocols), so
-it is how the Swift runtime is tested. The toolchain is a test-time tool
-like clang and Go; nothing from it ships.
+### Cross-compile Swift on Linux with bitten's own SDK
+The swift.org Linux compiler can emit x86-64 Mach-O without Apple's SDK.
+`tests/swift` uses `-parse-stdlib` and builtin types to isolate runtime
+behavior. The same compiler builds bitten's `Swift` module, overlays and
+frameworks; `tests/swiftlib` imports them as a program would. The image
+ships these guest libraries, not the host Swift toolchain.
 
 ### The standard library is Swift source of our own, matched by declaration
 Apple's `libswiftCore` is not ours to ship, and its source is not ours to
