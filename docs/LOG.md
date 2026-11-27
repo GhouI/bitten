@@ -4861,3 +4861,17 @@ Debugging aids:
 - Launch: time to `main` 1.28 → 1.22 s; first interactive terminal
   5.3–5.6 s.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Image lookups by name don't rescan the asset catalog
+
+- `+[NSImage imageNamed:]` looked for a name it couldn't otherwise find
+  by scanning the bundle's Assets.car byte by byte. That is 11 MB in the
+  target app, scanned again on every lookup, including repeats of names
+  that weren't there. Between `main` and the first frame it was about
+  8.5% of the samples.
+- Each name is now looked for once per catalog (with `memmem`), and
+  `imageNamed:` remembers names it didn't find until an image takes the
+  name (`setName:`).
+- Launch to the first interactive terminal: 5.3–5.6 s → 4.3–4.75 s.
+  Images look the same.
+- Target app (total `^MISSING`): 0 -> 0.
