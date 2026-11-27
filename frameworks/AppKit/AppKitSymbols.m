@@ -254,7 +254,18 @@ static int glyph(struct pen *p, const struct sym *s) {
     }
     if (!strcmp(b, "rectangle") || !strcmp(b, "macwindow") || !strcmp(b, "uiwindow") || !strcmp(b, "menubar")) {
         box(p, 0.1, 0.22, 0.8, 0.56, 0.08);
-        if (has(s, "split")) seg(p, 0.5, 0.22, 0.5, 0.78);
+        if (has(s, "split")) {
+            /* split.CxR: C columns, R rows (2x1 side by side, 1x2 stacked) */
+            int cols = 2, rows = 1;
+            for (int i = 0; i < s->n; i++) {
+                int cc, rr;
+                char tail;
+                if (sscanf(s->tok[i], "%dx%d%c", &cc, &rr, &tail) == 2 && cc >= 1 && rr >= 1 && cc <= 4 && rr <= 4)
+                    cols = cc, rows = rr;
+            }
+            for (int k = 1; k < cols; k++) seg(p, 0.1 + 0.8 * k / cols, 0.22, 0.1 + 0.8 * k / cols, 0.78);
+            for (int k = 1; k < rows; k++) seg(p, 0.1, 0.22 + 0.56 * k / rows, 0.9, 0.22 + 0.56 * k / rows);
+        }
         if (!strcmp(b, "macwindow") || !strcmp(b, "menubar")) seg(p, 0.1, 0.36, 0.9, 0.36);
         if (has(s, "stack") || has(s, "on")) box(p, 0.18, 0.12, 0.8, 0.56, 0.08);
         return 1;
