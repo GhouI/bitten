@@ -4945,3 +4945,17 @@ Debugging aids:
   on and off, tooltips, resize; no stale pixels. `BITTEN_EVENT_DEBUG`
   now logs leaving tracking areas too.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Windows update after each frame, events or not
+
+- A window posts `NSWindowDidUpdateNotification` (`windowDidUpdate:`)
+  after each frame it draws, as well as after a batch of events. AppKit
+  updates windows after every turn of the run loop, not only turns that
+  had events.
+- The target app keeps its workspace window covered until a window update
+  shows its first layout, with a watchdog for when none comes. With no
+  viewer connected yet (no events), none came: every launch logged
+  "Workspace window initial layout is still pending" and waited for the
+  watchdog. The error is gone, and the initial cover resolves in about
+  700–830 ms instead of 1008 ms.
+- Target app (total `^MISSING`): 0 -> 0.
