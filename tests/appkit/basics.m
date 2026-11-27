@@ -106,6 +106,15 @@ static int left_window, views_freed;
 - (void)dealloc { views_freed++; }
 @end
 
+/* Counts live resizes. */
+@interface Resizee : NSView
+@property int started, ended;
+@end
+@implementation Resizee
+- (void)viewWillStartLiveResize { self.started++; }
+- (void)viewDidEndLiveResize { self.ended++; }
+@end
+
 @interface Delegate : NSObject <NSApplicationDelegate>
 @property int launched;
 @end
@@ -363,6 +372,16 @@ int main(void) {
     [NSEvent _bn_setMouseLocation:NSMakePoint(w.frame.origin.x + 30, w.frame.origin.y + 40) flags:0];
     NSPoint at = w.mouseLocationOutsideOfEventStream;
     CHECK(at.x == 30 && at.y == 40);
+
+    /* Sizes from the display's grip make a live resize, which ends once
+     * they stop: views hear the start once and the end once. */
+    Resizee *rz = [[Resizee alloc] initWithFrame:NSMakeRect(0, 0, 10, 10)];
+    [w.contentView addSubview:rz];
+    [w _bn_liveResizeStep];
+    [w _bn_liveResizeStep];
+    CHECK(w.inLiveResize && rz.inLiveResize && rz.started == 1 && rz.ended == 0);
+    [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.6]];
+    CHECK(!w.inLiveResize && rz.started == 1 && rz.ended == 1);
     puts("AppKit basics ok");
     return 0;
 }

@@ -425,6 +425,7 @@ static NSString *bn_key_characters(unsigned short code) {
             [window performClose:nil];
             continue;
         case 9: {
+            [window _bn_liveResizeStep];
             /* Resized by the page's grip: the top left corner stays put. */
             NSRect frame = window.frame;
             NSRect c = [window contentRectForFrameRect:frame];
@@ -516,5 +517,44 @@ static NSEvent *bn_run_local_monitors(NSEvent *event) {
 + (void)removeMonitor:(id)monitor {
     if (getenv("BITTEN_MONITOR_DEBUG")) fprintf(stderr, "bitten: monitor %p removed\n", (__bridge void *)monitor);
     @synchronized(event_monitors()) { [event_monitors() removeObjectIdenticalTo:monitor]; }
+}
+@end
+
+/* A live resize: the page's grip sends sizes while it is dragged and
+ * nothing when it is let go, so the resize ends once sizes stop coming. As
+ * in AppKit, views hear viewWillStartLiveResize / viewDidEndLiveResize and
+ * the window posts its notifications; inLiveResize says it is under way. */
+static void bn_tell_live_resize(NSView *v, BOOL start) {
+    if (start) [v viewWillStartLiveResize];
+    for (NSView *s in [v.subviews copy]) bn_tell_live_resize(s, start);
+    if (!start) [v viewDidEndLiveResize];
+}
+@implementation NSWindow (BittenLiveResize)
+- (void)_bn_liveResizeStep {
+    static const char kStep;
+    NSInteger step = [objc_getAssociatedObject(self, &kStep) integerValue] + 1;
+    objc_setAssociatedObject(self, &kStep, @(step), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    if (!self.inLiveResize) {
+        objc_setAssociatedObject(self, @selector(inLiveResize), @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        if ([self.delegate respondsToSelector:@selector(windowWillStartLiveResize:)])
+            [(id)self.delegate performSelector:@selector(windowWillStartLiveResize:)
+                                    withObject:[NSNotification notificationWithName:NSWindowWillStartLiveResizeNotification
+                                                                             object:self userInfo:nil]];
+        [self _post:NSWindowWillStartLiveResizeNotification];
+        bn_tell_live_resize(self.contentView, YES);
+    }
+    __weak NSWindow *weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 350 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+        NSWindow *w = weakSelf;
+        if (!w || [objc_getAssociatedObject(w, &kStep) integerValue] != step || !w.inLiveResize) return;
+        objc_setAssociatedObject(w, @selector(inLiveResize), nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        bn_tell_live_resize(w.contentView, NO);
+        if ([w.delegate respondsToSelector:@selector(windowDidEndLiveResize:)])
+            [(id)w.delegate performSelector:@selector(windowDidEndLiveResize:)
+                                 withObject:[NSNotification notificationWithName:NSWindowDidEndLiveResizeNotification
+                                                                          object:w userInfo:nil]];
+        [w _post:NSWindowDidEndLiveResizeNotification];
+        [w display];   /* a last full frame, drawn as views draw outside a live resize */
+    });
 }
 @end

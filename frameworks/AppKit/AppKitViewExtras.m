@@ -209,7 +209,7 @@ static const char k_laidOut;
 }
 - (BOOL)acceptsFirstMouse:(NSEvent *)event { return NO; }
 - (BOOL)wantsDefaultClipping { return YES; }
-- (BOOL)inLiveResize { return NO; }
+- (BOOL)inLiveResize { return self.window.inLiveResize; }
 - (void)viewDidChangeBackingProperties {}
 - (NSMenu *)menu { return get(self, &k_menu); }
 - (void)setMenu:(NSMenu *)m { set(self, &k_menu, m); }

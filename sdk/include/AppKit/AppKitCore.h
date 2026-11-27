@@ -637,6 +637,8 @@ typedef NSString *NSUserInterfaceItemIdentifier NS_TYPED_EXTENSIBLE_ENUM;
 - (void)_bn_sendStyle;
 - (void)_bn_hideKeepingDisplay;
 - (void)_bn_dropFirstResponder;
+- (void)_bn_liveResizeStep;
+@property (readonly) BOOL inLiveResize;
 - (void)_post:(NSNotificationName)name;
 - (void)_bn_orderFrontOnDisplay;
 - (void)_bn_closeDisplay;
@@ -1247,6 +1249,10 @@ typedef NS_ENUM(NSInteger, NSScrollElasticity) {
 - (void)reflectScrolledClipView:(NSClipView *)clipView;
 @end
 
+@interface NSView (BittenLiveResize)
+- (void)viewWillStartLiveResize;
+- (void)viewDidEndLiveResize;
+@end
 @interface NSView (BittenKeyEquivalents)
 /* Offers a key equivalent to the view and its subviews (AppKitEvents.m). */
 - (BOOL)performKeyEquivalent:(NSEvent *)event NS_SWIFT_NAME(performKeyEquivalent(with:));

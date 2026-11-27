@@ -4779,3 +4779,17 @@ Debugging aids:
   (the target app's hover tips do) no longer runs the stale ones.
   tests/swiftlib/handoff.swift covers all three cases.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Live resize
+
+- Resizing a window from the display page's grip is now a live resize, as
+  in AppKit. The first size starts it: `inLiveResize` is YES for the
+  window and its views, views get `viewWillStartLiveResize`, and the
+  delegate and observers get `windowWillStartLiveResize`. The page sends
+  nothing when the grip is let go, so the resize ends 0.35 s after the
+  last size, with `viewDidEndLiveResize`, `windowDidEndLiveResize` and a
+  last full display.
+- The target app uses these hooks for its workspace. A grip resize
+  settles to the right layout. tests/appkit/basics.m covers the start
+  and end.
+- Target app (total `^MISSING`): 0 -> 0.

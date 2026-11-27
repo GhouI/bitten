@@ -67,7 +67,7 @@
 /* ---- windows ---- */
 
 @implementation NSWindow (BittenCompat)
-- (BOOL)inLiveResize { return NO; }
+- (BOOL)inLiveResize { return [objc_getAssociatedObject(self, @selector(inLiveResize)) boolValue]; }
 - (BOOL)isOnActiveSpace { return YES; }
 - (NSSize)contentResizeIncrements {
     NSValue *v = objc_getAssociatedObject(self, @selector(contentResizeIncrements));
