@@ -1671,8 +1671,12 @@ public struct EveryMinuteTimelineSchedule: TimelineSchedule {
 }
 public struct AnimationTimelineSchedule: TimelineSchedule {
   let minimumInterval: Double?
-  public init(minimumInterval: Double? = nil, paused: Bool = false) { self.minimumInterval = minimumInterval }
-  public var _interval: Double? { return minimumInterval ?? (1.0 / 30) }
+  let paused: Bool
+  public init(minimumInterval: Double? = nil, paused: Bool = false) {
+    self.minimumInterval = minimumInterval
+    self.paused = paused
+  }
+  public var _interval: Double? { return paused ? nil : minimumInterval ?? (1.0 / 30) }
 }
 extension TimelineSchedule where Self == PeriodicTimelineSchedule {
   public static func periodic(from startDate: Date, by interval: TimeInterval) -> PeriodicTimelineSchedule {
@@ -1705,17 +1709,26 @@ extension TimelineView: View where Content: View {
   }
   nonisolated public static func _makeView(view: _GraphValue<TimelineView>, inputs: _ViewInputs) -> _ViewOutputs {
     let v = view.value
-    if let interval = v.schedule._interval {
-      let timer = inputs.base.context.store(inputs.base.path + "#timeline") { _TimelineTimer() }
-      timer.start(interval: interval, invalidate: inputs.base.context.invalidate)
-    }
+    // The timer runs while the timeline is in the tree and not paused.
+    let context = inputs.base.context, key = inputs.base.path + "#timeline"
+    let timer = context.store(key) { _TimelineTimer() }
+    timer.run(interval: v.schedule._interval, invalidate: context.invalidate)
+    context.lifecycle(key, appear: nil, disappear: { [weak context] in
+      timer.run(interval: nil, invalidate: {})
+      context?.storage[key] = nil
+    })
     return _ViewOutputs(_makeNode(v.content(Context(date: Date())), inputs: inputs.named("timeline")))
   }
 }
 final class _TimelineTimer {
   var source: DispatchSourceTimer?
-  func start(interval: Double, invalidate: @escaping () -> Void) {
-    if source != nil { return }
+  var interval: Double?
+  func run(interval: Double?, invalidate: @escaping () -> Void) {
+    if source != nil && interval == self.interval { return }
+    source?.cancel()
+    source = nil
+    self.interval = interval
+    guard let interval = interval else { return }
     let s = DispatchSource.makeTimerSource(queue: .main)
     s.schedule(deadline: .now() + interval, repeating: interval)
     s.setEventHandler { invalidate() }

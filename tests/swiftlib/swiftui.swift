@@ -122,6 +122,66 @@ struct Tapper: View {
   }
 }
 
+/// Counts how often the tree is built: a timeline's content runs each time.
+final class Builds {
+  var n = 0
+  func bump() { n += 1 }
+}
+struct Ticking: View {
+  let builds: Builds
+  let paused: Bool
+  var body: some View {
+    TimelineView(.animation(minimumInterval: 0.01, paused: paused)) { _ -> Color in
+      builds.n += 1
+      return Color(.sRGB, red: 1, green: 0, blue: 0)
+    }
+  }
+}
+struct MaybeTicking: View {
+  let builds: Builds
+  let show: Bool
+  var body: some View {
+    let _ = builds.bump()
+    if show { Ticking(builds: Builds(), paused: false) } else { Color(.sRGB, red: 0, green: 0, blue: 1) }
+  }
+}
+
+/// A running timeline rebuilds its content; a paused one, or one that has
+/// left the tree, does not.
+@_silgen_name("swl_swiftui_timelines") public func timelines() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    @MainActor func spinThenDraw<V: View>(_ host: NSHostingView<V>) {
+      RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
+      _ = render(host.rootView, 10, 10, host: host)
+    }
+    // Any host's timer rebuilds every host: the running timeline goes last,
+    // after rebuilds earlier tests asked for.
+    RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
+    let paused = Builds()
+    let b = NSHostingView(rootView: Ticking(builds: paused, paused: true))
+    _ = render(b.rootView, 10, 10, host: b)
+    spinThenDraw(b)
+    if paused.n != 1 { bad |= 2 }
+    let gone = Builds()
+    let c = NSHostingView(rootView: MaybeTicking(builds: gone, show: true))
+    _ = render(c.rootView, 10, 10, host: c)
+    c.rootView = MaybeTicking(builds: gone, show: false)
+    spinThenDraw(c)
+    spinThenDraw(c)
+    let after = gone.n
+    spinThenDraw(c)
+    if gone.n != after { bad |= 4 }
+    let running = Builds()
+    let a = NSHostingView(rootView: Ticking(builds: running, paused: false))
+    _ = render(a.rootView, 10, 10, host: a)
+    spinThenDraw(a)
+    if running.n < 2 { bad |= 1 }
+    if getenv("SWIFTUI_DUMP") != nil { print("timelines: running \(running.n) paused \(paused.n) gone \(after) -> \(gone.n)") }
+    return bad
+  }
+}
+
 final class LazyModel {
   var a = 1, b = 2, c = 3
 }

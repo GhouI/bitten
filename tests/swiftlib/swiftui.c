@@ -4,6 +4,7 @@
 long swl_swiftui_layout(void);
 long swl_swiftui_state(void);
 long swl_swiftui_lazy(void);
+long swl_swiftui_timelines(void);
 long swl_swiftui_order(void);
 long swl_swiftui_styles(void);
 long swl_swiftui_hits(void);
@@ -24,6 +25,7 @@ int main(void) {
     int ok = check("layout", swl_swiftui_layout());
     ok &= check("state", swl_swiftui_state());
     ok &= check("lazy", swl_swiftui_lazy());
+    ok &= check("timelines", swl_swiftui_timelines());
     ok &= check("order", swl_swiftui_order());
     ok &= check("styles", swl_swiftui_styles());
     ok &= check("hits", swl_swiftui_hits());

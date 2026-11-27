@@ -4412,3 +4412,17 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   the bottom row at the bottom. tests/swiftlib/swiftui.swift (`flexrows`)
   covers this.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: timelines stop when paused or gone
+
+- A `TimelineView` with `.animation(paused: true)` runs no timer. A
+  timeline that leaves the tree stops its timer; it used to keep firing,
+  every 1/30 s for the life of the process.
+- Each tick rebuilt the tree of every hosting view and redrew every
+  window in software. In the target app, a timeline from its loading
+  screen kept the main window redrawing 3–4 times a second after the
+  screen was gone: 90–100% CPU while idle. Clicks that straddled one of
+  those rebuilds were lost.
+- Test: `tests/swiftlib/swiftui.swift` (timelines): a running timeline
+  rebuilds, a paused one does not, and one removed from the tree stops.
+- Target app (total `^MISSING`): 0 -> 0.
