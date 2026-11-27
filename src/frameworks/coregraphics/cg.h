@@ -169,6 +169,9 @@ struct cg_mask {
     int refs;
     size_t width, height;
     uint8_t *data;
+    /* Where the mask can be non-zero: columns [x0, x1), rows [y0, y1) of
+     * data (rows top down). Drawing outside it is clipped away. */
+    size_t x0, y0, x1, y1;
 };
 
 struct cg_mask *cg_mask_new(size_t w, size_t h, uint8_t fill);
@@ -198,6 +201,9 @@ void cg_fill_polys(const struct cg_target *t, const struct cg_polys *polys, bool
                    const struct cg_paint *paint);
 /* Rasterize polygons into a coverage mask (for clipping). */
 void cg_mask_polys(struct cg_mask *m, const struct cg_polys *polys, bool even_odd, bool antialias);
+/* The same within another mask's box (what lies outside it is cut by that mask). */
+void cg_mask_polys_within(struct cg_mask *m, const struct cg_polys *polys, bool even_odd, bool antialias,
+                          const struct cg_mask *within);
 void cg_read_pixel(const struct cg_surface *s, size_t x, size_t row, CGFloat out[4]);   /* premultiplied */
 void cg_write_pixel(struct cg_surface *s, size_t x, size_t row, const CGFloat in[4]);   /* premultiplied */
 void cg_blend_pixel(const struct cg_target *t, size_t x, size_t row, const CGFloat premul[4], CGFloat coverage);

@@ -105,6 +105,18 @@ int main(void) {
         CHECK(NSClassFromString(@"Point3") == [Point3 class] && NSClassFromString(@"Nope") == Nil);
         NSLog(@"foundation says %@ with %lu keys", dict[@"name"], (unsigned long)dict.count);
     }
+    // Sorting is stable: equal items keep their order.
+    NSArray *words = @[@"bb", @"a2", @"cc", @"a1", @"dd", @"a3"];
+    NSArray *byLength = [words sortedArrayUsingComparator:^NSComparisonResult(NSString *x, NSString *y) {
+        return [@(x.length) compare:@(y.length)];
+    }];
+    CHECK([byLength isEqualToArray:words]);
+    NSArray *byFirst = [words sortedArrayWithOptions:NSSortStable usingComparator:^NSComparisonResult(NSString *x, NSString *y) {
+        return [[x substringToIndex:1] compare:[y substringToIndex:1]];
+    }];
+    CHECK([byFirst isEqualToArray:(@[@"a2", @"a1", @"a3", @"bb", @"cc", @"dd"])]);
+    NSDictionary *scores = @{@"x" : @3, @"y" : @1, @"z" : @2};
+    CHECK([[scores keysSortedByValueUsingSelector:@selector(compare:)] isEqualToArray:(@[@"y", @"z", @"x"])]);
     puts("foundation basics ok");
     return 0;
 }

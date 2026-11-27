@@ -31,28 +31,37 @@ struct sort_ctx {
     __unsafe_unretained NSComparator comparator;
     SEL selector;
 };
+/* Items carry their original position, so equal items keep their order
+ * (sorting is stable, as Foundation's is). */
+struct sort_item { void *object; size_t index; };
 static int sort_compare(void *ctx, const void *a, const void *b) {
     struct sort_ctx *c = ctx;
-    id x = (__bridge id)(*(void *const *)a), y = (__bridge id)(*(void *const *)b);
-    if (c->comparator) return (int)c->comparator(x, y);
-    return (int)((NSComparisonResult (*)(id, SEL, id))objc_msgSend)(x, c->selector, y);
+    const struct sort_item *p = a, *q = b;
+    id x = (__bridge id)p->object, y = (__bridge id)q->object;
+    NSComparisonResult r = c->comparator ? c->comparator(x, y)
+                                         : ((NSComparisonResult (*)(id, SEL, id))objc_msgSend)(x, c->selector, y);
+    if (r != NSOrderedSame) return (int)r;
+    return p->index < q->index ? -1 : p->index > q->index;
 }
 static NSArray *sorted(NSArray *self, NSComparator comparator, SEL selector, BOOL mutable) {
     NSUInteger n = self.count;
-    void **items = malloc((n ? n : 1) * sizeof(void *));
-    CFArrayGetValues(CFA(self), CFRangeMake(0, (CFIndex)n), (const void **)items);
+    void **objects = malloc((n ? n : 1) * sizeof(void *));
+    struct sort_item *items = malloc((n ? n : 1) * sizeof *items);
+    CFArrayGetValues(CFA(self), CFRangeMake(0, (CFIndex)n), (const void **)objects);
+    for (NSUInteger i = 0; i < n; i++) items[i] = (struct sort_item){objects[i], i};
     struct sort_ctx ctx = {comparator, selector};
-    /* insertion-stable merge is not needed here: sort a pointer array */
-    qsort_r(items, n, sizeof(void *), &ctx, sort_compare);
+    qsort_r(items, n, sizeof *items, &ctx, sort_compare);
+    for (NSUInteger i = 0; i < n; i++) objects[i] = items[i].object;
+    free(items);
     id result;
     if (mutable) {
         CFMutableArrayRef m = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-        for (NSUInteger i = 0; i < n; i++) CFArrayAppendValue(m, items[i]);
+        for (NSUInteger i = 0; i < n; i++) CFArrayAppendValue(m, objects[i]);
         result = (__bridge_transfer id)m;
     } else {
-        result = (__bridge_transfer id)CFArrayCreate(NULL, (const void **)items, (CFIndex)n, &kCFTypeArrayCallBacks);
+        result = (__bridge_transfer id)CFArrayCreate(NULL, (const void **)objects, (CFIndex)n, &kCFTypeArrayCallBacks);
     }
-    free(items);
+    free(objects);
     return result;
 }
 
@@ -149,6 +158,9 @@ static NSArray *sorted(NSArray *self, NSComparator comparator, SEL selector, BOO
 }
 - (NSArray *)sortedArrayUsingComparator:(NSComparator)comparator { return sorted(self, comparator, NULL, NO); }
 - (NSArray *)sortedArrayUsingSelector:(SEL)selector { return sorted(self, nil, selector, NO); }
+- (NSArray *)sortedArrayWithOptions:(NSSortOptions)opts usingComparator:(NSComparator)comparator {
+    return sorted(self, comparator, NULL, NO);
+}
 - (NSUInteger)countByEnumeratingWithState:(NSFastEnumerationState *)state
                                   objects:(id __unsafe_unretained[])buffer
                                     count:(NSUInteger)len {
@@ -224,6 +236,9 @@ static NSArray *sorted(NSArray *self, NSComparator comparator, SEL selector, BOO
     NSArray *s = sorted(self, comparator, NULL, NO);
     [self removeAllObjects];
     [self addObjectsFromArray:s];
+}
+- (void)sortWithOptions:(NSSortOptions)opts usingComparator:(NSComparator)comparator {
+    [self sortUsingComparator:comparator];
 }
 - (id)copyWithZone:(NSZone *)zone { return (__bridge_transfer id)CFArrayCreateCopy(NULL, CFA(self)); }
 @end

@@ -712,11 +712,22 @@ DX_FN(CGContextPathContainsPoint);
 
 /* ---- clipping ------------------------------------------------------------------------------- */
 
+/* The new clip is m times the current one; both are zero outside their
+ * boxes, so only m's box is visited and the result's box is the overlap. */
 static void intersect_clip(CGContextRef c, struct cg_mask *m) {
     struct gstate *g = c->gs;
     if (g->clip) {
-        for (size_t i = 0; i < m->width * m->height; i++)
-            m->data[i] = (uint8_t)((m->data[i] * g->clip->data[i] + 127) / 255);
+        const struct cg_mask *o = g->clip;
+        size_t x0 = m->x0 > o->x0 ? m->x0 : o->x0, x1 = m->x1 < o->x1 ? m->x1 : o->x1;
+        size_t y0 = m->y0 > o->y0 ? m->y0 : o->y0, y1 = m->y1 < o->y1 ? m->y1 : o->y1;
+        for (size_t row = m->y0; row < m->y1; row++) {
+            uint8_t *d = m->data + row * m->width;
+            const uint8_t *e = o->data + row * o->width;
+            for (size_t x = m->x0; x < m->x1; x++)
+                d[x] = (row >= y0 && row < y1 && x >= x0 && x < x1) ? (uint8_t)((d[x] * e[x] + 127) / 255) : 0;
+        }
+        if (x0 >= x1 || y0 >= y1) x0 = x1 = y0 = y1 = 0;
+        m->x0 = x0, m->x1 = x1, m->y0 = y0, m->y1 = y1;
         cg_mask_release(g->clip);
     }
     g->clip = m;
@@ -727,7 +738,7 @@ static void clip_to_path(CGContextRef c, const struct cg_path *p, bool eo) {
     if (!m) return;
     struct cg_polys polys = {0};
     cg_flatten(p, 0.2, &polys);
-    cg_mask_polys(m, &polys, eo, c->gs->antialias && c->gs->allows_antialias);
+    cg_mask_polys_within(m, &polys, eo, c->gs->antialias && c->gs->allows_antialias, c->gs->clip);
     cg_polys_free(&polys);
     intersect_clip(c, m);
 }
@@ -778,7 +789,14 @@ static void d_CGContextClipToMask(CGContextRef c, CGRect r, const struct cg_imag
             CGFloat s[4];
             cg_image_sample(img, fx * img->width, (1 - fy) * img->height, true, false, s);
             CGFloat v = img->is_mask ? s[3] : 0.2126 * s[0] + 0.7152 * s[1] + 0.0722 * s[2];
-            m->data[row * w + x] = (uint8_t)(fmin(fmax(v, 0), 1) * 255 + 0.5);
+            uint8_t b = (uint8_t)(fmin(fmax(v, 0), 1) * 255 + 0.5);
+            m->data[row * w + x] = b;
+            if (!b) continue;
+            if (m->x0 >= m->x1) m->x0 = x, m->x1 = x + 1, m->y0 = row, m->y1 = row + 1;
+            if (x < m->x0) m->x0 = x;
+            if (x + 1 > m->x1) m->x1 = x + 1;
+            if (row < m->y0) m->y0 = row;
+            if (row + 1 > m->y1) m->y1 = row + 1;
         }
     intersect_clip(c, m);
 }
@@ -790,8 +808,8 @@ static CGRect d_CGContextGetClipBoundingBox(CGContextRef c) {
     CGRect dev = {{0, 0}, {(CGFloat)w, (CGFloat)h}};
     if (c->gs->clip) {
         long x0 = (long)w, x1 = -1, r0 = (long)h, r1 = -1;
-        for (size_t row = 0; row < h; row++)
-            for (size_t x = 0; x < w; x++)
+        for (size_t row = c->gs->clip->y0; row < c->gs->clip->y1; row++)
+            for (size_t x = c->gs->clip->x0; x < c->gs->clip->x1; x++)
                 if (c->gs->clip->data[row * w + x]) {
                     if ((long)x < x0) x0 = (long)x;
                     if ((long)x > x1) x1 = (long)x;
@@ -952,8 +970,11 @@ static void d_CGContextEndTransparencyLayer(CGContextRef c) {
     c->layers = l->next;
     c->target = l->under;
     struct cg_target t = {c->target, c->gs->clip, l->alpha, l->blend, true};
-    for (size_t row = 0; row < l->surface.height; row++)
-        for (size_t x = 0; x < l->surface.width; x++) {
+    /* Only the clip's box can have been painted (and shows through it). */
+    size_t x0 = 0, x1 = l->surface.width, y0 = 0, y1 = l->surface.height;
+    if (t.clip) x0 = t.clip->x0, x1 = t.clip->x1, y0 = t.clip->y0, y1 = t.clip->y1;
+    for (size_t row = y0; row < y1; row++)
+        for (size_t x = x0; x < x1; x++) {
             CGFloat px[4];
             cg_read_pixel(&l->surface, x, row, px);
             if (px[3] > 0 || l->blend == CG_BLEND_COPY) cg_blend_pixel(&t, x, row, px, 1);

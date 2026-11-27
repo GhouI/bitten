@@ -6,6 +6,8 @@
 #import <QuartzCore/QuartzCore.h>
 #include <math.h>
 #include <stdlib.h>
+#include <time.h>
+#include <string.h>
 #include <stdio.h>
 #include <objc/runtime.h>
 #include <pthread.h>
@@ -392,8 +394,24 @@ static void bn_layer_border(BNBackingLayer *layer, CGContextRef c, CGRect b) {
 /* Draws this view and its subviews. On entry the context's coordinates
  * are the superview's bounds space; `parentFlipped` says whether that
  * space runs downward. */
+/* BITTEN_DRAW_PROFILE: time spent painting each class (own drawing, not
+ * its subviews), summed and printed every 20 window displays. */
+static NSMutableDictionary<NSString *, NSNumber *> *draw_profile;
+static double now_ms(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1e3 + ts.tv_nsec / 1e6;
+}
+static void profile_add(id view, double ms) {
+    if (!draw_profile) draw_profile = [NSMutableDictionary dictionary];
+    NSString *k = NSStringFromClass([view class]);
+    draw_profile[k] = @(draw_profile[k].doubleValue + ms);
+}
 - (void)_bn_drawIn:(CGContextRef)c parentFlipped:(BOOL)parentFlipped {
     if (self.isHidden) return;
+    static int profiling = -1;
+    if (profiling < 0) profiling = getenv("BITTEN_DRAW_PROFILE") != NULL;
+    double t0 = profiling ? now_ms() : 0, kids = 0;
     NSRect f = self.frame, b = self.bounds;
     CGContextSaveGState(c);
     CGContextTranslateCTM(c, f.origin.x, f.origin.y);
@@ -446,8 +464,11 @@ static void bn_layer_border(BNBackingLayer *layer, CGContextRef c, CGRect b) {
         bn_layer_sublayers(layer, c, flipped);
         bitten_cg_restore_to_depth(c, depth);
     }
-    if (![self _bn_drawsOwnSubviews])
+    if (![self _bn_drawsOwnSubviews]) {
+        double k0 = profiling ? now_ms() : 0;
         for (NSView *v in self.subviews) [v _bn_drawIn:c parentFlipped:flipped];
+        if (profiling) kids = now_ms() - k0;
+    }
     if (layer) {
         CGContextRestoreGState(c); /* the corner clip */
         bn_layer_border(layer, c, b);
@@ -455,6 +476,7 @@ static void bn_layer_border(BNBackingLayer *layer, CGContextRef c, CGRect b) {
     if (group) CGContextEndTransparencyLayer(c);
     CGContextRestoreGState(c);
     self.needsDisplay = NO;
+    if (profiling) profile_add(self, now_ms() - t0 - kids);
 }
 @end
 
@@ -477,11 +499,16 @@ static void bn_dump_tree(NSView *v, int depth) {
                 depth * 2, "", l.position.x, l.position.y, NSStringFromRect(l.bounds).UTF8String, l.anchorPoint.x,
                 l.anchorPoint.y, t.m11, t.m22, t.m41, t.m42, (unsigned long)l.sublayers.count, l.opacity,
                 l.isHidden ? " hidden" : "");
+        if (getenv("BITTEN_VIEW_TREE")[0] == '2')
+            fprintf(stderr, "%*s  bg-alpha %g corner %g masks %d border %g shadow %g filters %lu compositing %s\n", depth * 2, "",
+                    l.backgroundColor ? CGColorGetAlpha(l.backgroundColor) : 0, l.cornerRadius, l.masksToBounds, l.borderWidth,
+                    l.shadowOpacity, (unsigned long)[l.filters count], [[l.compositingFilter description] UTF8String] ?: "-");
         id contents = l.contents;
         if (contents && CFGetTypeID((__bridge CFTypeRef)contents) == CGImageGetTypeID())
-            fprintf(stderr, "%*s  contents %zux%zu gravity %s scale %g\n", depth * 2, "",
+            fprintf(stderr, "%*s  contents %zux%zu gravity %s scale %g alpha-info %u%s\n", depth * 2, "",
                     CGImageGetWidth((__bridge CGImageRef)contents), CGImageGetHeight((__bridge CGImageRef)contents),
-                    [l.contentsGravity UTF8String] ?: "-", l.contentsScale);
+                    [l.contentsGravity UTF8String] ?: "-", l.contentsScale,
+                    (unsigned)CGImageGetAlphaInfo((__bridge CGImageRef)contents), l.isOpaque ? " opaque" : "");
         for (CALayer *sub in l.sublayers) {
             id d = [sub valueForKey:@"delegate"];
             fprintf(stderr, "%*s  sublayer %s frame=%s delegate=%s sublayers=%lu\n", depth * 2, "", object_getClassName(sub),
@@ -496,6 +523,60 @@ static void bn_dump_tree(NSView *v, int depth) {
     }
     for (NSView *s in v.subviews) bn_dump_tree(s, depth + 1);
 }
+
+/* A view whose layer shows an image (a Metal view's presented frame) and
+ * is told to redisplay: compare the image with the one it showed before.
+ * Returns NO when the whole window should redraw (the first frame, a size
+ * change, no image); otherwise *changed is the area whose pixels differ
+ * (empty: none), in the window's content coordinates. */
+static const char kShownContentsKey;
+@implementation NSView (BittenContentsDiff)
+- (BOOL)_bn_contentsChange:(NSRect *)changed {
+    CALayer *layer = self.layer;
+    id contents = layer.contents;
+    if (!self.window || !contents || CFGetTypeID((__bridge CFTypeRef)contents) != CGImageGetTypeID()) return NO;
+    id previous = objc_getAssociatedObject(self, &kShownContentsKey);
+    objc_setAssociatedObject(self, &kShownContentsKey, contents, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    if (!previous || previous == contents) return previous == contents && (*changed = NSZeroRect, YES);
+    CGImageRef a = (__bridge CGImageRef)previous, b = (__bridge CGImageRef)contents;
+    size_t w = CGImageGetWidth(b), h = CGImageGetHeight(b), bpr = CGImageGetBytesPerRow(b);
+    if (CGImageGetWidth(a) != w || CGImageGetHeight(a) != h || CGImageGetBytesPerRow(a) != bpr ||
+        CGImageGetBitsPerPixel(a) != 32 || CGImageGetBitsPerPixel(b) != 32 || !w || !h)
+        return NO;
+    CFDataRef da = CGDataProviderCopyData(CGImageGetDataProvider(a)), db = CGDataProviderCopyData(CGImageGetDataProvider(b));
+    BOOL ok = da && db && (size_t)CFDataGetLength(da) >= bpr * h && (size_t)CFDataGetLength(db) >= bpr * h;
+    long x0 = (long)w, x1 = -1, y0 = (long)h, y1 = -1;
+    if (ok) {
+        const uint8_t *pa = CFDataGetBytePtr(da), *pb = CFDataGetBytePtr(db);
+        for (size_t y = 0; y < h; y++) {
+            const uint32_t *ra = (const uint32_t *)(pa + y * bpr), *rb = (const uint32_t *)(pb + y * bpr);
+            if (!memcmp(ra, rb, w * 4)) continue;
+            if ((long)y < y0) y0 = (long)y;
+            y1 = (long)y;
+            for (size_t x = 0; x < w; x++)
+                if (ra[x] != rb[x]) {
+                    if ((long)x < x0) x0 = (long)x;
+                    if ((long)x > x1) x1 = (long)x;
+                }
+        }
+    }
+    if (da) CFRelease(da);
+    if (db) CFRelease(db);
+    if (!ok) return NO;
+    if (y1 < 0) {
+        *changed = NSZeroRect;
+        return YES;
+    }
+    /* image rows run down from the top of the layer's bounds (resized to fill them) */
+    if (![layer.contentsGravity isEqualToString:@"resize"]) return NO; /* kCAGravityResize (QuartzCore is not linked) */
+    NSRect bounds = self.bounds;
+    CGFloat sx = bounds.size.width / w, sy = bounds.size.height / h;
+    NSRect r = NSMakeRect(bounds.origin.x + x0 * sx, 0, (x1 + 1 - x0) * sx, (y1 + 1 - y0) * sy);
+    r.origin.y = self.isFlipped ? bounds.origin.y + y0 * sy : bounds.origin.y + bounds.size.height - (y1 + 1) * sy;
+    *changed = [self convertRect:r toView:nil];
+    return YES;
+}
+@end
 
 @implementation NSWindow (BittenDisplay)
 static const char kBackingKey;
@@ -518,8 +599,33 @@ static const char kScheduledKey;
     return c;
 }
 
+/* ---- partial redraws ----
+ * A window redraws everything unless all it has been asked since its last
+ * frame is to repaint rects (a layer's new contents differing from the old
+ * in a small area: a terminal's cursor): then the frame is drawn clipped
+ * to their union over the previous one, which the backing still holds. */
+static const char kDirtyKey; /* NSValue rect, content coordinates; absent: nothing partial pending */
+static const char kFullKey;  /* @YES: the next frame repaints everything */
+- (void)_bn_invalidateRect:(NSRect)r {
+    if (![objc_getAssociatedObject(self, &kFullKey) boolValue]) {
+        NSValue *v = objc_getAssociatedObject(self, &kDirtyKey);
+        NSRect u = v ? NSUnionRect(v.rectValue, r) : r;
+        objc_setAssociatedObject(self, &kDirtyKey, [NSValue valueWithRect:u], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    [self _bn_queueDisplay];
+}
+
 /* Draws the content view hierarchy and shows the result. */
 - (void)display {
+    objc_setAssociatedObject(self, &kFullKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [self _bn_displayPending];
+}
+- (void)_bn_displayPending {
+    BOOL full = [objc_getAssociatedObject(self, &kFullKey) boolValue];
+    NSValue *dirtyValue = objc_getAssociatedObject(self, &kDirtyKey);
+    objc_setAssociatedObject(self, &kFullKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(self, &kDirtyKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    if (!full && !dirtyValue) return;
     if (getenv("BITTEN_DISPLAY_DEBUG"))
         fprintf(stderr, "bitten: display %s visible %d alpha %g\n", self.title.UTF8String ?: "", self.isVisible,
                 self.alphaValue);
@@ -532,8 +638,10 @@ static const char kScheduledKey;
     }
     [self.contentView layoutSubtreeIfNeeded];
     NSRect content = [self contentRectForFrameRect:self.frame];
+    NSValue *before = objc_getAssociatedObject(self, &kBackingKey);
     CGContextRef c = [self _bn_backing:content.size];
     if (!c) return;
+    if (!before || before.pointerValue != c) full = YES; /* a new backing has no previous frame */
     /* Drawing that restores more graphics states than it saved pops this
      * frame's own state and leaves a view's flip behind in the reused
      * context; start such a frame from a fresh one (it repaints everything). */
@@ -543,14 +651,39 @@ static const char kScheduledKey;
         objc_setAssociatedObject(self, &kBackingKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         c = [self _bn_backing:content.size];
         if (!c) return;
+        full = YES;
     }
     CGContextSaveGState(c);
+    if (!full) {
+        NSRect dirty = NSIntersectionRect(NSInsetRect(dirtyValue.rectValue, -2, -2),
+                                          NSMakeRect(0, 0, content.size.width, content.size.height));
+        if (NSIsEmptyRect(dirty)) {
+            CGContextRestoreGState(c);
+            return;
+        }
+        if (getenv("BITTEN_DISPLAY_DEBUG"))
+            fprintf(stderr, "bitten: partial display %s %s\n", self.title.UTF8String ?: "", NSStringFromRect(dirty).UTF8String);
+        CGContextClipToRect(c, dirty);
+    }
     NSColor *bg = self.backgroundColor;
     CGContextSetFillColorWithColor(c, bg.CGColor);
     CGContextFillRect(c, CGRectMake(0, 0, content.size.width, content.size.height));
     if (getenv("BITTEN_VIEW_TREE")) bn_dump_tree(self.contentView, 0);
+    double frame0 = now_ms();
     [self.contentView _bn_drawIn:c parentFlipped:NO];
     CGContextRestoreGState(c);
+    if (draw_profile) {
+        static int frames;
+        static double total;
+        total += now_ms() - frame0;
+        if (++frames % 20 == 0) {
+            fprintf(stderr, "bitten: draw profile, %d frames, %.0f ms each:\n", frames, total / frames);
+            NSArray *keys = [draw_profile keysSortedByValueUsingSelector:@selector(compare:)];
+            for (NSString *k in keys.reverseObjectEnumerator.allObjects)
+                if (draw_profile[k].doubleValue / frames > 1)
+                    fprintf(stderr, "bitten:   %8.1f ms  %s\n", draw_profile[k].doubleValue / frames, k.UTF8String);
+        }
+    }
     [self _bn_sendStyle];
     if (getenv("BITTEN_DISPLAY_DEBUG")) {
         const uint8_t *px = CGBitmapContextGetData(c);
@@ -593,11 +726,15 @@ static const char kStyleKey;
 
 /* Redraws on the next turn of the main queue, once per batch of changes. */
 - (void)_bn_scheduleDisplay {
+    objc_setAssociatedObject(self, &kFullKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [self _bn_queueDisplay];
+}
+- (void)_bn_queueDisplay {
     if ([objc_getAssociatedObject(self, &kScheduledKey) boolValue]) return;
     objc_setAssociatedObject(self, &kScheduledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     dispatch_async(dispatch_get_main_queue(), ^{
         objc_setAssociatedObject(self, &kScheduledKey, @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        [self display];
+        [self _bn_displayPending];
     });
 }
 - (void)displayIfNeeded { [self display]; }
