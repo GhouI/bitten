@@ -1194,6 +1194,8 @@ internal class AnyImageProviderBox: @unchecked Sendable {
   func copy() -> AnyImageProviderBox { return self }
 }
 
+nonisolated(unsafe) let _symbolDebug = getenv("BITTEN_SYMBOL_DEBUG") != nil
+
 @_silgen_name("bn_draw_symbol")
 internal func _bn_draw_symbol(_ c: CGContext, _ name: UnsafePointer<CChar>, _ x: CGFloat, _ y: CGFloat, _ w: CGFloat,
                               _ h: CGFloat, _ r: CGFloat, _ g: CGFloat, _ b: CGFloat, _ a: CGFloat, _ flipped: Int32)
@@ -1382,6 +1384,9 @@ internal final class _ImageNode: _ViewNode {
       return
     }
     // Asset images: a rounded placeholder in the foreground colour.
+    if _symbolDebug, let named = provider as? _NamedImageBox {
+      fputs("bitten: image \(named.n) not found: placeholder\n", stderr)
+    }
     let inset = frame._insetBy(min(frame._width, frame._height) * 0.15)
     paint.with(opacity: 0.6).fill(CGPathCreateWithRoundedRect(inset, inset._width * 0.25, inset._height * 0.25, nil),
                                   in: context)

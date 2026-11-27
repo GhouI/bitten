@@ -367,11 +367,20 @@ static BOOL asset_catalog_has(NSBundle *bundle, NSString *name) {
         return;
     }
     if (_handler) {
+        /* The handler draws into the image's own buffer, as on macOS: in a
+         * transparency layer clipped to the image, so its compositing (a
+         * tint filled source-atop over what it drew) sees only its own
+         * drawing, not what is behind the image. */
         CGContextSaveGState(c);
+        CGContextClipToRect(c, rect);
+        CGContextBeginTransparencyLayerWithRect(c, rect, NULL);
         CGContextTranslateCTM(c, rect.origin.x, rect.origin.y);
         if (_size.width > 0 && _size.height > 0)
             CGContextScaleCTM(c, rect.size.width / _size.width, rect.size.height / _size.height);
+        CGContextSaveGState(c);
         _handler(NSMakeRect(0, 0, _size.width, _size.height));
+        CGContextRestoreGState(c);
+        CGContextEndTransparencyLayer(c);
         CGContextRestoreGState(c);
         return;
     }

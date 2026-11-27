@@ -1,6 +1,6 @@
 // Compositing operations: a source-atop fill tints only what is already
 // drawn (template images are tinted this way); destination-out erases;
-// copy replaces.
+// copy replaces; an image's drawing handler composites in its own buffer.
 #import <AppKit/AppKit.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +33,23 @@ int main(void) {
         [[NSColor greenColor] setFill];
         NSRectFillUsingOperation(NSMakeRect(30, 30, 5, 5), NSCompositingOperationCopy);
         CHECK((argb(32, 32) & 0xFF00FF00) == 0xFF00FF00);
+
+        /* An image drawn by a handler composites in its own buffer: a tint
+         * filled source-atop over the whole image colours only its dot, not
+         * the white behind it. */
+        [[NSColor whiteColor] setFill];
+        NSRectFill(NSMakeRect(0, 0, 40, 40));
+        NSImage *tinted = [NSImage imageWithSize:NSMakeSize(20, 20) flipped:NO drawingHandler:^BOOL(NSRect r) {
+            [[NSColor blackColor] setFill];
+            NSRectFill(NSMakeRect(5, 5, 10, 10));
+            [[NSColor redColor] setFill];
+            NSRectFillUsingOperation(r, NSCompositingOperationSourceAtop);
+            return YES;
+        }];
+        [tinted drawInRect:NSMakeRect(10, 10, 20, 20)];
+        CHECK(argb(20, 20) == 0xFFFF0000); /* the dot, red */
+        CHECK(argb(12, 12) == 0xFFFFFFFF); /* inside the image, outside the dot: white */
+        CHECK(argb(2, 2) == 0xFFFFFFFF);
         printf("ok\n");
     }
     return 0;
