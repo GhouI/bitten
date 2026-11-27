@@ -4532,3 +4532,15 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   jq imports: 22 missing -> 0. JSON stdin, file input, regular expression
   captures, and extended math run without stubs. From #167.
 - Target app: not rechecked; the change only adds exports.
+
+## Thread-local destruction for Intel macOS ripgrep
+
+- The upstream ripgrep 16.0.0 Intel Mac executable searched successfully
+  with one worker but aborted on `_tlv_atexit` when given four workers.
+  Register Mach-O thread-local callbacks with glibc so they run in
+  reverse order while Bitten's TLV storage is still live.
+- The Mach-O lifecycle test checks both worker return and process exit.
+  The upstream ripgrep fixture checks recursion, ignore rules and no-match
+  status; both one and four workers pass. Unused unwind imports remain
+  unsupported. From #168.
+- Target app: not rechecked; the change only adds an export.

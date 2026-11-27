@@ -29,6 +29,19 @@ static pthread_mutex_t key_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct dx_thread *main_thread;
 int dx_rawsys_enable_thread(void);
 
+/* Darwin emits this call for objects in Mach-O's thread-local storage.
+ * glibc drains these callbacks in reverse order before pthread key
+ * destructors free Bitten's per-image TLV storage. The owner of the
+ * registration is the host executable, not a Mach-O image pointer. */
+extern void *__dso_handle;
+extern int __cxa_thread_atexit_impl(void (*)(void *), void *, void *);
+
+static void d__tlv_atexit(void (*destroy)(void *), void *object) {
+    if (__cxa_thread_atexit_impl(destroy, object, &__dso_handle) != 0)
+        dx_fatal("could not register a thread-local destructor");
+}
+DX_FN(_tlv_atexit);
+
 void dx_thread_run_destructors(struct dx_thread *t) {
     for (int round = 0; round < 4; round++) {
         int again = 0;
