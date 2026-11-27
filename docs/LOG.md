@@ -5362,3 +5362,15 @@ Debugging aids:
   has a blend mode. The spotlight shows the setting through its cut-out.
 - Test: `canvashole`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: spacers give way in a stack short of room
+
+- When a stack's children wanted more than it had, a Spacer took an equal
+  share with the other flexible children: long wrapped text next to a
+  Spacer got only half the room. Spacers now keep just their minimum
+  length while the other children share the space, and get what's left
+  after, as in SwiftUI. In the target app's Settings ▸ Interface ▸
+  Customize panes, the "Minimized floating windows" description now
+  wraps across the row instead of in a narrow column.
+- Test: `spacershort`.
+- Target app (total `^MISSING`): 0 -> 0.

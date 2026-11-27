@@ -577,12 +577,24 @@ internal final class _StackNode: _ViewNode {
         let group = (0..<n).filter { priorities[$0] == priority }
           .sorted { (maxs[$0] - mins[$0]) < (maxs[$1] - mins[$1]) }
         let reserved = (0..<n).filter { priorities[$0] < priority }.reduce(CGFloat(0)) { $0 + mins[$1] }
-        var avail = remaining - reserved
-        var left = group.count
-        for i in group {
+        // Spacers keep only their minimum length while the others share
+        // what there is; they take what is left after (SwiftUI's stacks).
+        let views = group.filter { !children[$0].isSpacer }, spacers = group.filter { children[$0].isSpacer }
+        let spacerMins = spacers.reduce(CGFloat(0)) { $0 + mins[$1] }
+        var avail = remaining - reserved - spacerMins
+        var left = views.count
+        for i in views {
           let share = max(0, avail) / CGFloat(left)
           result[i] = children[i].measure(offer(share))
-          if children[i].isSpacer { result[i] = size(main: max(share, main(result[i])), cross: 0) }
+          avail -= main(result[i])
+          remaining -= main(result[i])
+          left -= 1
+        }
+        avail += spacerMins
+        left = spacers.count
+        for i in spacers {
+          let share = max(0, avail) / CGFloat(left)
+          result[i] = size(main: max(share, mins[i]), cross: 0)
           avail -= main(result[i])
           remaining -= main(result[i])
           left -= 1
