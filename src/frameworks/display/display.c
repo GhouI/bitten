@@ -308,6 +308,11 @@ static bool ws_read(int fd, char **out, size_t *len, int *opcode) {
 
 struct client { int fd; bool dead; };
 
+static int by_front(const void *a, const void *b) {
+    const struct window *x = *(const struct window *const *)a, *y = *(const struct window *const *)b;
+    return x->front < y->front ? -1 : x->front > y->front;
+}
+
 /* Send every window whenever something changes. */
 static void *client_writer(void *arg) {
     struct client *c = arg;
@@ -317,7 +322,17 @@ static void *client_writer(void *arg) {
         if (display_version != seen) {
             uint64_t since = seen;
             seen = display_version;
-            for (struct window *w = display_windows; w; w = w->next) {
+            /* The page stacks windows in the order they arrive: a viewer
+             * that connects gets them back to front (by order-front). */
+            size_t nw = 0;
+            for (struct window *w = display_windows; w; w = w->next) nw++;
+            struct window **order = malloc((nw ? nw : 1) * sizeof *order);
+            if (!order) { c->dead = true; break; }
+            nw = 0;
+            for (struct window *w = display_windows; w; w = w->next) order[nw++] = w;
+            if (since == 0) qsort(order, nw, sizeof *order, by_front);
+            for (size_t k = 0; k < nw; k++) {
+                struct window *w = order[k];
                 if (w->version <= since || (!w->closed && !w->rgba)) continue;
                 uint32_t r[4];
                 if (damage_since(w, since, r)) {
@@ -342,6 +357,7 @@ static void *client_writer(void *arg) {
                 if (!ok) c->dead = true;
                 if (c->dead) break;
             }
+            free(order);
             continue;
         }
         pthread_cond_wait(&changed, &display_lock);

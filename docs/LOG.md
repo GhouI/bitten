@@ -4281,3 +4281,13 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - The light bezel on bordered buttons in dark mode was a colour-scheme
   problem, fixed by #205.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Display: a page that connects stacks windows as the program left them
+
+- The page stacks windows in the order their first frames arrive, and the
+  server sent them newest window first. A page that connected or
+  reconnected put the newest window (Settings) behind older ones (the main
+  window). Its clicks then went to the window underneath.
+- A client's first sync now sends windows back to front, by their
+  order-front count.
+- Target app (total `^MISSING`): 0 -> 0.
