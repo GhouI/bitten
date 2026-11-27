@@ -645,6 +645,13 @@ static const char kShownContentsKey;
 @end
 
 @implementation NSWindow (BittenDisplay)
+void bn_debug_callers(void);
+/* BITTEN_DISPLAY_DEBUG, read once. */
+static BOOL bn_display_debug(void) {
+    static int on = -1;
+    if (on < 0) on = getenv("BITTEN_DISPLAY_DEBUG") != NULL;
+    return on;
+}
 static const char kBackingKey;
 static const char kScheduledKey;
 
@@ -684,6 +691,7 @@ static const char kFullKey;  /* @YES: the next frame repaints everything */
 
 /* Draws the content view hierarchy and shows the result. */
 - (void)display {
+    if (bn_display_debug()) { fprintf(stderr, "bitten: full display asked by"); bn_debug_callers(); }
     objc_setAssociatedObject(self, &kFullKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [self _bn_displayPending];
 }
@@ -847,6 +855,7 @@ static const char kStyleKey;
 
 /* Redraws on the next turn of the main queue, once per batch of changes. */
 - (void)_bn_scheduleDisplay {
+    if (bn_display_debug()) { fprintf(stderr, "bitten: full display scheduled by"); bn_debug_callers(); }
     objc_setAssociatedObject(self, &kFullKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [self _bn_queueDisplay];
 }
