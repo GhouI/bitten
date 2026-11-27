@@ -91,6 +91,14 @@ static NSEvent *seen_current;
 - (void)applicationDidFinishLaunching:(NSNotification *)n { self.launched++; }
 @end
 
+@interface Focusable : NSView
+@property int resigned;
+@end
+@implementation Focusable
+- (BOOL)acceptsFirstResponder { return YES; }
+- (BOOL)resignFirstResponder { self.resigned++; return NO; }   /* refuses: removal goes ahead anyway */
+@end
+
 @interface NSWindow (BittenBacking)
 - (CGContextRef)_bn_backingContext;
 @end
@@ -264,6 +272,16 @@ int main(void) {
                   charactersIgnoringModifiers:@"k" isARepeat:NO keyCode:40];
     [app sendEvent:cmdK];
     CHECK(taker.taken == 1);
+
+    /* The first responder leaving its window leaves the window first
+     * responder (after being asked to resign), even inside a removed parent. */
+    NSView *holder = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 50, 50)];
+    Focusable *focus = [[Focusable alloc] initWithFrame:NSMakeRect(0, 0, 10, 10)];
+    [holder addSubview:focus];
+    [w.contentView addSubview:holder];
+    CHECK([w makeFirstResponder:focus] && w.firstResponder == focus);
+    [holder removeFromSuperview];
+    CHECK(w.firstResponder == w && focus.resigned == 1);
     puts("AppKit basics ok");
     return 0;
 }

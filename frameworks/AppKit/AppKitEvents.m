@@ -155,6 +155,10 @@ static void collect_areas(NSView *v, NSPoint p, NSMutableArray *inside) {
                              OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     return YES;
 }
+/* No first responder but the window, without asking the current one. */
+- (void)_bn_dropFirstResponder {
+    objc_setAssociatedObject(self, &kFirstResponderKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
 - (void)performClose:(id)sender {
     id<NSWindowDelegate> d = self.delegate;
     if ([d respondsToSelector:@selector(windowShouldClose:)] && ![d windowShouldClose:self]) return;

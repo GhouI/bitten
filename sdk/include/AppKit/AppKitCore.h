@@ -634,6 +634,7 @@ typedef NSString *NSUserInterfaceItemIdentifier NS_TYPED_EXTENSIBLE_ENUM;
 - (void)_bn_scheduleDisplay;
 - (void)_bn_sendStyle;
 - (void)_bn_hideKeepingDisplay;
+- (void)_bn_dropFirstResponder;
 - (void)_post:(NSNotificationName)name;
 - (void)_bn_orderFrontOnDisplay;
 - (void)_bn_closeDisplay;
