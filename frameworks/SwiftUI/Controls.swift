@@ -881,17 +881,27 @@ internal final class _ToggleMarkNode: _ViewNode {
   override func draw(_ context: CGContext) {
     let f = frame
     let accent = Color.accentColor.resolve(in: environment).paint
-    let off = _Paint(r: 0.85, g: 0.85, b: 0.85, a: 1)
+    // Off: a grey track (switch) or a light box (checkbox), each with a
+    // thin edge, as AppKit draws them in light and dark appearances.
+    let dark = environment.colorScheme == .dark
+    let off = dark ? _Paint(r: 0.32, g: 0.32, b: 0.33, a: 1) : _Paint(r: 0.82, g: 0.82, b: 0.83, a: 1)
+    let edge = dark ? _Paint(r: 1, g: 1, b: 1, a: 0.12) : _Paint(r: 0, g: 0, b: 0, a: 0.14)
     if isSwitch {
       let r = f._height / 2
       (on ? accent : off).fill(CGPathCreateWithRoundedRect(f, r, r, nil), in: context)
+      if !on { edge.stroke(CGPathCreateWithRoundedRect(f, r, r, nil), in: context, width: 0.5) }
       let d = f._height - 2
       let knob = CGRect(_x: on ? f._maxX - d - 1 : f._minX + 1, y: f._minY + 1, width: d, height: d)
       _Paint(r: 1, g: 1, b: 1, a: 1).fill(CGPathCreateWithEllipseInRect(knob, nil), in: context)
       _Paint(r: 0, g: 0, b: 0, a: 0.12).stroke(CGPathCreateWithEllipseInRect(knob, nil), in: context, width: 0.5)
     } else {
-      (on ? accent : off).fill(CGPathCreateWithRoundedRect(f, 3, 3, nil), in: context)
-      guard on else { return }
+      let box = dark ? _Paint(r: 0.24, g: 0.24, b: 0.25, a: 1) : _Paint(r: 1, g: 1, b: 1, a: 1)
+      (on ? accent : box).fill(CGPathCreateWithRoundedRect(f, 3, 3, nil), in: context)
+      guard on else {
+        let border = dark ? _Paint(r: 1, g: 1, b: 1, a: 0.25) : _Paint(r: 0, g: 0, b: 0, a: 0.28)
+        border.stroke(CGPathCreateWithRoundedRect(f, 3, 3, nil), in: context, width: 0.75)
+        return
+      }
       let check = CGPathCreateMutable()
       CGPathMoveToPoint(check, nil, f._minX + f._width * 0.25, f._minY + f._height * 0.52)
       CGPathAddLineToPoint(check, nil, f._minX + f._width * 0.43, f._minY + f._height * 0.72)
