@@ -4645,3 +4645,13 @@ Debugging aids:
 - `BITTEN_WINDOW_DEBUG` also logs windows being freed.
 
 - Target app (total `^MISSING`): 0 -> 0.
+
+## NEXT.md brought up to date
+
+- docs/NEXT.md described an early state: showing Metal frames, getting
+  through onboarding, the CLI helper's first-launch exit. It now
+  describes where things stand. The app runs end to end, and what's left
+  is speed (CG compositing and terminal Metal at idle), bracketed paste,
+  Return in text fields, and the display page's focus after a window
+  closes. It also lists the debugging switches that find problems.
+- Target app (total `^MISSING`): 0 -> 0.

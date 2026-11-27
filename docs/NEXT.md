@@ -1,41 +1,44 @@
 # Where to pick up
 
-The target app's window and server both reach the end of `mrun --check`
-with no missing required imports. The window has 80 unbound weak imports.
-It draws onboarding, the workspace and settings through SwiftUI and AppKit.
-The next milestone is a shell prompt you can see and type into on the
-first launch with an empty home directory.
+The target Mac application runs end to end on Linux. Its window shows the
+workspace with live terminal panes (Metal, drawn into the window), tabs,
+splits, pane zoom, the command palette, menus and context menus, Settings
+with every page, search and sub-pages, and window resize, zoom and
+minimise in the browser display. Typing, shortcuts (menu, view and SwiftUI
+button shortcuts), copy and paste, and dark mode work. Opening and closing
+windows no longer leaks.
 
 ## What stands in the way
 
-1. **Show the frame Metal already drew.** On the host, the software device
-   produces a terminal frame with the prompt, input, output and cursor.
-   `CAMetalLayer` puts that image in its `contents` and marks the layer
-   dirty. In `frameworks/AppKit/AppKitDrawing.m`, a view draws its
-   background, calls `drawRect:`, then draws sublayers and its border; it
-   skips its own backing layer's image. Draw the contents and request a
-   window redraw on present. Check the pixels in the *window*, not just
-   in the drawable.
-2. **Make shader compilation work in Docker.** The test image builds
-   `mrun` in `/out` but leaves `tools/metal-compile.py` in `/src/tools`,
-   outside the compiler search path in `src/frameworks/metal/metal.c`.
-   The runtime image ships neither the helper and its C runtime nor clang.
-   Check `tests/metal/render.m` in the test stage and a cold shader cache
-   in the final image; a successful host render doesn't test either.
-3. **Get through onboarding with an empty home.** The update check sends
-   `+dataWithBytesNoCopy:length:freeWhenDone:`, which Objective-C
-   `NSData` lacks. Skipping onboarding takes a separate path: the Swift
-   runtime cannot cast an unlabeled tuple to its labeled counterpart.
-   Retest both paths with fresh preferences; a relaunch can skip the
-   failing step because the app has already recorded it.
-4. **Find why the CLI helper exits with status 1 on first launch.** The
-   server runs and subsequent CLI calls work. Test the helper started
-   by the window on a fresh home and check that the first session opens.
-   A successful standalone CLI command is not the same test.
+1. **Speed.** Full window redraws take 0.3–1 s, so resizes, pane zoom and
+   page switches lag by seconds. With a viewer connected the app idles at
+   about 16% CPU. Profiles point at CoreGraphics compositing
+   (`cg_blend_pixel`, `cg_read_pixel` in transparency layers,
+   `CGContextClipToRect` building full-surface masks) and the terminal's
+   Metal fragment path (`cell_bg_fragment`). Wait 8 s or more before
+   judging that an animated change didn't happen.
+2. **Bracketed paste.** Pasting into a terminal pane shows `[200~…~`
+   literally although bash has bracketed paste on (with the app's own `TERM`). The
+   markers are made by the app's terminal code; check where the escape
+   byte is lost on its way to the server.
+3. **Return in text fields.** Escape reaches a `.cancelAction` button and
+   ⌘-shortcuts reach SwiftUI buttons. Return in a field editor only ends
+   editing; check what AppKit does with a default button there before
+   adding it.
+4. **The display page keeps focus on a closed window.** AppKit sends such
+   keys to the key window; the page could refocus the frontmost window.
 
-Once a block attaches, keyboard input reaches the shell even while the
-terminal pane is white. Measure first-launch and block-attach delays
-separately from drawing; keys sent before attachment can be lost.
+## Finding problems
+
+- `BITTEN_EVENT_DEBUG` routes, `BITTEN_HIT_DEBUG` SwiftUI hits,
+  `BITTEN_VIEW_TREE` / `BITTEN_SWIFTUI_TREE` trees, `BITTEN_DRAW_PROFILE`
+  paint time, `BITTEN_METHODS=Class` a class's methods and ivars.
+- `BITTEN_ALLOC_STATS=N` live instances per class every N seconds (leaks),
+  `BITTEN_MONITOR_DEBUG` event monitors, `BITTEN_WINDOW_DEBUG` window
+  frames, creation and freeing, `BITTEN_SYMBOL_DEBUG` symbol images.
+- `BITTEN_CRASH_REPORT=stderr` gives a backtrace on a fatal error.
+- Drive the browser display with Playwright (one connection per run).
+  Before testing, check no stale `mrun` holds the display port.
 
 ## How to build, test and check
 
