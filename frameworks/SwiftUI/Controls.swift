@@ -1085,11 +1085,21 @@ public struct Picker<Label: View, SelectionValue: Hashable, Content: View>: View
     }
     let shown = options.first { tag($0) == current } ?? options.first ?? _EmptyNode(environment: inputs.environment)
     let tags = options.compactMap(tag)
+    let titles = options.filter { tag($0) != nil }.map { _firstText(in: $0) ?? "" }
+    let anchor = _WeakNode()
+    let host = inputs.base.context.hostView
     let menu = _ButtonNode(label: shown, action: {
       guard !tags.isEmpty else { return }
-      let i = tags.firstIndex(of: binding.wrappedValue) ?? -1
-      binding.wrappedValue = tags[(i + 1) % tags.count]
+      let i = tags.firstIndex(of: binding.wrappedValue)
+      // A menu of the options over the picker, the current one checked
+      // and placed where the picker is (as macOS pops menus up).
+      if let host = host, let node = anchor.node {
+        _PickerMenuTarget.show(titles: titles, selected: i, at: node.frame, in: host) { k in binding.wrappedValue = tags[k] }
+        return
+      }
+      binding.wrappedValue = tags[((i ?? -1) + 1) % tags.count]
     }, style: .bordered, environment: inputs.environment)
+    anchor.node = menu
     var children: [_ViewNode] = []
     if Label.self != EmptyView.self && !inputs.environment._labelsHidden {
       children.append(_makeNode(v.label, inputs: inputs.named("label")))
@@ -1109,6 +1119,39 @@ extension Picker where Label == Text {
     self.init(selection: selection, content: content, label: { Text(title) })
   }
 }
+/// The first text in a view tree (a picker option's title).
+internal func _firstText(in node: _ViewNode) -> String? {
+  if let t = node as? _TextNode { return t.string }
+  for c in node.children { if let s = _firstText(in: c) { return s } }
+  return nil
+}
+internal final class _WeakNode { weak var node: _ViewNode? }
+
+/// Shows a picker's options as a pop-up menu and reports the chosen one.
+final class _PickerMenuTarget: NSObject {
+  let choose: (Int) -> Void
+  init(_ choose: @escaping (Int) -> Void) { self.choose = choose }
+  @objc(choosePickerItem:) func choosePickerItem(_ sender: NSMenuItem) {
+    MainActor.assumeIsolated { choose(sender.tag) }
+  }
+  /// The menu in use keeps its target (menu items hold theirs weakly).
+  nonisolated(unsafe) static var current: _PickerMenuTarget?
+  static func show(titles: [String], selected: Int?, at rect: CGRect, in view: NSView, choose: @escaping (Int) -> Void) {
+    let target = _PickerMenuTarget(choose)
+    current = target
+    let menu = NSMenu(title: "")
+    for (k, title) in titles.enumerated() {
+      let item = NSMenuItem(title: title, action: #selector(_PickerMenuTarget.choosePickerItem(_:)), keyEquivalent: "")
+      item.target = target
+      item.tag = k
+      if k == selected { item.state = 1 }  // on
+      menu.addItem(item)
+    }
+    let item = selected.flatMap { $0 < menu.items.count ? menu.items[$0] : nil }
+    _ = menu.popUp(positioning: item, at: NSMakePoint(rect.origin.x, rect.origin.y), in: view)
+  }
+}
+
 internal enum _PickerAppearance { case automatic, menu, segmented, inline, radioGroup }
 struct _PickerStyleKey: EnvironmentKey { static let defaultValue = _PickerAppearance.automatic }
 extension EnvironmentValues {

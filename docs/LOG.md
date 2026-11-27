@@ -4266,3 +4266,18 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
 - In the target app, switching Settings → Interface between Light and Dark
   now changes the whole app live: windows, Settings, the toolbar icons.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: menu pickers pop up their options
+
+- A `Picker` in the menu style shows its options as a pop-up menu (the
+  AppKit menus of #201). The titles are the options' text, the current one
+  is checked and placed over the picker, and choosing one sets the
+  selection. Clicking used to cycle to the next option.
+  - In the target app, Settings → Interface → Toolbar behavior offers
+    Always show, Show on hover and Hidden. Choosing Hidden hides the tab
+    bar.
+- `NSMenu.popUpMenuPositioningItem:atLocation:inView:` has its Swift name,
+  `popUp(positioning:at:in:)`.
+- The light bezel on bordered buttons in dark mode was a colour-scheme
+  problem, fixed by #205.
+- Target app (total `^MISSING`): 0 -> 0.
