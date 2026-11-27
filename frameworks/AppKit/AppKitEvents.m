@@ -444,8 +444,16 @@ static NSString *bn_key_characters(unsigned short code) {
             /* Resized by the page's grip: the top left corner stays put. */
             NSRect frame = window.frame;
             NSRect c = [window contentRectForFrameRect:frame];
-            c.origin.y += c.size.height - e.height;
-            c.size = NSMakeSize(e.width, e.height);
+            /* Within the window's content size limits, as AppKit's own
+             * resizing keeps it. */
+            NSSize lo = window.contentMinSize, hi = window.contentMaxSize;
+            double w = e.width, h = e.height;
+            if (hi.width > 0 && w > hi.width) w = hi.width;
+            if (hi.height > 0 && h > hi.height) h = hi.height;
+            if (w < lo.width) w = lo.width;
+            if (h < lo.height) h = lo.height;
+            c.origin.y += c.size.height - h;
+            c.size = NSMakeSize(w, h);
             [window setFrame:[window frameRectForContentRect:c] display:YES];
             continue;
         }

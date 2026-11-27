@@ -496,6 +496,23 @@ struct Forwarding: PrimitiveButtonStyle {
   }
 }
 
+/// A frame with only a minimum width takes a smaller proposal than its
+/// content (SwiftUI's flexible frame), so a stack short of room shrinks it.
+@_silgen_name("swl_swiftui_minframe") public func minFrame() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    let row = HStack(spacing: 0) {
+      Color(.sRGB, red: 1, green: 0, blue: 0).frame(width: 60).frame(minWidth: 0)
+      Color(.sRGB, red: 0, green: 0, blue: 1).frame(maxWidth: .infinity)
+    }.frame(width: 40, height: 10)
+    let px = render(row, 40, 10)
+    // Each gets half: red to 20, blue after it.
+    if px(10, 5) != red { bad |= 1 }
+    if px(30, 5) != blue { bad |= 2 }
+    return bad
+  }
+}
+
 final class StoreCount {
   var n = 0
   func bump() { n += 1 }
