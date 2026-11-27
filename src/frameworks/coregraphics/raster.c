@@ -52,6 +52,7 @@ void cg_write_pixel(struct cg_surface *s, size_t x, size_t row, const CGFloat in
 }
 
 void cg_blend_pixel(const struct cg_target *t, size_t x, size_t row, const CGFloat src[4], CGFloat coverage) {
+    if (t->surface->bounded && !cg_surface_holds(t->surface, x, row)) return;
     if (t->clip) coverage *= t->clip->data[row * t->clip->width + x] / 255.0;
     if (coverage <= 0) return;
     CGFloat d[4], s[4], k = coverage * t->alpha;
@@ -277,6 +278,15 @@ static void fill_row(void *arg, size_t row, size_t x0, size_t x1, const float *c
         px[f->g] = to8(premul[1]);
         px[f->b] = to8(premul[2]);
         if (f->a >= 0) px[f->a] = 255;
+    }
+    const struct cg_surface *sf = t->surface;
+    if (sf->bounded) { /* only the pixels a bounded layer holds */
+        if (row < sf->by0 || row >= sf->by1) return;
+        size_t lo = x0 > sf->bx0 ? x0 : sf->bx0, hi = x1 < sf->bx1 ? x1 : sf->bx1;
+        if (lo >= hi) return;
+        cov += lo - x0;
+        x0 = lo;
+        x1 = hi;
     }
     uint8_t *line = t->surface->data + row * t->surface->row_bytes;
     const uint8_t *clip = t->clip ? t->clip->data + row * t->clip->width : NULL;
