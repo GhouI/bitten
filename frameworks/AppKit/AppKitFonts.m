@@ -198,7 +198,7 @@ static NSFont *font(NSString *name, CGFloat size) {
     CFArrayRef descs = all ? CTFontCollectionCreateMatchingFontDescriptors(all) : NULL;
     NSMutableSet *families = [NSMutableSet set];
     for (id d in (__bridge NSArray *)descs) {
-        NSString *f = [d objectForKey:(__bridge NSString *)kCTFontFamilyNameAttribute];
+        NSString *f = (__bridge_transfer NSString *)(CTFontDescriptorCopyAttribute((__bridge CTFontDescriptorRef)d, kCTFontFamilyNameAttribute));
         if (f) [families addObject:f];
     }
     if (descs) CFRelease(descs);
@@ -210,7 +210,7 @@ static NSFont *font(NSString *name, CGFloat size) {
     CFArrayRef descs = all ? CTFontCollectionCreateMatchingFontDescriptors(all) : NULL;
     NSMutableArray *names = [NSMutableArray array];
     for (id d in (__bridge NSArray *)descs) {
-        NSString *n = [d objectForKey:(__bridge NSString *)kCTFontNameAttribute];
+        NSString *n = (__bridge_transfer NSString *)(CTFontDescriptorCopyAttribute((__bridge CTFontDescriptorRef)d, kCTFontNameAttribute));
         if (n) [names addObject:n];
     }
     if (descs) CFRelease(descs);
