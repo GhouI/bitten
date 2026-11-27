@@ -4387,3 +4387,15 @@ and stops at Foundation's `URL` (3,724 unimplemented imports, from 3,927).
   menu showed Split Down/Up with the same icon as Split Right/Left.
   tests/appkit/symbols.m covers both.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Observation: nested tracking reports to the tracking around it
+
+- `withObservationTracking` merges what a nested tracking read into the
+  enclosing tracking, as Swift's Observation does. A change to a property
+  read only inside the inner closure now fires both onChange handlers.
+  Before, only the inner one fired. tests/swiftlib/handoff.swift covers
+  it. In the target app idle CPU is unchanged (16–17% with a viewer
+  connected).
+- Checked along the way: the target app's Zoom Pane / Restore Pane work.
+  They just take several seconds while full redraws are slow.
+- Target app (total `^MISSING`): 0 -> 0.

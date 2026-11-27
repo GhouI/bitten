@@ -105,6 +105,9 @@ public func withObservationTracking<T>(_ apply: () -> T, onChange: @autoclosure 
   let observed: Set<_Key> = locked {
     trackingStacks[thread]?.removeLast()
     if trackingStacks[thread]?.isEmpty == true { trackingStacks[thread] = nil }
+    // What the inner tracking read, the enclosing one read too (as Swift's
+    // Observation merges a nested access list into the one around it).
+    trackingStacks[thread]?.last?.observed.formUnion(t.observed)
     return t.observed
   }
   if !observed.isEmpty {
