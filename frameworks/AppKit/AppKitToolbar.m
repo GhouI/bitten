@@ -4,6 +4,10 @@
  * child-window, sheet and modal machinery. */
 
 #import <AppKit/AppKit.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+#include <objc/runtime.h>
 #import <objc/message.h>
 #import <objc/runtime.h>
 
@@ -228,6 +232,10 @@ static BOOL standard_identifier(NSString *i) {
     [_items removeAllObjects];
     for (NSToolbarItemIdentifier ident in [d toolbarDefaultItemIdentifiers:self]) {
         NSToolbarItem *item = [self _bn_make:ident inserting:YES];
+        if (getenv("BITTEN_TOOLBAR_DEBUG"))
+            fprintf(stderr, "bitten: toolbar '%s' item '%s' label '%s' view %s\n", _identifier.UTF8String ?: "",
+                    ident.UTF8String ?: "", item.label.UTF8String ?: "",
+                    item.view ? object_getClassName(item.view) : "-");
         [_items addObject:item];
         [[NSNotificationCenter defaultCenter] postNotificationName:NSToolbarWillAddItemNotification
                                                             object:self
@@ -622,4 +630,202 @@ static BOOL standard_identifier(NSString *i) {
 - (void)removeStatusItem:(NSStatusItem *)item { [_items removeObjectIdenticalTo:item]; }
 - (BOOL)isVertical { return NO; }
 - (CGFloat)thickness { return 22; }
+@end
+
+/* ---- the toolbar band: a toolbar's items drawn above a window's content ---- */
+
+/* Lays a window's toolbar items out in a row: those before the sidebar
+ * tracking separator after the title bar's buttons, those after it from the
+ * window's split view divider; flexible spaces share what is left. Items
+ * without a view get buttons (a group, one per subitem). */
+@interface BNToolbarView : NSView
+@property (weak) NSWindow *owner;
+@end
+@implementation BNToolbarView {
+    NSArray<NSToolbarItem *> *_shown;
+    NSMutableArray<NSView *> *_views;   /* per item: its view, or NSNull for spaces */
+}
+- (BOOL)isFlipped { return YES; }
+static NSString *const kSidebarTracking = @"NSToolbarSidebarTrackingSeparatorItemIdentifier";
+static BOOL is_space(NSToolbarItem *i) {
+    NSString *s = i.itemIdentifier;
+    return [s isEqualToString:NSToolbarFlexibleSpaceItemIdentifier] || [s isEqualToString:NSToolbarSpaceItemIdentifier] ||
+           [s isEqualToString:kSidebarTracking] || [s hasPrefix:@"NSToolbar"];
+}
+- (NSButton *)_bn_buttonFor:(NSToolbarItem *)item tag:(NSInteger)tag {
+    NSButton *b = [[NSButton alloc] initWithFrame:NSMakeRect(0, 0, 28, 24)];
+    b.bordered = NO;
+    if (item.image) {
+        b.image = item.image;
+        b.title = @"";
+    } else {
+        b.title = item.title.length ? item.title : item.label;
+    }
+    b.target = self;
+    b.action = @selector(_bn_clicked:);
+    b.tag = tag;
+    b.toolTip = item.toolTip ?: item.label;
+    [b sizeToFit];
+    NSRect f = b.frame;
+    f.size = NSMakeSize(MAX(f.size.width, 28), 24);
+    b.frame = f;
+    return b;
+}
+- (void)_bn_rebuild {
+    NSArray<NSToolbarItem *> *items = self.owner.toolbar.visibleItems ?: @[];
+    if ([items isEqualToArray:_shown ?: @[]] && _views) return;
+    for (NSView *v in [self.subviews copy]) [v removeFromSuperview];
+    _shown = items;
+    _views = [NSMutableArray array];
+    for (NSToolbarItem *item in items) {
+        if (is_space(item)) {
+            [_views addObject:(id)[NSNull null]];
+            continue;
+        }
+        NSView *v = item.view;
+        if (!v && [item isKindOfClass:[NSToolbarItemGroup class]]) {
+            NSArray<NSToolbarItem *> *subs = ((NSToolbarItemGroup *)item).subitems;
+            NSView *box = [[NSView alloc] initWithFrame:NSZeroRect];
+            CGFloat x = 0;
+            for (NSUInteger i = 0; i < subs.count; i++) {
+                NSButton *b = [self _bn_buttonFor:subs[i] tag:(NSInteger)([_views count] << 8 | i)];
+                b.frame = NSMakeRect(x, 0, b.frame.size.width, 24);
+                [box addSubview:b];
+                x += b.frame.size.width;
+            }
+            box.frame = NSMakeRect(0, 0, x, 24);
+            v = box;
+        } else if (!v) {
+            v = [self _bn_buttonFor:item tag:(NSInteger)([_views count] << 8 | 0xFF)];
+        }
+        [self addSubview:v];
+        [_views addObject:v];
+    }
+}
+- (void)_bn_clicked:(NSButton *)sender {
+    NSUInteger index = (NSUInteger)sender.tag >> 8, sub = (NSUInteger)sender.tag & 0xFF;
+    if (index >= _shown.count) return;
+    NSToolbarItem *item = _shown[index];
+    if ([item isKindOfClass:[NSToolbarItemGroup class]] && sub != 0xFF) {
+        NSToolbarItemGroup *g = (NSToolbarItemGroup *)item;
+        NSToolbarItem *s = sub < g.subitems.count ? g.subitems[sub] : nil;
+        g.selectedIndex = (NSInteger)sub;
+        /* A subitem with its own action sends that; else the group's does. */
+        if (s.action) [NSApp sendAction:s.action to:s.target from:s];
+        else if (g.action) [NSApp sendAction:g.action to:g.target from:g];
+        return;
+    }
+    [item _bn_perform];
+}
+/* Where the window's (first) split view divides its first pane from the
+ * rest, in this view's coordinates; 0 without one. */
+static NSSplitView *find_split(NSView *v, int depth) {
+    if ([v isKindOfClass:[NSSplitView class]]) return (NSSplitView *)v;
+    if (depth > 6) return nil;
+    for (NSView *s in v.subviews) {
+        NSSplitView *f = find_split(s, depth + 1);
+        if (f) return f;
+    }
+    return nil;
+}
+- (CGFloat)_bn_dividerX {
+    NSSplitView *split = find_split(self.owner.contentView, 0);
+    NSView *first = split.arrangedSubviews.firstObject ?: split.subviews.firstObject;
+    if (!first || first.isHidden) return 0;
+    return NSMaxX([first convertRect:first.bounds toView:nil]);
+}
+- (void)layout {
+    [self _bn_rebuild];
+    CGFloat h = self.bounds.size.height, gap = 8;
+    /* Widths first, then flexible spaces share the rest. */
+    NSUInteger n = _shown.count, flex = 0;
+    CGFloat x = 78, fixed = 0;
+    CGFloat *widths = calloc(n ? n : 1, sizeof(CGFloat));
+    for (NSUInteger i = 0; i < n; i++) {
+        NSToolbarItem *item = _shown[i];
+        id v = _views[i];
+        if ([item.itemIdentifier isEqualToString:NSToolbarFlexibleSpaceItemIdentifier]) flex++;
+        else if ([item.itemIdentifier isEqualToString:NSToolbarSpaceItemIdentifier]) widths[i] = gap;
+        else if (v != [NSNull null]) {
+            NSView *view = v;
+            NSSize s = view.fittingSize;
+            if (s.width <= 0) s = view.frame.size;
+            if (item.minSize.width > s.width) s.width = item.minSize.width;
+            widths[i] = s.width;
+            fixed += s.width + gap;
+        }
+    }
+    CGFloat divider = [self _bn_dividerX];
+    /* Room left for flexible spaces (measured from where the row starts). */
+    CGFloat start = x;
+    for (NSUInteger i = 0; i < n; i++)
+        if ([_shown[i].itemIdentifier isEqualToString:kSidebarTracking] && divider > start) start = divider + gap;
+    CGFloat share = flex ? MAX(0, (self.bounds.size.width - gap - start - fixed) / flex) : 0;
+    for (NSUInteger i = 0; i < n; i++) {
+        NSToolbarItem *item = _shown[i];
+        NSString *ident = item.itemIdentifier;
+        if ([ident isEqualToString:kSidebarTracking]) {
+            if (divider > 0) x = MAX(x, divider + gap);
+            continue;
+        }
+        if ([ident isEqualToString:NSToolbarFlexibleSpaceItemIdentifier]) {
+            x += share;
+            continue;
+        }
+        id v = _views[i];
+        if (v == [NSNull null]) {
+            x += widths[i];
+            continue;
+        }
+        NSView *view = v;
+        NSSize s = view.fittingSize;
+        if (s.height <= 0) s.height = view.frame.size.height;
+        s.height = MIN(MAX(s.height, 16), h - 4);
+        view.frame = NSMakeRect(x, floor((h - s.height) / 2), widths[i], s.height);
+        /* Items validate as AppKit's toolbar does before showing them. */
+        if (item.autovalidates || item.target) [item validate];
+        if ([view isKindOfClass:[NSButton class]]) ((NSButton *)view).enabled = item.isEnabled;
+        if ([item isKindOfClass:[NSToolbarItemGroup class]] && !item.view) {
+            NSArray<NSToolbarItem *> *subs = ((NSToolbarItemGroup *)item).subitems;
+            for (NSButton *b in view.subviews)
+                if ((NSUInteger)(b.tag & 0xFF) < subs.count) b.enabled = subs[(NSUInteger)(b.tag & 0xFF)].isEnabled;
+        }
+        x += widths[i] + gap;
+    }
+    free(widths);
+    [super layout];
+}
+- (void)drawRect:(NSRect)dirty {
+    /* (the window draws what is behind the strip) */
+}
+@end
+
+@interface NSView (BittenToolbarWindow)
+- (void)_setWindow:(NSWindow *)window;
+@end
+
+@implementation NSWindow (BittenToolbarStrip)
+static const char kToolbarViewKey;
+/* A full-size-content window's toolbar items, drawn in its title bar's
+ * strip over the content (as macOS's unified title bar shows them beside
+ * the window's buttons); nil when there are none to show. */
+- (NSView *)_bn_toolbarView {
+    NSWindowStyleMask m = self.styleMask;
+    NSToolbar *t = self.toolbar;
+    if (!(m & NSWindowStyleMaskTitled) || !(m & NSWindowStyleMaskFullSizeContentView) || !t.isVisible ||
+        !t.visibleItems.count)
+        return nil;
+    BNToolbarView *v = objc_getAssociatedObject(self, &kToolbarViewKey);
+    if (!v) {
+        v = [[BNToolbarView alloc] initWithFrame:NSZeroRect];
+        v.owner = self;
+        objc_setAssociatedObject(self, &kToolbarViewKey, v, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        [v _setWindow:self];
+    }
+    NSRect content = [self contentRectForFrameRect:self.frame];
+    NSRect f = NSMakeRect(0, content.size.height - 28, content.size.width, 28);
+    if (!NSEqualRects(v.frame, f)) v.frame = f;
+    [v layout];
+    return v;
+}
 @end

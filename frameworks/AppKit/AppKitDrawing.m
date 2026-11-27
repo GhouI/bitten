@@ -787,6 +787,8 @@ static const char kDrawingKey;
     bn_visible_ctx = c;
     bn_visible = full ? CGRectMake(0, 0, content.size.width, content.size.height) : CGRectMake(dirty.origin.x, dirty.origin.y, dirty.size.width, dirty.size.height);
     [self.contentView _bn_drawIn:c parentFlipped:NO];
+    NSView *toolbar = self._bn_toolbarView;
+    if (toolbar) [toolbar _bn_drawIn:c parentFlipped:NO];
     bn_visible_ctx = visibleBefore;
     bn_visible = visibleRectBefore;
     CGContextRestoreGState(c);

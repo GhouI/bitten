@@ -176,7 +176,13 @@ extern BOOL bn_dragging_route(NSWindow *w, NSEvent *e);
     switch (event.type) {
     case NSEventTypeLeftMouseDown:
     case NSEventTypeRightMouseDown: {
-        NSView *hit = [self.contentView hitTest:event.locationInWindow];
+        /* The toolbar's items in the title bar strip come first. */
+        NSView *toolbar = self._bn_toolbarView, *hit = nil;
+        if (toolbar && event.locationInWindow.y >= NSMinY(toolbar.frame)) {
+            hit = [toolbar hitTest:event.locationInWindow];
+            if (hit == toolbar) hit = nil;
+        }
+        if (!hit) hit = [self.contentView hitTest:event.locationInWindow];
         NSView *target = hit ?: self.contentView;
         if (getenv("BITTEN_EVENT_DEBUG")) {
             fprintf(stderr, "bitten: mouse down at %s hits", NSStringFromPoint(event.locationInWindow).UTF8String);
