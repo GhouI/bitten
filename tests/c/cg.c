@@ -35,6 +35,7 @@ CGPoint CGContextConvertPointToDeviceSpace(CGContextRef, CGPoint);
 void CGContextSetAlpha(CGContextRef, CGFloat);
 void CGContextBeginTransparencyLayer(CGContextRef, CGRef), CGContextEndTransparencyLayer(CGContextRef);
 void CGContextBeginTransparencyLayerWithRect(CGContextRef, CGRect, CGRef);
+void CGContextSetBlendMode(CGContextRef, int);
 void CGContextSetInterpolationQuality(CGContextRef, int);
 void CGContextDrawImage(CGContextRef, CGRect, CGRef);
 void CGContextClearRect(CGContextRef, CGRect);
@@ -195,6 +196,18 @@ int main(void) {
     CHECK(px(c, 20, 3, 4)[3] == 255 && px(c, 20, 7, 8)[3] == 255);
     CHECK(px(c, 20, 2, 6)[3] == 0 && px(c, 20, 8, 6)[3] == 0 && px(c, 20, 5, 3)[3] == 0 && px(c, 20, 5, 9)[3] == 0);
     CHECK(px(c, 20, 15, 15)[3] == 0);
+    CGContextRelease(c);
+    /* a layer composited with destination-in keeps the destination only
+     * where the layer painted: its empty pixels clear it */
+    c = rgba(10, 10);
+    CGContextSetRGBFillColor(c, 1, 0, 0, 1);
+    CGContextFillRect(c, R(0, 0, 10, 10));
+    CGContextSetBlendMode(c, 22);
+    CGContextBeginTransparencyLayer(c, NULL);
+    CGContextSetRGBFillColor(c, 0, 0, 1, 1);
+    CGContextFillRect(c, R(0, 0, 5, 5));
+    CGContextEndTransparencyLayer(c);
+    CHECK(px(c, 10, 2, 2)[0] == 255 && px(c, 10, 2, 2)[3] == 255 && px(c, 10, 7, 7)[3] == 0);
     CGContextRelease(c);
     /* a plain layer under a clip composites inside the clip only */
     c = rgba(20, 20);

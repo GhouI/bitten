@@ -5313,3 +5313,18 @@ Debugging aids:
   not with the window content under it. The blend itself is drawn by
   QuartzCore's layer rendering (raised with that side).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## CALayer compositingFilter
+
+- QuartzCore (CALayer.m): a layer with a compositingFilter is drawn as a
+  group and composited with the blend mode the filter names: Core
+  Animation names (multiplyBlendMode, destOut / destinationOut, plusL,
+  sourceIn, xor, ...), Core Image names (CIMultiplyBlendMode,
+  CISourceOutCompositing, CIAdditionCompositing, ...), or an object with
+  such a name or type. Unknown filters draw normally.
+- CoreGraphics (context.c): ending a transparency layer composited with a
+  mode that changes the destination where the layer is clear (copy, clear,
+  source in/out, destination in/atop) applies it to every pixel of the
+  layer, not only the painted ones.
+- Tests: tests/quartzcore/layers.m, tests/c/cg.c.
+- Target app (total `^MISSING`): 0 -> 0.

@@ -6,6 +6,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define CHECK(c) do { if (!(c)) { printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); exit(1); } } while (0)
 #define NEAR(a, b) (fabs((double)(a) - (double)(b)) < 1e-6)
@@ -240,6 +241,34 @@ int main(void) {
         int ticks = ticker.ticks;
         [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
         CHECK(ticker.ticks == ticks);
+
+        /* compositingFilter: a layer composited with a blend mode */
+        {
+            memset(px, 0, sizeof px);
+            CALayer *base = [CALayer layer];
+            base.frame = CGRectMake(0, 0, 64, 64);
+            base.backgroundColor = red;
+            CALayer *hole = [CALayer layer];                 /* erases what is under it */
+            hole.frame = CGRectMake(10, 10, 10, 10);
+            hole.backgroundColor = blue;
+            hole.compositingFilter = @"destinationOut";
+            [base addSublayer:hole];
+            CALayer *tint = [CALayer layer];                 /* multiplies red by blue: black */
+            tint.frame = CGRectMake(40, 40, 10, 10);
+            tint.backgroundColor = blue;
+            tint.compositingFilter = @"multiplyBlendMode";
+            [base addSublayer:tint];
+            CALayer *plain = [CALayer layer];                /* an unknown filter: drawn normally */
+            plain.frame = CGRectMake(40, 10, 10, 10);
+            plain.backgroundColor = blue;
+            plain.compositingFilter = @"noSuchFilter";
+            [base addSublayer:plain];
+            [base renderInContext:ctx];
+            CHECK(at(15, 15)[3] == 0);                                         /* the hole: clear */
+            CHECK(at(5, 5)[0] == 255 && at(5, 5)[3] == 255);                   /* around it: red */
+            CHECK(at(45, 45)[0] == 0 && at(45, 45)[2] == 0 && at(45, 45)[3] == 255);
+            CHECK(at(45, 15)[2] == 255 && at(45, 15)[0] == 0);
+        }
 
         CGContextRelease(ctx);
         CGColorSpaceRelease(rgb);

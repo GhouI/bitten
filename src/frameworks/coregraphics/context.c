@@ -1012,11 +1012,15 @@ static void d_CGContextEndTransparencyLayer(CGContextRef c) {
         if (t.clip->x1 < x1) x1 = t.clip->x1;
         if (t.clip->y1 < y1) y1 = t.clip->y1;
     }
+    /* modes that change the destination where the layer is clear (copy,
+     * source in/out, destination in/atop) composite every pixel */
+    bool clears = l->blend == CG_BLEND_COPY || l->blend == CG_BLEND_CLEAR || l->blend == 18 || l->blend == 19 ||
+                  l->blend == 22 || l->blend == 24;
     for (size_t row = y0; row < y1; row++)
         for (size_t x = x0; x < x1; x++) {
             CGFloat px[4];
             cg_read_pixel(&l->surface, x, row, px);
-            if (px[3] > 0 || l->blend == CG_BLEND_COPY) cg_blend_pixel(&t, x, row, px, 1);
+            if (px[3] > 0 || clears) cg_blend_pixel(&t, x, row, px, 1);
         }
     free(l->alloc);
     free(l);
