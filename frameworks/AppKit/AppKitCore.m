@@ -21,6 +21,7 @@ void bn_tree_visibility(NSView *root, BOOL visible);
 @end
 @interface NSWindow (BittenPartialDisplay)
 - (void)_bn_invalidateRect:(NSRect)r;
+- (void)_bn_scheduleDisplay;
 @end
 @interface NSView (BittenTrackingState)
 - (void)_bn_setTrackingAreasNeedUpdate; /* AppKitEvents.m */
@@ -93,8 +94,11 @@ NSApplication *NSApp;
                 NSStringFromPoint(_frame.origin).UTF8String, NSStringFromPoint(origin).UTF8String);
         bn_debug_callers();
     }
+    BOOL moved = !NSEqualPoints(origin, _frame.origin);
+    if (moved) [self _bn_invalidateOwnArea];   /* where it was */
     _frame.origin = origin;
     _needsDisplay = YES;
+    if (moved) [self _bn_invalidateOwnArea];   /* where it is */
     [self _bn_syncLayerGeometry];
 }
 /* A backing layer has the view's geometry: its bounds are the view's
@@ -110,9 +114,12 @@ NSApplication *NSApp;
 }
 - (void)setFrameSize:(NSSize)size {
     NSSize old = _frame.size;
+    BOOL changed = !NSEqualSizes(old, size);
+    if (changed) [self _bn_invalidateOwnArea];
     _frame.size = size;
     _bounds.size = size;
     _needsDisplay = YES;
+    if (changed) [self _bn_invalidateOwnArea];
     [self _bn_syncLayerGeometry];
     if (!NSEqualSizes(old, size)) [self _bn_setTrackingAreasNeedUpdate];
     if (!NSEqualSizes(old, size) && self.autoresizesSubviews) [self resizeSubviewsWithOldSize:old];
@@ -187,10 +194,29 @@ static void bn_autoresize_axis(CGFloat delta, BOOL flexLo, BOOL flexLen, BOOL fl
         for (NSView *v = _superview; v; v = v->_superview) v->_needsDisplay = YES;
         return;
     }
+    /* A view in a window repaints its own area (with a margin for what a
+     * layer draws just outside: shadows, borders), not the whole window. */
+    if (_superview && _window) {
+        for (NSView *v = _superview; v; v = v->_superview) v->_needsDisplay = YES;
+        [self _bn_invalidateOwnArea];
+        return;
+    }
     if (_superview) _superview.needsDisplay = YES;
     else [_window _bn_scheduleDisplay];
 }
-- (void)setNeedsDisplayInRect:(NSRect)rect { self.needsDisplay = YES; }
+- (void)_bn_invalidateOwnArea {
+    if (!_window || !_superview) return;
+    [_window _bn_invalidateRect:[self convertRect:NSInsetRect(self.bounds, -12, -12) toView:nil]];
+}
+- (void)setNeedsDisplayInRect:(NSRect)rect {
+    if (_superview && _window && !NSIsEmptyRect(rect)) {
+        _needsDisplay = YES;
+        for (NSView *v = _superview; v; v = v->_superview) v->_needsDisplay = YES;
+        [_window _bn_invalidateRect:[self convertRect:NSInsetRect(rect, -2, -2) toView:nil]];
+        return;
+    }
+    self.needsDisplay = YES;
+}
 - (BOOL)isHidden { return _hidden; }
 - (void)setHidden:(BOOL)hidden { _hidden = hidden; }
 - (BOOL)wantsLayer { return _wantsLayer; }

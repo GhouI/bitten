@@ -700,6 +700,11 @@ static const char kDrawingKey;
     objc_setAssociatedObject(self, &kDrawingKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 - (void)_bn_drawPending {
+    /* Layout first: views it moves mark where they were and are, and this
+     * frame repaints those. */
+    if (self.isVisible && self.alphaValue > 0 &&
+        ([objc_getAssociatedObject(self, &kFullKey) boolValue] || objc_getAssociatedObject(self, &kDirtyKey)))
+        [self.contentView layoutSubtreeIfNeeded];
     BOOL full = [objc_getAssociatedObject(self, &kFullKey) boolValue];
     NSValue *dirtyValue = objc_getAssociatedObject(self, &kDirtyKey);
     objc_setAssociatedObject(self, &kFullKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -715,7 +720,6 @@ static const char kDrawingKey;
         [self _bn_closeDisplay];
         return;
     }
-    [self.contentView layoutSubtreeIfNeeded];
     NSRect content = [self contentRectForFrameRect:self.frame];
     NSValue *before = objc_getAssociatedObject(self, &kBackingKey);
     CGContextRef c = [self _bn_backing:content.size];

@@ -4886,3 +4886,22 @@ Debugging aids:
   bundled helper and the installed copy (92 MB each) at every launch.
 - Tests: tests/c/crypto.c, tests/swiftlib/cryptokit (both paths).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## A view that needs display repaints its own area
+
+- `setNeedsDisplay:YES` on any view marked its superview, and so on up to
+  the root, which asked for a full window redraw. Every small view update
+  repainted the whole window. The target app's launch drew 16 full
+  frames in its first 7 seconds.
+- A view in a window now invalidates only its own area, in window
+  coordinates, with a 12-point margin for what a layer draws just outside
+  it (shadows, borders). `setNeedsDisplayInRect:` invalidates just that
+  rect. A view whose frame changes invalidates where it was and where it
+  is; before, a frame change asked for no display at all and only showed
+  because something else redrew everything. Layout now runs before a
+  frame reads what it must repaint, so views moved by layout are
+  repainted in that same frame.
+- Launch now draws 11 full frames and 10 partial ones in its first 7
+  seconds. The main window, palette, Settings, context menu, grip
+  resize, and pane zoom/restore were checked for stale pixels; none.
+- Target app (total `^MISSING`): 0 -> 0.
