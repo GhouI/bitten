@@ -5389,3 +5389,10 @@ Debugging aids:
   The main window, whose toolbar has no items, is unchanged.
 - Test: `tests/appkit/split.m`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Docs: resize artifact noted
+
+- `docs/NEXT.md` now records the thin lines left in the target app's main
+  window after shrinking it by the grip and growing it back, with what
+  is known so far.
+- Target app (total `^MISSING`): 0 -> 0.
