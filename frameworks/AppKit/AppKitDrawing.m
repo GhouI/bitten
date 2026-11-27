@@ -462,6 +462,9 @@ static const char kScheduledKey;
 
 /* Draws the content view hierarchy and shows the result. */
 - (void)display {
+    if (getenv("BITTEN_DISPLAY_DEBUG"))
+        fprintf(stderr, "bitten: display %s visible %d alpha %g\n", self.title.UTF8String ?: "", self.isVisible,
+                self.alphaValue);
     if (!self.isVisible) return;
     /* fully transparent: nothing to show (windows kept ordered in but
      * faded out, as panels shown on demand often are) */

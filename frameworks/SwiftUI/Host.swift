@@ -139,9 +139,14 @@ enum _GraphHost {
   static var hosts: [_WeakHost] = []
   nonisolated static func invalidate() {
     Task { @MainActor in
-      if scheduled { return }
+      if scheduled {
+        if _debugTree { _dbg("bitten: invalidate: already scheduled") }
+        return
+      }
       scheduled = true
+      if _debugTree { _dbg("bitten: invalidate: scheduled") }
       await Task.yield()
+      if _debugTree { _dbg("bitten: invalidate: running") }
       scheduled = false
       hosts.removeAll { $0.view == nil }
       for h in hosts { h.view?._bn_invalidate() }
