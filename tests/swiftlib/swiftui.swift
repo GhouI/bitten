@@ -738,6 +738,25 @@ struct Counting: View {
   }
 }
 
+/// In a stack short of room, a spacer keeps only its minimum length while
+/// a flexible view takes the rest (not half).
+@_silgen_name("swl_swiftui_spacershort") public func spacerShort() -> Int {
+  return MainActor.assumeIsolated {
+    let row = HStack(spacing: 0) {
+      Color(.sRGB, red: 0, green: 0, blue: 1).frame(minWidth: 0, idealWidth: 500, maxWidth: 500)
+      Spacer(minLength: 8)
+      Color(.sRGB, red: 1, green: 0, blue: 0).frame(width: 20)
+    }.frame(width: 200, height: 10)
+    let px = render(row, 200, 10)
+    // Blue to 172, the spacer's 8, then red.
+    var bad = 0
+    if px(150, 5) != blue { bad |= 1 }
+    if px(176, 5) != white { bad |= 2 }
+    if px(190, 5) != red { bad |= 4 }
+    return bad
+  }
+}
+
 /// A button's keyboard shortcut performs it: Escape a .cancelAction
 /// button, a command key a ⌘ shortcut; a disabled one doesn't.
 @_silgen_name("swl_swiftui_shortcuts") public func shortcuts() -> Int {
