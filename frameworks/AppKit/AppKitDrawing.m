@@ -410,17 +410,18 @@ static void bn_layer_border(BNBackingLayer *layer, CGContextRef c, CGRect b) {
     }
     CGContextTranslateCTM(c, -b.origin.x, -b.origin.y);
     BNBackingLayer *layer = (BNBackingLayer *)self.layer;
-    BOOL group = NO;
+    /* The view's alpha and its layer's opacity both fade it and its subviews. */
+    CGFloat alpha = self.alphaValue * (layer ? layer.opacity : 1);
+    if (alpha <= 0 || layer.isHidden) {
+        CGContextRestoreGState(c);
+        return;
+    }
+    BOOL group = alpha < 1;
+    if (group) {
+        CGContextSetAlpha(c, alpha);
+        CGContextBeginTransparencyLayer(c, NULL);
+    }
     if (layer) {
-        if (layer.isHidden || layer.opacity <= 0) {
-            CGContextRestoreGState(c);
-            return;
-        }
-        group = layer.opacity < 1;
-        if (group) {
-            CGContextSetAlpha(c, layer.opacity);
-            CGContextBeginTransparencyLayer(c, NULL);
-        }
         bn_layer_background(layer, c, b);
         /* In the view's upright space: the layer's top is the view's top. */
         CGContextSaveGState(c);
@@ -450,8 +451,8 @@ static void bn_layer_border(BNBackingLayer *layer, CGContextRef c, CGRect b) {
     if (layer) {
         CGContextRestoreGState(c); /* the corner clip */
         bn_layer_border(layer, c, b);
-        if (group) CGContextEndTransparencyLayer(c);
     }
+    if (group) CGContextEndTransparencyLayer(c);
     CGContextRestoreGState(c);
     self.needsDisplay = NO;
 }

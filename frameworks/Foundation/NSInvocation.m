@@ -150,6 +150,16 @@ static void layout(const char *t, size_t *size, size_t *align, int cls[2], size_
     *align = a;
 }
 
+/* The size and alignment of the first type in an encoding; returns the
+ * rest of the encoding. */
+const char *NSGetSizeAndAlignment(const char *typePtr, NSUInteger *sizep, NSUInteger *alignp) {
+    size_t size = 0, align = 1;
+    layout(typePtr, &size, &align, NULL, 0);
+    if (sizep) *sizep = size;
+    if (alignp) *alignp = align;
+    return skip_digits(type_end(typePtr));
+}
+
 static bn_arg parse_arg(const char *start, const char *end) {
     bn_arg a;
     size_t n = (size_t)(end - start);

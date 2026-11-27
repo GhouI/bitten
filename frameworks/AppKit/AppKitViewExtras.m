@@ -3,6 +3,9 @@
  * kept as associated values, and NSShadow and NSTrackingArea. */
 
 #import <AppKit/AppKit.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #import <objc/runtime.h>
 #include <math.h>
 
@@ -72,6 +75,9 @@ static const char k_alpha, k_tooltip, k_identifier, k_shadow, k_focus, k_tamic, 
     return n ? n.doubleValue : 1;
 }
 - (void)setAlphaValue:(CGFloat)a {
+    const char *debug_class = getenv("BITTEN_FRAME_DEBUG");
+    if (debug_class && strstr(object_getClassName(self), debug_class))
+        fprintf(stderr, "bitten: %s alpha %g\n", object_getClassName(self), a);
     set(self, &k_alpha, @(a));
     self.needsDisplay = YES;
 }

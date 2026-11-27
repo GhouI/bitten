@@ -425,6 +425,7 @@ __attribute__((swift_bridge("Swift.Dictionary")))
 + (NSValue *)valueWithNonretainedObject:(id)object;
 + (NSValue *)valueWithRange:(NSRange)range;
 - (void)getValue:(void *)value;
+- (void)getValue:(void *)value size:(NSUInteger)size;
 @property (readonly) const char *objCType;
 @property (readonly) void *pointerValue;
 @property (readonly) id nonretainedObjectValue;
@@ -1752,6 +1753,7 @@ void NSLog(NSString *format, ...) NS_FORMAT_FUNCTION(1, 2);
 void NSLogv(NSString *format, va_list args) NS_FORMAT_FUNCTION(1, 0);
 NSString *NSStringFromClass(Class cls);
 NSString *NSStringFromSelector(SEL sel);
+const char *NSGetSizeAndAlignment(const char *typePtr, NSUInteger *_Nullable sizep, NSUInteger *_Nullable alignp);
 Class NSClassFromString(NSString *name);
 SEL NSSelectorFromString(NSString *name);
 
