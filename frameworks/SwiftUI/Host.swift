@@ -158,6 +158,36 @@ final class _WeakHost {
   init(_ v: _HostingViewBase) { view = v }
 }
 
+/// Whether `event` is `shortcut`'s key with its modifiers.
+func _matches(_ shortcut: KeyboardShortcut, _ event: NSEvent) -> Bool {
+  var want: NSEvent.ModifierFlags = []
+  if shortcut.modifiers.contains(.command) { want.insert(.command) }
+  if shortcut.modifiers.contains(.shift) { want.insert(.shift) }
+  if shortcut.modifiers.contains(.option) { want.insert(.option) }
+  if shortcut.modifiers.contains(.control) { want.insert(.control) }
+  let have = event.modifierFlags.intersection([.command, .shift, .option, .control])
+  let key = String(shortcut.key.character)
+  let typed = event.charactersIgnoringModifiers ?? ""
+  if key == "\r" && (typed == "\r" || typed == "\u{3}") { return have == want }   // Return or Enter
+  if key.lowercased() != typed.lowercased() { return false }
+  // An uppercase key implies shift, as in menus.
+  if key != key.lowercased() { want.insert(.shift) }
+  return have == want
+}
+
+/// The enabled button in `node`'s subtree whose keyboard shortcut is
+/// `event`'s key (the frontmost, when more than one has it).
+func _shortcutButton(_ node: _ViewNode, _ event: NSEvent) -> _ButtonNode? {
+  for c in node.children.reversed() {
+    if let b = _shortcutButton(c, event) { return b }
+  }
+  if let b = node as? _ButtonNode, b.environment.isEnabled, let shortcut = b.environment._keyboardShortcut,
+     _matches(shortcut, event) {
+    return b
+  }
+  return nil
+}
+
 /// What every NSHostingView does, whatever its root view's type.
 @MainActor @preconcurrency
 open class _HostingViewBase: NSView {
@@ -172,6 +202,16 @@ open class _HostingViewBase: NSView {
     _context.invalidate = { _GraphHost.invalidate() }
     _context.hostView = self
     _GraphHost.hosts.append(_WeakHost(self))
+  }
+
+  /// A button's `keyboardShortcut` (⌘-keys, Return for `.defaultAction`,
+  /// Escape for `.cancelAction`) performs it, as SwiftUI does.
+  override open func performKeyEquivalent(with event: NSEvent) -> Bool {
+    if let root = _root, let button = _shortcutButton(root, event) {
+      button.action()
+      return true
+    }
+    return super.performKeyEquivalent(with: event)
   }
 
   func _makeRoot() -> _ViewNode { fatalError("abstract") }
@@ -364,7 +404,13 @@ open class _HostingViewBase: NSView {
   }
   override open var acceptsFirstResponder: Bool { return true }
   override open func keyDown(with event: NSEvent) {
-    if _layout().key(event.characters ?? "", keyCode: event.keyCode) { needsDisplay = true }
+    if _layout().key(event.characters ?? "", keyCode: event.keyCode) {
+      needsDisplay = true
+      return
+    }
+    // Not the tree's: on along the responder chain (to the window, which
+    // offers it as a key equivalent: Escape to a .cancelAction button).
+    super.keyDown(with: event)
   }
 
   /// The size the content wants when nothing is proposed.

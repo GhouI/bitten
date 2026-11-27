@@ -236,6 +236,29 @@ extern BOOL bn_dragging_route(NSWindow *w, NSEvent *e);
 }
 @end
 
+/* A key nothing along the responder chain took ends at the window, which
+ * offers it as a key equivalent (Escape to a Cancel button, Return to the
+ * default button, SwiftUI's .cancelAction / .defaultAction), as AppKit's
+ * keyboard interface does; Escape and Return a text view turns into
+ * cancelOperation: / insertNewline: that nothing takes go the same way. */
+@implementation NSWindow (BittenKeyFallback)
+- (void)keyDown:(NSEvent *)event {
+    if ([self performKeyEquivalent:event]) return;
+    [self.nextResponder keyDown:event];
+}
+- (void)doCommandBySelector:(SEL)sel {
+    if ([self respondsToSelector:sel]) {
+        ((void (*)(id, SEL, id))objc_msgSend)(self, sel, nil);
+        return;
+    }
+    NSEvent *e = NSApp.currentEvent;
+    if (e.type == NSEventTypeKeyDown && (sel == @selector(cancelOperation:) || sel == @selector(insertNewline:)) &&
+        [self performKeyEquivalent:e])
+        return;
+    [self.nextResponder doCommandBySelector:sel];
+}
+@end
+
 @implementation NSResponder (BittenEvents)
 - (void)rightMouseUp:(NSEvent *)event { [self.nextResponder rightMouseUp:event]; }
 @end
