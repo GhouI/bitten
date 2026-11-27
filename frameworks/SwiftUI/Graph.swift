@@ -168,6 +168,24 @@ internal class _ViewNode {
     self.children = children
   }
 
+  /// Sizes measured in the current layout pass (see _measureGeneration).
+  private var _measuredGen = -1
+  private var _measured: [(ProposedViewSize, CGSize)] = []
+  /// sizeThatFits, remembered for the rest of the layout pass: stacks ask
+  /// their children several times (ideal, least, most, final), which nested
+  /// stacks would otherwise multiply level by level.
+  final func measure(_ p: ProposedViewSize) -> CGSize {
+    if _measuredGen != _measureGeneration {
+      _measured.removeAll(keepingCapacity: true)
+      _measuredGen = _measureGeneration
+    }
+    if _bn_noMeasureCache { return sizeThatFits(p) }
+    for (q, size) in _measured where q == p { return size }
+    let size = sizeThatFits(p)
+    if _measured.count < 8 { _measured.append((p, size)) }
+    return size
+  }
+
   /// The size this node wants for a proposal (nil dimensions: ideal size).
   func sizeThatFits(_ proposal: ProposedViewSize) -> CGSize {
     // By default a node is as big as its single child, or takes what it is given.
@@ -256,6 +274,10 @@ internal func _sw_field(_ value: UnsafeRawPointer, _ type: Any.Type, _ index: In
                         _ name: UnsafeMutablePointer<UnsafePointer<CChar>?>,
                         _ childType: UnsafeMutablePointer<Any.Type?>) -> UnsafeRawPointer?
 
+/// Bumped at the start of every layout pass: measurements from an earlier
+/// pass are stale.
+nonisolated(unsafe) var _measureGeneration = 0
+nonisolated(unsafe) let _bn_noMeasureCache = getenv("BITTEN_NO_MEASURE_CACHE") != nil
 nonisolated(unsafe) let _debugGraph = getenv("BITTEN_SWIFTUI_DEBUG") != nil
 nonisolated(unsafe) let _debugTree = getenv("BITTEN_SWIFTUI_TREE") != nil
 /// BITTEN_SWIFTUI_BODY=Name prints the body type of views whose type starts with Name.

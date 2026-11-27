@@ -555,9 +555,41 @@ internal final class _StackNode: _ViewNode {
     let ideal = children.map { child -> CGSize in
       let p = axis == .vertical ? ProposedViewSize(width: crossProposal, height: nil)
                                 : ProposedViewSize(width: nil, height: crossProposal)
-      return child.sizeThatFits(p)
+      return child.measure(p)
     }
     guard let total = available else { return ideal }
+    // More wanted than there is: as SwiftUI's stacks, every child shares the
+    // shortfall by flexibility (how much it changes between being offered
+    // nothing and everything), the least flexible first, each offered an
+    // equal share of what is left, by layout priority.
+    let wanted = (0..<n).reduce(CGFloat(0)) { $0 + (children[$1].isSpacer ? 0 : main(ideal[$1])) }
+    if wanted > total - gaps + 0.5 {
+      func offer(_ m: CGFloat) -> ProposedViewSize {
+        return axis == .vertical ? ProposedViewSize(width: crossProposal, height: m)
+                                 : ProposedViewSize(width: m, height: crossProposal)
+      }
+      let mins = children.map { main($0.measure(offer(0))) }
+      let maxs = children.map { $0.isSpacer ? CGFloat.infinity : main($0.measure(offer(1e6))) }
+      let priorities = children.map { $0.layoutPriority }
+      var result = ideal
+      var remaining = total - gaps
+      for priority in Set(priorities).sorted(by: >) {
+        let group = (0..<n).filter { priorities[$0] == priority }
+          .sorted { (maxs[$0] - mins[$0]) < (maxs[$1] - mins[$1]) }
+        let reserved = (0..<n).filter { priorities[$0] < priority }.reduce(CGFloat(0)) { $0 + mins[$1] }
+        var avail = remaining - reserved
+        var left = group.count
+        for i in group {
+          let share = max(0, avail) / CGFloat(left)
+          result[i] = children[i].measure(offer(share))
+          if children[i].isSpacer { result[i] = size(main: max(share, main(result[i])), cross: 0) }
+          avail -= main(result[i])
+          remaining -= main(result[i])
+          left -= 1
+        }
+      }
+      return result
+    }
     var remaining = total - gaps
     var result = ideal
     var flexible: [Int] = []
@@ -569,7 +601,7 @@ internal final class _StackNode: _ViewNode {
     for i in 0..<n where !children[i].isSpacer {
       let bigger = axis == .vertical ? ProposedViewSize(width: crossProposal, height: main(ideal[i]) + 10000)
                                      : ProposedViewSize(width: main(ideal[i]) + 10000, height: crossProposal)
-      if main(children[i].sizeThatFits(bigger)) > main(ideal[i]) + 1 {
+      if main(children[i].measure(bigger)) > main(ideal[i]) + 1 {
         flexible.append(i)
         remaining += main(ideal[i])
       }
@@ -578,7 +610,20 @@ internal final class _StackNode: _ViewNode {
       // One at a time, the largest first (spacers last), each from what the others
       // left (a child that cannot shrink to its share takes more, and the
       // rest share less), as SwiftUI's stacks do.
+      // Children that stop growing at some size (a frame's maxWidth) come
+      // before those that would take anything, as SwiftUI orders the less
+      // flexible first; otherwise the largest first, spacers last.
+      let most: [CGFloat] = flexible.reduce(into: Array(repeating: CGFloat.infinity, count: n)) { m, i in
+        if !children[i].isSpacer {
+          let p = axis == .vertical ? ProposedViewSize(width: crossProposal, height: 1e6)
+                                    : ProposedViewSize(width: 1e6, height: crossProposal)
+          let grown = main(children[i].measure(p))
+          m[i] = grown < 1e5 ? grown : .infinity
+        }
+      }
       let order = flexible.sorted { a, b in
+        if children[a].isSpacer != children[b].isSpacer { return children[b].isSpacer }
+        if most[a] != most[b] { return most[a] < most[b] }
         let fa = children[a].isSpacer ? -CGFloat.infinity : main(ideal[a])
         let fb = children[b].isSpacer ? -CGFloat.infinity : main(ideal[b])
         return fa > fb
@@ -588,7 +633,7 @@ internal final class _StackNode: _ViewNode {
         let share = max(0, remaining) / CGFloat(left)
         let p = axis == .vertical ? ProposedViewSize(width: crossProposal, height: share)
                                   : ProposedViewSize(width: share, height: crossProposal)
-        result[i] = children[i].sizeThatFits(p)
+        result[i] = children[i].measure(p)
         if children[i].isSpacer { result[i] = size(main: max(share, main(result[i])), cross: 0) }
         remaining -= main(result[i])
         left -= 1

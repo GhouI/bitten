@@ -342,6 +342,7 @@ open class _HostingViewBase: NSView {
   var _placing = false
 
   func _layout() -> _ViewNode {
+    _measureGeneration &+= 1
     if let r = _root, _placing || (_placedIn.width == bounds.size.width && _placedIn.height == bounds.size.height) {
       return r
     }
@@ -514,6 +515,7 @@ open class _HostingViewBase: NSView {
 
   /// The size the content wants when nothing is proposed.
   public var fittingContentSize: NSSize {
+    _measureGeneration &+= 1
     return _makeRoot().sizeThatFits(.unspecified)
   }
 }
