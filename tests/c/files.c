@@ -24,6 +24,11 @@ struct dirent *readdir(void *) __asm("_readdir$INODE64");
 int closedir(void *);
 int fcntl(int, int, ...);
 int getpid(void);
+long pathconf(const char *, int);
+long fpathconf(int, int);
+void *fdopen_ext(int, const char *) __asm("_fdopen$DARWIN_EXTSN");
+int fclose(void *);
+int fgetc(void *);
 
 #define O_RDWR 2
 #define O_NONBLOCK 4
@@ -33,6 +38,8 @@ int getpid(void);
 #define O_CLOEXEC 0x1000000
 #define ENOENT 2
 #define EEXIST 17
+#define EBADF 9
+#define EINVAL 22
 
 int main(void) {
     char dir[128], path[192];
@@ -55,7 +62,23 @@ int main(void) {
     char buf[16] = {0};
     CHECK(lseek(fd, 4, 0) == 4);
     CHECK(read(fd, buf, 3) == 3 && memcmp(buf, "456", 3) == 0);
-    CHECK(close(fd) == 0);
+    /* Darwin's 4 and 5 are not glibc's selectors; path and fd agree. */
+    long maxname = pathconf(path, 4);
+    CHECK(maxname >= 14 && fpathconf(fd, 4) == maxname);
+    long maxpath = pathconf(path, 5);
+    CHECK(maxpath > maxname && fpathconf(fd, 5) == maxpath);
+    errno = 0;
+    CHECK(pathconf(path, -1) == -1 && errno == EINVAL);
+    errno = 0;
+    CHECK(fpathconf(-1, 4) == -1 && errno == EBADF);
+    errno = 0;
+    CHECK(pathconf("/definitely/not/here", 4) == -1 && errno == ENOENT);
+    errno = 0;
+    CHECK(fdopen_ext(-1, "r") == NULL && errno == EBADF);
+    CHECK(lseek(fd, 0, 0) == 0);
+    void *stream = fdopen_ext(fd, "r");
+    CHECK(stream != NULL && fgetc(stream) == '0');
+    CHECK(fclose(stream) == 0);
 
     CHECK(open(path, O_RDWR | O_CREAT | O_EXCL, 0600) == -1 && errno == EEXIST);
     CHECK(stat("/definitely/not/here", &st) == -1 && errno == ENOENT);
