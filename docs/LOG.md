@@ -5630,3 +5630,16 @@ Debugging aids:
   missing glyphs still fall back to the other fonts.
 - Dockerfile: fonts-liberation in the test stage and the runtime image.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## stdlib/Foundation: faster UTF-8 strings and JSON decoding
+
+- `String(decoding:as: UTF8.self)` copied every byte one at a time into
+  an array, then into another, even from arrays and slices. Bytes that
+  are laid out in memory are now read in place. JSON strings without
+  escapes are decoded straight from their slice of the input, and the
+  decoder builds a coding path only when it throws. The target app
+  decodes its workspace state at launch: its first window frame comes
+  at about 2.3 s instead of 2.9 s.
+- Tests: `tests/swiftlib/foundation.swift` (strings with and without
+  escapes, error paths, decoding from arrays, slices and lazy sequences).
+- Target app (total `^MISSING`): 0 -> 0.

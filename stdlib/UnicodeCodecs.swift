@@ -20,7 +20,16 @@ extension String {
   public init<C: Collection, Encoding: Unicode.Encoding>(decoding codeUnits: C, as sourceEncoding: Encoding.Type)
   where C.Element == Encoding.CodeUnit {
     if Encoding.CodeUnit.bitWidth == 8 {
-      let bytes = ContiguousArray(codeUnits.lazyMapToUInt8())
+      // Bytes laid out in memory already (arrays, slices, Data): read in
+      // place, without copying them one at a time first.
+      if let direct = codeUnits.withContiguousStorageIfAvailable({ units -> String in
+        let start = UnsafeRawPointer(units.baseAddress)?.assumingMemoryBound(to: UInt8.self)
+        return String._fromUTF8Repairing(UnsafeBufferPointer(start: start, count: units.count)).result
+      }) {
+        self = direct
+        return
+      }
+      let bytes = codeUnits.lazyMapToUInt8()
       self = bytes.withUnsafeBufferPointer { String._fromUTF8Repairing($0).result }
       return
     }

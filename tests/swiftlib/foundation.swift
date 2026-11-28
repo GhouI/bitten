@@ -156,6 +156,25 @@ struct Person: Codable, Equatable {
   do { _ = try JSONDecoder().decode(Int.self, from: Data("\"x\"".utf8)); bad |= 256 } catch DecodingError.typeMismatch {} catch { bad |= 512 }
   if (try? JSONDecoder().decode(String.self, from: Data(#""é😀\n""#.utf8))) != "é😀\n" { bad |= 1024 }
   if (try? JSONDecoder().decode(Int64.self, from: Data("9007199254740993".utf8))) != 9007199254740993 { bad |= 2048 }
+  // strings without escapes (read in place) and with them; error paths
+  // still name where they were
+  if (try? JSONDecoder().decode([String].self, from: Data(#"["plain é😀", "a\"b", ""]"#.utf8))) != ["plain é😀", "a\"b", ""] {
+    bad |= 1 << 20
+  }
+  do {
+    struct Box: Decodable { let n: Int }
+    _ = try JSONDecoder().decode(Box.self, from: Data(#"{"n": "x"}"#.utf8))
+    bad |= 1 << 21
+  } catch DecodingError.typeMismatch(_, let ctx) {
+    if ctx.codingPath.map(\.stringValue) != ["n"] { bad |= 1 << 22 }
+  } catch { bad |= 1 << 21 }
+  // UTF-8 decoding from arrays, slices and non-contiguous sequences agrees,
+  // invalid bytes repaired
+  let raw: [UInt8] = [0x68, 0xC3, 0xA9, 0xFF, 0x21]
+  let viaArray = String(decoding: raw, as: UTF8.self)
+  let viaSlice = String(decoding: raw[0...], as: UTF8.self)
+  let viaLazy = String(decoding: raw.lazy.map { $0 }, as: UTF8.self)
+  if viaArray != "hé\u{FFFD}!" || viaSlice != viaArray || viaLazy != viaArray { bad |= 1 << 23 }
   // dates
   let d1 = Date(timeIntervalSince1970: 1700000000)
   if d1.timeIntervalSinceReferenceDate != 1700000000 - 978307200 || d1.addingTimeInterval(5) <= d1 { bad |= 4096 }

@@ -675,6 +675,14 @@ internal struct _JSONParser {
 
   mutating func parseString() throws -> String {
     i += 1 // opening quote
+    // Most strings have no escapes: decoded from the input in place.
+    var j = i
+    while j < bytes.count, bytes[j] != 34, bytes[j] != 92, bytes[j] >= 32 { j += 1 }
+    if j < bytes.count, bytes[j] == 34 {
+      let s = String(decoding: bytes[i..<j], as: UTF8.self)
+      i = j + 1
+      return s
+    }
     var out: [UInt8] = []
     while true {
       guard i < bytes.count else { throw Failure(message: "Unterminated string.") }
@@ -817,18 +825,18 @@ internal final class _JSONDecoderImpl: Decoder {
   }
 
   // Primitive conversions.
-  func unboxBool(_ v: _JSONValue, path: [any CodingKey]) throws -> Bool {
-    guard case .bool(let b) = v else { throw mismatch(Bool.self, v, path: path) }
+  func unboxBool(_ v: _JSONValue, path: @autoclosure () -> [any CodingKey]) throws -> Bool {
+    guard case .bool(let b) = v else { throw mismatch(Bool.self, v, path: path()) }
     return b
   }
-  func unboxString(_ v: _JSONValue, path: [any CodingKey]) throws -> String {
-    guard case .string(let s) = v else { throw mismatch(String.self, v, path: path) }
+  func unboxString(_ v: _JSONValue, path: @autoclosure () -> [any CodingKey]) throws -> String {
+    guard case .string(let s) = v else { throw mismatch(String.self, v, path: path()) }
     return s
   }
-  func unboxDouble(_ v: _JSONValue, path: [any CodingKey]) throws -> Double {
+  func unboxDouble(_ v: _JSONValue, path: @autoclosure () -> [any CodingKey]) throws -> Double {
     switch v {
     case .number(let n):
-      guard let d = Double(n) else { throw mismatch(Double.self, v, path: path) }
+      guard let d = Double(n) else { throw mismatch(Double.self, v, path: path()) }
       return d
     case .string(let s):
       if case let .convertFromString(pos, neg, nan) = options.nonConformingFloatDecodingStrategy {
@@ -836,17 +844,17 @@ internal final class _JSONDecoderImpl: Decoder {
         if s == neg { return -.infinity }
         if s == nan { return .nan }
       }
-      throw mismatch(Double.self, v, path: path)
+      throw mismatch(Double.self, v, path: path())
     default:
-      throw mismatch(Double.self, v, path: path)
+      throw mismatch(Double.self, v, path: path())
     }
   }
-  func unboxInteger<T: FixedWidthInteger>(_ v: _JSONValue, as type: T.Type, path: [any CodingKey]) throws -> T {
-    guard case .number(let n) = v else { throw mismatch(type, v, path: path) }
+  func unboxInteger<T: FixedWidthInteger>(_ v: _JSONValue, as type: T.Type, path: @autoclosure () -> [any CodingKey]) throws -> T {
+    guard case .number(let n) = v else { throw mismatch(type, v, path: path()) }
     if let exact = T(n) { return exact }
     // "1.0" or "1e3": accept when the value is an exact integer in range.
     if let d = Double(n), d.rounded() == d, let x = T(exactly: d) { return x }
-    throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: path,
+    throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: path(),
       debugDescription: "Parsed JSON number <\(n)> does not fit in \(type)."))
   }
 
