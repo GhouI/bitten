@@ -373,6 +373,7 @@ extension Array: Decodable where Element: Decodable {
   public init(from decoder: any Decoder) throws {
     self.init()
     var c = try decoder.unkeyedContainer()
+    if let n = c.count { reserveCapacity(n) }
     while !c.isAtEnd { append(try c.decode(Element.self)) }
   }
 }
@@ -386,6 +387,7 @@ extension ContiguousArray: Decodable where Element: Decodable {
   public init(from decoder: any Decoder) throws {
     self.init()
     var c = try decoder.unkeyedContainer()
+    if let n = c.count { reserveCapacity(n) }
     while !c.isAtEnd { append(try c.decode(Element.self)) }
   }
 }
@@ -440,7 +442,9 @@ extension Dictionary: Decodable where Key: Decodable, Value: Decodable {
     self.init()
     if Key.self == String.self {
       let c = try decoder.container(keyedBy: _DictionaryCodingKey.self)
-      for k in c.allKeys { self[k.stringValue as! Key] = try c.decode(Value.self, forKey: k) }
+      let keys = c.allKeys
+      reserveCapacity(keys.count)
+      for k in keys { self[k.stringValue as! Key] = try c.decode(Value.self, forKey: k) }
     } else if Key.self == Int.self {
       let c = try decoder.container(keyedBy: _DictionaryCodingKey.self)
       for k in c.allKeys {

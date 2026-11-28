@@ -5747,3 +5747,17 @@ Debugging aids:
 - Tests: `jsonbench` and `jsonpaths` (coding paths still right for keys
   and indices, encoding and decoding) in `tests/swiftlib/foundation`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Foundation/stdlib: JSON decoding at launch, continued
+
+- The target app's JSON value type tries one type after another, so many
+  decodes fail and build errors that carry a coding path. A decoder now
+  makes its path once and keeps it, where it was rebuilt up to the root
+  on every mismatch. Single-value encoders read their path only when
+  asked.
+- Arrays and string-keyed dictionaries decoded from JSON reserve their
+  size first (`tools/gen-codable.py`). `allKeys` of small objects no
+  longer builds a set.
+- On the main thread, JSON decoding during the first 2.2 s of launch fell
+  by about 30%. First frame: about 2.15 s -> 2.05 s.
+- Target app (total `^MISSING`): 0 -> 0.
