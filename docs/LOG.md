@@ -5506,3 +5506,16 @@ Debugging aids:
   macOS, instead of one run of items.
 - Checked in the target app (Settings ▸ Terminal ▸ Blink speed).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Apple font families list all their faces
+
+- CoreText (font.c): matching an Apple family (Menlo, SF Mono, Helvetica...)
+  returns every face of the open family standing in for it, each under the
+  Apple font's names (Menlo-Regular, Menlo-Bold, Menlo-Italic,
+  Menlo-BoldItalic) with its style, display name and traits; it returned
+  one name-and-family descriptor, so style pickers listed nothing. An
+  Apple name gives the face it picks. Reported Apple names keep the whole
+  style: Oblique becomes Italic and the PostScript name drops the spaces
+  ("Bold Oblique" was reported as Menlo-Bold).
+- Test: tests/c/coretext.c.
+- Target app (total `^MISSING`): 0 -> 0.
