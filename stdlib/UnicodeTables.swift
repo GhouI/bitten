@@ -440,3 +440,76 @@ internal func _appendCaseMapped(_ s: UInt32, upper: Bool, to result: inout Strin
     result._appendScalar(s)
   }
 }
+
+// ---- normalization forms for Foundation --------------------------------------------
+
+/// The compatibility mappings most text meets (ligatures, full-width forms,
+/// super- and subscript digits, fractions, spaces and dots); the canonical
+/// ones come from the tables.
+internal func _appendCompatibility(_ c: UInt32, to out: inout _ScalarBuffer) -> Bool {
+  func put(_ s: String) { for u in s.unicodeScalars { out.append(u.value) } }
+  switch c {
+  case 0xFB00: put("ff"); case 0xFB01: put("fi"); case 0xFB02: put("fl"); case 0xFB03: put("ffi")
+  case 0xFB04: put("ffl"); case 0xFB05, 0xFB06: put("st")
+  case 0xFF01...0xFF5E: out.append(c - 0xFF01 + 0x21)
+  case 0x3000: out.append(0x20)
+  case 0x00A0, 0x2000...0x200A, 0x202F, 0x205F: out.append(0x20)
+  case 0x2070: out.append(0x30); case 0x00B9: out.append(0x31); case 0x00B2: out.append(0x32); case 0x00B3: out.append(0x33)
+  case 0x2074...0x2079: out.append(c - 0x2074 + 0x34)
+  case 0x2080...0x2089: out.append(c - 0x2080 + 0x30)
+  case 0x00BD: put("1\u{2044}2"); case 0x00BC: put("1\u{2044}4"); case 0x00BE: put("3\u{2044}4")
+  case 0x2026: put("...")
+  case 0x2122: put("TM"); case 0x2116: put("No")
+  case 0x00AA: out.append(0x61); case 0x00BA: out.append(0x6F)
+  case 0x017F: out.append(0x73)
+  case 0x2160...0x2169:
+    let romans: [String] = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"]
+    put(romans[Int(c - 0x2160)])
+  default: return false
+  }
+  return true
+}
+
+/// The string in a normalization form: 0 NFC, 1 NFD, 2 NFKC, 3 NFKD.
+public func _bitten_normalize(_ s: String, form: Int) -> String {
+  var scalars = _ScalarBuffer(capacity: s.utf8.count)
+  for u in s.unicodeScalars {
+    if form >= 2 {
+      var compat = _ScalarBuffer(capacity: 4)
+      if _appendCompatibility(u.value, to: &compat) {
+        var i = 0
+        while i < compat.count { _appendDecomposed(compat.base[i], to: &scalars); i += 1 }
+        compat.free()
+        continue
+      }
+      compat.free()
+    }
+    _appendDecomposed(u.value, to: &scalars)
+  }
+  if form == 0 || form == 2 {
+    _normalizeNFC(&scalars)
+  } else {
+    // canonical ordering of each run of non-starters
+    let p = scalars.base
+    var i = 1
+    while i < scalars.count {
+      let cc = _combiningClass(p[i])
+      if cc != 0 {
+        var j = i
+        while j > 0 && _combiningClass(p[j - 1]) > cc {
+          let t = p[j]; p[j] = p[j - 1]; p[j - 1] = t
+          j -= 1
+        }
+      }
+      i += 1
+    }
+  }
+  var out = ""
+  var i = 0
+  while i < scalars.count {
+    if let u = Unicode.Scalar(scalars.base[i]) { out.unicodeScalars.append(u) }
+    i += 1
+  }
+  scalars.free()
+  return out
+}

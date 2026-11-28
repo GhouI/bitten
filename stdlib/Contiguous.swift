@@ -49,6 +49,10 @@ extension String {
 }
 
 extension String.Index {
+  /// The UTF-16 offset of this index from the start of `s`.
+  public func utf16Offset<S: StringProtocol>(in s: S) -> Int {
+    return s.utf16.distance(from: s.utf16.startIndex, to: self)
+  }
   public init<S: StringProtocol>(utf16Offset offset: Int, in s: S) {
     let u = s.utf16
     self = u.index(u.startIndex, offsetBy: offset)

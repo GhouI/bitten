@@ -1874,6 +1874,33 @@ typedef NS_ENUM(NSUInteger, NSNumberFormatterRoundingMode) {
     NSNumberFormatterRoundHalfUp NS_SWIFT_NAME(halfUp)
 } NS_SWIFT_NAME(NumberFormatter.RoundingMode);
 
+NS_SWIFT_NAME(Scanner)
+@interface NSScanner : NSObject <NSCopying>
++ (instancetype)scannerWithString:(NSString *)string;
++ (id)localizedScannerWithString:(NSString *)string;
+- (instancetype)initWithString:(NSString *)string;
+@property (readonly, copy) NSString *string;
+@property NSUInteger scanLocation;
+@property (nullable, copy) NSCharacterSet *charactersToBeSkipped;
+@property BOOL caseSensitive;
+@property (nullable, retain) id locale;
+@property (getter=isAtEnd, readonly) BOOL atEnd;
+- (BOOL)scanInt:(nullable int *)result NS_SWIFT_NAME(scanInt32(_:));
+- (BOOL)scanInteger:(nullable NSInteger *)result;
+- (BOOL)scanLongLong:(nullable long long *)result NS_SWIFT_NAME(scanInt64(_:));
+- (BOOL)scanUnsignedLongLong:(nullable unsigned long long *)result;
+- (BOOL)scanFloat:(nullable float *)result;
+- (BOOL)scanDouble:(nullable double *)result;
+- (BOOL)scanHexInt:(nullable unsigned *)result NS_SWIFT_NAME(scanHexInt32(_:));
+- (BOOL)scanHexLongLong:(nullable unsigned long long *)result NS_SWIFT_NAME(scanHexInt64(_:));
+- (BOOL)scanHexDouble:(nullable double *)result;
+- (BOOL)scanDecimal:(nullable NSDecimal *)dcm;
+- (BOOL)scanString:(NSString *)string intoString:(NSString *_Nullable *_Nullable)result;
+- (BOOL)scanCharactersFromSet:(NSCharacterSet *)set intoString:(NSString *_Nullable *_Nullable)result;
+- (BOOL)scanUpToString:(NSString *)string intoString:(NSString *_Nullable *_Nullable)result NS_SWIFT_NAME(scanUpTo(_:into:));
+- (BOOL)scanUpToCharactersFromSet:(NSCharacterSet *)set intoString:(NSString *_Nullable *_Nullable)result;
+@end
+
 NS_SWIFT_NAME(NumberFormatter)
 @interface NSNumberFormatter : NSFormatter
 @property NSNumberFormatterStyle numberStyle;
