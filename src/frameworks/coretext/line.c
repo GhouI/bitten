@@ -57,8 +57,8 @@ struct source {
 
 static Ref attrs_at(const struct source *s, CFIndex i, CFRange *effective) {
     if (s->cf) return CALL(Ref, CFAttributedStringGetAttributes, (Ref, CFIndex, CFRange *))(s->cf, i, effective);
-    void *(*send)(void *, void *, CFIndex, CFRange *) = dx_registry_lookup("_objc_msgSend");
-    void *(*reg)(const char *) = dx_registry_lookup("_sel_registerName");
+    void *(*send)(void *, void *, CFIndex, CFRange *) = CT_LOOKUP("_objc_msgSend");
+    void *(*reg)(const char *) = CT_LOOKUP("_sel_registerName");
     return send(s->objc, reg("attributesAtIndex:effectiveRange:"), i, effective);
 }
 
@@ -69,8 +69,8 @@ static bool open_source(Ref attributed, struct source *s) {
         s->cf = attributed;
         s->string = CALL(Ref, CFAttributedStringGetString, (Ref))(attributed);
     } else {
-        void *(*send)(void *, void *) = dx_registry_lookup("_objc_msgSend");
-        void *(*reg)(const char *) = dx_registry_lookup("_sel_registerName");
+        void *(*send)(void *, void *) = CT_LOOKUP("_objc_msgSend");
+        void *(*reg)(const char *) = CT_LOOKUP("_sel_registerName");
         s->objc = (void *)attributed;
         s->string = send(s->objc, reg("string"));
     }
@@ -92,8 +92,8 @@ static void grow(struct ct_run *r, CFIndex cap) {
 static Ref with_font(Ref attributes, struct ct_font *font) {
     Ref m = attributes ? CALL(Ref, CFDictionaryCreateMutableCopy, (Ref, CFIndex, Ref))(NULL, 0, attributes)
                        : CALL(Ref, CFDictionaryCreateMutable, (Ref, CFIndex, const void *, const void *))(
-                             NULL, 0, dx_registry_lookup("_kCFTypeDictionaryKeyCallBacks"),
-                             dx_registry_lookup("_kCFTypeDictionaryValueCallBacks"));
+                             NULL, 0, CT_LOOKUP("_kCFTypeDictionaryKeyCallBacks"),
+                             CT_LOOKUP("_kCFTypeDictionaryValueCallBacks"));
     CALL(void, CFDictionarySetValue, (Ref, Ref, Ref))(m, d_kCTFontAttributeName, font);
     return m;
 }
@@ -177,7 +177,7 @@ static struct ct_line *layout(Ref attributed) {
     }
     line->width = x;
     line->runs = CALL(Ref, CFArrayCreate, (Ref, const void **, CFIndex, const void *))(
-        NULL, runs, nruns, dx_registry_lookup("_kCFTypeArrayCallBacks"));
+        NULL, runs, nruns, CT_LOOKUP("_kCFTypeArrayCallBacks"));
     for (CFIndex k = 0; k < nruns; k++) cg_release(runs[k]);
     free(runs);
     free(chars);
