@@ -3,6 +3,12 @@
 import Foundation
 import Synchronization
 
+struct _TwiceKey: CodingKey {
+  var stringValue: String
+  init?(stringValue: String) { self.stringValue = stringValue }
+  var intValue: Int? { return nil }
+  init?(intValue: Int) { return nil }
+}
 @_silgen_name("swl_foundation_uuid") public func uuid() -> Int {
   var bad = 0
   let a = UUID(), b = UUID()
@@ -168,6 +174,28 @@ struct Person: Codable, Equatable {
   } catch DecodingError.typeMismatch(_, let ctx) {
     if ctx.codingPath.map(\.stringValue) != ["n"] { bad |= 1 << 22 }
   } catch { bad |= 1 << 21 }
+  // big objects and arrays encode in linear time and round-trip
+  do {
+    var big: [String: Int] = [:]
+    for k in 0..<2000 { big["k\(k)"] = k }
+    let list = Array(0..<5000)
+    let started = Date()
+    let data = try JSONEncoder().encode(big)
+    let back = try JSONDecoder().decode([String: Int].self, from: data)
+    let listBack = try JSONDecoder().decode([Int].self, from: try JSONEncoder().encode(list))
+    if back != big || listBack != list { bad |= 1 << 24 }
+    if Date().timeIntervalSince(started) > 5 { bad |= 1 << 25 }
+  } catch { bad |= 1 << 24 }
+  // a key encoded twice keeps its last value, also in a large object
+  struct Twice: Encodable {
+    func encode(to e: Encoder) throws {
+      var c = e.container(keyedBy: _TwiceKey.self)
+      for k in 0..<20 { try c.encode(k, forKey: _TwiceKey(stringValue: "k\(k)")!) }
+      try c.encode(99, forKey: _TwiceKey(stringValue: "k3")!)
+    }
+  }
+  if let d = try? JSONEncoder().encode(Twice()), let o = try? JSONDecoder().decode([String: Int].self, from: d),
+     o.count != 20 || o["k3"] != 99 { bad |= 1 << 26 }
   // UTF-8 decoding from arrays, slices and non-contiguous sequences agrees,
   // invalid bytes repaired
   let raw: [UInt8] = [0x68, 0xC3, 0xA9, 0xFF, 0x21]
