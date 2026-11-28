@@ -16,8 +16,9 @@ windows no longer leaks.
    builds the whole tree; hidden page hosts now wait until shown).
    `BITTEN_PERF_MAP=1` writes /tmp/perf-<pid>.map with the Mach-O
    images' symbols for naming `perf script` addresses.
-   With Settings open it idles at about 5% and sends no frames. Launch
-   reaches an interactive terminal in about 4.6 s on a loaded machine.
+   With Settings open it idles at about 5% and sends no frames. The
+   first window frame comes about 1.2 s after launch (stopwatch, and the
+   app's own log now agrees).
    Page switches mostly cost CoreGraphics blending now (`cg_blend_pixel`,
    `mask_row`, `scan`, transparency layers). A state change rebuilds
    only its own host. `BITTEN_DISPLAY_DEBUG` logs who asked for each full
