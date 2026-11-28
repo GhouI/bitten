@@ -586,6 +586,12 @@ static void bn_dump_tree(NSView *v, int depth) {
                 l.anchorPoint.y, t.m11, t.m22, t.m41, t.m42, (unsigned long)l.sublayers.count, l.opacity,
                 l.isHidden ? " hidden" : "");
         if (getenv("BITTEN_VIEW_TREE")[0] == '2')
+        {
+            const CGFloat *bc = l.backgroundColor ? CGColorGetComponents(l.backgroundColor) : NULL;
+            size_t bn = l.backgroundColor ? CGColorGetNumberOfComponents(l.backgroundColor) : 0;
+            if (bc && bn >= 3) fprintf(stderr, "%*s  bg-rgb %.3f %.3f %.3f\n", depth * 2, "", bc[0], bc[1], bc[2]);
+            else if (bc && bn >= 1) fprintf(stderr, "%*s  bg-gray %.3f\n", depth * 2, "", bc[0]);
+        }
             fprintf(stderr, "%*s  bg-alpha %g corner %g masks %d border %g shadow %g filters %lu compositing %s\n", depth * 2, "",
                     l.backgroundColor ? CGColorGetAlpha(l.backgroundColor) : 0, l.cornerRadius, l.masksToBounds, l.borderWidth,
                     l.shadowOpacity, (unsigned long)[l.filters count], [[l.compositingFilter description] UTF8String] ?: "-");
@@ -599,6 +605,13 @@ static void bn_dump_tree(NSView *v, int depth) {
             id d = [sub valueForKey:@"delegate"];
             fprintf(stderr, "%*s  sublayer %s frame=%s delegate=%s sublayers=%lu\n", depth * 2, "", object_getClassName(sub),
                     NSStringFromRect(sub.frame).UTF8String, d ? object_getClassName(d) : "-", (unsigned long)sub.sublayers.count);
+            if ([sub respondsToSelector:NSSelectorFromString(@"fillColor")]) {
+                CGColorRef fc = ((CGColorRef(*)(id, SEL))objc_msgSend)(sub, NSSelectorFromString(@"fillColor"));
+                const CGFloat *c = fc ? CGColorGetComponents(fc) : NULL;
+                size_t n = fc ? CGColorGetNumberOfComponents(fc) : 0;
+                if (c && n >= 4) fprintf(stderr, "%*s    fill %.3f %.3f %.3f %.3f opacity %g\n", depth * 2, "", c[0], c[1], c[2], c[3], sub.opacity);
+                else if (c && n >= 2) fprintf(stderr, "%*s    fill gray %.3f alpha %.3f opacity %g\n", depth * 2, "", c[0], c[1], sub.opacity);
+            }
         }
     }
     if ([v isKindOfClass:[NSTextField class]]) {

@@ -1,6 +1,7 @@
 /* NSAppearance: light ("Aqua") by default; BITTEN_APPEARANCE=dark selects
  * the dark one. Views and windows inherit their effective appearance from
  * their superview, window and finally the application. */
+#include <stdio.h>
 #import <AppKit/AppKit.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -102,7 +103,11 @@ static void set_drawing(NSAppearance *appearance) {
 
 /* Views whose effective appearance may have changed hear of it, and redraw. */
 static void tell_appearance_changed(NSView *v) {
+    /* in its own appearance, as AppKit calls it: colours resolved there
+     * (a layer's background set from a dynamic colour) come out right */
+    NSAppearance *before = [NSAppearance _bn_swapDrawingAppearance:v.effectiveAppearance];
     [v viewDidChangeEffectiveAppearance];
+    [NSAppearance _bn_swapDrawingAppearance:before];
     v.needsDisplay = YES;
     for (NSView *s in v.subviews) tell_appearance_changed(s);
 }
@@ -113,8 +118,12 @@ static void tell_appearance_changed(NSView *v) {
 @implementation NSWindow (BittenAppearance)
 - (NSAppearance *)appearance { return objc_getAssociatedObject(self, @selector(appearance)); }
 - (void)setAppearance:(NSAppearance *)appearance {
+    if (getenv("BITTEN_APPEARANCE_DEBUG"))
+        fprintf(stderr, "bitten: window '%s' appearance %s\n", self.title.UTF8String ?: "", appearance.name.UTF8String ?: "(none)");
+    [self willChangeValueForKey:@"effectiveAppearance"];
     objc_setAssociatedObject(self, @selector(appearance), appearance, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [self _bn_appearanceChanged];
+    [self didChangeValueForKey:@"effectiveAppearance"];
 }
 - (void)_bn_appearanceChanged {
     if (self._bn_frameView) tell_appearance_changed(self._bn_frameView);
@@ -127,6 +136,8 @@ static void tell_appearance_changed(NSView *v) {
 - (NSAppearance *)appearance { return objc_getAssociatedObject(self, @selector(appearance)); }
 - (void)setAppearance:(NSAppearance *)appearance {
     if (appearance == self.appearance) return;
+    if (getenv("BITTEN_APPEARANCE_DEBUG"))
+        fprintf(stderr, "bitten: view %s appearance %s\n", object_getClassName(self), appearance.name.UTF8String ?: "(none)");
     objc_setAssociatedObject(self, @selector(appearance), appearance, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     tell_appearance_changed(self);
     self.needsDisplay = YES;

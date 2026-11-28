@@ -138,6 +138,13 @@ static int left_window, views_freed;
 - (CGContextRef)_bn_backingContext;
 - (void)_bn_drawPending;
 @end
+/* Counts key-value notifications. */
+@interface KVOWatch : NSObject
+@property int heard;
+@end
+@implementation KVOWatch
+- (void)observeValueForKeyPath:(NSString *)k ofObject:(id)o change:(NSDictionary *)c context:(void *)x { self.heard++; }
+@end
 /* Counts the hide/unhide it hears. */
 @interface HideWatch : NSView
 @property int hid, unhid;
@@ -519,6 +526,23 @@ int main(void) {
         NSSize a = size(mv, NSSelectorFromString(@"sizeForMenu:"), plain);
         NSSize b = size(mv, NSSelectorFromString(@"sizeForMenu:"), extra);
         CHECK(a.height == b.height);
+    }
+
+    /* The application's and a window's effectiveAppearance are observable:
+     * setting the application's appearance announces both. */
+    {
+        KVOWatch *appWatch = [KVOWatch new], *winWatch = [KVOWatch new];
+        NSWindow *kw = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 20, 20) styleMask:NSWindowStyleMaskTitled
+                                                     backing:NSBackingStoreBuffered defer:NO];
+        [NSApp addObserver:appWatch forKeyPath:@"effectiveAppearance" options:NSKeyValueObservingOptionNew context:NULL];
+        [kw addObserver:winWatch forKeyPath:@"effectiveAppearance" options:NSKeyValueObservingOptionNew context:NULL];
+        NSAppearance *was = NSApp.appearance;
+        NSApp.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
+        CHECK(appWatch.heard == 1 && winWatch.heard == 1);
+        CHECK([kw.effectiveAppearance.name isEqualToString:NSAppearanceNameDarkAqua]);
+        NSApp.appearance = was;
+        [NSApp removeObserver:appWatch forKeyPath:@"effectiveAppearance"];
+        [kw removeObserver:winWatch forKeyPath:@"effectiveAppearance"];
     }
 
     puts("AppKit basics ok");

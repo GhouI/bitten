@@ -28,7 +28,22 @@ windows no longer leaks.
    three fixed-size columns and 12-point gaps take the rest. Real
    macOS fonts may give it a little more. The window can now be widened
    to 900, and the column grows with it (up to 180).
-3. **Paste timing.** A paste once arrived in bash as literal `[200~…~`.
+3. **Switching to dark mode while running.** In Settings ▸ Interface,
+   choosing Dark turns Settings and the active pane dark, but the main
+   window's chrome stays mid-gray (title bar 148,148,149) and inactive
+   panes are a light gray. Launching already in dark mode looks right
+   (title bar 41, inactive panes 27). After the switch the app still
+   gives the window backdrop (`WindowMaterialBackdrop`) its light style
+   (fill white at 50% over a visible material), although that update's
+   environment says dark (`BITTEN_REP_DEBUG=WindowMaterialBackdrop`).
+   So the app's own style choice reads something that stays light.
+   Ruled out: `viewDidChangeEffectiveAppearance` (now called in the
+   view's appearance), KVO on `effectiveAppearance` (now sent), host
+   rebuilds (they happen), `.id`, `onChange`. Use
+   `BITTEN_APPEARANCE_DEBUG`, and `BITTEN_VIEW_TREE=2` (now with layer
+   and shape fills). Remember to set `Workspace.appearance` back to
+   light in the app's prefs after testing.
+4. **Paste timing.** A paste once arrived in bash as literal `[200~…~`.
    That is consistent with the escape byte reaching readline more than its
    key-sequence timeout before the rest. It pastes correctly now that
    frames are faster; watch for it under load.

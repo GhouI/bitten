@@ -5671,3 +5671,19 @@ Debugging aids:
   line at the bottom. `BITTEN_MENU_DEBUG` lists each shown menu's items.
 - Test: `tests/appkit/basics.m`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: appearance changes are observable; debugging switches
+
+- Setting the application's appearance (or a window's) now announces
+  `effectiveAppearance` to key-value observers of the application and of
+  the windows that follow it, as AppKit does. Views hear
+  `viewDidChangeEffectiveAppearance` with their own appearance current,
+  so dynamic colours resolved there come out in the new appearance.
+- Debugging: `BITTEN_APPEARANCE_DEBUG` logs appearance changes on the
+  application, windows and views. `BITTEN_REP_DEBUG=Name` prints matching
+  representables' values at each update. `BITTEN_VIEW_TREE=2` now shows
+  layer background colours and shape-layer fills.
+- Open: switching the target app to dark mode while it runs leaves the
+  main window's chrome half light (see `docs/NEXT.md`).
+- Test: `tests/appkit/basics.m` (KVO on effectiveAppearance).
+- Target app (total `^MISSING`): 0 -> 0.

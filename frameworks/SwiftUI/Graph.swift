@@ -286,6 +286,9 @@ nonisolated(unsafe) var _measureGeneration = 0
 nonisolated(unsafe) let _bn_noMeasureCache = getenv("BITTEN_NO_MEASURE_CACHE") != nil
 nonisolated(unsafe) let _debugGraph = getenv("BITTEN_SWIFTUI_DEBUG") != nil
 nonisolated(unsafe) let _debugTree = getenv("BITTEN_SWIFTUI_TREE") != nil
+/// BITTEN_REP_DEBUG=Name prints representables whose type contains Name
+/// (their values and the colour scheme) each time they are updated.
+nonisolated(unsafe) let _debugRepOf: String? = getenv("BITTEN_REP_DEBUG").map { String(cString: $0) }
 /// BITTEN_SWIFTUI_BODY=Name prints the body type of views whose type starts with Name.
 nonisolated(unsafe) let _debugBodyOf: String? = getenv("BITTEN_SWIFTUI_BODY").map { String(cString: $0) }
 /// Debug output, unbuffered (it often comes just before a crash).
