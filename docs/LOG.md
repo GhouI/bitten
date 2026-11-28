@@ -5761,3 +5761,16 @@ Debugging aids:
 - On the main thread, JSON decoding during the first 2.2 s of launch fell
   by about 30%. First frame: about 2.15 s -> 2.05 s.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## libproc: process start time to the tick
+
+- A process's start time (`proc_pidinfo`, `sysctl` `KERN_PROC`) was
+  `/proc/stat`'s boot time, which is whole seconds, plus the start
+  offset. So it could be up to a second early. It is now wall time now
+  minus how long ago the process started by the boot clock, exact to a
+  clock tick.
+- The target app times its launch from this: its log said the first
+  window frame came about 2 s after launch, while a stopwatch said 1.1 s.
+  It now says 1.2 s, matching.
+- Test: `tests/c/libproc.c`.
+- Target app (total `^MISSING`): 0 -> 0.
