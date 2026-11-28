@@ -464,6 +464,14 @@ where SubSequence: RangeReplaceableCollection {
 }
 
 extension RangeReplaceableCollection {
+  /// The elements that pass, as a collection of the same kind
+  /// ("abc".filter { ... } is a String).
+  @available(swift 4.0)
+  @inlinable public __consuming func filter(_ isIncluded: (Element) throws -> Bool) rethrows -> Self {
+    var result = Self()
+    for element in self where try isIncluded(element) { result.append(element) }
+    return result
+  }
   @inlinable public init(repeating repeatedValue: Element, count: Int) {
     self.init()
     if count > 0 { append(contentsOf: Repeated(_repeating: repeatedValue, count: count)) }

@@ -1855,6 +1855,48 @@ typedef NS_OPTIONS(NSUInteger, NSCalendarUnit) {
     NSCalendarUnitCalendar = 1UL << 20, NSCalendarUnitTimeZone = 1UL << 21,
 };
 
+typedef NS_ENUM(NSUInteger, NSNumberFormatterStyle) {
+    NSNumberFormatterNoStyle NS_SWIFT_NAME(none) = 0,
+    NSNumberFormatterDecimalStyle NS_SWIFT_NAME(decimal) = 1,
+    NSNumberFormatterCurrencyStyle NS_SWIFT_NAME(currency) = 2,
+    NSNumberFormatterPercentStyle NS_SWIFT_NAME(percent) = 3,
+    NSNumberFormatterScientificStyle NS_SWIFT_NAME(scientific) = 4,
+    NSNumberFormatterSpellOutStyle NS_SWIFT_NAME(spellOut) = 5,
+    NSNumberFormatterOrdinalStyle NS_SWIFT_NAME(ordinal) = 6,
+    NSNumberFormatterCurrencyISOCodeStyle NS_SWIFT_NAME(currencyISOCode) = 8,
+    NSNumberFormatterCurrencyPluralStyle NS_SWIFT_NAME(currencyPlural) = 9,
+    NSNumberFormatterCurrencyAccountingStyle NS_SWIFT_NAME(currencyAccounting) = 10,
+} NS_SWIFT_NAME(NumberFormatter.Style);
+typedef NS_ENUM(NSUInteger, NSNumberFormatterRoundingMode) {
+    NSNumberFormatterRoundCeiling NS_SWIFT_NAME(ceiling), NSNumberFormatterRoundFloor NS_SWIFT_NAME(floor),
+    NSNumberFormatterRoundDown NS_SWIFT_NAME(down), NSNumberFormatterRoundUp NS_SWIFT_NAME(up),
+    NSNumberFormatterRoundHalfEven NS_SWIFT_NAME(halfEven), NSNumberFormatterRoundHalfDown NS_SWIFT_NAME(halfDown),
+    NSNumberFormatterRoundHalfUp NS_SWIFT_NAME(halfUp)
+} NS_SWIFT_NAME(NumberFormatter.RoundingMode);
+
+NS_SWIFT_NAME(NumberFormatter)
+@interface NSNumberFormatter : NSFormatter
+@property NSNumberFormatterStyle numberStyle;
+@property (null_resettable, copy) NSLocale *locale;
+@property NSUInteger minimumIntegerDigits, maximumIntegerDigits, minimumFractionDigits, maximumFractionDigits;
+@property NSUInteger minimumSignificantDigits, maximumSignificantDigits;
+@property BOOL usesSignificantDigits, usesGroupingSeparator, allowsFloats, alwaysShowsDecimalSeparator, generatesDecimalNumbers;
+@property (getter=isLenient) BOOL lenient;
+@property NSUInteger groupingSize, secondaryGroupingSize, formatWidth;
+@property NSNumberFormatterRoundingMode roundingMode;
+@property (nullable, copy) NSNumber *roundingIncrement, *multiplier, *minimum, *maximum;
+@property (null_resettable, copy) NSString *decimalSeparator, *groupingSeparator, *currencyDecimalSeparator,
+    *currencyGroupingSeparator, *currencyCode, *currencySymbol, *internationalCurrencySymbol, *percentSymbol,
+    *minusSign, *plusSign, *exponentSymbol, *notANumberSymbol, *positiveInfinitySymbol, *negativeInfinitySymbol,
+    *positivePrefix, *positiveSuffix, *negativePrefix, *negativeSuffix, *positiveFormat, *negativeFormat,
+    *paddingCharacter, *nilSymbol;
+@property (readonly, copy) NSString *perMillSymbol;
+@property (nullable, copy) NSString *zeroSymbol;
+- (nullable NSString *)stringFromNumber:(NSNumber *)number;
+- (nullable NSNumber *)numberFromString:(NSString *)string;
++ (NSString *)localizedStringFromNumber:(NSNumber *)num numberStyle:(NSNumberFormatterStyle)nstyle;
+@end
+
 NS_SWIFT_NAME(DateFormatter)
 @interface NSDateFormatter : NSFormatter
 @property (null_resettable, copy) NSString *dateFormat;

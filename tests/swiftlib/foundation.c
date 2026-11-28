@@ -14,6 +14,7 @@ long swl_foundation_decimal(void);
 long swl_foundation_combine(void);
 long swl_foundation_url(void);
 long swl_foundation_describe(void);
+long swl_foundation_nsdescribe(void);
 
 static int check(const char *what, long bad) {
     if (bad) printf("%s: failed checks %#lx\n", what, bad);
@@ -34,6 +35,7 @@ int main(void) {
     ok &= check("combine", swl_foundation_combine());
     ok &= check("url", swl_foundation_url());
     ok &= check("describe", swl_foundation_describe());
+    ok &= check("nsdescribe", swl_foundation_nsdescribe());
     CHECK(ok);
     puts("swift foundation ok");
     return 0;

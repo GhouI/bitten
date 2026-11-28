@@ -149,10 +149,28 @@ extension StringProtocol {
 
   public func range<T: StringProtocol>(of aString: T, options mask: String.CompareOptions = [],
                                        range searchRange: Swift.Range<Index>? = nil, locale: Locale? = nil) -> Swift.Range<Index>? {
+    if mask.contains(.regularExpression) {
+      let whole = String(self)
+      guard let re = _regex(String(aString), mask) else { return nil }
+      let ns = NSRange(searchRange.map { $0.lowerBound..<$0.upperBound } ?? startIndex..<endIndex, in: self)
+      var opts: NSRegularExpression.MatchingOptions = []
+      if mask.contains(.anchored) { opts.insert(.anchored) }
+      guard let m = re.firstMatch(in: whole, options: opts, range: ns), let r = Swift.Range(m.range, in: whole) else {
+        return nil
+      }
+      return index(startIndex, offsetBy: whole.distance(from: whole.startIndex, to: r.lowerBound))
+        ..< index(startIndex, offsetBy: whole.distance(from: whole.startIndex, to: r.upperBound))
+    }
     let hay = Array(self)
     let (lo, hi) = _characterOffsets(of: searchRange)
     guard let r = _foundationFind(Array(aString), in: hay, mask, from: lo, to: hi) else { return nil }
     return _indexRange(r)
+  }
+
+  /// The pattern of a .regularExpression search (case-insensitive when
+  /// asked); nil when it doesn't compile.
+  internal func _regex(_ pattern: String, _ mask: String.CompareOptions) -> NSRegularExpression? {
+    return try? NSRegularExpression(pattern: pattern, options: mask.contains(.caseInsensitive) ? [.caseInsensitive] : [])
   }
 
   @_disfavoredOverload
@@ -195,6 +213,15 @@ extension StringProtocol {
     of target: Target, with replacement: Replacement, options: String.CompareOptions = [],
     range searchRange: Swift.Range<Index>? = nil
   ) -> String {
+    if options.contains(.regularExpression) {
+      // the replacement is a template ($1 is the first group)
+      let whole = String(self)
+      guard let re = _regex(String(target), options) else { return whole }
+      let ns = NSRange(searchRange.map { $0.lowerBound..<$0.upperBound } ?? startIndex..<endIndex, in: self)
+      var opts: NSRegularExpression.MatchingOptions = []
+      if options.contains(.anchored) { opts.insert(.anchored) }
+      return re.stringByReplacingMatches(in: whole, options: opts, range: ns, withTemplate: String(replacement))
+    }
     let hay = Array(self)
     let needle = Array(target)
     var (lo, hi) = _characterOffsets(of: searchRange)

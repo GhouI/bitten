@@ -22,12 +22,15 @@ public struct URL: Equatable, Hashable, Sendable {
   public init?(string: __shared String, encodingInvalidCharacters: Bool) {
     self.init(string: encodingInvalidCharacters ? URL._percentEncodeInvalid(string) : string)
   }
+  /// The reference resolved against the base as RFC 3986 says ("../x?y"
+  /// against https://h.com/a/b/c is https://h.com/a/x?y).
   public init?(string: __shared String, relativeTo url: __shared URL?) {
-    if let base = url, !string.contains(":") {
-      self = base.appendingPathComponent(string)
-    } else {
+    guard let base = url else {
       self.init(string: string)
+      return
     }
+    guard let u = NSURL(string: string, relativeTo: base) else { return nil }
+    self = u as URL
   }
   public init(fileURLWithPath path: __shared String) {
     _url = NSURL(fileURLWithPath: URL._absolutePath(path))
