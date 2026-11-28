@@ -289,6 +289,9 @@ nonisolated(unsafe) let _debugTree = getenv("BITTEN_SWIFTUI_TREE") != nil
 /// BITTEN_REP_DEBUG=Name prints representables whose type contains Name
 /// (their values and the colour scheme) each time they are updated.
 nonisolated(unsafe) let _debugRepOf: String? = getenv("BITTEN_REP_DEBUG").map { String(cString: $0) }
+/// BITTEN_VIEW_DEBUG=Name prints views whose type contains Name (their
+/// values and the colour scheme) each time their body is made.
+nonisolated(unsafe) let _debugViewOf: String? = getenv("BITTEN_VIEW_DEBUG").map { String(cString: $0) }
 /// BITTEN_SWIFTUI_BODY=Name prints the body type of views whose type starts with Name.
 nonisolated(unsafe) let _debugBodyOf: String? = getenv("BITTEN_SWIFTUI_BODY").map { String(cString: $0) }
 /// Debug output, unbuffered (it often comes just before a crash).
@@ -358,6 +361,9 @@ extension View {
     _installDynamicProperties(&value, inputs: inputs)
     if Body.self == Never.self {
       return _ViewOutputs(_EmptyNode(environment: inputs.environment))
+    }
+    if let want = _debugViewOf, "\(Self.self)".contains(want) {
+      _dbg("bitten: view \(Self.self) dark \(inputs.environment.colorScheme == .dark): \(String(describing: value))")
     }
     let body = _withObservation(inputs) { value.body }
     if let want = _debugBodyOf, "\(Self.self)".hasPrefix(want) { _dbg("bitten: body of \(Self.self) is \(Body.self)") }

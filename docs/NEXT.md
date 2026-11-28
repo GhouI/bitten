@@ -38,8 +38,13 @@ windows no longer leaks.
    environment says dark (`BITTEN_REP_DEBUG=WindowMaterialBackdrop`).
    So the app's own style choice reads something that stays light.
    Ruled out: `viewDidChangeEffectiveAppearance` (now called in the
-   view's appearance), KVO on `effectiveAppearance` (now sent), host
-   rebuilds (they happen), `.id`, `onChange`. Use
+   view's appearance), KVO on `effectiveAppearance` (now sent for the
+   application, windows and views), host rebuilds (they happen), `.id`,
+   `onChange`. `BITTEN_VIEW_DEBUG=SceneThemeModifier` shows the main
+   window's `SceneThemeModifier` and `WindowView` rebuilt with the
+   environment dark and the same stored values. The remaining suspect is
+   the app's own `SystemAppearance` object, held in a lazy `@State` of
+   that modifier, and whatever keeps it current on macOS. Use
    `BITTEN_APPEARANCE_DEBUG`, and `BITTEN_VIEW_TREE=2` (now with layer
    and shape fills). Remember to set `Workspace.appearance` back to
    light in the app's prefs after testing.

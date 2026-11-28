@@ -536,9 +536,20 @@ int main(void) {
                                                      backing:NSBackingStoreBuffered defer:NO];
         [NSApp addObserver:appWatch forKeyPath:@"effectiveAppearance" options:NSKeyValueObservingOptionNew context:NULL];
         [kw addObserver:winWatch forKeyPath:@"effectiveAppearance" options:NSKeyValueObservingOptionNew context:NULL];
+        KVOWatch *viewWatch = [KVOWatch new], *ownWatch = [KVOWatch new];
+        NSView *follows = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 5, 5)];
+        NSView *own = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 5, 5)];
+        own.appearance = [NSAppearance appearanceNamed:NSAppearanceNameAqua];
+        [kw.contentView addSubview:follows];
+        [kw.contentView addSubview:own];
+        [follows addObserver:viewWatch forKeyPath:@"effectiveAppearance" options:0 context:NULL];
+        [own addObserver:ownWatch forKeyPath:@"effectiveAppearance" options:0 context:NULL];
         NSAppearance *was = NSApp.appearance;
         NSApp.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
         CHECK(appWatch.heard == 1 && winWatch.heard == 1);
+        CHECK(viewWatch.heard == 1 && ownWatch.heard == 0);   /* a view with its own appearance didn't change */
+        [follows removeObserver:viewWatch forKeyPath:@"effectiveAppearance"];
+        [own removeObserver:ownWatch forKeyPath:@"effectiveAppearance"];
         CHECK([kw.effectiveAppearance.name isEqualToString:NSAppearanceNameDarkAqua]);
         NSApp.appearance = was;
         [NSApp removeObserver:appWatch forKeyPath:@"effectiveAppearance"];
