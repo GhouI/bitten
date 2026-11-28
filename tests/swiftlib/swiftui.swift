@@ -1004,3 +1004,36 @@ struct _PickOptions: View {
     return bad
   }
 }
+
+/// A change seen before the host rebuilt (its root view set and the window
+/// drawn before the main queue turned) doesn't rebuild the new tree again.
+@_silgen_name("swl_swiftui_stalechange") public func staleChange() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    let builds = StoreCount()
+    var binding: Binding<Int>?
+    let host = NSHostingView(rootView: Counting(builds: builds, expose: { binding = $0 }))
+    host.frame = NSMakeRect(0, 0, 40, 40)
+    let w = NSWindow(contentRect: NSMakeRect(0, 0, 40, 40), styleMask: [.titled], backing: .buffered, defer: false)
+    w.contentView = host
+    w.orderFront(nil)
+    @MainActor func settle() {
+      for _ in 0..<3 {
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.03))
+        w.display()
+      }
+    }
+    settle()
+    let b0 = builds.n
+    binding?.wrappedValue = 5
+    host.rootView = Counting(builds: builds, expose: { binding = $0 })
+    w.display()
+    if builds.n != b0 + 1 { bad |= 1 }   // rebuilt once, now
+    settle()
+    if builds.n != b0 + 1 { bad |= 2 }   // and not again for the change
+    binding?.wrappedValue = 6
+    settle()
+    if builds.n != b0 + 2 { bad |= 4 }   // a later change still rebuilds
+    return bad
+  }
+}

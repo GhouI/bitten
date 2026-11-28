@@ -185,17 +185,23 @@ enum _GraphHost {
       if _debugTree { _dbg("bitten: invalidate: running") }
       scheduled = false
       hosts.removeAll { $0.view == nil }
-      for h in hosts { h.view?._bn_invalidate() }
+      for h in hosts { h.view?._bn_invalidate("all hosts") }
     }
   }
-  /// One host's rebuild, once per main-queue turn.
-  nonisolated static func invalidate(_ host: _WeakHost) {
+  /// One host's rebuild, once per main-queue turn, for a change made while
+  /// its kept-tree build count was `builds`; none if a build has begun since.
+  nonisolated static func invalidate(_ host: _WeakHost, since builds: Int) {
     Task { @MainActor in
       guard let v = host.view, !v._invalidateScheduled else { return }
+      if v._context.treeBuilds != builds {
+        if _debugRebuild { _dbg("bitten: invalidate skipped: rebuilt since the change") }
+        return
+      }
       v._invalidateScheduled = true
       await Task.yield()
       v._invalidateScheduled = false
-      v._bn_invalidate()
+      if v._context.treeBuilds != builds { return }
+      v._bn_invalidate("observed change")
     }
   }
 }
@@ -323,7 +329,10 @@ open class _HostingViewBase: NSView {
     // A change to what this host's graph keeps or watches rebuilds this
     // host only (it updates any it hosts itself).
     let me = _WeakHost(self)
-    _context.invalidate = { _GraphHost.invalidate(me) }
+    // The build count when the change came: a tree built after it already
+    // shows it, and isn't thrown away for it.
+    let ctx = _context
+    _context.invalidate = { [unowned ctx] in _GraphHost.invalidate(me, since: ctx.treeBuilds) }
     _context.hostView = self
     _GraphHost.hosts.removeAll { $0.view == nil }
     _GraphHost.hosts.append(_WeakHost(self))
@@ -354,10 +363,11 @@ open class _HostingViewBase: NSView {
   }
   override open func viewDidChangeEffectiveAppearance() {
     super.viewDidChangeEffectiveAppearance()
-    if _environment.colorScheme != _appearanceScheme { _bn_invalidate() }
+    if _environment.colorScheme != _appearanceScheme { _bn_invalidate("appearance") }
   }
 
-  func _bn_invalidate() {
+  func _bn_invalidate(_ why: StaticString = "") {
+    if _debugRebuild { _dbg("bitten: invalidate \(why) host \(UInt(bitPattern: ObjectIdentifier(self).hashValue)) root \(_root != nil)") }
     if _placing {
       _invalidatedWhilePlacing = true
       return
@@ -416,7 +426,18 @@ open class _HostingViewBase: NSView {
     if let r = _root, _placing || (_placedIn.width == bounds.size.width && _placedIn.height == bounds.size.height) {
       return r
     }
-    let r = _root ?? _makeRoot()
+    let r: _ViewNode
+    if _root == nil { _context.treeBuilds += 1 }
+    if let have = _root {
+      r = have
+    } else if _debugRebuild {
+      let t0 = DispatchTime.now().uptimeNanoseconds
+      r = _makeRoot()
+      let ms = Double(DispatchTime.now().uptimeNanoseconds - t0) / 1e6
+      _dbg("bitten: rebuild \(type(of: self)) host \(UInt(bitPattern: ObjectIdentifier(self).hashValue)) \(ms) ms")
+    } else {
+      r = _makeRoot()
+    }
     _root = r
     _placing = true
     defer {
@@ -424,7 +445,7 @@ open class _HostingViewBase: NSView {
       if _invalidatedWhilePlacing {
         _invalidatedWhilePlacing = false
         // Rebuild on the next pass; this one returns the tree it placed.
-        DispatchQueue.main.async { [weak self] in self?._bn_invalidate() }
+        DispatchQueue.main.async { [weak self] in self?._bn_invalidate("changed while placing") }
       }
     }
     // The root takes the size it wants of the bounds, centred in them.
@@ -435,6 +456,13 @@ open class _HostingViewBase: NSView {
     // Content built while laying out (geometry readers) is watched as well.
     let ctx = _context
     let generation = ctx.generation
+    let tPlace = _debugRebuild ? DispatchTime.now().uptimeNanoseconds : 0
+    defer {
+      if _debugRebuild {
+        let ms = Double(DispatchTime.now().uptimeNanoseconds - tPlace) / 1e6
+        _dbg("bitten: place \(type(of: self)) host \(UInt(bitPattern: ObjectIdentifier(self).hashValue)) \(ms) ms")
+      }
+    }
     let (_, token) = _bitten_withObservationTracking({ r.place(in: CGRect(origin: origin, size: size)) },
                                                      onChange: { [weak ctx] in
                                                        if let ctx = ctx, generation == ctx.generation { ctx.invalidate() }
@@ -487,6 +515,13 @@ open class _HostingViewBase: NSView {
   override open func draw(_ dirtyRect: NSRect) {
     guard let cg = NSGraphicsContext.current?.cgContext else { return }
     let root = _layout()
+    let tDraw = _debugRebuild ? DispatchTime.now().uptimeNanoseconds : 0
+    defer {
+      if _debugRebuild {
+        let ms = Double(DispatchTime.now().uptimeNanoseconds - tDraw) / 1e6
+        _dbg("bitten: draw \(type(of: self)) host \(UInt(bitPattern: ObjectIdentifier(self).hashValue)) \(ms) ms")
+      }
+    }
     // On macOS a hosting view draws into its own layer: blend modes in its
     // tree (a destinationOut cut-out in a dimming overlay) mix with its own
     // drawing only, never with the window under it.
@@ -612,7 +647,7 @@ open class _HostingViewBase: NSView {
 @MainActor @preconcurrency
 open class NSHostingView<Content: View>: _HostingViewBase {
   public var rootView: Content {
-    didSet { _bn_invalidate() }
+    didSet { _bn_invalidate("rootView") }
   }
   /// Which content sizes become the view's intrinsic size and constraints.
   public var sizingOptions: NSHostingSizingOptions = .standardBounds

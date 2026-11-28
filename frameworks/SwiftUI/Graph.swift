@@ -53,6 +53,9 @@ internal final class _RenderContext {
   /// (a view's initialiser storing what it was given) is not a change the
   /// new tree missed.
   var generation = 0
+  /// Counts the builds of trees the host keeps (sizing builds aside): a
+  /// change seen before one began is shown by it.
+  var treeBuilds = 0
   /// What the current tree is watching (Observation); a new build or the
   /// host going away stops it.
   var trackings: [AnyObject] = []
@@ -286,6 +289,8 @@ nonisolated(unsafe) var _measureGeneration = 0
 nonisolated(unsafe) let _bn_noMeasureCache = getenv("BITTEN_NO_MEASURE_CACHE") != nil
 nonisolated(unsafe) let _debugGraph = getenv("BITTEN_SWIFTUI_DEBUG") != nil
 nonisolated(unsafe) let _debugTree = getenv("BITTEN_SWIFTUI_TREE") != nil
+/// BITTEN_REBUILD_DEBUG: each tree a host builds, with how long it took.
+nonisolated(unsafe) let _debugRebuild = getenv("BITTEN_REBUILD_DEBUG") != nil
 /// BITTEN_REP_DEBUG=Name prints representables whose type contains Name
 /// (their values and the colour scheme) each time they are updated.
 nonisolated(unsafe) let _debugRepOf: String? = getenv("BITTEN_REP_DEBUG").map { String(cString: $0) }

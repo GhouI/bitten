@@ -30,6 +30,7 @@ long swl_swiftui_leakfree(void);
 long swl_swiftui_bglayers(void);
 long swl_swiftui_viewlists(void);
 long swl_swiftui_hiddenhost(void);
+long swl_swiftui_stalechange(void);
 long swl_swiftui_shortcuts(void);
 long swl_swiftui_toggleclick(void);
 long swl_swiftui_rebuildwrites(void);
@@ -69,6 +70,7 @@ int main(void) {
     ok &= check("bglayers", swl_swiftui_bglayers());
     ok &= check("viewlists", swl_swiftui_viewlists());
     ok &= check("hiddenhost", swl_swiftui_hiddenhost());
+    ok &= check("stalechange", swl_swiftui_stalechange());
     ok &= check("shortcuts", swl_swiftui_shortcuts());
     ok &= check("toggleclick", swl_swiftui_toggleclick());
     ok &= check("rebuildwrites", swl_swiftui_rebuildwrites());

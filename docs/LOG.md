@@ -5817,3 +5817,18 @@ Debugging aids:
 - `BITTEN_DISPLAYLINK_DEBUG=1` prints, per link and second, ticks sent and
   skipped.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI hosts skip rebuilds for changes a newer tree already shows
+
+- A change to what a host's tree watched schedules a rebuild for the next
+  main-queue turn. When the host built a new tree in between (its root view
+  was set and the window drew), that tree already read the new value, yet
+  it was thrown away and built again. The host now counts the trees it
+  builds and keeps, and a change seen before the latest build began
+  rebuilds nothing. The target app's Shortcuts settings page (~700 ms a
+  build here) was built three times per visit, now twice.
+- `BITTEN_REBUILD_DEBUG=1` logs each tree build, placement and draw with
+  its time, and each invalidation with its reason (observed change, root
+  view, appearance, all hosts).
+- Test: swiftui `stalechange`.
+- Target app (total `^MISSING`): 0 -> 0.
