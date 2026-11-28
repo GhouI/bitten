@@ -464,7 +464,7 @@ public struct _BackgroundModifier<Background: View>: ViewModifier {
                                body: @escaping (_Graph, _ViewInputs) -> _ViewOutputs) -> _ViewOutputs {
     let m = modifier.value
     let content = body(_Graph(), inputs).node
-    let layer = _makeNode(m.background, inputs: inputs.named("bg"))
+    let layer = _layerNode(m.background, inputs: inputs.named("bg"), alignment: m.alignment)
     return _ViewOutputs(_LayeredNode(primary: content, layer: layer, alignment: m.alignment, behind: true,
                                      environment: inputs.environment))
   }
@@ -484,12 +484,21 @@ public struct _OverlayModifier<Overlay: View>: ViewModifier {
                                body: @escaping (_Graph, _ViewInputs) -> _ViewOutputs) -> _ViewOutputs {
     let m = modifier.value
     let content = body(_Graph(), inputs).node
-    let layer = _makeNode(m.overlay, inputs: inputs.named("ov"))
+    let layer = _layerNode(m.overlay, inputs: inputs.named("ov"), alignment: m.alignment)
     return _ViewOutputs(_LayeredNode(primary: content, layer: layer, alignment: m.alignment, behind: false,
                                      environment: inputs.environment))
   }
   public func body(content: Content) -> Never { fatalError("no body") }
   public typealias Body = Never
+}
+
+/// A background's or overlay's content: several views are layered as in a
+/// ZStack with the modifier's alignment (as SwiftUI does), not stacked.
+internal func _layerNode<V: View>(_ view: V, inputs: _ViewInputs, alignment: Alignment) -> _ViewNode {
+  let nodes = _makeNodes(view, inputs: inputs)
+  if nodes.count == 1 { return nodes[0] }
+  if nodes.isEmpty { return _EmptyNode(environment: inputs.environment) }
+  return _ZStackNode(alignment: alignment, environment: inputs.environment, children: nodes)
 }
 
 /// Content with a background or overlay laid out in the content's frame.
