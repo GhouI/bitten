@@ -5905,3 +5905,13 @@ Debugging aids:
 - SwiftUI: the set of views seen in a build starts at the last build's
   size instead of growing (and rehashing its long path keys) as it fills.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: ContentUnavailableView as macOS shows it
+
+- The label's icon is shown large (secondary) above its title, the view
+  keeps a 16-point margin inside, and it centres itself in the space it
+  is given. The target app's Settings ▸ Remote Hosts empty state pulls the
+  view in by 10 points top and bottom (allowing for that margin); without
+  one its title was drawn above the top of the page.
+- Test: swiftui `unavailable`.
+- Target app (total `^MISSING`): 0 -> 0.

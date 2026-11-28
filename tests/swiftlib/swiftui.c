@@ -32,6 +32,7 @@ long swl_swiftui_viewlists(void);
 long swl_swiftui_hiddenhost(void);
 long swl_swiftui_stalechange(void);
 long swl_swiftui_linelimit(void);
+long swl_swiftui_unavailable(void);
 long swl_swiftui_shortcuts(void);
 long swl_swiftui_toggleclick(void);
 long swl_swiftui_rebuildwrites(void);
@@ -73,6 +74,7 @@ int main(void) {
     ok &= check("hiddenhost", swl_swiftui_hiddenhost());
     ok &= check("stalechange", swl_swiftui_stalechange());
     ok &= check("linelimit", swl_swiftui_linelimit());
+    ok &= check("unavailable", swl_swiftui_unavailable());
     ok &= check("shortcuts", swl_swiftui_shortcuts());
     ok &= check("toggleclick", swl_swiftui_toggleclick());
     ok &= check("rebuildwrites", swl_swiftui_rebuildwrites());
