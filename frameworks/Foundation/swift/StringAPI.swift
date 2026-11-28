@@ -65,12 +65,27 @@ internal func _isDigit(_ c: Character) -> Bool {
   return a >= 48 && a <= 57
 }
 
+/// The string without its accents: decomposed, combining marks dropped,
+/// recomposed ("café" is "cafe").
+internal func _stripDiacritics(_ s: String) -> String {
+  var out = ""
+  for u in _bitten_normalize(s, form: 1).unicodeScalars where u.properties.generalCategory != .nonspacingMark {
+    out.unicodeScalars.append(u)
+  }
+  return _bitten_normalize(out, form: 0)
+}
+
 /// Compares two strings with NSString's options: case and diacritic
-/// insensitivity (approximated by lowercasing) and numeric runs.
+/// insensitivity and numeric runs.
 internal func _foundationCompare(_ lhs: String, _ rhs: String, _ options: String.CompareOptions) -> ComparisonResult {
-  let fold = options.contains(.caseInsensitive) || options.contains(.diacriticInsensitive)
-  let a = Array(fold ? lhs.lowercased() : lhs)
-  let b = Array(fold ? rhs.lowercased() : rhs)
+  let caseless = options.contains(.caseInsensitive), accentless = options.contains(.diacriticInsensitive)
+  func prepare(_ s: String) -> [Character] {
+    var t = accentless ? _stripDiacritics(s) : s
+    if caseless { t = t.lowercased() }
+    return Array(t)
+  }
+  let a = prepare(lhs)
+  let b = prepare(rhs)
   let numeric = options.contains(.numeric)
   var i = 0, j = 0
   while i < a.count && j < b.count {
@@ -201,12 +216,28 @@ extension StringProtocol {
   public func localizedCaseInsensitiveCompare<T: StringProtocol>(_ aString: T) -> ComparisonResult {
     return _foundationCompare(String(self), String(aString), .caseInsensitive)
   }
+  /// As the Finder sorts: digits as numbers, case and accents ignored, and
+  /// then, between strings that differ only so, lower case first and
+  /// unaccented first (the collation's later levels).
   public func localizedStandardCompare<T: StringProtocol>(_ string: T) -> ComparisonResult {
-    return _foundationCompare(String(self), String(string), [.caseInsensitive, .numeric])
+    let a = String(self), b = String(string)
+    let primary = _foundationCompare(a, b, [.caseInsensitive, .diacriticInsensitive, .numeric])
+    if primary != .orderedSame { return primary }
+    let accents = _foundationCompare(a, b, [.caseInsensitive, .numeric])
+    if accents != .orderedSame { return accents }
+    // lower case before upper case, character by character
+    for (x, y) in zip(a, b) where x != y {
+      if x.lowercased() == y.lowercased() { return x.isLowercase ? .orderedAscending : .orderedDescending }
+    }
+    return _foundationCompare(a, b, [.numeric])
   }
 
   public func folding(options: String.CompareOptions = [], locale: Locale?) -> String {
-    return options.contains(.caseInsensitive) ? lowercased() : String(self)
+    var s = String(self)
+    if options.contains(.diacriticInsensitive) { s = _stripDiacritics(s) }
+    if options.contains(.caseInsensitive) { s = s.lowercased() }
+    if options.contains(.widthInsensitive) { s = _bitten_normalize(s, form: 2) }
+    return s
   }
 
   public func replacingOccurrences<Target: StringProtocol, Replacement: StringProtocol>(
@@ -342,6 +373,47 @@ extension StringProtocol {
     }
     let s = String(decoding: out, as: UTF8.self)
     return Array(s.utf8) == out ? s : nil // nil when the bytes are not valid UTF-8
+  }
+
+  // Unicode normalization forms (NFC, NFD, NFKC, NFKD).
+  public var precomposedStringWithCanonicalMapping: String { return _bitten_normalize(String(self), form: 0) }
+  public var decomposedStringWithCanonicalMapping: String { return _bitten_normalize(String(self), form: 1) }
+  public var precomposedStringWithCompatibilityMapping: String { return _bitten_normalize(String(self), form: 2) }
+  public var decomposedStringWithCompatibilityMapping: String { return _bitten_normalize(String(self), form: 3) }
+
+  /// Cut or padded with repeats of `padString` (from `padIndex` of it) to
+  /// `newLength` characters.
+  public func padding<T: StringProtocol>(toLength newLength: Int, withPad padString: T, startingAt padIndex: Int) -> String {
+    let chars = Array(self)
+    if newLength <= chars.count { return String(chars[0..<Swift.max(newLength, 0)]) }
+    let pad = Array(padString)
+    precondition(!pad.isEmpty && padIndex >= 0 && padIndex < pad.count, "invalid pad")
+    var out = String(self)
+    var k = padIndex
+    for _ in chars.count..<newLength {
+      out.append(pad[k])
+      k = (k + 1) % pad.count
+    }
+    return out
+  }
+
+  /// Each line (without its terminator), until `stop` is set.
+  public func enumerateLines(invoking body: @escaping (_ line: String, _ stop: inout Bool) -> Void) {
+    var stop = false
+    var line = ""
+    var pendingCR = false
+    for c in self {
+      if c == "\r\n" || c == "\n" || c == "\r" || c == "\u{2028}" || c == "\u{2029}" || c == "\u{85}" {
+        body(line, &stop)
+        if stop { return }
+        line = ""
+        pendingCR = false
+      } else {
+        line.append(c)
+      }
+    }
+    _ = pendingCR
+    if !line.isEmpty { body(line, &stop) }
   }
 
   public var capitalized: String {

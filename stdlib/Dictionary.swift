@@ -56,6 +56,17 @@ public struct Dictionary<Key: Hashable, Value> {
     try native.merge(keysAndValues, isUnique: true, uniquingKeysWith: combine)
     self.init(_native: native)
   }
+
+  /// The values grouped by the key each gives, in their order.
+  @inlinable
+  public init<S: Sequence>(grouping values: __owned S, by keyForValue: (S.Element) throws -> Key) rethrows
+    where Value == [S.Element]
+  {
+    self.init()
+    for value in values {
+      self[try keyForValue(value), default: []].append(value)
+    }
+  }
 }
 
 // ---- the variant ---------------------------------------------------------------------------

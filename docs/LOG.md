@@ -6098,3 +6098,24 @@ Debugging aids:
 - stdlib: `RangeReplaceableCollection.filter` returns `Self`, so
   `"abc".filter { ... }` is a String, not `[Character]`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Scanner, Measurement, normalization and more, checked against Linux Foundation
+
+- New test swiftlib `mfbehaviour`: 44 results of NSString path and
+  comparison operations, normalization, line and component splitting,
+  Scanner, ByteCountFormatter, Measurement conversion and collection
+  algorithms, against the Linux toolchain. What was missing or differed:
+  - stdlib: `Dictionary(grouping:by:)`; `String.Index.utf16Offset(in:)`.
+  - Foundation: `Scanner` (NSScanner with its classic methods and the
+    Swift ones: scanInt, scanDouble, scanString, scanCharacters(from:),
+    scanUpToString, scanCharacter, currentIndex); `Measurement` with
+    `Unit`, `Dimension`, `UnitConverterLinear` and the common dimensions
+    (length, mass, duration, temperature, speed, volume, area, angle,
+    information storage, energy, pressure, frequency, power);
+    `precomposed/decomposedStringWith{Canonical,Compatibility}Mapping`
+    (NFC, NFD, NFKC, NFKD; the common compatibility mappings);
+    `padding(toLength:withPad:startingAt:)`; `enumerateLines`.
+  - Diacritic-insensitive comparison and `folding` drop accents rather
+    than only lower-casing; `localizedStandardCompare` breaks ties as
+    collation does (unaccented, then lower case, first).
+- Target app (total `^MISSING`): 0 -> 0.
