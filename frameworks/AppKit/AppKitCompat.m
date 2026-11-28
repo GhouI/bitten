@@ -282,20 +282,27 @@ static const char kPresentingKey, kSheetWindowKey;
 
 /* ---- display links (QuartzCore's CADisplayLink, looked up at run time) ---- */
 
-static id display_link(id target, SEL sel) {
+/* A view's or window's link follows it: it doesn't fire while it is off
+ * screen (CADisplayLink asks -_bn_displayLinkShowing each tick). */
+static id display_link(id target, SEL sel, id source) {
     Class c = objc_getClass("CADisplayLink");
     if (!c) return nil;
-    return ((id (*)(Class, SEL, id, SEL))objc_msgSend)(c, sel_registerName("_bn_displayLinkWithTarget:selector:"),
-                                                       target, sel);
+    return ((id (*)(Class, SEL, id, SEL, id))objc_msgSend)(
+        c, sel_registerName("_bn_displayLinkWithTarget:selector:source:"), target, sel, source);
 }
 @implementation NSView (BittenDisplayLink)
-- (id)displayLinkWithTarget:(id)target selector:(SEL)selector { return display_link(target, selector); }
+- (id)displayLinkWithTarget:(id)target selector:(SEL)selector { return display_link(target, selector, self); }
+- (BOOL)_bn_displayLinkShowing {
+    NSWindow *w = self.window;
+    return w && w.isVisible && !w.isMiniaturized && !self.isHiddenOrHasHiddenAncestor;
+}
 @end
 @implementation NSWindow (BittenDisplayLink)
-- (id)displayLinkWithTarget:(id)target selector:(SEL)selector { return display_link(target, selector); }
+- (id)displayLinkWithTarget:(id)target selector:(SEL)selector { return display_link(target, selector, self); }
+- (BOOL)_bn_displayLinkShowing { return self.isVisible && !self.isMiniaturized; }
 @end
 @implementation NSScreen (BittenDisplayLink)
-- (id)displayLinkWithTarget:(id)target selector:(SEL)selector { return display_link(target, selector); }
+- (id)displayLinkWithTarget:(id)target selector:(SEL)selector { return display_link(target, selector, nil); }
 - (NSInteger)maximumFramesPerSecond { return 60; }
 - (CGFloat)maximumPotentialExtendedDynamicRangeColorComponentValue { return 1; }
 - (CGFloat)maximumExtendedDynamicRangeColorComponentValue { return 1; }

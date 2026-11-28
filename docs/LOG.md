@@ -5800,3 +5800,20 @@ Debugging aids:
   static per call site instead of hashing the name on every call; lines
   are made and drawn on every page switch.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Paused display links stop waking the process
+
+- QuartzCore: a paused CADisplayLink parks its timer (fire date in the
+  distant future) instead of firing 60 times a second only to be ignored;
+  unpausing re-arms it. The target app pauses its terminal renderers' links
+  between frames, so three links cost ~180 wakeups a second at idle; now the
+  event thread wakes ~8 times a second and idle CPU fell from ~11% to ~9%
+  (the rest is cursor-blink frames in the software rasterizer).
+- AppKit: links from `-[NSView/NSWindow displayLinkWithTarget:selector:]`
+  don't fire while the view or window is off screen (no window, ordered
+  out, minimized, hidden), as on macOS. Declared in the SDK headers.
+- Foundation: NSTimer maps a fire date a century or more away to a disarmed
+  dispatch timer (the nanosecond delay used to overflow).
+- `BITTEN_DISPLAYLINK_DEBUG=1` prints, per link and second, ticks sent and
+  skipped.
+- Target app (total `^MISSING`): 0 -> 0.

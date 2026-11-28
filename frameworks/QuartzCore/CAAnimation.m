@@ -6,6 +6,8 @@
 #import <QuartzCore/QuartzCore.h>
 #include <math.h>
 #include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 @interface CAAnimation ()
 - (void)_bn_copyFrom:(id)other;
@@ -320,13 +322,31 @@ static BNTransaction *current(void) {
 
 /* ---- CADisplayLink: a 60 Hz timer on the run loop it is added to ---- */
 
+/* BITTEN_DISPLAYLINK_DEBUG: per link, ticks sent and skipped each second */
+static int link_debug = -1;
+
 @implementation CADisplayLink {
     __weak id _target;
+    /* the view or window the link was made for (AppKit), which says whether
+     * it is on screen; a link made for one that is gone stays quiet */
+    __weak id _source;
+    BOOL _hasSource;
+    unsigned _sent, _skipped;
+    CFTimeInterval _debugSince;
     SEL _selector;
     NSTimer *_timer;
     CFTimeInterval _timestamp, _duration;
 }
 @synthesize paused = _paused, preferredFrameRateRange = _preferredFrameRateRange;
+
+/* A paused link's timer is parked rather than firing 60 times a second
+ * to be ignored (apps pause their links when there is nothing to draw). */
+- (void)setPaused:(BOOL)paused {
+    if (paused == _paused) return;
+    _paused = paused;
+    if (_timer)
+        _timer.fireDate = paused ? [NSDate distantFuture] : [NSDate dateWithTimeIntervalSinceNow:[self _bn_interval]];
+}
 
 + (CADisplayLink *)_bn_displayLinkWithTarget:(id)target selector:(SEL)sel {
     CADisplayLink *l = [self new];
@@ -334,6 +354,23 @@ static BNTransaction *current(void) {
     l->_selector = sel;
     l->_duration = 1.0 / 60;
     return l;
+}
++ (CADisplayLink *)_bn_displayLinkWithTarget:(id)target selector:(SEL)sel source:(id)source {
+    CADisplayLink *l = [self _bn_displayLinkWithTarget:target selector:sel];
+    l->_source = source;
+    l->_hasSource = source != nil;
+    return l;
+}
+/* As on macOS, a view's or window's link is suspended while it is not on
+ * screen (no window, window ordered out or minimized, view hidden). */
+- (BOOL)_bn_sourceShowing {
+    if (!_hasSource) return YES;
+    id src = _source;
+    static SEL q;
+    if (!q) q = sel_registerName("_bn_displayLinkShowing");
+    if (!src) return NO;
+    if (![src respondsToSelector:q]) return YES;
+    return ((BOOL (*)(id, SEL))objc_msgSend)(src, q);
 }
 - (CFTimeInterval)timestamp { return _timestamp; }
 - (CFTimeInterval)duration { return _duration; }
@@ -348,6 +385,19 @@ static BNTransaction *current(void) {
     id target = _target;
     if (!target) { [self invalidate]; return; }
     if (_paused) return;
+    BOOL showing = [self _bn_sourceShowing];
+    if (link_debug < 0) link_debug = getenv("BITTEN_DISPLAYLINK_DEBUG") != NULL;
+    if (link_debug) {
+        if (showing) _sent++; else _skipped++;
+        CFTimeInterval now = CACurrentMediaTime();
+        if (now - _debugSince >= 1) {
+            fprintf(stderr, "displaylink %p target %s source %s: %u sent, %u skipped\n", (__bridge void *)self,
+                    object_getClassName(target), _hasSource ? object_getClassName(_source) : "-", _sent, _skipped);
+            _sent = _skipped = 0;
+            _debugSince = now;
+        }
+    }
+    if (!showing) return;
     _duration = [self _bn_interval];
     _timestamp = CACurrentMediaTime();
     void (*send)(id, SEL, id) = (void (*)(id, SEL, id))[target methodForSelector:_selector];
@@ -360,6 +410,7 @@ static BNTransaction *current(void) {
     _timer = [NSTimer timerWithTimeInterval:[self _bn_interval] target:self selector:@selector(_bn_tick:)
                                    userInfo:nil repeats:YES];
     [runloop addTimer:_timer forMode:mode];
+    if (_paused) _timer.fireDate = [NSDate distantFuture];
 }
 - (void)removeFromRunLoop:(NSRunLoop *)runloop forMode:(NSRunLoopMode)mode { [self invalidate]; }
 - (void)invalidate {

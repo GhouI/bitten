@@ -1099,6 +1099,16 @@ typedef NS_ENUM(NSInteger, NSVisualEffectState) {
 @interface NSWindow (NSAnimatablePropertyContainer) <NSAnimatablePropertyContainer>
 @end
 
+/* Display links that follow a view, window or screen (macOS 14); a view's
+ * or window's link doesn't fire while it is off screen. */
+@class CADisplayLink;
+@interface NSView (NSDisplayLink)
+- (CADisplayLink *)displayLinkWithTarget:(id)target selector:(SEL)selector;
+@end
+@interface NSWindow (NSDisplayLink)
+- (CADisplayLink *)displayLinkWithTarget:(id)target selector:(SEL)selector;
+@end
+
 typedef NS_ENUM(NSUInteger, NSFocusRingType) {
     NSFocusRingTypeDefault = 0, NSFocusRingTypeNone = 1, NSFocusRingTypeExterior = 2
 };

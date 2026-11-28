@@ -237,10 +237,27 @@ int main(void) {
         [link addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
         CHECK(spin_until(^{ return (BOOL)(ticker.ticks >= 3); }));
         CHECK(link.timestamp > 0 && NEAR(link.duration, 1.0 / 60));
-        [link invalidate];
+        /* paused, it doesn't tick (its timer is parked); unpaused, it does */
+        link.paused = YES;
         int ticks = ticker.ticks;
         [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
         CHECK(ticker.ticks == ticks);
+        link.paused = NO;
+        CHECK(spin_until(^{ return (BOOL)(ticker.ticks >= ticks + 3); }));
+        [link invalidate];
+        ticks = ticker.ticks;
+        [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+        CHECK(ticker.ticks == ticks);
+        /* a link paused before it is added waits for unpausing */
+        Ticker *later = [Ticker new];
+        CADisplayLink *held = [CADisplayLink _bn_displayLinkWithTarget:later selector:@selector(tick:)];
+        held.paused = YES;
+        [held addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
+        [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+        CHECK(later.ticks == 0);
+        held.paused = NO;
+        CHECK(spin_until(^{ return (BOOL)(later.ticks >= 2); }));
+        [held invalidate];
 
         /* compositingFilter: a layer composited with a blend mode */
         {
