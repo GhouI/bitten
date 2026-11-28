@@ -43,6 +43,19 @@ import RegexBuilder
   if "a, b,,c".split(separator: ", ") != ["a", "b,,c"] { bad |= 8 }
   if text.replacing(#/\d/#, with: "#") != "a# b## c###" { bad |= 0x10 }
   if text.ranges(of: #/[a-z]/#).count != 3 { bad |= 0x20 }
+  // literal separators (Character split; a string or substring through
+  // the RegexComponent overload, looked for as text)
+  func viaRegex<R: RegexComponent>(_ s: String, _ r: R, max: Int = .max, omit: Bool = true) -> [Substring] {
+    return s.split(separator: r, maxSplits: max, omittingEmptySubsequences: omit)
+  }
+  if "a\nb\n\nc".split(separator: "\n", omittingEmptySubsequences: false) != ["a", "b", "", "c"] { bad |= 0x40 }
+  if viaRegex("a::b::::c", "::") != ["a", "b", "c"] { bad |= 0x80 }
+  if viaRegex("a::b::::c", "::", omit: false) != ["a", "b", "", "c"] { bad |= 0x100 }
+  if viaRegex("a b c d", " ", max: 2) != ["a", "b", "c d"] { bad |= 0x200 }
+  if viaRegex("x\r\ny", "\n") != ["x\r\ny"] { bad |= 0x400 }   // "\r\n" is one character
+  if viaRegex("aaa", "aa", omit: false) != ["", "a"] { bad |= 0x800 }
+  if viaRegex("abc", "abcd") != ["abc"] || viaRegex("", ",") != [] { bad |= 0x1000 }
+  if viaRegex("a,b", ","[...]) != ["a", "b"] { bad |= 0x2000 }
   return bad
 }
 
