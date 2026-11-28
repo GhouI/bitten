@@ -970,3 +970,37 @@ struct _PickOptions: View {
     return bad
   }
 }
+
+/// A hidden host (a page kept for later) isn't rebuilt by changes while
+/// hidden; it is when shown again.
+@_silgen_name("swl_swiftui_hiddenhost") public func hiddenHost() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    let builds = StoreCount()
+    var binding: Binding<Int>?
+    let view = Counting(builds: builds, expose: { binding = $0 })
+    let host = NSHostingView(rootView: view)
+    host.frame = NSMakeRect(0, 0, 40, 40)
+    let holder = NSView(frame: NSMakeRect(0, 0, 40, 40))
+    holder.addSubview(host)
+    let w = NSWindow(contentRect: NSMakeRect(0, 0, 40, 40), styleMask: [.titled], backing: .buffered, defer: false)
+    w.contentView = holder
+    w.orderFront(nil)
+    @MainActor func settle() {
+      for _ in 0..<3 {
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.03))
+        w.display()
+      }
+    }
+    settle()
+    holder.isHidden = true
+    let b0 = builds.n
+    binding?.wrappedValue = 5
+    settle()
+    if builds.n != b0 { bad |= 1 }   // hidden: not rebuilt
+    holder.isHidden = false
+    settle()
+    if builds.n == b0 { bad |= 2 }   // shown: rebuilt with the change
+    return bad
+  }
+}

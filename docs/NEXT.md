@@ -10,8 +10,12 @@ windows no longer leaks.
 
 ## What stands in the way
 
-1. **Speed.** With a viewer connected the target app idles at about 10%
+1. **Speed.** With a viewer connected the target app idles at about 4%
    CPU, mostly the terminal's Metal fragment path (`cell_bg_fragment`).
+   Settings page switches mostly rebuild SwiftUI trees (each rebuild
+   builds the whole tree; hidden page hosts now wait until shown).
+   `BITTEN_PERF_MAP=1` writes /tmp/perf-<pid>.map with the Mach-O
+   images' symbols for naming `perf script` addresses.
    With Settings open it idles at about 5% and sends no frames. Launch
    reaches an interactive terminal in about 4.6 s on a loaded machine.
    Page switches mostly cost CoreGraphics blending now (`cg_blend_pixel`,
