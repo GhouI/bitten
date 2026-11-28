@@ -515,7 +515,8 @@ public struct MeshGradient: ShapeStyle, View, Sendable {
   public var body: _ShapeView<Rectangle, MeshGradient> { return _ShapeView(shape: Rectangle(), style: self) }
 }
 
-/// Translucent backgrounds; drawn as a tinted window background.
+/// Translucent backgrounds; drawn as a nearly opaque window background
+/// (there is no blur).
 public struct Material: ShapeStyle, Sendable {
   internal let opacity: CGFloat
   public static var ultraThin: Material { return Material(opacity: 0.55) }
@@ -526,7 +527,9 @@ public struct Material: ShapeStyle, Sendable {
   public static var bar: Material { return Material(opacity: 0.85) }
   public func _apply(to shape: inout _ShapeStyle_Shape) {
     Color._windowBackground._apply(to: &shape)
-    shape.paint = shape.paint?.with(opacity: opacity)
+    // macOS blurs what is under a material past reading; without a blur,
+    // only a nearly opaque tint keeps it so (as NSVisualEffectView here).
+    shape.paint = shape.paint?.with(opacity: Swift.max(opacity, 0.96))
   }
 }
 extension ShapeStyle where Self == Material {

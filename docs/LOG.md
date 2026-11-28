@@ -5915,3 +5915,12 @@ Debugging aids:
   one its title was drawn above the top of the page.
 - Test: swiftui `unavailable`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI materials as nearly opaque as AppKit's
+
+- SwiftUI's `Material` styles drew the window background at 55-95%
+  opacity; with no blur behind them, text under a thin material stayed
+  readable. They now use at least 96%, as NSVisualEffectView here does.
+  (Blur across windows, a palette window over terminal text, would belong
+  to the display's compositor.)
+- Target app (total `^MISSING`): 0 -> 0.
