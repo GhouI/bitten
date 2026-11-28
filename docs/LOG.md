@@ -5497,3 +5497,12 @@ Debugging aids:
   content type.
 - Test: `viewlists`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: picker menus show dividers and section titles
+
+- A menu Picker's Dividers are now separators in its menu, and its
+  Sections' headers title their groups of options. The target app's
+  cursor Blink speed menu reads Off | Slow, Normal, Fast | Custom, as on
+  macOS, instead of one run of items.
+- Checked in the target app (Settings ▸ Terminal ▸ Blink speed).
+- Target app (total `^MISSING`): 0 -> 0.

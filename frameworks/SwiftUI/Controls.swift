@@ -1199,9 +1199,21 @@ public struct Picker<Label: View, SelectionValue: Hashable, Content: View>: View
     let v = view.value
     // Sections' options are the picker's options (their headers title
     // groups of a menu; here they are left out).
+    // The menu's layout: dividers become separators and sections' headers
+    // titles over their options.
+    var layout: [_PickerMenuEntry] = []
     func flatten(_ nodes: [_ViewNode]) -> [_ViewNode] {
       return nodes.flatMap { n -> [_ViewNode] in
-        if let items = (n as? _StackNode)?.sectionItems { return flatten(items) }
+        if let stack = n as? _StackNode, let items = stack.sectionItems {
+          if stack.children.count > items.count, let first = stack.children.first, !items.contains(where: { $0 === first }),
+             let title = _firstText(in: first) {
+            if !layout.isEmpty { layout.append(.separator) }
+            layout.append(.header(title))
+          }
+          return flatten(items)
+        }
+        if n is _DividerNode { layout.append(.separator); return [n] }
+        layout.append(.option(n))
         return [n]
       }
     }
@@ -1234,7 +1246,18 @@ public struct Picker<Label: View, SelectionValue: Hashable, Content: View>: View
     }
     let shown = options.first { tag($0) == current } ?? options.first ?? _EmptyNode(environment: inputs.environment)
     let tags = options.compactMap(tag)
-    let titles = options.filter { tag($0) != nil }.map { _firstText(in: $0) ?? "" }
+    var entries: [_PickerMenuItem] = []
+    var optionIndex = 0
+    for e in layout {
+      switch e {
+      case .separator: if !entries.isEmpty { entries.append(.separator) }
+      case .header(let t): entries.append(.header(t))
+      case .option(let n):
+        guard tag(n) != nil else { continue }
+        entries.append(.option(_firstText(in: n) ?? "", optionIndex))
+        optionIndex += 1
+      }
+    }
     let anchor = _WeakNode()
     // Weakly: the button is in the host's own tree.
     let host = inputs.base.context.hostView
@@ -1244,7 +1267,7 @@ public struct Picker<Label: View, SelectionValue: Hashable, Content: View>: View
       // A menu of the options over the picker, the current one checked
       // and placed where the picker is (as macOS pops menus up).
       if let host = host, let node = anchor.node {
-        _PickerMenuTarget.show(titles: titles, selected: i, at: node.frame, in: host) { k in binding.wrappedValue = tags[k] }
+        _PickerMenuTarget.show(entries, selected: i, at: node.frame, in: host) { k in binding.wrappedValue = tags[k] }
         return
       }
       binding.wrappedValue = tags[((i ?? -1) + 1) % tags.count]
@@ -1286,21 +1309,41 @@ final class _PickerMenuTarget: NSObject {
   }
   /// The menu in use keeps its target (menu items hold theirs weakly).
   nonisolated(unsafe) static var current: _PickerMenuTarget?
-  static func show(titles: [String], selected: Int?, at rect: CGRect, in view: NSView, choose: @escaping (Int) -> Void) {
+  static func show(_ entries: [_PickerMenuItem], selected: Int?, at rect: CGRect, in view: NSView,
+                   choose: @escaping (Int) -> Void) {
     let target = _PickerMenuTarget(choose)
     current = target
     let menu = NSMenu(title: "")
-    for (k, title) in titles.enumerated() {
-      let item = NSMenuItem(title: title, action: #selector(_PickerMenuTarget.choosePickerItem(_:)), keyEquivalent: "")
-      item.target = target
-      item.tag = k
-      if k == selected { item.state = 1 }  // on
-      menu.addItem(item)
+    var selectedItem: NSMenuItem?
+    for e in entries {
+      switch e {
+      case .separator:
+        menu.addItem(NSMenuItem.separator())
+      case .header(let title):
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.isEnabled = false
+        menu.addItem(item)
+      case .option(let title, let k):
+        let item = NSMenuItem(title: title, action: #selector(_PickerMenuTarget.choosePickerItem(_:)), keyEquivalent: "")
+        item.target = target
+        item.tag = k
+        if k == selected {
+          item.state = 1  // on
+          selectedItem = item
+        }
+        menu.addItem(item)
+      }
     }
-    let item = selected.flatMap { $0 < menu.items.count ? menu.items[$0] : nil }
+    let item = selectedItem
     _ = menu.popUp(positioning: item, at: NSMakePoint(rect.origin.x, rect.origin.y), in: view)
   }
 }
+
+/// What a picker's content lays out in its menu.
+internal enum _PickerMenuEntry { case option(_ViewNode), separator, header(String) }
+/// A picker menu's items: options (their index among the options),
+/// separators and section titles.
+internal enum _PickerMenuItem { case option(String, Int), separator, header(String) }
 
 internal enum _PickerAppearance { case automatic, menu, segmented, inline, radioGroup }
 struct _PickerStyleKey: EnvironmentKey { static let defaultValue = _PickerAppearance.automatic }
