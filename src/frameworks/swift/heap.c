@@ -126,7 +126,9 @@ static void *d_swift_coroFrameAlloc(size_t size, uint64_t type_id) {
 DX_FN(swift_coroFrameAlloc);
 static void d_swift_slowDealloc(void *p, size_t size, size_t align_mask) {
     if (quarantine < 0) quarantine = getenv("BITTEN_HEAP_QUARANTINE") != NULL;
-    if (quarantine && p && getenv("BITTEN_HEAP_QUARANTINE")[0] >= '2') {
+    static int keep_freed = -1;
+    if (keep_freed < 0) keep_freed = quarantine && getenv("BITTEN_HEAP_QUARANTINE")[0] >= '2';
+    if (keep_freed && p) {
         memset(p, 0xdd, malloc_usable_size(p));
         return;
     }
