@@ -198,6 +198,22 @@ int main(int argc, char **argv) {
         CHECK([[NSDate date] timeIntervalSinceDate:before] >= 0.045);
     }
     @autoreleasepool {
+        /* Files read mapped hold the same bytes; a mutable read still copies. */
+        NSString *path = @"/tmp/bitten-mapped-test.bin";
+        char buf[10000];
+        for (int i = 0; i < (int)sizeof buf; i++) buf[i] = (char)(i * 7);
+        CHECK([[NSData dataWithBytes:buf length:sizeof buf] writeToFile:path atomically:NO]);
+        NSError *err = nil;
+        NSData *mapped = [NSData dataWithContentsOfFile:path options:NSDataReadingMappedIfSafe error:&err];
+        CHECK(mapped.length == sizeof buf && !memcmp(mapped.bytes, buf, sizeof buf) && !err);
+        NSMutableData *copy = [NSMutableData dataWithContentsOfFile:path options:NSDataReadingMappedAlways error:NULL];
+        CHECK(copy.length == sizeof buf);
+        ((char *)copy.mutableBytes)[0] = 42;
+        CHECK(((const char *)mapped.bytes)[0] == buf[0]);
+        CHECK([NSData dataWithContentsOfFile:@"/nonexistent/x" options:NSDataReadingMappedIfSafe error:&err] == nil && err);
+        unlink(path.fileSystemRepresentation);
+    }
+    @autoreleasepool {
         /* NSDecimalNumber to NSDecimal and back */
         NSDecimalNumber *n = [NSDecimalNumber decimalNumberWithString:@"-12.375"];
         NSDecimal d = n.decimalValue;

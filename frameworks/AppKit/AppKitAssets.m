@@ -78,7 +78,9 @@ static uint16_t le16(const uint8_t *p) { return (uint16_t)(p[0] | p[1] << 8); }
 }
 - (instancetype)initWithPath:(NSString *)path {
     if (!(self = [super init])) return nil;
-    _data = [NSData dataWithContentsOfFile:path];
+    /* mapped, as CoreUI maps catalogs: they are megabytes, and the values
+     * below point into the mapping (the catalog lives as long as they do) */
+    _data = [NSData dataWithContentsOfFile:path options:NSDataReadingMappedIfSafe error:NULL];
     _b = _data.bytes;
     _len = _data.length;
     if (_len < 32 || memcmp(_b, "BOMStore", 8)) return nil;
@@ -109,13 +111,13 @@ static uint16_t le16(const uint8_t *p) { return (uint16_t)(p[0] | p[1] << 8); }
     _facets = [NSMutableDictionary dictionary];
     [self _tree:facets each:^(const uint8_t *k, uint32_t kl, const uint8_t *val, uint32_t vl) {
         NSString *name = [[NSString alloc] initWithBytes:k length:strnlen((const char *)k, kl) encoding:NSUTF8StringEncoding];
-        if (name && vl >= 6) _facets[name] = [NSData dataWithBytes:val length:vl];
+        if (name && vl >= 6) _facets[name] = [NSData dataWithBytesNoCopy:(void *)val length:vl freeWhenDone:NO];
     }];
     _renditionKeys = [NSMutableArray array];
     _renditionValues = [NSMutableArray array];
     [self _tree:renditions each:^(const uint8_t *k, uint32_t kl, const uint8_t *val, uint32_t vl) {
-        [_renditionKeys addObject:[NSData dataWithBytes:k length:kl]];
-        [_renditionValues addObject:[NSData dataWithBytes:val length:vl]];
+        [_renditionKeys addObject:[NSData dataWithBytesNoCopy:(void *)k length:kl freeWhenDone:NO]];
+        [_renditionValues addObject:[NSData dataWithBytesNoCopy:(void *)val length:vl freeWhenDone:NO]];
     }];
     _decoded = [NSMutableDictionary dictionary];
     return self;

@@ -6015,3 +6015,16 @@ Debugging aids:
   compare-only, behind `#available(macOS 26/27)` or respondsToSelector:,
   or sent to TextKit 2 objects it never gets; NEXT.md says so.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Asset catalogs mapped, not copied into malloc
+
+- NSData honours `NSDataReadingMappedIfSafe`/`MappedAlways`: a regular
+  file is mapped read-only and unmapped when the data goes (a mutable
+  read still copies).
+- The asset catalog reader maps its .car file, as CoreUI does, and its
+  rendition and facet values point into the mapping instead of copies.
+  The target app's two catalogs (about 22 MB) were read whole into malloc
+  and their renditions copied again (11 MB): malloc in use after opening
+  Settings went from ~65 MB to ~42 MB, resident memory ~210 MB to ~150 MB.
+- Test: foundation more (mapped reads).
+- Target app (total `^MISSING`): 0 -> 0.
