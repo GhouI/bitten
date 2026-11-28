@@ -227,13 +227,37 @@ internal final class _JSONNode {
     case .unset: return .object([])
     }
   }
+  /// Where each key is, once an object has many (a dictionary encoded
+  /// with its keys): a repeated key replaces its value, and looking for it
+  /// shouldn't be a walk through all the others.
+  private var index: [String: Int]?
   func set(_ key: String, _ node: _JSONNode) {
-    guard case .object(var o) = kind else { kind = .object([(key, node)]); return }
-    if let i = o.firstIndex(where: { $0.0 == key }) { o[i].1 = node } else { o.append((key, node)) }
+    guard case .object(var o) = kind else {
+      kind = .object([(key, node)])
+      index = nil
+      return
+    }
+    // The enum lets go of the array first, so it grows in place instead of
+    // being copied for every member.
+    kind = .unset
+    // (an index left from before kind was reset elsewhere doesn't match)
+    if let idx = index, idx.count == o.count {
+      if let i = idx[key] { o[i].1 = node } else { index![key] = o.count; o.append((key, node)) }
+    } else if let i = o.firstIndex(where: { $0.0 == key }) {
+      o[i].1 = node
+    } else {
+      o.append((key, node))
+      if o.count > 16 {
+        var idx: [String: Int] = [:]
+        for (k, (name, _)) in o.enumerated() { idx[name] = k }
+        index = idx
+      }
+    }
     kind = .object(o)
   }
   func append(_ node: _JSONNode) {
     guard case .array(var a) = kind else { kind = .array([node]); return }
+    kind = .unset
     a.append(node)
     kind = .array(a)
   }

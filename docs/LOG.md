@@ -5643,3 +5643,14 @@ Debugging aids:
 - Tests: `tests/swiftlib/foundation.swift` (strings with and without
   escapes, error paths, decoding from arrays, slices and lazy sequences).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Foundation: JSON encoding is linear in object and array size
+
+- The JSON encoder copied an array or object's members each time it added
+  one. It also looked for a repeated key by walking all the others. Both
+  were quadratic in size: a large `[String: X]` or a long array took
+  seconds. Members are now added in place, and objects past 16 members
+  keep a key index. A repeated key still replaces its value.
+- Test: `tests/swiftlib/foundation.swift` (2,000-key dictionary,
+  5,000-element array, repeated keys).
+- Target app (total `^MISSING`): 0 -> 0.
