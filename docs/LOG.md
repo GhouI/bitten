@@ -5845,3 +5845,16 @@ Debugging aids:
 - Tests: regex `collections` (literal splits, maxSplits, "\r\n" as one
   character, empty pieces).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Observation: cancelling trackings is no longer quadratic
+
+- Each property's waiting trackings were an array, and cancelling one
+  (every tracking of a SwiftUI tree, on each rebuild) removed it with a
+  linear scan: with many views watching the same property, quadratic. A
+  cancelled or fired tracking is now marked done and counted out; a list
+  drops its done trackings when they outnumber the live ones, so firing
+  order is kept. Trackings hold the lists they joined weakly (no cycle:
+  an object that goes away still lets its change handlers go), and only
+  those lists, so a new registrar at a gone one's address is untouched.
+- Settings page switches: `cancelObservation` 3.3% -> 0.3% of CPU.
+- Target app (total `^MISSING`): 0 -> 0.
