@@ -5877,3 +5877,13 @@ Debugging aids:
 - Test: swiftui `linelimit` (wrapped text under lineLimit(2): measured
   and drawn as two lines).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI finds a view type's dynamic properties once
+
+- Every build reflected over every field of every view value and built
+  its state key string ("path#field") before checking whether the field
+  was a dynamic property at all. The installable fields are now found once
+  per struct type (most have none, and are skipped outright), and keys are
+  built only for them. Enums are still looked at each time (their fields
+  are their current case's). 8 page switches: ~6.75 s -> ~6.4 s of CPU.
+- Target app (total `^MISSING`): 0 -> 0.

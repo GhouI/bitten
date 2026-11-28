@@ -303,36 +303,49 @@ nonisolated(unsafe) let _debugBodyOf: String? = getenv("BITTEN_SWIFTUI_BODY").ma
 internal func _dbg(_ s: String) { fputs(s + "\n", stderr) }
 
 /// Installs every installable stored property of `value` (a struct).
+/// Per view type, the fields that are dynamic properties (most types have
+/// none): found once, by reflection, not on every build.
+nonisolated(unsafe) private var _installableFields: [ObjectIdentifier: [Int]] = [:]
+
 internal func _installDynamicProperties<V>(_ value: inout V, inputs: _ViewInputs) {
+  let typeID = ObjectIdentifier(V.self)
+  // (structs only: an enum's fields are its current case's)
+  let kind = unsafeBitCast(V.self as Any.Type, to: UnsafeRawPointer.self).load(as: Int.self)
+  let cacheable = kind == 0x200 && !_debugGraph
+  let known = cacheable ? _installableFields[typeID] : nil
+  if let k = known, k.isEmpty { return }
   withUnsafeMutablePointer(to: &value) { p in
     let raw = UnsafeRawPointer(p)
     let n = _sw_fieldCount(raw, V.self)
     if _debugGraph { _dbg("bitten: install \(V.self): \(n) fields") }
-    var i = 0
-    while i < n {
+    var found: [Int] = []
+    func visit(_ i: Int) {
       var name: UnsafePointer<CChar>? = nil
       var type: Any.Type? = nil
-      if let addr = _sw_field(raw, V.self, i, &name, &type), let t = type {
-        let key = inputs.base.path + "#" + (name.map { String(cString: $0) } ?? "\(i)")
-        if _debugGraph {
-          func size<T>(_: T.Type) -> Int { MemoryLayout<T>.size }
-          _dbg("  field \(name.map { String(cString: $0) } ?? "?"): \(t) @\(addr - raw) size \(_openExistential(t, do: size)) installable=\(t is _GraphInstallable.Type)")
-        }
-        if let installable = t as? _GraphInstallable.Type {
-          // A field outside the value would be written over someone else's memory.
-          func fits<T>(_: T.Type) -> Bool { addr >= raw && addr - raw + MemoryLayout<T>.size <= MemoryLayout<V>.size }
-          guard _openExistential(t, do: fits) else {
-            _dbg("bitten: install \(V.self): field \(name.map { String(cString: $0) } ?? "\(i)") at offset \(addr - raw) is outside the value (size \(MemoryLayout<V>.size)); skipped")
-            i += 1
-            continue
-          }
-          func install<T: _GraphInstallable>(_: T.Type) {
-            UnsafeMutableRawPointer(mutating: addr).assumingMemoryBound(to: T.self).pointee._install(key: key, inputs: inputs)
-          }
-          install(installable)
-        }
+      guard let addr = _sw_field(raw, V.self, i, &name, &type), let t = type else { return }
+      if _debugGraph {
+        func size<T>(_: T.Type) -> Int { MemoryLayout<T>.size }
+        _dbg("  field \(name.map { String(cString: $0) } ?? "?"): \(t) @\(addr - raw) size \(_openExistential(t, do: size)) installable=\(t is _GraphInstallable.Type)")
       }
-      i += 1
+      guard let installable = t as? _GraphInstallable.Type else { return }
+      found.append(i)
+      // A field outside the value would be written over someone else's memory.
+      func fits<T>(_: T.Type) -> Bool { addr >= raw && addr - raw + MemoryLayout<T>.size <= MemoryLayout<V>.size }
+      guard _openExistential(t, do: fits) else {
+        _dbg("bitten: install \(V.self): field \(name.map { String(cString: $0) } ?? "\(i)") at offset \(addr - raw) is outside the value (size \(MemoryLayout<V>.size)); skipped")
+        return
+      }
+      let key = inputs.base.path + "#" + (name.map { String(cString: $0) } ?? "\(i)")
+      func install<T: _GraphInstallable>(_: T.Type) {
+        UnsafeMutableRawPointer(mutating: addr).assumingMemoryBound(to: T.self).pointee._install(key: key, inputs: inputs)
+      }
+      install(installable)
+    }
+    if let k = known {
+      for i in k where i < n { visit(i) }
+    } else {
+      for i in 0..<n { visit(i) }
+      if cacheable { _installableFields[typeID] = found }
     }
   }
 }
