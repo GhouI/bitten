@@ -316,6 +316,7 @@ APPKIT_EXTERN int NSApplicationMain(int argc, const char *argv[]);
 @property (readonly) CGFloat redComponent, greenComponent, blueComponent, alphaComponent;
 @property (readonly) CGColorRef CGColor NS_SWIFT_NAME(cgColor);
 + (NSColor *)colorWithCGColor:(CGColorRef)cgColor;
++ (NSColor *)colorWithCIColor:(id)color;
 - (NSColor *)colorWithAlphaComponent:(CGFloat)alpha;
 - (void)set;
 - (void)setFill;

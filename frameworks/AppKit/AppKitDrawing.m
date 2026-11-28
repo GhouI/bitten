@@ -159,6 +159,14 @@ static CGContextRef current_cg(void) { return [NSGraphicsContext currentContext]
     if (n == 2) return [NSColor colorWithWhite:c[0] alpha:c[1]];
     return [NSColor blackColor];
 }
+/* From a CoreImage colour (its components, read through the runtime:
+ * AppKit doesn't link CoreImage). */
++ (NSColor *)colorWithCIColor:(id)ci {
+    CGFloat (*get)(id, SEL) = (CGFloat (*)(id, SEL))objc_msgSend;
+    if (![ci respondsToSelector:@selector(red)]) return [NSColor blackColor];
+    return [NSColor colorWithSRGBRed:get(ci, sel_registerName("red")) green:get(ci, sel_registerName("green"))
+                                blue:get(ci, sel_registerName("blue")) alpha:get(ci, sel_registerName("alpha"))];
+}
 @end
 
 void NSRectFill(NSRect r) {
