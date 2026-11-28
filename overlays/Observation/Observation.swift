@@ -11,7 +11,28 @@ public protocol Observable {}
 final class _Tracking {
   var observed: Set<_Key> = []
   var onChange: (() -> Void)?
+  /// Fired or cancelled: no longer waits on any property (lists drop it
+  /// lazily).
+  var done = false
+  /// The lists it joined (a registrar that goes drops its lists, and a
+  /// new one at the same address makes new ones: only these are its).
+  /// (Weakly: a list holds its trackings.)
+  var joined: [_Joined] = []
   init() {}
+}
+struct _Joined {
+  let key: _Key
+  weak var waiters: _Waiters?
+}
+
+/// The trackings waiting on one property, in the order they began. A
+/// tracking that stops is counted out here and dropped from the list when
+/// the dead outnumber the live, so cancelling the many trackings of a
+/// rebuilt tree is not quadratic in how many watch the same property.
+final class _Waiters {
+  var list: [_Tracking] = []
+  var dead = 0
+  var live: Int { return list.count - dead }
 }
 
 struct _Key: Hashable {
@@ -49,7 +70,7 @@ nonisolated(unsafe) private var trackingStacks: [UInt: [_Tracking]] = [:]
 
 /// Registrations waiting for a change, by observed property (of a
 /// registrar), and the properties waited on per registrar.
-nonisolated(unsafe) private var waiting: [_Key: [_Tracking]] = [:]
+nonisolated(unsafe) private var waiting: [_Key: _Waiters] = [:]
 nonisolated(unsafe) private var waitedOn: [ObjectIdentifier: Set<AnyKeyPath>] = [:]
 
 /// A registrar's identity. Registrations belong to it, as in Observation:
@@ -67,15 +88,28 @@ final class _RegistrarBox: @unchecked Sendable {
 }
 
 private func _wait(_ t: _Tracking, _ key: _Key) {
-  waiting[key, default: []].append(t)
-  waitedOn[key.object, default: []].insert(key.keyPath)
+  let w: _Waiters
+  if let have = waiting[key] {
+    w = have
+  } else {
+    w = _Waiters()
+    waiting[key] = w
+    waitedOn[key.object, default: []].insert(key.keyPath)
+  }
+  w.list.append(t)
+  t.joined.append(_Joined(key: key, waiters: w))
 }
-private func _unwait(_ t: _Tracking, _ key: _Key) {
-  waiting[key]?.removeAll { $0 === t }
-  if waiting[key]?.isEmpty == true {
+/// A tracking (already marked done) leaves the list `w` it joined for `key`.
+private func _unwait(_ w: _Waiters, _ key: _Key) {
+  w.dead += 1
+  guard waiting[key] === w else { return }   // dropped with its registrar
+  if w.live <= 0 {
     waiting[key] = nil
     waitedOn[key.object]?.remove(key.keyPath)
     if waitedOn[key.object]?.isEmpty == true { waitedOn[key.object] = nil }
+  } else if w.dead * 2 > w.list.count {
+    w.list.removeAll { $0.done }
+    w.dead = 0
   }
 }
 
@@ -95,13 +129,15 @@ public struct ObservationRegistrar: Sendable {
   public func willSet<Subject: Observable, Member>(_ subject: Subject, keyPath: KeyPath<Subject, Member>) {
     let key = _Key(object: ObjectIdentifier(box), keyPath: keyPath)
     let changes: [() -> Void] = locked {
-      guard let list = waiting.removeValue(forKey: key) else { return [] }
+      guard let w = waiting.removeValue(forKey: key) else { return [] }
       waitedOn[key.object]?.remove(key.keyPath)
       if waitedOn[key.object]?.isEmpty == true { waitedOn[key.object] = nil }
       var out: [() -> Void] = []
-      for t in list {
+      for t in w.list where !t.done {
         // Fire once, and stop listening to the other properties it read.
-        for other in t.observed where other != key { _unwait(t, other) }
+        t.done = true
+        for j in t.joined { if let o = j.waiters, o !== w { _unwait(o, j.key) } }
+        t.joined = []
         if let change = t.onChange { out.append(change) }
         t.onChange = nil
       }
@@ -148,7 +184,10 @@ public func _bitten_withObservationTracking<T>(_ apply: () -> T,
 public func _bitten_cancelObservationTracking(_ token: AnyObject) {
   guard let t = token as? _Tracking else { return }
   locked {
-    for key in t.observed { _unwait(t, key) }
+    if t.done { return }
+    t.done = true
+    for j in t.joined { if let o = j.waiters { _unwait(o, j.key) } }
+    t.joined = []
     t.onChange = nil
   }
 }
