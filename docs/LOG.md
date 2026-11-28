@@ -5687,3 +5687,16 @@ Debugging aids:
   main window's chrome half light (see `docs/NEXT.md`).
 - Test: `tests/appkit/basics.m` (KVO on effectiveAppearance).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: views' effectiveAppearance is observable
+
+- When the application's, a window's or a view's appearance changes, each
+  view whose effective appearance follows it announces `effectiveAppearance`
+  to key-value observers. Views with an appearance of their own don't,
+  since theirs didn't change.
+- `BITTEN_VIEW_DEBUG=Name` prints matching SwiftUI views and modifiers
+  (their values and colour scheme) as their bodies are made. With it,
+  the live dark-mode issue narrows to the target app's own appearance
+  state (`docs/NEXT.md`).
+- Test: `tests/appkit/basics.m`.
+- Target app (total `^MISSING`): 0 -> 0.

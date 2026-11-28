@@ -102,6 +102,21 @@ static void set_drawing(NSAppearance *appearance) {
 @end
 
 /* Views whose effective appearance may have changed hear of it, and redraw. */
+/* The views whose effective appearance follows `v`'s (v, and down to
+ * subviews that set an appearance of their own). */
+static void collect_following(NSView *v, NSMutableArray<NSView *> *out) {
+    [out addObject:v];
+    for (NSView *s in v.subviews)
+        if (!s.appearance) collect_following(s, out);
+}
+/* effectiveAppearance is observable on views too (programs watch it to
+ * restyle): announced around a change for every view it reaches. */
+static void will_change_views(NSArray<NSView *> *views) {
+    for (NSView *v in views) [v willChangeValueForKey:@"effectiveAppearance"];
+}
+static void did_change_views(NSArray<NSView *> *views) {
+    for (NSView *v in views.reverseObjectEnumerator) [v didChangeValueForKey:@"effectiveAppearance"];
+}
 static void tell_appearance_changed(NSView *v) {
     /* in its own appearance, as AppKit calls it: colours resolved there
      * (a layer's background set from a dynamic colour) come out right */
@@ -120,10 +135,20 @@ static void tell_appearance_changed(NSView *v) {
 - (void)setAppearance:(NSAppearance *)appearance {
     if (getenv("BITTEN_APPEARANCE_DEBUG"))
         fprintf(stderr, "bitten: window '%s' appearance %s\n", self.title.UTF8String ?: "", appearance.name.UTF8String ?: "(none)");
+    NSMutableArray<NSView *> *views = [NSMutableArray array];
+    if (self._bn_frameView) collect_following(self._bn_frameView, views);
     [self willChangeValueForKey:@"effectiveAppearance"];
+    will_change_views(views);
     objc_setAssociatedObject(self, @selector(appearance), appearance, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [self _bn_appearanceChanged];
+    did_change_views(views);
     [self didChangeValueForKey:@"effectiveAppearance"];
+}
+/* For the application's appearance changing: its windows' views. */
+- (NSArray<NSView *> *)_bn_viewsFollowingAppearance {
+    NSMutableArray<NSView *> *views = [NSMutableArray array];
+    if (!self.appearance && self._bn_frameView) collect_following(self._bn_frameView, views);
+    return views;
 }
 - (void)_bn_appearanceChanged {
     if (self._bn_frameView) tell_appearance_changed(self._bn_frameView);
@@ -138,9 +163,13 @@ static void tell_appearance_changed(NSView *v) {
     if (appearance == self.appearance) return;
     if (getenv("BITTEN_APPEARANCE_DEBUG"))
         fprintf(stderr, "bitten: view %s appearance %s\n", object_getClassName(self), appearance.name.UTF8String ?: "(none)");
+    NSMutableArray<NSView *> *views = [NSMutableArray array];
+    collect_following(self, views);
+    will_change_views(views);
     objc_setAssociatedObject(self, @selector(appearance), appearance, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     tell_appearance_changed(self);
     self.needsDisplay = YES;
+    did_change_views(views);
 }
 - (NSAppearance *)effectiveAppearance {
     NSAppearance *a = self.appearance;

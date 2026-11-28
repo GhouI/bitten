@@ -16,6 +16,7 @@ void bn_view_visibility(NSView *view, BOOL visible); /* AppKitControllers.m */
 void bn_tree_visibility(NSView *root, BOOL visible);
 @interface NSWindow (BittenAppearanceChange)
 - (void)_bn_appearanceChanged; /* AppKitAppearance.m */
+- (NSArray<NSView *> *)_bn_viewsFollowingAppearance;
 @end
 @interface NSView (BittenContentsDiff)
 - (BOOL)_bn_contentsChange:(NSRect *)changed; /* AppKitDrawing.m */
@@ -755,11 +756,15 @@ static const char kMainKey;
     if (getenv("BITTEN_APPEARANCE_DEBUG")) fprintf(stderr, "bitten: app appearance %s\n", appearance.name.UTF8String ?: "(none)");
     /* effectiveAppearance is observable (programs restyle on its change) */
     NSArray<NSWindow *> *windows = [all_windows copy];
+    NSMutableArray<NSView *> *views = [NSMutableArray array];
+    for (NSWindow *w in windows) [views addObjectsFromArray:[w _bn_viewsFollowingAppearance]];
     [self willChangeValueForKey:@"effectiveAppearance"];
     for (NSWindow *w in windows)
         if (!w.appearance) [w willChangeValueForKey:@"effectiveAppearance"];
+    for (NSView *v in views) [v willChangeValueForKey:@"effectiveAppearance"];
     _appearance = appearance;
     for (NSWindow *w in windows) [w _bn_appearanceChanged];
+    for (NSView *v in views.reverseObjectEnumerator) [v didChangeValueForKey:@"effectiveAppearance"];
     for (NSWindow *w in windows)
         if (!w.appearance) [w didChangeValueForKey:@"effectiveAppearance"];
     [self didChangeValueForKey:@"effectiveAppearance"];

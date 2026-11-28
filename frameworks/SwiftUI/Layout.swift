@@ -205,6 +205,9 @@ extension ViewModifier {
     var m = modifier.value
     _installDynamicProperties(&m, inputs: inputs)
     if Body.self == Never.self { return body(_Graph(), inputs) }
+    if let want = _debugViewOf, "\(Self.self)".contains(want) {
+      _dbg("bitten: view \(Self.self) dark \(inputs.environment.colorScheme == .dark): \(String(describing: m))")
+    }
     let content = _ViewModifier_Content<Self>(_make: { body(_Graph(), $0).node })
     let built = _withObservation(inputs) { m.body(content: content) }
     if _debugGraph { _dbg("bitten: modifier \(Self.self) body \(Body.self) built \(type(of: built as Any))") }
