@@ -5774,3 +5774,11 @@ Debugging aids:
   It now says 1.2 s, matching.
 - Test: `tests/c/libproc.c`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## dispatch: autorelease pool functions looked up once
+
+- Each dispatched task that drains an autorelease pool looked
+  `objc_autoreleasePoolPush` and `Pop` up by name. They are looked up once
+  now. CPU over eight Settings page switches: about 10.5 s -> 9.9 s
+  (with the JSON changes before it).
+- Target app (total `^MISSING`): 0 -> 0.

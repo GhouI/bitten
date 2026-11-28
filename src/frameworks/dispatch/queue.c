@@ -335,8 +335,15 @@ static void run_task(struct dispatch_queue **slot) {
     void *(*pool_push)(void) = NULL;
     void (*pool_pop)(void *) = NULL;
     if (autorelease == AUTORELEASE_WORK_ITEM && !task->skip_autorelease) {
-        pool_push = dx_registry_lookup("_objc_autoreleasePoolPush");
-        pool_pop = dx_registry_lookup("_objc_autoreleasePoolPop");
+        /* looked up once (every task asks) */
+        static void *(*push_fn)(void);
+        static void (*pop_fn)(void *);
+        if (!push_fn) {
+            pop_fn = dx_registry_lookup("_objc_autoreleasePoolPop");
+            push_fn = dx_registry_lookup("_objc_autoreleasePoolPush");
+        }
+        pool_push = push_fn;
+        pool_pop = pop_fn;
     }
     void *pool = pool_push && pool_pop ? pool_push() : NULL;
     task->fn(task->context);
