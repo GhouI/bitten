@@ -67,10 +67,25 @@ static NSString *key_label(NSMenuItem *item) {
     case 0xF702: [s appendString:@"←"]; break;
     case 0xF703: [s appendString:@"→"]; break;
     case 0xF728: [s appendString:@"⌦"]; break;
-    default: [s appendString:key.uppercaseString]; break;
+    case 0xF729: [s appendString:@"↖"]; break;   /* Home */
+    case 0xF72B: [s appendString:@"↘"]; break;   /* End */
+    case 0xF72C: [s appendString:@"⇞"]; break;   /* Page Up */
+    case 0xF72D: [s appendString:@"⇟"]; break;   /* Page Down */
+    case 0xF739: [s appendString:@"⌧"]; break;   /* Clear */
+    case 0x03: [s appendString:@"⌤"]; break;     /* Enter */
+    case 0x19: [s appendString:@"⇤"]; break;     /* Back Tab */
+    default:
+        if (c >= 0xF704 && c <= 0xF726) [s appendFormat:@"F%d", c - 0xF704 + 1];   /* F1-F35 */
+        else [s appendString:key.uppercaseString];
+        break;
     }
     return s;
 }
+
+/* (For tests: the label drawn for an item's key equivalent.) */
+@implementation NSMenuItem (BittenKeyLabel)
+- (NSString *)_bn_keyEquivalentLabel { return key_label(self); }
+@end
 
 /* Enables each item whose action has someone to send it to (and who
  * agrees, through validateMenuItem:), as AppKit's menu update does. */
@@ -116,8 +131,10 @@ static NSDictionary *text_attrs(NSFont *font, NSColor *color) {
     /* BITTEN_MENU_DEBUG: the items of each menu shown */
     if (getenv("BITTEN_MENU_DEBUG"))
         for (NSMenuItem *i in menu.itemArray)
-            fprintf(stderr, "bitten: menu item '%s'%s%s%s\n", i.title.UTF8String ?: "", i.isSeparatorItem ? " separator" : "",
-                    i.isHidden ? " hidden" : "", i.isEnabled ? "" : " disabled");
+            fprintf(stderr, "bitten: menu item '%s'%s%s%s key %s (U+%04X) mask 0x%lx\n", i.title.UTF8String ?: "",
+                    i.isSeparatorItem ? " separator" : "", i.isHidden ? " hidden" : "", i.isEnabled ? "" : " disabled",
+                    key_label(i).UTF8String, i.keyEquivalent.length ? [i.keyEquivalent characterAtIndex:0] : 0,
+                    (unsigned long)i.keyEquivalentModifierMask);
     NSFont *font = menu.font ?: [NSFont menuFontOfSize:0];
     CGFloat w = menu.minimumWidth, h = 2 * kInset;
     for (NSMenuItem *i in bn_shown_items(menu)) {
