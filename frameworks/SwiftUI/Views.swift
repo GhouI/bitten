@@ -1063,14 +1063,29 @@ internal final class _TextNode: _ViewNode {
   /// Greedy word wrapping into `width`.
   /// The last wrapping asked for (measuring and drawing ask for the same
   /// one several times in a pass).
-  private var _linesMemo: (width: CGFloat?, limited: Bool, lines: [Substring])?
+  /// (All the lines: the line limit only keeps the first ones, so drawing,
+  /// which asks for both, wraps once.)
+  /// Two widths are kept: measuring proposes one, drawing asks for the
+  /// frame's.
+  private var _linesMemo: (width: CGFloat?, lines: [Substring])?
+  private var _linesMemo2: (width: CGFloat?, lines: [Substring])?
   func lines(in width: CGFloat?, limited: Bool = true) -> [Substring] {
-    if let m = _linesMemo, m.width == width, m.limited == limited { return m.lines }
-    let out = _wrap(in: width, limited: limited)
-    _linesMemo = (width, limited, out)
-    return out
+    let all: [Substring]
+    if let m = _linesMemo, m.width == width {
+      all = m.lines
+    } else if let m = _linesMemo2, m.width == width {
+      all = m.lines
+      _linesMemo2 = _linesMemo
+      _linesMemo = m
+    } else {
+      all = _wrap(in: width)
+      _linesMemo2 = _linesMemo
+      _linesMemo = (width, all)
+    }
+    if limited, let limit = environment.lineLimit, all.count > limit { return Array(all.prefix(max(1, limit))) }
+    return all
   }
-  private func _wrap(in width: CGFloat?, limited: Bool) -> [Substring] {
+  private func _wrap(in width: CGFloat?) -> [Substring] {
     var out: [Substring] = []
     for para in string.split(separator: "\n", omittingEmptySubsequences: false) {
       guard let w = width, self.width(of: para) > w else {
@@ -1089,7 +1104,6 @@ internal final class _TextNode: _ViewNode {
       }
       out.append(line)
     }
-    if limited, let limit = environment.lineLimit, out.count > limit { out = Array(out.prefix(max(1, limit))) }
     return out
   }
   override func sizeThatFits(_ proposal: ProposedViewSize) -> CGSize {
@@ -1124,7 +1138,7 @@ internal final class _TextNode: _ViewNode {
     let ls = lines(in: frame._width + 0.5)
     let alignment = ls.count > 1 ? environment.multilineTextAlignment : .leading
     // Lines dropped by the line limit: the last one shown ends in an ellipsis.
-    let dropped = ls.count < lines(in: frame._width + 0.5, limited: false).count
+    let dropped = environment.lineLimit != nil && ls.count < lines(in: frame._width + 0.5, limited: false).count
     for (i, raw) in ls.enumerated() {
       let line = Substring(fitted(raw, in: frame._width + 0.5, more: dropped && i == ls.count - 1))
       // Lines of wrapped text line up as multilineTextAlignment says.
