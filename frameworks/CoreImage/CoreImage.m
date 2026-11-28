@@ -2,6 +2,7 @@
  * CGImage, placed at its extent's origin) or a solid colour with an
  * infinite extent; filters compute their output when asked for it. */
 #import <CoreImage/CoreImage.h>
+#import <objc/message.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,6 +59,14 @@ static CGFloat clamp01(CGFloat v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
 + (CIColor *)redColor { return [self colorWithRed:1 green:0 blue:0]; }
 + (CIColor *)greenColor { return [self colorWithRed:0 green:1 blue:0]; }
 + (CIColor *)blueColor { return [self colorWithRed:0 green:0 blue:1]; }
+/* AppKit's addition (CIColor from an NSColor), made here from the colour's
+ * CGColor so CoreImage needn't link AppKit. */
+- (instancetype)initWithColor:(id)color {
+    SEL cg = sel_registerName("CGColor");
+    if (![color respondsToSelector:cg]) return [self initWithRed:0 green:0 blue:0 alpha:1];
+    CGColorRef c = ((CGColorRef (*)(id, SEL))objc_msgSend)(color, cg);
+    return [self initWithCGColor:c];
+}
 @end
 
 /* ---- pixels ---- */

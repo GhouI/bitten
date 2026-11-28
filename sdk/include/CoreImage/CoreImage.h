@@ -23,6 +23,8 @@ extern NSString *const kCIInputImageKey, *const kCIInputBackgroundImageKey, *con
 + (instancetype)colorWithCGColor:(CGColorRef)c;
 - (instancetype)initWithRed:(CGFloat)r green:(CGFloat)g blue:(CGFloat)b alpha:(CGFloat)a;
 - (instancetype)initWithCGColor:(CGColorRef)c;
+/* AppKit's: from an NSColor */
+- (nullable instancetype)initWithColor:(id)color;
 @property (readonly) CGFloat red, green, blue, alpha;
 @property (readonly) size_t numberOfComponents;
 @property (readonly) NSString *stringRepresentation;

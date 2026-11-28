@@ -5953,3 +5953,13 @@ Debugging aids:
   dark mode (their text was already dynamic, so it was white on light).
 - Test: appkit basics (which windows have a behind-window material).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## CIColor from an NSColor, and back
+
+- `-[CIColor initWithColor:]` (AppKit's CoreImage addition) was missing:
+  the target app once died on it during a run of Settings page switches
+  (unrecognized selector). It is made from the colour's CGColor (CoreImage
+  messages the NSColor, without linking AppKit), and
+  `+[NSColor colorWithCIColor:]` goes the other way.
+- Test: appkit basics (CIColor round trip).
+- Target app (total `^MISSING`): 0 -> 0.

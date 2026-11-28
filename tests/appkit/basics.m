@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <dlfcn.h>
+#include <math.h>
 
 #define CHECK(c) do { if (!(c)) { printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); exit(1); } } while (0)
 
@@ -442,6 +443,22 @@ int main(void) {
         fx.hidden = NO;
         [fx removeFromSuperview];
         CHECK(!has());
+    }
+
+    /* CIColor from an NSColor and back (AppKit's CoreImage additions). */
+    {
+        void *ci = dlopen("/System/Library/Frameworks/CoreImage.framework/Versions/A/CoreImage", RTLD_NOW);
+        Class CIColorClass = objc_getClass("CIColor");
+        CHECK(ci != NULL && CIColorClass != Nil);
+        if (CIColorClass) {
+            NSColor *orange = [NSColor colorWithSRGBRed:1 green:0.5 blue:0 alpha:0.25];
+            id c = ((id (*)(id, SEL, id))objc_msgSend)([CIColorClass alloc], @selector(initWithColor:), orange);
+            CGFloat (*get)(id, SEL) = (CGFloat (*)(id, SEL))objc_msgSend;
+            CHECK(fabs(get(c, sel_registerName("red")) - 1) < 1e-6 && fabs(get(c, sel_registerName("green")) - 0.5) < 1e-6 &&
+                  fabs(get(c, sel_registerName("alpha")) - 0.25) < 1e-6);
+            NSColor *back = [NSColor colorWithCIColor:c];
+            CHECK(fabs(back.redComponent - 1) < 1e-6 && fabs(back.alphaComponent - 0.25) < 1e-6);
+        }
     }
 
     /* Menu items write function keys as macOS does. */
