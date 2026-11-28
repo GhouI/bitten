@@ -156,15 +156,21 @@ static void make_loop_key(void) { pthread_key_create(&loop_key, NULL); }
     return timer;
 }
 
+/* Sets the source going for the fire date; one a century or more away
+ * (distantFuture parks a timer) never comes due. */
+- (void)_bn_arm {
+    NSTimeInterval delay = [_fireDate timeIntervalSinceNow];
+    if (delay < 0) delay = 0;
+    dispatch_time_t start = delay > 3e9 ? DISPATCH_TIME_FOREVER
+                                        : dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC));
+    dispatch_source_set_timer(_source, start, _repeats ? (uint64_t)(_interval * NSEC_PER_SEC) : DISPATCH_TIME_FOREVER,
+                              (uint64_t)(_tolerance * NSEC_PER_SEC));
+}
 - (void)_bn_scheduleOn:(dispatch_queue_t)queue {
     @synchronized(self) {
         if (!_valid || _source) return;
         _source = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
-        NSTimeInterval delay = [_fireDate timeIntervalSinceNow];
-        if (delay < 0) delay = 0;
-        dispatch_source_set_timer(_source, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)),
-                                  _repeats ? (uint64_t)(_interval * NSEC_PER_SEC) : DISPATCH_TIME_FOREVER,
-                                  (uint64_t)(_tolerance * NSEC_PER_SEC));
+        [self _bn_arm];
         /* The source keeps the timer alive while it is scheduled, as a run
          * loop retains its timers. */
         NSTimer *timer = self;
@@ -201,13 +207,7 @@ static void make_loop_key(void) { pthread_key_create(&loop_key, NULL); }
 - (void)setFireDate:(NSDate *)date {
     _fireDate = date;
     @synchronized(self) {
-        if (_source) {
-            NSTimeInterval delay = [date timeIntervalSinceNow];
-            if (delay < 0) delay = 0;
-            dispatch_source_set_timer(_source, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)),
-                                      _repeats ? (uint64_t)(_interval * NSEC_PER_SEC) : DISPATCH_TIME_FOREVER,
-                                      (uint64_t)(_tolerance * NSEC_PER_SEC));
-        }
+        if (_source) [self _bn_arm];
     }
 }
 - (NSTimeInterval)timeInterval { return _repeats ? _interval : 0; }

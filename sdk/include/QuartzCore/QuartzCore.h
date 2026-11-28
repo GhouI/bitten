@@ -339,6 +339,8 @@ typedef NS_OPTIONS(unsigned int, CAAutoresizingMask) {
  * it is added to. AppKit hands them out (-[NSView displayLinkWithTarget:selector:]). */
 @interface CADisplayLink : NSObject
 + (CADisplayLink *)_bn_displayLinkWithTarget:(id)target selector:(SEL)sel;
+/* one for a view or window, quiet while its -_bn_displayLinkShowing is NO */
++ (CADisplayLink *)_bn_displayLinkWithTarget:(id)target selector:(SEL)sel source:(nullable id)source;
 - (void)addToRunLoop:(NSRunLoop *)runloop forMode:(NSRunLoopMode)mode;
 - (void)removeFromRunLoop:(NSRunLoop *)runloop forMode:(NSRunLoopMode)mode;
 - (void)invalidate;

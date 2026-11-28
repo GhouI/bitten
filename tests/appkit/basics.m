@@ -2,6 +2,7 @@
 // and their hierarchy, hit testing, drawing passes.
 #import <AppKit/AppKit.h>
 #import <objc/message.h>
+#import <QuartzCore/QuartzCore.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <dlfcn.h>
@@ -161,6 +162,13 @@ static int left_window, views_freed;
     [[NSColor colorWithSRGBRed:1 green:0 blue:0 alpha:1] setFill];
     NSRectFill(self.bounds);
 }
+@end
+
+@interface LinkTicker : NSObject
+@property int ticks;
+@end
+@implementation LinkTicker
+- (void)tick:(id)link { self.ticks++; }
 @end
 
 int main(void) {
@@ -412,6 +420,29 @@ int main(void) {
     CHECK(w.inLiveResize && rz.inLiveResize && rz.started == 1 && rz.ended == 0);
     [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.6]];
     CHECK(!w.inLiveResize && rz.started == 1 && rz.ended == 1);
+
+    /* A view's display link ticks only while the view is on screen. */
+    {
+        LinkTicker *lt = [LinkTicker new];
+        NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 10, 10)];
+        CADisplayLink *link = [v displayLinkWithTarget:lt selector:@selector(tick:)];
+        [link addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
+        [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+        CHECK(lt.ticks == 0);                                  /* in no window */
+        [w.contentView addSubview:v];
+        [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+        CHECK(lt.ticks > 0);
+        v.hidden = YES;
+        [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.02]];
+        int t = lt.ticks;
+        [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+        CHECK(lt.ticks == t);
+        v.hidden = NO;
+        [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+        CHECK(lt.ticks > t);
+        [link invalidate];
+        [v removeFromSuperview];
+    }
 
     /* Tracking loops take queued events by mask; others stay, in order. */
     NSEvent *(^mouse)(NSEventType) = ^(NSEventType t) {
