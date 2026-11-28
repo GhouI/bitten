@@ -787,8 +787,12 @@ static const char kDrawingKey;
     CGContextSaveGState(c);
     NSRect dirty = NSZeroRect;
     if (!full) {
-        dirty = NSIntersectionRect(NSInsetRect(dirtyValue.rectValue, -2, -2),
-                                          NSMakeRect(0, 0, content.size.width, content.size.height));
+        /* Whole pixels: the area cleared below is whole pixels, and a
+         * fractional clip would repaint its edge columns only in part (an
+         * antialiased clip), leaving see-through lines where panes of
+         * fractional widths meet. */
+        dirty = NSIntersectionRect(NSIntegralRect(NSInsetRect(dirtyValue.rectValue, -2, -2)),
+                                   NSMakeRect(0, 0, content.size.width, content.size.height));
         if (NSIsEmptyRect(dirty)) {
             CGContextRestoreGState(c);
             return;
