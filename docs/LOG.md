@@ -5561,3 +5561,13 @@ Debugging aids:
   documented); it was negative.
 - Test: tests/c/coretext.c.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## objc: larger weak and associated-object tables
+
+- Weak references and associated objects were kept in 1024 buckets by
+  object address, under one lock. AppKit views keep several associated
+  values each, and the target app has thousands of views, so lookups
+  walked long chains (`objc_getAssociatedObject` was 1.4% of Settings
+  page switches). The tables now have 65,536 buckets with a mixed hash.
+  CPU over eight Settings page switches: 22.2 s -> 21.6 s.
+- Target app (total `^MISSING`): 0 -> 0.

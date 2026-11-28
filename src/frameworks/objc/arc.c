@@ -123,11 +123,15 @@ struct weak_ref {
     id referent;
     id *slot;
 };
-#define WEAK_BUCKETS 1024
+/* Weak references and associated objects hang off these buckets by
+ * object. A program has tens of thousands of objects with a few of each
+ * (views keep several associated values), so the table is large and the
+ * address is mixed: short chains keep lookups (and the lock) brief. */
+#define WEAK_BUCKETS (1 << 16)
 static struct weak_ref *weak_table[WEAK_BUCKETS];
 static pthread_mutex_t weak_lock = PTHREAD_MUTEX_INITIALIZER;
 
-static size_t weak_bucket(id obj) { return ((uintptr_t)obj >> 4) % WEAK_BUCKETS; }
+static size_t weak_bucket(id obj) { return (size_t)(((uintptr_t)obj >> 4) * 0x9E3779B97F4A7C15ull >> 48) & (WEAK_BUCKETS - 1); }
 
 /* Whether `slot` is a __weak variable pointing at `referent` (for
  * BITTEN_FIND_REFS: a weak reference doesn't keep it alive). */
