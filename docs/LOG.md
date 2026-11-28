@@ -5979,3 +5979,19 @@ Debugging aids:
   (`showDefinitionForAttributedString:…`, no panel).
 - Tests: foundation more (NSDecimal round trips, NaN, zero), appkit basics.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## CoreImage makes QR codes
+
+- `CIQRCodeGenerator` (and CIFilterBuiltins' `+[CIFilter QRCodeGenerator]`
+  with `message` and `correctionLevel`), which the target app sends
+  (`tools/selector-audit.py`): the message in byte mode at the smallest
+  version (1-40) its level allows, Reed-Solomon error correction over
+  GF(256) in interleaved blocks, finder, timing and alignment patterns,
+  format and version information, and the mask of least penalty. The
+  output is one pixel per module, black on white, with a one-module
+  margin; a message too long for version 40 gives no image.
+- Checked by decoding: versions 1-20 at all four levels read back with
+  OpenCV's QRCodeDetectorAruco (`BITTEN_QR_OUT=dir` writes the test's
+  codes as PGM images).
+- Test: media `qrcode` (137 tests).
+- Target app (total `^MISSING`): 0 -> 0.

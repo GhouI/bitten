@@ -193,13 +193,14 @@ static CGImageRef image_from(Pixels p) CF_RETURNS_RETAINED {
 
 /* ---- filters ---- */
 
-typedef enum { F_MONOCHROME, F_INVERT, F_SEPIA, F_CONTROLS, F_OVER, F_CONSTANT } FilterKind;
+typedef enum { F_MONOCHROME, F_INVERT, F_SEPIA, F_CONTROLS, F_OVER, F_CONSTANT, F_QR } FilterKind;
+NSData *bn_qr_modules(NSData *message, char level, int *sizeOut);
 
 static NSDictionary<NSString *, NSNumber *> *filter_kinds(void) {
     static NSDictionary *d;
     if (!d) d = @{@"CIColorMonochrome": @(F_MONOCHROME), @"CIColorInvert": @(F_INVERT), @"CISepiaTone": @(F_SEPIA),
                   @"CIColorControls": @(F_CONTROLS), @"CISourceOverCompositing": @(F_OVER),
-                  @"CIConstantColorGenerator": @(F_CONSTANT)};
+                  @"CIConstantColorGenerator": @(F_CONSTANT), @"CIQRCodeGenerator": @(F_QR)};
     return d;
 }
 
@@ -246,9 +247,16 @@ static NSDictionary<NSString *, NSNumber *> *filter_kinds(void) {
         _values[kCIInputContrastKey] = @1.0;
         break;
     case F_CONSTANT: _values[kCIInputColorKey] = [CIColor blackColor]; break;
+    case F_QR: _values[@"inputCorrectionLevel"] = @"M"; break;
     default: break;
     }
 }
+/* CIFilterBuiltins' QR code generator, with its typed properties. */
++ (CIFilter *)QRCodeGenerator { return [self filterWithName:@"CIQRCodeGenerator"]; }
+- (NSData *)message { return _values[@"inputMessage"]; }
+- (void)setMessage:(NSData *)m { [self setValue:m forKey:@"inputMessage"]; }
+- (NSString *)correctionLevel { return _values[@"inputCorrectionLevel"]; }
+- (void)setCorrectionLevel:(NSString *)l { [self setValue:l forKey:@"inputCorrectionLevel"]; }
 - (NSArray<NSString *> *)inputKeys {
     switch (_kind) {
     case F_MONOCHROME: return @[kCIInputImageKey, kCIInputColorKey, kCIInputIntensityKey];
@@ -256,6 +264,7 @@ static NSDictionary<NSString *, NSNumber *> *filter_kinds(void) {
     case F_CONTROLS: return @[kCIInputImageKey, kCIInputSaturationKey, kCIInputBrightnessKey, kCIInputContrastKey];
     case F_OVER: return @[kCIInputImageKey, kCIInputBackgroundImageKey];
     case F_CONSTANT: return @[kCIInputColorKey];
+    case F_QR: return @[@"inputMessage", @"inputCorrectionLevel"];
     default: return @[kCIInputImageKey];
     }
 }
@@ -313,8 +322,35 @@ static CGFloat number(id v, CGFloat fallback) { return [v respondsToSelector:@se
     }
 }
 
+/* The code's modules a pixel each, black on white, with a one-module
+ * margin, as Core Image makes it. */
+- (CIImage *)_bn_qrImage {
+    NSData *msg = _values[@"inputMessage"];
+    if (![msg isKindOfClass:[NSData class]]) return nil;
+    NSString *level = _values[@"inputCorrectionLevel"];
+    char l = [level isKindOfClass:[NSString class]] && level.length ? (char)[level characterAtIndex:0] : 'M';
+    int n = 0;
+    NSData *modules = bn_qr_modules(msg, l, &n);
+    if (!modules) return nil;
+    const uint8_t *m = modules.bytes;
+    int side = n + 2;
+    Pixels p = {calloc((size_t)side * side, 4), (size_t)side, (size_t)side, CGRectMake(0, 0, side, side)};
+    for (int y = 0; y < side; y++)
+        for (int x = 0; x < side; x++) {
+            int dark = x > 0 && y > 0 && x <= n && y <= n && m[(y - 1) * n + (x - 1)];
+            uint8_t *q = p.px + ((size_t)y * side + x) * 4;
+            q[0] = q[1] = q[2] = dark ? 0 : 255;
+            q[3] = 255;
+        }
+    CGImageRef img = image_from(p);
+    free(p.px);
+    CIImage *out = [[CIImage alloc] initWithCGImage:img];
+    CGImageRelease(img);
+    return out;
+}
 - (CIImage *)outputImage {
     if (_kind == F_CONSTANT) return [CIImage imageWithColor:_values[kCIInputColorKey] ?: [CIColor blackColor]];
+    if (_kind == F_QR) return [self _bn_qrImage];
     CIImage *input = _values[kCIInputImageKey];
     if (![input isKindOfClass:[CIImage class]]) return nil;
     if (_kind == F_OVER) {

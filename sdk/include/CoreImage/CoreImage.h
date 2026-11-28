@@ -59,6 +59,10 @@ extern NSString *const kCIInputImageKey, *const kCIInputBackgroundImageKey, *con
 - (void)setDefaults;
 - (void)setValue:(nullable id)value forKey:(NSString *)key;
 - (nullable id)valueForKey:(NSString *)key;
+/* CIFilterBuiltins: the QR code generator (inputMessage, inputCorrectionLevel) */
++ (CIFilter *)QRCodeGenerator;
+@property (nullable, copy) NSData *message;
+@property (copy) NSString *correctionLevel;
 @end
 
 @interface CIContext : NSObject
