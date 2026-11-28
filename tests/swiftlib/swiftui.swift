@@ -1037,3 +1037,30 @@ struct _PickOptions: View {
     return bad
   }
 }
+
+/// Wrapped text keeps the first lines its line limit allows: measured as
+/// that many, the same at the width drawing asks for, and all of them
+/// without a limit.
+@_silgen_name("swl_swiftui_linelimit") public func lineLimitWrap() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    let words = "one two three four five six seven eight nine ten eleven twelve"
+    func height<V: View>(_ v: V) -> CGFloat {
+      return NSHostingView(rootView: v.frame(width: 60)).fittingContentSize.height
+    }
+    let one = height(Text("one").font(.system(size: 12)))
+    let two = height(Text(words).font(.system(size: 12)).lineLimit(2))
+    let all = height(Text(words).font(.system(size: 12)))
+    if abs(two - 2 * one) > 1 { bad |= 1 }
+    if all <= two + one - 1 { bad |= 2 }
+    // drawn: still inside two lines' height
+    let px = render(VStack(spacing: 0) {
+      Text(words).font(.system(size: 12)).foregroundStyle(Color.black).lineLimit(2).frame(width: 60, alignment: .leading)
+      Spacer(minLength: 0)
+    }.frame(width: 60, height: 80), 60, 80)
+    var below = 0
+    for x in 0..<60 { for y in Int(two.rounded(.up)) + 1..<80 where px(x, y) != white { below += 1 } }
+    if below != 0 { bad |= 4 }
+    return bad
+  }
+}

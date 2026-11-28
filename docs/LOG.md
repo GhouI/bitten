@@ -5865,3 +5865,15 @@ Debugging aids:
   subviews against the tree's AppKit views with nested linear scans; it
   uses identity sets now. Settings page switches: 6.2% -> 0.6% of CPU.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI text wraps once per width
+
+- `_TextNode` kept one wrapping (width and line limit); drawing asks for
+  both the limited and the full wrapping, and measuring and drawing ask at
+  different widths, so each draw wrapped the text twice more. It now keeps
+  the full wrapping for the last two widths and takes the line limit's
+  prefix of it; drawing only asks for the full one under a line limit.
+  8 settings page switches: ~7.0 s -> ~6.75 s of CPU.
+- Test: swiftui `linelimit` (wrapped text under lineLimit(2): measured
+  and drawn as two lines).
+- Target app (total `^MISSING`): 0 -> 0.
