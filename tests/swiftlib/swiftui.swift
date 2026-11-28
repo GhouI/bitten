@@ -901,3 +901,20 @@ struct _LeakToggle: View {
     }
   }
 }
+
+/// A background with several views layers them as a ZStack, centered in
+/// the content's frame (not one under the other).
+@_silgen_name("swl_swiftui_bglayers") public func bgLayers() -> Int {
+  return MainActor.assumeIsolated {
+    let view = Color.clear.frame(width: 100, height: 50).background {
+      Color(.sRGB, red: 1, green: 0, blue: 0).frame(width: 40, height: 40)
+      Color(.sRGB, red: 0, green: 0, blue: 1).frame(width: 10, height: 10)
+    }
+    let px = render(view, 100, 50)
+    var bad = 0
+    if px(50, 25) != blue { bad |= 1 }   // the small one on top, centered
+    if px(35, 10) != red { bad |= 2 }
+    if px(50, 2) != white { bad |= 4 }   // the large one centered too
+    return bad
+  }
+}

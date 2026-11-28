@@ -27,6 +27,7 @@ long swl_swiftui_blendout(void);
 long swl_swiftui_canvashole(void);
 long swl_swiftui_spacershort(void);
 long swl_swiftui_leakfree(void);
+long swl_swiftui_bglayers(void);
 long swl_swiftui_shortcuts(void);
 long swl_swiftui_toggleclick(void);
 long swl_swiftui_rebuildwrites(void);
@@ -63,6 +64,7 @@ int main(void) {
     ok &= check("canvashole", swl_swiftui_canvashole());
     ok &= check("spacershort", swl_swiftui_spacershort());
     ok &= check("leakfree", swl_swiftui_leakfree());
+    ok &= check("bglayers", swl_swiftui_bglayers());
     ok &= check("shortcuts", swl_swiftui_shortcuts());
     ok &= check("toggleclick", swl_swiftui_toggleclick());
     ok &= check("rebuildwrites", swl_swiftui_rebuildwrites());

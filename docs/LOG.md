@@ -5438,3 +5438,15 @@ Debugging aids:
 - Test: `tests/swiftlib/handoff.swift` (a handler waiting on an object
   that goes away is released).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: several views in a background or overlay are layered
+
+- `background { … }` and `overlay { … }` with more than one view laid them
+  out one under the other, like a VStack, with 8-point gaps. SwiftUI
+  layers them as a ZStack with the modifier's alignment. The target
+  app's main window keeps its material backdrop and three zero-size
+  helper views in one background, so the backdrop came out 24 points
+  short. The window's bottom edge showed the desktop through the panes'
+  translucent bottoms. The backdrop now fills the window.
+- Test: `bglayers`.
+- Target app (total `^MISSING`): 0 -> 0.
