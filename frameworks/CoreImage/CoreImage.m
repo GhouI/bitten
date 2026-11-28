@@ -121,6 +121,38 @@ static CGImageRef image_from(Pixels p) CF_RETURNS_RETAINED {
     }
     return self;
 }
+/* A Metal texture's pixels as they are now (8-bit RGBA or BGRA; other
+ * formats give an empty image). Metal is messaged, not linked. */
+typedef struct { NSUInteger x, y, z; } BNOrigin;
+typedef struct { NSUInteger width, height, depth; } BNSize;
+typedef struct { BNOrigin origin; BNSize size; } BNRegion;
++ (instancetype)imageWithMTLTexture:(id)texture options:(NSDictionary *)options {
+    return [[self alloc] initWithMTLTexture:texture options:options];
+}
+- (instancetype)initWithMTLTexture:(id)texture options:(NSDictionary *)options {
+    NSUInteger (*u)(id, SEL) = (NSUInteger (*)(id, SEL))objc_msgSend;
+    if (![texture respondsToSelector:sel_registerName("getBytes:bytesPerRow:fromRegion:mipmapLevel:")])
+        return [self initWithBNImage:NULL extent:CGRectZero];
+    NSUInteger w = u(texture, sel_registerName("width")), h = u(texture, sel_registerName("height"));
+    NSUInteger format = u(texture, sel_registerName("pixelFormat"));
+    BOOL bgra = format == 80 || format == 81, rgba = format == 70 || format == 71;
+    if (!w || !h || (!bgra && !rgba)) return [self initWithBNImage:NULL extent:CGRectZero];
+    Pixels p = {calloc(w * h, 4), w, h, CGRectMake(0, 0, w, h)};
+    BNRegion r = {{0, 0, 0}, {w, h, 1}};
+    ((void (*)(id, SEL, void *, NSUInteger, BNRegion, NSUInteger))objc_msgSend)(
+        texture, sel_registerName("getBytes:bytesPerRow:fromRegion:mipmapLevel:"), p.px, w * 4, r, 0);
+    if (bgra)
+        for (size_t i = 0; i < w * h * 4; i += 4) {
+            uint8_t t = p.px[i];
+            p.px[i] = p.px[i + 2];
+            p.px[i + 2] = t;
+        }
+    CGImageRef img = image_from(p);
+    free(p.px);
+    self = [self initWithBNImage:img extent:CGRectMake(0, 0, w, h)];
+    CGImageRelease(img);
+    return self;
+}
 - (instancetype)initWithBNImage:(CGImageRef)image extent:(CGRect)extent {
     if ((self = [super init])) {
         _image = image ? CGImageRetain(image) : NULL;
@@ -381,6 +413,9 @@ static CGFloat number(id v, CGFloat fallback) { return [v respondsToSelector:@se
 }
 + (instancetype)context { return [[self alloc] initWithOptions:nil]; }
 + (instancetype)contextWithOptions:(NSDictionary *)options { return [[self alloc] initWithOptions:options]; }
+/* Rendering is on the CPU whatever device is named. */
++ (instancetype)contextWithMTLDevice:(id)device { return [[self alloc] initWithOptions:nil]; }
++ (instancetype)contextWithMTLDevice:(id)device options:(NSDictionary *)options { return [[self alloc] initWithOptions:options]; }
 + (instancetype)contextWithCGContext:(CGContextRef)ctx options:(NSDictionary *)options {
     CIContext *c = [[self alloc] initWithOptions:options];
     c->_cg = ctx ? CGContextRetain(ctx) : NULL;

@@ -39,6 +39,9 @@ extern NSString *const kCIInputImageKey, *const kCIInputBackgroundImageKey, *con
 - (instancetype)initWithCGImage:(CGImageRef)image;
 - (instancetype)initWithCGImage:(CGImageRef)image options:(nullable NSDictionary<CIImageOption, id> *)options;
 - (instancetype)initWithColor:(CIColor *)color;
+/* from a Metal texture (id<MTLTexture>), 8-bit RGBA or BGRA */
++ (instancetype)imageWithMTLTexture:(id)texture options:(nullable NSDictionary *)options;
+- (instancetype)initWithMTLTexture:(id)texture options:(nullable NSDictionary *)options;
 @property (readonly) CGRect extent;
 @property (nullable, readonly) CGImageRef CGImage;
 - (CIImage *)imageByCroppingToRect:(CGRect)rect;
@@ -69,6 +72,8 @@ extern NSString *const kCIInputImageKey, *const kCIInputBackgroundImageKey, *con
 + (instancetype)context;
 + (instancetype)contextWithOptions:(nullable NSDictionary<CIContextOption, id> *)options;
 + (instancetype)contextWithCGContext:(CGContextRef)ctx options:(nullable NSDictionary<CIContextOption, id> *)options;
++ (instancetype)contextWithMTLDevice:(id)device;
++ (instancetype)contextWithMTLDevice:(id)device options:(nullable NSDictionary<CIContextOption, id> *)options;
 - (instancetype)initWithOptions:(nullable NSDictionary<CIContextOption, id> *)options;
 - (nullable CGImageRef)createCGImage:(CIImage *)image fromRect:(CGRect)rect CF_RETURNS_RETAINED;
 - (void)drawImage:(CIImage *)image inRect:(CGRect)inRect fromRect:(CGRect)fromRect;

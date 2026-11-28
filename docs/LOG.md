@@ -5995,3 +5995,16 @@ Debugging aids:
   codes as PGM images).
 - Test: media `qrcode` (137 tests).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## CoreImage over Metal textures; two ScreenCaptureKit calls
+
+- `-[CIImage initWithMTLTexture:options:]` (and `+imageWithMTLTexture:`)
+  read the texture's pixels (8-bit RGBA or BGRA) through Metal's
+  `getBytes:…` (messaged, not linked); `+[CIContext
+  contextWithMTLDevice:(options:)]` makes the CPU context.
+- ScreenCaptureKit: `+[SCShareableContent
+  getCurrentProcessShareableContentWithCompletionHandler:]` (nothing to
+  share, as for the others) and `SCStreamConfiguration.captureResolution`.
+- All sent by the target app (selector audit).
+- Test: media (texture to image, both calls).
+- Target app (total `^MISSING`): 0 -> 0.
