@@ -764,8 +764,19 @@ extension BidirectionalCollection where SubSequence == Substring {
   public func firstRange<R: RegexComponent>(of regex: R) -> Range<Index>? {
     return (try? regex.regex.firstMatch(in: self[...]))?.range
   }
+  // Disfavoured, as in Swift: `split(separator: "\n")` is the Character
+  // split, not a regex search.
+  @_disfavoredOverload
   public func split<R: RegexComponent>(separator: R, maxSplits: Int = .max,
                                        omittingEmptySubsequences: Bool = true) -> [SubSequence] {
+    // A literal separator is looked for as text, without building a regex.
+    if let lit = separator as? String {
+      if !lit.isEmpty { return _splitLiteral(lit[...], maxSplits, omittingEmptySubsequences) }
+    } else if let lit = separator as? Substring {
+      if !lit.isEmpty { return _splitLiteral(lit, maxSplits, omittingEmptySubsequences) }
+    } else if let c = separator as? Character {
+      return _splitLiteral(String(c)[...], maxSplits, omittingEmptySubsequences)
+    }
     var out: [SubSequence] = []
     var start = startIndex
     for m in regex(separator)._all(self[...]) where out.count < maxSplits {
@@ -779,6 +790,41 @@ extension BidirectionalCollection where SubSequence == Substring {
     return out
   }
   internal func regex<R: RegexComponent>(_ r: R) -> Regex<R.RegexOutput> { return r.regex }
+  /// Splits at each occurrence of `lit` (by characters, as a regex of the
+  /// literal matches), at most `maxSplits` times.
+  internal func _splitLiteral(_ lit: Substring, _ maxSplits: Int, _ omitEmpty: Bool) -> [SubSequence] {
+    var out: [SubSequence] = []
+    var splits = 0
+    var start = startIndex, i = startIndex
+    let first = lit.first!
+    let single = lit.count == 1
+    while i < endIndex && splits < maxSplits {
+      if self[i] == first {
+        var j = index(after: i)
+        var matched = true
+        if !single {
+          var k = lit.index(after: lit.startIndex)
+          while k < lit.endIndex {
+            if j == endIndex || self[j] != lit[k] { matched = false; break }
+            formIndex(after: &j)
+            lit.formIndex(after: &k)
+          }
+        }
+        if matched {
+          let piece = self[start..<i]
+          if !(omitEmpty && piece.isEmpty) { out.append(piece) }
+          splits += 1
+          start = j
+          i = j
+          continue
+        }
+      }
+      formIndex(after: &i)
+    }
+    let last = self[start..<endIndex]
+    if !(omitEmpty && last.isEmpty) { out.append(last) }
+    return out
+  }
 }
 
 extension RangeReplaceableCollection where SubSequence == Substring, Self: BidirectionalCollection {

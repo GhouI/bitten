@@ -5832,3 +5832,16 @@ Debugging aids:
   view, appearance, all hosts).
 - Test: swiftui `stalechange`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## String split by a literal no longer runs a regex
+
+- _StringProcessing: `split(separator: some RegexComponent)` is
+  `@_disfavoredOverload`, as in Swift, so `split(separator: "\n")` in our
+  frameworks is the stdlib's Character split again instead of a regex
+  search; and a String, Substring or Character separator given to it is
+  looked for as text. SwiftUI's text wrapping split every Text's string
+  this way on each measure and draw (~5% of a settings page switch, half
+  of it in `Regex._all`). 8 page switches: ~8.1 s -> ~7.1 s of CPU.
+- Tests: regex `collections` (literal splits, maxSplits, "\r\n" as one
+  character, empty pieces).
+- Target app (total `^MISSING`): 0 -> 0.
