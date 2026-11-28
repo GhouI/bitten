@@ -752,8 +752,17 @@ static const char kMainKey;
 - (NSAppearance *)appearance { return _appearance; }
 /* Every window follows (those without an appearance of their own). */
 - (void)setAppearance:(NSAppearance *)appearance {
+    if (getenv("BITTEN_APPEARANCE_DEBUG")) fprintf(stderr, "bitten: app appearance %s\n", appearance.name.UTF8String ?: "(none)");
+    /* effectiveAppearance is observable (programs restyle on its change) */
+    NSArray<NSWindow *> *windows = [all_windows copy];
+    [self willChangeValueForKey:@"effectiveAppearance"];
+    for (NSWindow *w in windows)
+        if (!w.appearance) [w willChangeValueForKey:@"effectiveAppearance"];
     _appearance = appearance;
-    for (NSWindow *w in all_windows) [w _bn_appearanceChanged];
+    for (NSWindow *w in windows) [w _bn_appearanceChanged];
+    for (NSWindow *w in windows)
+        if (!w.appearance) [w didChangeValueForKey:@"effectiveAppearance"];
+    [self didChangeValueForKey:@"effectiveAppearance"];
 }
 + (NSApplication *)sharedApplication {
     static dispatch_once_t once;

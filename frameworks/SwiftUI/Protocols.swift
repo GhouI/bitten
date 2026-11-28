@@ -393,6 +393,9 @@ extension NSViewRepresentable {
         host.dismantle = { Self.dismantleNSView(nsView, coordinator: coordinator) }
       }
       _PlatformViewBox.track(host, key: inputs.base.path + "#nsview", context: inputs.base.context)
+      if let want = _debugRepOf, "\(Self.self)".contains(want) {
+        _dbg("bitten: update \(Self.self) dark \(inputs.environment.colorScheme == .dark): \(String(describing: rep).prefix(80))")
+      }
       rep.updateNSView(nsView, context: context)
       let sizer: (ProposedViewSize) -> CGSize? = { p in rep.sizeThatFits(p, nsView: nsView, context: context) }
       return _ViewOutputs(_PlatformViewNode(view: nsView, context: inputs.base.context, sizer: sizer,
