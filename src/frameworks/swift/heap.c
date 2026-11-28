@@ -350,10 +350,27 @@ void sw_release_n(sw_heap_object *o, uint32_t n) {
 
 void sw_release(sw_heap_object *o) { sw_release_n(o, 1); }
 
-static sw_heap_object *d_swift_retain(sw_heap_object *o) { return sw_retain(o); }
+/* The entry points programs call: the common case (a live, counted
+ * object, its count not overflowing or reaching zero) inline; anything
+ * else through the full functions above. */
+static sw_heap_object *d_swift_retain(sw_heap_object *o) {
+    if (valid(o) && quarantine <= 0) {
+        uint64_t w = rc_load(o);
+        if (!rc_immortal(w) && rc_strong_extra(w) != RC_STRONG_MAX &&
+            rc_cas(o, &w, w + RC_STRONG_ONE))
+            return o;
+    }
+    return sw_retain(o);
+}
 DX_FN(swift_retain);
 DX_EXPORT("_swift_nonatomic_retain", d_swift_retain);
-static void d_swift_release(sw_heap_object *o) { sw_release_n(o, 1); }
+static void d_swift_release(sw_heap_object *o) {
+    if (valid(o) && quarantine <= 0) {
+        uint64_t w = rc_load(o);
+        if (!rc_immortal(w) && rc_strong_extra(w) >= 1 && rc_cas(o, &w, w - RC_STRONG_ONE)) return;
+    }
+    sw_release_n(o, 1);
+}
 DX_FN(swift_release);
 DX_EXPORT("_swift_nonatomic_release", d_swift_release);
 static sw_heap_object *d_swift_retain_n(sw_heap_object *o, uint32_t n) { return sw_retain_n(o, n); }
