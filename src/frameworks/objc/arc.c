@@ -444,8 +444,12 @@ void object_dispose_impl(id obj) {
     if (dx_rr_active) dx_rr_forget(obj);
     d_objc_destructInstance(obj);
     /* BITTEN_HEAP_QUARANTINE=3: keep freed objects' memory, poisoned (debugging) */
-    const char *q = getenv("BITTEN_HEAP_QUARANTINE");
-    if (q && q[0] == '3') {
+    static int zombies = -1;   /* read once: this runs for every object freed */
+    if (zombies < 0) {
+        const char *q = getenv("BITTEN_HEAP_QUARANTINE");
+        zombies = q && q[0] == '3';
+    }
+    if (zombies) {
         /* the class stays in the second word, for reporting a zombie */
         Class was = obj->isa;
         memset(obj, 0xdd, malloc_usable_size(obj));

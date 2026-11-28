@@ -5654,3 +5654,11 @@ Debugging aids:
 - Test: `tests/swiftlib/foundation.swift` (2,000-key dictionary,
   5,000-element array, repeated keys).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## objc/Swift runtime: quarantine setting read once
+
+- Freeing an Objective-C object read `BITTEN_HEAP_QUARANTINE` from the
+  environment every time (a walk of the environment), and so did Swift's
+  slow deallocation when the quarantine was on. Both are read once now.
+  The target app's first frame: about 2.3 s -> 2.15 s.
+- Target app (total `^MISSING`): 0 -> 0.
