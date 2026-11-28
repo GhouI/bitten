@@ -5887,3 +5887,13 @@ Debugging aids:
   built only for them. Enums are still looked at each time (their fields
   are their current case's). 8 page switches: ~6.75 s -> ~6.4 s of CPU.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## swift_retain and swift_release: the common case inline
+
+- The exported entry points called the full retain/release functions (a
+  second call, with the quarantine, overflow and deinit handling); they
+  now do the common case themselves (a live counted object whose count
+  neither overflows nor reaches zero: one compare-and-swap) and call the
+  full functions for anything else. 8 page switches: ~6.4 s -> ~6.0 s of
+  CPU.
+- Target app (total `^MISSING`): 0 -> 0.
