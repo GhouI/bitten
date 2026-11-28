@@ -740,6 +740,7 @@ internal func _renumber(_ n: _RNode, by: Int) -> _RNode {
 // ---- collections -----------------------------------------------------------------------
 
 extension BidirectionalCollection where SubSequence == Substring {
+  @_disfavoredOverload
   public func contains<R: RegexComponent>(_ regex: R) -> Bool {
     return (try? regex.regex.firstMatch(in: self[...])) != nil
   }
@@ -755,12 +756,15 @@ extension BidirectionalCollection where SubSequence == Substring {
   public func prefixMatch<Output, R: RegexComponent>(of regex: R) -> Regex<Output>.Match? where R.RegexOutput == Output {
     return try? regex.regex.prefixMatch(in: self[...])
   }
+  @_disfavoredOverload
   public func starts<R: RegexComponent>(with regex: R) -> Bool {
     return (try? regex.regex.prefixMatch(in: self[...])) != nil
   }
+  @_disfavoredOverload
   public func ranges<R: RegexComponent>(of regex: R) -> [Range<Index>] {
     return regex.regex._all(self[...]).map { $0.range }
   }
+  @_disfavoredOverload
   public func firstRange<R: RegexComponent>(of regex: R) -> Range<Index>? {
     return (try? regex.regex.firstMatch(in: self[...]))?.range
   }
@@ -828,6 +832,7 @@ extension BidirectionalCollection where SubSequence == Substring {
 }
 
 extension RangeReplaceableCollection where SubSequence == Substring, Self: BidirectionalCollection {
+  @_disfavoredOverload
   public func replacing<R: RegexComponent, Replacement: Collection>(_ regex: R, with replacement: Replacement)
     -> Self where Replacement.Element == Element
   {
@@ -841,10 +846,110 @@ extension RangeReplaceableCollection where SubSequence == Substring, Self: Bidir
     out.append(contentsOf: self[start..<endIndex])
     return out
   }
+  @_disfavoredOverload
   public mutating func replace<R: RegexComponent, Replacement: Collection>(_ regex: R, with replacement: Replacement)
     where Replacement.Element == Element
   {
     self = replacing(regex, with: replacement)
+  }
+}
+
+// ---- collection algorithms (no regex) --------------------------------------
+// Searching for and replacing a run of elements: "abcabc".ranges(of: "bc").
+
+extension Collection where Element: Equatable {
+  /// Where `other` occurs, first to last, without overlapping.
+  public func ranges<C: Collection>(of other: C) -> [Range<Index>] where C.Element == Element {
+    var out: [Range<Index>] = []
+    var from = startIndex
+    while let r = self[from...]._firstRange(of: other) {
+      out.append(r)
+      from = r.isEmpty ? (r.upperBound == endIndex ? endIndex : index(after: r.upperBound)) : r.upperBound
+      if r.isEmpty && r.upperBound == endIndex { break }
+    }
+    return out
+  }
+  public func firstRange<C: Collection>(of other: C) -> Range<Index>? where C.Element == Element {
+    return _firstRange(of: other)
+  }
+  internal func _firstRange<C: Collection>(of other: C) -> Range<Index>? where C.Element == Element {
+    if other.isEmpty { return startIndex..<startIndex }
+    var i = startIndex
+    while i != endIndex {
+      var a = i, b = other.startIndex
+      while a != endIndex && b != other.endIndex && self[a] == other[b] {
+        formIndex(after: &a)
+        other.formIndex(after: &b)
+      }
+      if b == other.endIndex { return i..<a }
+      if a == endIndex { return nil }
+      formIndex(after: &i)
+    }
+    return nil
+  }
+  public func contains<C: Collection>(_ other: C) -> Bool where C.Element == Element {
+    return _firstRange(of: other) != nil
+  }
+  /// Without a leading run equal to `prefix` (unchanged when it doesn't start so).
+  public func trimmingPrefix<Prefix: Sequence>(_ prefix: Prefix) -> SubSequence where Prefix.Element == Element {
+    var i = startIndex
+    for e in prefix {
+      guard i != endIndex, self[i] == e else { return self[...] }
+      formIndex(after: &i)
+    }
+    return self[i...]
+  }
+}
+
+extension Collection {
+  public func trimmingPrefix(while predicate: (Element) throws -> Bool) rethrows -> SubSequence {
+    var i = startIndex
+    while i != endIndex, try predicate(self[i]) { formIndex(after: &i) }
+    return self[i...]
+  }
+}
+
+extension RangeReplaceableCollection where Element: Equatable {
+  /// With each occurrence of `other` replaced (at most `maxReplacements`).
+  public func replacing<C: Collection, Replacement: Collection>(
+    _ other: C, with replacement: Replacement, maxReplacements: Int = .max
+  ) -> Self where C.Element == Element, Replacement.Element == Element {
+    var out = Self()
+    var start = startIndex
+    var done = 0
+    for r in ranges(of: other) where done < maxReplacements && !r.isEmpty {
+      out.append(contentsOf: self[start..<r.lowerBound])
+      out.append(contentsOf: replacement)
+      start = r.upperBound
+      done += 1
+    }
+    out.append(contentsOf: self[start..<endIndex])
+    return out
+  }
+  public mutating func replace<C: Collection, Replacement: Collection>(
+    _ other: C, with replacement: Replacement, maxReplacements: Int = .max
+  ) where C.Element == Element, Replacement.Element == Element {
+    self = replacing(other, with: replacement, maxReplacements: maxReplacements)
+  }
+  public mutating func trimPrefix<Prefix: Sequence>(_ prefix: Prefix) where Prefix.Element == Element {
+    let rest = trimmingPrefix(prefix)
+    self = Self(rest)
+  }
+}
+
+extension RangeReplaceableCollection {
+  public mutating func trimPrefix(while predicate: (Element) throws -> Bool) rethrows {
+    let rest = try trimmingPrefix(while: predicate)
+    self = Self(rest)
+  }
+}
+
+extension BidirectionalCollection where SubSequence == Substring {
+  /// Without a leading match of the regex.
+  @_disfavoredOverload
+  public func trimmingPrefix<R: RegexComponent>(_ regex: R) -> SubSequence {
+    guard let m = try? regex.regex.prefixMatch(in: self[...]) else { return self[...] }
+    return self[m.range.upperBound...]
   }
 }
 

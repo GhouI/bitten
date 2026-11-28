@@ -6119,3 +6119,22 @@ Debugging aids:
     than only lower-casing; `localizedStandardCompare` breaks ties as
     collation does (unaccented, then lower case, first).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Numbers, string algorithms and Codable synthesis checked; collection searching
+
+- New test swiftlib `stdbehaviour`: 46 results of Double and Float
+  printing over tricky values, integer edge cases and overflow reporting,
+  parsing, split variants, string algorithms, Character and Unicode.Scalar
+  properties, stable sorting and Codable synthesis (enums with payloads,
+  integer-keyed dictionaries, nested optionals, the decoding errors and
+  their paths, non-conforming floats), against Swift 6.3 on Linux. What
+  was missing or differed:
+  - _StringProcessing's collection algorithms without regexes:
+    `ranges(of:)`, `firstRange(of:)`, `contains(_:)`,
+    `replacing(_:with:maxReplacements:)`, `replace`, `trimmingPrefix`
+    (a sequence, a predicate or a regex) and `trimPrefix`. The regex
+    versions are disfavoured, as in Swift, so `"aaa".replacing("aa",
+    with: "b")` replaces text rather than compiling a pattern.
+  - JSONEncoder wrote a Float through its Double value
+    (0.10000000149011612); it writes the Float's own digits (0.1).
+- Target app (total `^MISSING`): 0 -> 0.
