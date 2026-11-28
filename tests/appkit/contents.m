@@ -89,7 +89,8 @@ int main(void) {
         CHECK(pixel(c, 170, 20) == 0xFFFFFF); // the Metal view, empty
 
         // Present a drawable cleared to green, then let the main queue run.
-        id<MTLDevice> (*create)(void) = (id<MTLDevice> (*)(void))dlsym(RTLD_DEFAULT, "MTLCreateSystemDefaultDevice");
+        typedef id<MTLDevice> (*create_fn)(void) __attribute__((ns_returns_retained)); /* +1, as Metal's header says */
+        create_fn create = (create_fn)dlsym(RTLD_DEFAULT, "MTLCreateSystemDefaultDevice");
         CHECK(create != NULL);
         id<MTLDevice> dev = create();
         CHECK(dev != nil);
