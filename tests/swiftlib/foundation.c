@@ -4,6 +4,8 @@
 long swl_foundation_uuid(void);
 long swl_foundation_charset(void);
 long swl_foundation_strings(void);
+long swl_foundation_jsonbench(void);
+long swl_foundation_jsonpaths(void);
 long swl_foundation_format(void);
 long swl_foundation_misc(void);
 long swl_foundation_data(void);
@@ -21,6 +23,8 @@ int main(void) {
     int ok = check("uuid", swl_foundation_uuid());
     ok &= check("charset", swl_foundation_charset());
     ok &= check("strings", swl_foundation_strings());
+    ok &= check("jsonbench", swl_foundation_jsonbench());
+    ok &= check("jsonpaths", swl_foundation_jsonpaths());
     ok &= check("format", swl_foundation_format());
     ok &= check("misc", swl_foundation_misc());
     ok &= check("data", swl_foundation_data());

@@ -5730,3 +5730,20 @@ Debugging aids:
   the value's dynamic type.
 - Test: `tests/swiftlib/printing.swift` (`enums`).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Foundation: cheaper JSON coding of small values
+
+- The target app makes about 4,600 small JSON round trips at launch.
+  `BITTEN_JSON_DEBUG` logs each encode and decode with its type and size.
+  Their cost was the coding machinery, not parsing:
+  - Coding paths are now made only when asked for: decoders and encoders
+    keep their parent and key instead of an array for every nested
+    value.
+  - Keyed decoding looks small objects' keys up directly instead of
+    building a dictionary for each one.
+  - Encoding plain values (strings, numbers, Bool) skips the Date, Data
+    and URL casts and the nested encoder.
+- 20,000 small round trips: 921 ms -> about 650 ms.
+- Tests: `jsonbench` and `jsonpaths` (coding paths still right for keys
+  and indices, encoding and decoding) in `tests/swiftlib/foundation`.
+- Target app (total `^MISSING`): 0 -> 0.

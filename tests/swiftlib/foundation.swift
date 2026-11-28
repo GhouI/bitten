@@ -310,3 +310,52 @@ final class Watched: NSObject { var level = 7 }
   } catch { bad |= 4096 }
   return bad
 }
+
+/// Small JSON round trips are quick (the target app makes thousands at
+/// launch): prints how long 20,000 take, fails only past 10 s.
+struct _BenchSmall: Codable { var a: Int; var b: String; var c: Double?; var d: [Int] }
+@_silgen_name("swl_foundation_jsonbench") public func jsonBench() -> Int {
+  let enc = JSONEncoder(), dec = JSONDecoder()
+  let started = Date()
+  var total = 0
+  do {
+    for i in 0..<20000 {
+      let d = try enc.encode(_BenchSmall(a: i, b: "x\(i)", c: i % 2 == 0 ? 1.5 : nil, d: [i, i + 1]))
+      total += try dec.decode(_BenchSmall.self, from: d).d.count
+    }
+  } catch { return 1 }
+  let secs = Date().timeIntervalSince(started)
+  if getenv("BITTEN_BENCH") != nil { print("json bench: \(Int(secs * 1000)) ms") }
+  return total == 40000 && secs < 10 ? 0 : 2
+}
+
+/// Coding paths stay right with lazily made paths: a nested value sees its
+/// key, inside an array its index, while encoding and decoding.
+nonisolated(unsafe) var _seenPaths: [[String]] = []
+struct _PathLeaf: Codable {
+  init() {}
+  func encode(to e: Encoder) throws {
+    _seenPaths.append(e.codingPath.map(\.stringValue))
+    var c = e.singleValueContainer()
+    try c.encode(1)
+  }
+  init(from d: Decoder) throws {
+    _seenPaths.append(d.codingPath.map(\.stringValue))
+    _ = try d.singleValueContainer().decode(Int.self)
+  }
+}
+struct _PathTree: Codable { var leaf = _PathLeaf(); var list = [_PathLeaf()]; var inner = _PathInner() }
+struct _PathInner: Codable { var deep = _PathLeaf() }
+@_silgen_name("swl_foundation_jsonpaths") public func jsonPaths() -> Int {
+  _seenPaths = []
+  guard let data = try? JSONEncoder().encode(_PathTree()) else { return 1 }
+  let encoded = _seenPaths
+  _seenPaths = []
+  guard (try? JSONDecoder().decode(_PathTree.self, from: data)) != nil else { return 2 }
+  let decoded = _seenPaths
+  let want = [["leaf"], ["list", "Index 0"], ["inner", "deep"]]
+  var bad = 0
+  if encoded != want { bad |= 4; print("  encode paths \(encoded)") }
+  if decoded != want { bad |= 8; print("  decode paths \(decoded)") }
+  return bad
+}
