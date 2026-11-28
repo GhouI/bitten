@@ -5,6 +5,7 @@
  * type they return. An enum's case comes from its tag; the payload of a
  * single-payload enum's payload case is reflected (it sits unchanged at the
  * start of the value), a multi-payload enum's is not yet. */
+#include <stdlib.h>
 #include <string.h>
 
 #include "swift_internal.h"
@@ -67,9 +68,59 @@ static const sw_metadata *enum_payload_type(const void *value, const sw_metadata
                                    sw_generic_args(type));
 }
 
+/* Any enum's payload, for Mirror: the value is copied into a fresh buffer
+ * and its tag taken off there (destructiveProjectEnumData), leaving the
+ * payload at the start, or for an indirect case a box holding it. Returns
+ * the buffer and sets the payload's address and type; the caller reads the
+ * payload, then hands the buffer to _bitten_enum_payload_free. NULL when
+ * the case has no payload (or its type can't be resolved). */
+static void *d__bitten_enum_payload_copy(const void *value, const sw_metadata *type, const void **payload,
+                                         const sw_metadata **payload_type, intptr_t *indirect) {
+    *payload = NULL;
+    *payload_type = NULL;
+    *indirect = 0;
+    const sw_field_record *r = enum_case(value, type);
+    if (!r) return NULL;
+    const char *mangled = sw_rel(&r->mangled_type);
+    if (!mangled) return NULL;
+    const sw_type_context_descriptor *ctx = sw_type_descriptor(type);
+    const sw_metadata *pt = sw_type_by_mangled_name(mangled, sw_mangled_name_length(mangled),
+                                                    (const sw_context_descriptor *)ctx, sw_generic_args(type));
+    if (!pt) return NULL;
+    const sw_vwt *w = sw_vwt_of(type);
+    size_t align = (w->flags & SW_VW_ALIGNMENT_MASK) + 1;
+    void *buf = aligned_alloc(align < 16 ? 16 : align, w->size ? (w->size + 15) & ~(size_t)15 : 16);
+    if (!buf) return NULL;
+    w->initializeWithCopy((sw_opaque *)buf, (sw_opaque *)value, type);
+    ((const sw_enum_vwt *)w)->destructiveProjectEnumData((sw_opaque *)buf, type);
+    *indirect = r->flags & 1;
+    if (r->flags & 1) {
+        /* indirect: a box, the payload after its heap header */
+        const char *box = *(const char *const *)buf;
+        size_t palign = (sw_vwt_of(pt)->flags & SW_VW_ALIGNMENT_MASK) + 1;
+        *payload = box + ((16 + palign - 1) & ~(palign - 1));
+    } else {
+        *payload = buf;
+    }
+    *payload_type = pt;
+    return buf;
+}
+DX_FN(_bitten_enum_payload_copy);
+/* Destroys the copied payload (or lets go of the box) and frees the buffer. */
+static void d__bitten_enum_payload_free(void *buf, const sw_metadata *payload_type, intptr_t indirect) {
+    if (!buf) return;
+    if (indirect) sw_release_n(*(sw_heap_object **)buf, 1);
+    else sw_vwt_of(payload_type)->destroy((sw_opaque *)buf, payload_type);
+    free(buf);
+}
+DX_FN(_bitten_enum_payload_free);
+
 static intptr_t d__bitten_mirror_count(const void *value, const sw_metadata *type) {
     switch (sw_kind(type)) {
-    case SW_KIND_ENUM: return enum_payload_type(value, type) ? 1 : 0;
+    case SW_KIND_ENUM: {
+        const sw_field_record *r = enum_case(value, type);
+        return r && sw_rel(&r->mangled_type) ? 1 : 0;
+    }
     case SW_KIND_TUPLE: return (intptr_t)((const sw_tuple_metadata *)type)->num_elements;
     case SW_KIND_STRUCT: {
         const sw_field_descriptor *fd = fields_of(type);

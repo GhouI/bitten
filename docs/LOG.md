@@ -5717,3 +5717,16 @@ Debugging aids:
   does. Inactive windows' panes now also fade, as the app's settings ask.
 - Test: `tests/swiftlib/printing.swift` (`enums`).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## stdlib: every enum payload prints
+
+- Multi-payload and indirect enum cases now print and reflect their
+  payloads too (`pair(a: 1, b: "z")`, `node(…Tree.leaf(1), …Tree.leaf(2))`).
+  The runtime copies the value, lets the enum's value witness strip the
+  tag (`destructiveProjectEnumData`), reads the payload (from the box for
+  an indirect case) and destroys the copy.
+- An enum held in an `Any` (a tuple element, say) printed only its type.
+  Opening the value gave `Any` again, so the case is now found through
+  the value's dynamic type.
+- Test: `tests/swiftlib/printing.swift` (`enums`).
+- Target app (total `^MISSING`): 0 -> 0.

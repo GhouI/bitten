@@ -124,6 +124,7 @@ enum Shade { case light, dark }
 enum Load { case none, some(Int), pair(a: Int, b: String) }
 enum OnePayload { case empty, value(String) }
 enum Wrapped<T> { case nothing, one(T) }
+indirect enum Tree { case leaf(Int), node(Tree, Tree) }
 @_silgen_name("swl_printing_enums") public func enums() -> Int {
   var bad = 0
   expect("\(opaque(Shade.dark)) \(opaque(Shade.light))", "dark light", 1, &bad)
@@ -137,9 +138,12 @@ enum Wrapped<T> { case nothing, one(T) }
   expect("\(opaque(Wrapped<Int>.one(5)))", "one(5)", 64, &bad)
   // light and dark must not read alike (programs key caches with them)
   if "\(opaque(Shade.light))" == "\(opaque(Shade.dark))" { bad |= 128 }
-  // a multi-payload enum still shows its case
-  let pairText = "\(opaque(Load.pair(a: 1, b: "z")))"
-  if !pairText.hasPrefix("pair") { bad |= 256; print("  got <\(pairText)>") }
+  // multi-payload and indirect cases show their payloads
+  expect("\(opaque(Load.pair(a: 1, b: "z")))", "pair(a: 1, b: \"z\")", 256, &bad)
+  expect("\(opaque(Load.some(7)))", "some(7)", 1024, &bad)
+  expect("\(opaque(Tree.leaf(1)))", "leaf(1)", 4096, &bad)
+  expect("\(opaque(Tree.node(Tree.leaf(1), Tree.leaf(2))))", "node(printing.Tree.leaf(1), printing.Tree.leaf(2))", 2048, &bad)
   if "\(opaque(Load.none))" != "none" { bad |= 512 }
   return bad
 }
+
