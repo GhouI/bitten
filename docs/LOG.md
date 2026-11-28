@@ -6028,3 +6028,13 @@ Debugging aids:
   Settings went from ~65 MB to ~42 MB, resident memory ~210 MB to ~150 MB.
 - Test: foundation more (mapped reads).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Two malloc arenas
+
+- mrun limits glibc malloc to two arenas (unless `MALLOC_ARENA_MAX` is
+  set). With one per core's worth of threads, each dispatch worker's
+  arena kept its own freed memory: over 54 Settings page switches the
+  target app's malloc held 136 -> 154 MB and resident memory 193 -> 211 MB
+  with in-use flat at 83 MB; with two arenas held stays at 125 MB and
+  resident at 190 MB. Page-switch CPU is unchanged within noise.
+- Target app (total `^MISSING`): 0 -> 0.

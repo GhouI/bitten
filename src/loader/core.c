@@ -2,6 +2,7 @@
 #define _GNU_SOURCE
 #include <errno.h>
 #include <limits.h>
+#include <malloc.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -183,6 +184,12 @@ static void usage(void) {
 }
 
 int main(int argc, char **argv, char **envp) {
+    /* Two malloc arenas, not one per core's worth of threads: programs
+     * allocate mostly on the main thread with dispatch workers alongside,
+     * and every extra arena keeps its own freed memory (the target app's
+     * resident memory kept growing by ~20 MB over Settings page switches
+     * with the default; with two it stays flat). MALLOC_ARENA_MAX wins. */
+    if (!getenv("MALLOC_ARENA_MAX")) mallopt(M_ARENA_MAX, 2);
     const char *dbg = getenv("BITTEN_DEBUG");
     if (dbg) dx_verbose = atoi(dbg);
     const char *stubs = getenv("BITTEN_STUBS");
