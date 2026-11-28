@@ -2,6 +2,7 @@
  * fonts, screens and menus. Drawing and the window server come in separately
  * (CoreGraphics, the display); this file keeps the object model and the
  * application life cycle. */
+#include <malloc/malloc.h>
 #import <AppKit/AppKit.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
@@ -706,6 +707,16 @@ static const char kMainKey;
     [self _bn_closeDisplay];
     [self _bn_passKeyOn];
     [all_windows removeObject:self];
+    /* What the window held is freed over the next turns; then the memory
+     * goes back to the system (the allocator would keep it). */
+    static BOOL relief_scheduled;
+    if (!relief_scheduled) {
+        relief_scheduled = YES;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            relief_scheduled = NO;
+            malloc_zone_pressure_relief(NULL, 0);
+        });
+    }
 }
 @end
 

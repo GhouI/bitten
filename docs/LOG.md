@@ -5537,3 +5537,13 @@ Debugging aids:
   `BITTEN_IMAGE_DEBUG` / `BITTEN_CACHE_DEBUG` (see `docs/NEXT.md`).
 - Test: `tests/appkit/basics.m`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## libSystem/AppKit: freed memory goes back after a window closes
+
+- `malloc_zone_pressure_relief` exists now and gives the allocator's
+  free memory back to the system (`malloc_trim`). AppKit calls it two
+  seconds after a window closes, once what the window held has been
+  freed. glibc otherwise kept it: after four Settings visits the target
+  app's resident size was 202 MB, and is now 164 MB.
+- Test: `tests/c/odds.c`.
+- Target app (total `^MISSING`): 0 -> 0.
