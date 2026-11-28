@@ -135,6 +135,16 @@ static int left_window, views_freed;
 @end
 @interface NSWindow (BittenBacking)
 - (CGContextRef)_bn_backingContext;
+- (void)_bn_drawPending;
+@end
+/* Fills whatever it is asked to draw with opaque red. */
+@interface RedFill : NSView
+@end
+@implementation RedFill
+- (void)drawRect:(NSRect)r {
+    [[NSColor colorWithSRGBRed:1 green:0 blue:0 alpha:1] setFill];
+    NSRectFill(self.bounds);
+}
 @end
 
 int main(void) {
@@ -424,6 +434,28 @@ int main(void) {
     [[NSNotificationCenter defaultCenter] removeObserver:obs];
     [w2 orderOut:nil];
     CHECK(!w2.isMainWindow && w.isMainWindow);
+    /* A repaint of a fractional rect in a see-through window repaints
+     * whole pixels: the columns at its edges come out opaque, not half
+     * cleared (thin see-through lines between panes after a resize). */
+    {
+        NSWindow *clear = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 60, 20) styleMask:NSWindowStyleMaskBorderless
+                                                        backing:NSBackingStoreBuffered defer:NO];
+        clear.opaque = NO;
+        clear.backgroundColor = [NSColor clearColor];
+        RedFill *red = [[RedFill alloc] initWithFrame:NSMakeRect(0, 0, 60, 20)];
+        clear.contentView = red;
+        [clear orderFront:nil];
+        [clear display];
+        [red setNeedsDisplayInRect:NSMakeRect(20.4, 0, 10.3, 20)];
+        [clear _bn_drawPending];
+        CGContextRef cb = [clear _bn_backingContext];
+        CHECK(cb != NULL);
+        const unsigned char *cp = CGBitmapContextGetData(cb);
+        size_t cbpr = CGBitmapContextGetBytesPerRow(cb), cw = CGBitmapContextGetWidth(cb);
+        for (size_t x = 0; x < cw; x++) CHECK(cp[10 * cbpr + x * 4 + 3] == 255);
+        [clear orderOut:nil];
+    }
+
     puts("AppKit basics ok");
     return 0;
 }

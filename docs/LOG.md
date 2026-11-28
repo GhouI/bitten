@@ -5450,3 +5450,17 @@ Debugging aids:
   translucent bottoms. The backdrop now fills the window.
 - Test: `bglayers`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: partial repaints cover whole pixels
+
+- A partial repaint clipped to the dirty rect as given, which was often
+  fractional (panes 350.333 points wide). Before drawing, the window
+  clears that area to transparent, rounded out to whole pixels. The
+  antialiased clip then repainted the edge columns only in part. In the
+  target app's translucent main window, that left thin see-through
+  vertical lines where panes met after a resize, and they stayed until
+  those columns were repainted in full. The dirty rect is now rounded to
+  whole pixels before clipping.
+- Test: `tests/appkit/basics.m` (a fractional repaint in a clear window
+  leaves every column opaque).
+- Target app (total `^MISSING`): 0 -> 0.
