@@ -231,3 +231,7 @@ extension Bool: _ObjectiveCBridgeable {
   }
   public static func _unconditionallyBridgeFromObjectiveC(_ source: NSNumber?) -> Bool { return source?.boolValue ?? false }
 }
+
+// Objects print through -description and -debugDescription, as on macOS
+// (`print(NSNumber(value: 1.5))` is "1.5", not the class's name).
+extension NSObject: CustomStringConvertible, CustomDebugStringConvertible {}

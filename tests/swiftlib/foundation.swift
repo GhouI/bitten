@@ -380,3 +380,16 @@ struct _PathInner: Codable { var deep = _PathLeaf() }
      back == p, String(decoding: data, as: UTF8.self) == "[0,3,7]" {} else { bad |= 0x400 }
   return bad
 }
+
+/// Objective-C objects print through -description (NSObject is
+/// CustomStringConvertible), as on macOS.
+@_silgen_name("swl_foundation_nsdescribe") public func nsDescribe() -> Int {
+  var bad = 0
+  let n = NSNumber(value: 1234.5)
+  if String(describing: n) != "1234.5" || String(describing: Optional(n)) != "Optional(1234.5)" { bad |= 1 }
+  if String(describing: [n]) != "[1234.5]" || String(describing: n as Any) != "1234.5" { bad |= 2 }
+  if String(describing: NSString(string: "s")) != "s" { bad |= 4 }
+  if !String(describing: NSObject()).hasPrefix("<NSObject: 0x") { bad |= 8 }
+  if !((n as Any) is CustomStringConvertible) || !((NSObject() as Any) is CustomDebugStringConvertible) { bad |= 0x10 }
+  return bad
+}

@@ -6075,3 +6075,26 @@ Debugging aids:
     "u_rl_string", Foundation on macOS "url_string", as ours does; the test
     expects macOS's.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Foundation checked against swift-foundation; NumberFormatter and more
+
+- New test swiftlib `fbehaviour`: 53 results of DateFormatter,
+  ISO8601DateFormatter, NumberFormatter, Calendar, URLComponents and URL
+  paths, Data (base64, encodings), PropertyListEncoder XML, CharacterSet,
+  NSRegularExpression and Swift Regex, against swift-foundation on Linux
+  with fixed locales and UTC. What differed or was missing:
+  - NSNumberFormatter did not exist: added (none, decimal, currency and
+    its ISO code, plural and accounting forms, percent, scientific, and
+    English spell-out and ordinal; rounding modes, digit counts,
+    significant digits, prefixes and suffixes, parsing), with a table of
+    common locales' separators and currencies.
+  - NSObject is CustomStringConvertible and CustomDebugStringConvertible
+    (as on macOS), so Objective-C objects print their -description in
+    Swift ("1234.5", not "__NSCFNumber").
+  - `URL(string:relativeTo:)` resolves the reference by RFC 3986 instead
+    of appending it as a path component.
+  - `range(of:options:)` and `replacingOccurrences(of:with:options:)`
+    honour `.regularExpression` (with `$1` templates).
+- stdlib: `RangeReplaceableCollection.filter` returns `Self`, so
+  `"abc".filter { ... }` is a String, not `[Character]`.
+- Target app (total `^MISSING`): 0 -> 0.
