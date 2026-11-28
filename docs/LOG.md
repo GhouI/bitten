@@ -5858,3 +5858,10 @@ Debugging aids:
   those lists, so a new registrar at a gone one's address is untouched.
 - Settings page switches: `cancelObservation` 3.3% -> 0.3% of CPU.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: stacking representables' views without quadratic scans
+
+- `_orderPlatformViews` (after every layout of a host) matched the host's
+  subviews against the tree's AppKit views with nested linear scans; it
+  uses identity sets now. Settings page switches: 6.2% -> 0.6% of CPU.
+- Target app (total `^MISSING`): 0 -> 0.

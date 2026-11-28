@@ -480,12 +480,15 @@ open class _HostingViewBase: NSView {
   func _orderPlatformViews(_ root: _ViewNode) {
     var order: [NSView] = []
     root.collectPlatformViews(&order)
+    if order.count < 2 { return }
     let current = subviews
-    let placed = current.filter { v in order.contains { $0 === v } }
-    let wanted = order.filter { v in placed.contains { $0 === v } }
+    let inTree = Set(order.map { ObjectIdentifier($0) })
+    let placed = current.filter { inTree.contains(ObjectIdentifier($0)) }
+    let isPlaced = Set(placed.map { ObjectIdentifier($0) })
+    let wanted = order.filter { isPlaced.contains(ObjectIdentifier($0)) }
     if placed.count < 2 || zip(placed, wanted).allSatisfy({ $0 === $1 }) { return }
     var next = wanted.makeIterator()
-    subviews = current.map { v in placed.contains { $0 === v } ? next.next()! : v }
+    subviews = current.map { v in isPlaced.contains(ObjectIdentifier(v)) ? next.next()! : v }
   }
 
   override open var isFlipped: Bool { return true }
