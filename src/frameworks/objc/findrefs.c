@@ -6,7 +6,8 @@
  * memory: each word in a live object, the heap, the stacks and writable
  * image data that points at one is reported with what holds it (an
  * object's class and offset, or the mapping), and so on for the holders,
- * BITTEN_FIND_REFS_DEPTH levels deep (3).
+ * BITTEN_FIND_REFS_DEPTH levels deep (3), for the first
+ * BITTEN_FIND_REFS_MAX instances (40).
  *
  *   BITTEN_FIND_REFS=NSHostingView build/mrun app &  kill -USR2 <pid>
  *
@@ -24,6 +25,7 @@
  * was allocated (and followed like an object). */
 #define _GNU_SOURCE
 #include <dlfcn.h>
+#include <sys/uio.h>
 #include <malloc.h>
 #include <signal.h>
 #include <stdint.h>
@@ -186,19 +188,31 @@ static const char *where(void *a, char *buf, size_t len) {
 }
 
 /* Every word in writable memory equal to `target`. */
+/* Memory is copied out before it is read: another thread may unmap a
+ * region (a stack, a large block) while it is scanned, and a copy fails
+ * where a read would crash. */
+static uintptr_t chunk[1 << 17];
 static int find(uintptr_t target, struct hit *out) {
     int n = 0;
+    pid_t self = getpid();
     for (int r = 0; r < nregions && n < MAXHITS; r++) {
-        const uintptr_t *p = (const uintptr_t *)regions[r].lo, *end = (const uintptr_t *)regions[r].hi;
-        for (; p < end; p++) {
-            if (*p != target) continue;
-            uintptr_t a = (uintptr_t)p;
-            const struct obj *o = containing(a);
-            if (o && o->at == target) continue;   /* itself */
-            if (a >= (uintptr_t)objs && a < (uintptr_t)(objs + nobjs)) continue;   /* our tables */
-            if (a >= (uintptr_t)set && a < (uintptr_t)(set + cap)) continue;
-            out[n++] = (struct hit){a, o, r};
-            if (n == MAXHITS) break;
+        for (uintptr_t at = regions[r].lo; at < regions[r].hi && n < MAXHITS; at += sizeof chunk) {
+            size_t len = regions[r].hi - at < sizeof chunk ? regions[r].hi - at : sizeof chunk;
+            struct iovec local = {chunk, len}, remote = {(void *)at, len};
+            ssize_t got = process_vm_readv(self, &local, 1, &remote, 1, 0);
+            if (got <= 0) break;   /* gone */
+            size_t words = (size_t)got / sizeof(uintptr_t);
+            for (size_t i = 0; i < words; i++) {
+                if (chunk[i] != target) continue;
+                uintptr_t a = at + i * sizeof(uintptr_t);
+                if (a >= (uintptr_t)chunk && a < (uintptr_t)(chunk + (sizeof chunk / sizeof *chunk))) continue;
+                const struct obj *o = containing(a);
+                if (o && o->at == target) continue;   /* itself */
+                if (a >= (uintptr_t)objs && a < (uintptr_t)(objs + nobjs)) continue;   /* our tables */
+                if (a >= (uintptr_t)set && a < (uintptr_t)(set + cap)) continue;
+                out[n++] = (struct hit){a, o, r};
+                if (n == MAXHITS) break;
+            }
         }
     }
     return n;
@@ -264,7 +278,13 @@ static void scan(void) {
         char buf[256];
         int shown = 0;
         fprintf(stderr, "bitten: refs: %zu live objects, looking for '%s'\n", nobjs, wanted);
-        for (size_t i = 0; i < nobjs && shown < 40; i++) {
+        size_t matching = 0;
+        for (size_t i = 0; i < nobjs; i++)
+            if (strstr(name_of(objs[i].at, buf, sizeof buf), wanted)) matching++;
+        static long limit = -1;
+        if (limit < 0) { const char *l = getenv("BITTEN_FIND_REFS_MAX"); limit = l && atol(l) > 0 ? atol(l) : 40; }
+        fprintf(stderr, "bitten: refs: %zu instances (the first %ld follow)\n", matching, limit);
+        for (size_t i = 0; i < nobjs && shown < limit; i++) {
             const char *n = name_of(objs[i].at, buf, sizeof buf);
             if (!strstr(n, wanted)) continue;
             shown++;

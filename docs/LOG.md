@@ -5464,3 +5464,18 @@ Debugging aids:
 - Test: `tests/appkit/basics.m` (a fractional repaint in a clear window
   leaves every column opaque).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Tools: leak hunting on demand
+
+- `kill -USR1` prints `BITTEN_ALLOC_STATS` at once, so two reports can
+  bracket a repeated action. `BITTEN_FIND_REFS` reports how many
+  instances match and follows the first `BITTEN_FIND_REFS_MAX` of them.
+  It copies memory before reading it (`process_vm_readv`), so a stack or
+  block unmapped by another thread mid-scan no longer crashes the
+  program.
+- With these, the Observation records left per visit to the target app's
+  Settings ▸ Terminal (about 20) turned out to be the app's own
+  `withObservationTracking` registrations, waiting on live settings
+  objects that haven't changed. Observation keeps those too until a
+  change or the object's end.
+- Target app (total `^MISSING`): 0 -> 0.
