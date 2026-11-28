@@ -6038,3 +6038,21 @@ Debugging aids:
   with in-use flat at 83 MB; with two arenas held stays at 125 MB and
   resident at 190 MB. Page-switch CPU is unchanged within noise.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Descriptions checked against Swift's own; CoreGraphics overlay API; IndexPath
+
+- New test swiftlib `describe`: String(describing:) and
+  String(reflecting:) of 66 kinds of value (numbers, strings, optionals,
+  collections, tuples, structs, generic structs, enums with payloads,
+  indirect enums, raw-value enums, errors, ranges, metatypes, Result,
+  AnyHashable, existentials, classes) against what the Linux toolchain's
+  standard library prints; all already matched.
+- CoreGraphics: CGPoint, CGSize, CGVector and CGRect print as Apple's
+  overlay prints them ("(1.0, 2.5)", "(x, y, w, h)"), not as plain structs;
+  and the overlay's conveniences exist (`.zero`, `.null`, `.infinite`,
+  Int/Double initialisers, min/mid/max, width/height, standardized,
+  integral, insetBy, offsetBy, union, intersection, intersects, contains,
+  applying).
+- Foundation: `IndexPath` (it was missing); Foundation descriptions
+  (Data, URL, UUID, Date, Decimal, IndexPath, NSRange) checked.
+- Target app (total `^MISSING`): 0 -> 0.

@@ -85,3 +85,29 @@ func rect(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> CGRect {
      reversed.minY != 4 || reversed.midY != 6 || reversed.maxY != 8 { bad |= 0x100 }
   return bad
 }
+
+/// Geometry prints as Apple's overlay prints it (programs put these in
+/// strings and keys).
+@_silgen_name("swl_cg_describe") public func describeGeometry() -> Int {
+  var bad = 0
+  if String(describing: CGPoint(x: 1, y: 2.5)) != "(1.0, 2.5)" { bad |= 1 }
+  if String(describing: CGSize(width: 3, height: 4)) != "(3.0, 4.0)" { bad |= 2 }
+  if String(describing: CGRect(x: 0, y: 1, width: 2, height: 3)) != "(0.0, 1.0, 2.0, 3.0)" { bad |= 4 }
+  if String(describing: CGVector(dx: -1, dy: 0)) != "(-1.0, 0.0)" { bad |= 8 }
+  if "\([CGPoint.zero])" != "[(0.0, 0.0)]" { bad |= 0x10 }
+  if String(describing: Optional(CGSize.zero)) != "Optional((0.0, 0.0))" { bad |= 0x20 }
+  if String(reflecting: CGRect.zero) != "(0.0, 0.0, 0.0, 0.0)" { bad |= 0x40 }
+  if String(describing: CGFloat(1.5)) != "1.5" { bad |= 0x80 }
+  // the overlay's conveniences
+  let r = CGRect(x: 10, y: 20, width: -4, height: 6)
+  if r.minX != 6 || r.maxX != 10 || r.width != 4 || r.midY != 23 || r.standardized != CGRect(x: 6, y: 20, width: 4, height: 6) { bad |= 0x100 }
+  if CGRect(x: 0.5, y: 0.5, width: 1, height: 1).integral != CGRect(x: 0, y: 0, width: 2, height: 2) { bad |= 0x200 }
+  let a = CGRect(x: 0, y: 0, width: 10, height: 10), b = CGRect(x: 5, y: 5, width: 10, height: 10)
+  if a.intersection(b) != CGRect(x: 5, y: 5, width: 5, height: 5) || a.union(b) != CGRect(x: 0, y: 0, width: 15, height: 15) { bad |= 0x400 }
+  if !a.intersection(CGRect(x: 20, y: 20, width: 1, height: 1)).isNull || a.intersects(CGRect(x: 10, y: 0, width: 1, height: 1)) { bad |= 0x800 }
+  if !a.contains(CGPoint(x: 0, y: 9.5)) || a.contains(CGPoint(x: 10, y: 0)) || !a.contains(CGRect(x: 1, y: 1, width: 2, height: 2)) { bad |= 0x1000 }
+  if a.insetBy(dx: 2, dy: 3) != CGRect(x: 2, y: 3, width: 6, height: 4) || !a.insetBy(dx: 6, dy: 0).isNull { bad |= 0x2000 }
+  if a.offsetBy(dx: 1, dy: -1).origin != CGPoint(x: 1, y: -1) || !CGRect.zero.isEmpty || CGRect.null.union(a) != a { bad |= 0x4000 }
+  if a.applying(CGAffineTransform(a: 2, b: 0, c: 0, d: 3, tx: 1, ty: 0)) != CGRect(x: 1, y: 0, width: 20, height: 30) { bad |= 0x8000 }
+  return bad
+}

@@ -359,3 +359,24 @@ struct _PathInner: Codable { var deep = _PathLeaf() }
   if decoded != want { bad |= 8; print("  decode paths \(decoded)") }
   return bad
 }
+
+/// Foundation values print as Swift's Foundation prints them.
+@_silgen_name("swl_foundation_describe") public func describeValues() -> Int {
+  var bad = 0
+  if String(describing: Data([1, 2, 3])) != "3 bytes" { bad |= 1 }
+  if String(describing: URL(string: "https://example.com/a?b=c")!) != "https://example.com/a?b=c" { bad |= 2 }
+  if String(describing: URL(fileURLWithPath: "/tmp/x")) != "file:///tmp/x" { bad |= 4 }
+  if String(describing: UUID(uuidString: "E621E1F8-C36C-495A-93FC-0C247A3E6E5F")!) != "E621E1F8-C36C-495A-93FC-0C247A3E6E5F" { bad |= 8 }
+  if String(describing: Date(timeIntervalSinceReferenceDate: 0)) != "2001-01-01 00:00:00 +0000" { bad |= 0x10 }
+  if String(describing: Decimal(string: "1.25")!) != "1.25" { bad |= 0x20 }
+  if String(describing: IndexPath(indexes: [1, 2])) != "[1, 2]" { bad |= 0x40 }
+  if String(describing: NSRange(location: 1, length: 2)) != "{1, 2}" { bad |= 0x80 }
+  // IndexPath
+  var p: IndexPath = [0, 3]
+  if p.section != 0 || p.item != 3 || p.count != 2 || IndexPath(item: 3, section: 0) != p { bad |= 0x100 }
+  p.append(7)
+  if p != [0, 3, 7] || p.dropLast() != [0, 3] || !(IndexPath(indexes: [0, 3]) < p) || !([0, 2, 9] < p) { bad |= 0x200 }
+  if let data = try? JSONEncoder().encode(p), let back = try? JSONDecoder().decode(IndexPath.self, from: data),
+     back == p, String(decoding: data, as: UTF8.self) == "[0,3,7]" {} else { bad |= 0x400 }
+  return bad
+}
