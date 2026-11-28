@@ -16,6 +16,8 @@
   .win.borderless { border-radius: 0; box-shadow: none; }
   .win.borderless .bar { display: none; }
   .win.transparent { background: transparent; box-shadow: none; }
+  /* a behind-window material: what shows through is blurred, as on a Mac */
+  .win.material { -webkit-backdrop-filter: blur(20px) saturate(1.8); backdrop-filter: blur(20px) saturate(1.8); }
   /* full-size content: the bar lies over the window's top 28 points, which
      the program draws (and takes clicks in); only the buttons stay */
   .win.fullsize .bar { position: absolute; left: 0; right: 0; top: 0; z-index: 1; background: none;
@@ -167,6 +169,7 @@ function frame(buf) {
     w.el.classList.toggle("nomin", !(flags & 32));
     w.el.classList.toggle("nozoom", !(flags & 64));
     miniaturized(id, w, !!(flags & 128));
+    w.el.classList.toggle("material", !!(flags & 256));
   }
   // Ordered front by the program: up within its level, without focus.
   if (front !== w.front) { w.front = front; w.seq = ++z; }

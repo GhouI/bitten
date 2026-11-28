@@ -621,7 +621,9 @@ DX_EXPORT("_bitten_display_present_rect", bitten_display_present_rect);
  * 8 title hidden (the bar shows its buttons only), 16 resizable (the page
  * offers a grip), 32 miniaturizable and 64 zoomable (the yellow and green
  * buttons work), 128 miniaturized (the page shows it as a chip in its
- * dock instead); level is
+ * dock instead), 256 behind-window material (an NSVisualEffectView blending
+ * behind the window: the page blurs what shows through a transparent
+ * window); level is
  * the NSWindow level, which orders windows before focus does. May come
  * before the window's first frame. */
 int bitten_display_set_style(uint32_t id, uint32_t flags, int32_t level) {
