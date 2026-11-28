@@ -31,6 +31,119 @@ extension CGAffineTransform: Equatable {
   }
 }
 
+// Apple's overlay conveniences (programs built against it inline most of
+// them; code built here calls these).
+extension CGPoint {
+  public static var zero: CGPoint { return CGPoint(x: 0 as CGFloat, y: 0 as CGFloat) }
+  public init(x: Int, y: Int) { self.init(x: CGFloat(x), y: CGFloat(y)) }
+  public init(x: Double, y: Double) { self.init(x: CGFloat(x), y: CGFloat(y)) }
+  public func applying(_ t: CGAffineTransform) -> CGPoint {
+    return CGPoint(x: t.a * x + t.c * y + t.tx, y: t.b * x + t.d * y + t.ty)
+  }
+}
+extension CGSize {
+  public static var zero: CGSize { return CGSize(width: 0 as CGFloat, height: 0 as CGFloat) }
+  public init(width: Int, height: Int) { self.init(width: CGFloat(width), height: CGFloat(height)) }
+  public init(width: Double, height: Double) { self.init(width: CGFloat(width), height: CGFloat(height)) }
+}
+extension CGVector {
+  public static var zero: CGVector { return CGVector(dx: 0 as CGFloat, dy: 0 as CGFloat) }
+  public init(dx: Int, dy: Int) { self.init(dx: CGFloat(dx), dy: CGFloat(dy)) }
+  public init(dx: Double, dy: Double) { self.init(dx: CGFloat(dx), dy: CGFloat(dy)) }
+}
+extension CGRect {
+  public static var zero: CGRect { return CGRect(origin: .zero, size: .zero) }
+  public static var null: CGRect {
+    return CGRect(origin: CGPoint(x: CGFloat.infinity, y: CGFloat.infinity), size: .zero)
+  }
+  public static var infinite: CGRect {
+    let big = CGFloat.greatestFiniteMagnitude
+    return CGRect(origin: CGPoint(x: -big / 2, y: -big / 2), size: CGSize(width: big, height: big))
+  }
+  public init(x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
+    self.init(origin: CGPoint(x: x, y: y), size: CGSize(width: width, height: height))
+  }
+  public init(x: Double, y: Double, width: Double, height: Double) {
+    self.init(x: CGFloat(x), y: CGFloat(y), width: CGFloat(width), height: CGFloat(height))
+  }
+  public init(x: Int, y: Int, width: Int, height: Int) {
+    self.init(x: CGFloat(x), y: CGFloat(y), width: CGFloat(width), height: CGFloat(height))
+  }
+  public var width: CGFloat { return abs(size.width) }
+  public var height: CGFloat { return abs(size.height) }
+  public var minX: CGFloat { return Swift.min(origin.x, origin.x + size.width) }
+  public var maxX: CGFloat { return Swift.max(origin.x, origin.x + size.width) }
+  public var midX: CGFloat { return origin.x + size.width / 2 }
+  public var minY: CGFloat { return Swift.min(origin.y, origin.y + size.height) }
+  public var maxY: CGFloat { return Swift.max(origin.y, origin.y + size.height) }
+  public var midY: CGFloat { return origin.y + size.height / 2 }
+  public var isNull: Bool { return origin.x.isInfinite || origin.y.isInfinite }
+  public var isEmpty: Bool { return isNull || size.width == 0 || size.height == 0 }
+  public var isInfinite: Bool { return self == CGRect.infinite }
+  public var standardized: CGRect {
+    if isNull { return self }
+    return CGRect(x: minX, y: minY, width: width, height: height)
+  }
+  public var integral: CGRect {
+    if isNull { return self }
+    let s = standardized
+    let x0 = s.minX.rounded(.down), y0 = s.minY.rounded(.down)
+    return CGRect(x: x0, y: y0, width: s.maxX.rounded(.up) - x0, height: s.maxY.rounded(.up) - y0)
+  }
+  public func insetBy(dx: CGFloat, dy: CGFloat) -> CGRect {
+    if isNull { return self }
+    let s = standardized
+    let r = CGRect(x: s.minX + dx, y: s.minY + dy, width: s.width - 2 * dx, height: s.height - 2 * dy)
+    return r.size.width < 0 || r.size.height < 0 ? .null : r
+  }
+  public func offsetBy(dx: CGFloat, dy: CGFloat) -> CGRect {
+    if isNull { return self }
+    return CGRect(x: origin.x + dx, y: origin.y + dy, width: size.width, height: size.height)
+  }
+  public func union(_ r: CGRect) -> CGRect {
+    if isNull { return r }
+    if r.isNull { return self }
+    let x0 = Swift.min(minX, r.minX), y0 = Swift.min(minY, r.minY)
+    return CGRect(x: x0, y: y0, width: Swift.max(maxX, r.maxX) - x0, height: Swift.max(maxY, r.maxY) - y0)
+  }
+  public func intersection(_ r: CGRect) -> CGRect {
+    if isNull || r.isNull { return .null }
+    let x0 = Swift.max(minX, r.minX), y0 = Swift.max(minY, r.minY)
+    let x1 = Swift.min(maxX, r.maxX), y1 = Swift.min(maxY, r.maxY)
+    return x1 < x0 || y1 < y0 ? .null : CGRect(x: x0, y: y0, width: x1 - x0, height: y1 - y0)
+  }
+  public func intersects(_ r: CGRect) -> Bool {
+    let i = intersection(r)
+    return !i.isNull && i.width > 0 && i.height > 0
+  }
+  public func contains(_ p: CGPoint) -> Bool {
+    return !isNull && p.x >= minX && p.x < maxX && p.y >= minY && p.y < maxY
+  }
+  public func contains(_ r: CGRect) -> Bool { return union(r) == self }
+  public func applying(_ t: CGAffineTransform) -> CGRect {
+    if isNull { return self }
+    let ps = [CGPoint(x: minX, y: minY), CGPoint(x: maxX, y: minY), CGPoint(x: minX, y: maxY), CGPoint(x: maxX, y: maxY)]
+      .map { $0.applying(t) }
+    let xs = ps.map { $0.x }, ys = ps.map { $0.y }
+    let x0 = xs.min()!, y0 = ys.min()!
+    return CGRect(x: x0, y: y0, width: xs.max()! - x0, height: ys.max()! - y0)
+  }
+}
+
+// As Apple's overlay prints them: "(1.0, 2.0)", "(x, y, width, height)".
+extension CGPoint: CustomDebugStringConvertible {
+  public var debugDescription: String { return "(\(x), \(y))" }
+}
+extension CGSize: CustomDebugStringConvertible {
+  public var debugDescription: String { return "(\(width), \(height))" }
+}
+extension CGVector: CustomDebugStringConvertible {
+  public var debugDescription: String { return "(\(dx), \(dy))" }
+}
+extension CGRect: CustomDebugStringConvertible {
+  public var debugDescription: String { return "(\(origin.x), \(origin.y), \(size.width), \(size.height))" }
+}
+
 extension CGRect {
   public init?(dictionaryRepresentation dict: CFDictionary) {
     var r = CGRect()
