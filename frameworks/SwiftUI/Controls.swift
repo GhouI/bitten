@@ -98,16 +98,18 @@ extension Section: View where Parent: View, Content: View, Footer: View {
     var header = inputs
     header.environment.font = .headline
     var children: [_ViewNode] = []
+    var items: [_ViewNode] = []
     if Parent.self != EmptyView.self { children.append(_makeNode(v.header, inputs: header.named("header"))) }
     // a collapsed section shows its header only
     if v.isExpanded?.wrappedValue ?? true {
-      if getenv("BITTEN_TMP") != nil { _dbg("SECTION \(Content.self)") }
-      children += _makeNodes(v.content, inputs: inputs.named("content"))
-      if getenv("BITTEN_TMP") != nil { _dbg("SECTION done") }
+      items = _makeNodes(v.content, inputs: inputs.named("content"))
+      children += items
       if Footer.self != EmptyView.self { children.append(_makeNode(v.footer, inputs: inputs.named("footer"))) }
     }
-    return _ViewOutputs(_StackNode(axis: .vertical, alignment: Alignment(horizontal: .leading, vertical: .center),
-                                   spacing: 6, environment: inputs.environment, children: children))
+    let stack = _StackNode(axis: .vertical, alignment: Alignment(horizontal: .leading, vertical: .center),
+                           spacing: 6, environment: inputs.environment, children: children)
+    stack.sectionItems = items
+    return _ViewOutputs(stack)
   }
 }
 extension Section where Parent == EmptyView, Content: View, Footer == EmptyView {
@@ -1195,7 +1197,16 @@ public struct Picker<Label: View, SelectionValue: Hashable, Content: View>: View
   public var body: Never { return fatalError("Picker has no body") }
   nonisolated public static func _makeView(view: _GraphValue<Picker>, inputs: _ViewInputs) -> _ViewOutputs {
     let v = view.value
-    let options = _makeNodes(v.content, inputs: inputs.named("options"))
+    // Sections' options are the picker's options (their headers title
+    // groups of a menu; here they are left out).
+    func flatten(_ nodes: [_ViewNode]) -> [_ViewNode] {
+      return nodes.flatMap { n -> [_ViewNode] in
+        if let items = (n as? _StackNode)?.sectionItems { return flatten(items) }
+        return [n]
+      }
+    }
+    let options = flatten(_makeNodes(v.content, inputs: inputs.named("options")))
+    if _debugTree { _dbg("bitten: picker of \(SelectionValue.self): \(options.count) options from \(Content.self)") }
     func tag(_ n: _ViewNode) -> SelectionValue? {
       if case .tagged(let t)? = n.layoutValues[ObjectIdentifier(TagValueTraitKey<SelectionValue>.self)]
         as? TagValueTraitKey<SelectionValue>.Value { return t }

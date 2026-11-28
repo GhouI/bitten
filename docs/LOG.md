@@ -5479,3 +5479,21 @@ Debugging aids:
   objects that haven't changed. Observation keeps those too until a
   change or the object's end.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: view lists pass through custom views, modifiers and sections
+
+- A custom view now gives the container around it its body's elements,
+  as in SwiftUI: a view whose body is a ForEach or several views is
+  several stack children or picker options, not one inner stack. Before,
+  its views were stacked in an extra node with its own spacing.
+- `ModifiedContent` asks its modifier how to build a list. Environment
+  and trait modifiers (`.disabled`, `.tag`, …) pass the elements
+  through, and other modifiers still wrap them.
+- A Picker's options include those inside Sections. In the target app's
+  Settings ▸ Terminal ▸ Cursor, the Shader picker (choices grouped in
+  sections) showed every choice in a tall box. It is now one pop-up
+  button showing the current choice.
+- `BITTEN_SWIFTUI_TREE` also prints each picker's option count and
+  content type.
+- Test: `viewlists`.
+- Target app (total `^MISSING`): 0 -> 0.
