@@ -5924,3 +5924,11 @@ Debugging aids:
   (Blur across windows, a palette window over terminal text, would belong
   to the display's compositor.)
 - Target app (total `^MISSING`): 0 -> 0.
+
+## The display page blurs behind-window materials
+
+- Display (page.html, display.c): window style flag 256, a behind-window
+  material (an NSVisualEffectView blending behind the window): the page
+  blurs and saturates what shows through a transparent window
+  (backdrop-filter), as a Mac does behind popovers and panels.
+- Target app (total `^MISSING`): 0 -> 0.
