@@ -918,3 +918,55 @@ struct _LeakToggle: View {
     return bad
   }
 }
+
+/// A custom view gives the container around it its body's views: two
+/// colours in a view's body are two children of the VStack (no inner
+/// stack and spacing), and a picker's options can come from a view.
+struct _TwoRows: View {
+  var body: some View {
+    Color(.sRGB, red: 1, green: 0, blue: 0).frame(width: 20, height: 10)
+    Color(.sRGB, red: 0, green: 0, blue: 1).frame(width: 20, height: 10)
+  }
+}
+struct _PickOptions: View {
+  var body: some View {
+    ForEach([1, 2], id: \.self) { i in
+      (i == 1 ? Color(.sRGB, red: 1, green: 0, blue: 0) : Color(.sRGB, red: 0, green: 0, blue: 1))
+        .frame(width: 10, height: 10).tag(i)
+    }
+  }
+}
+@_silgen_name("swl_swiftui_viewlists") public func viewLists() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    let stack = VStack(spacing: 0) { _TwoRows() }.frame(width: 20, height: 20)
+    let px = render(stack, 20, 20)
+    if px(10, 5) != red { bad |= 1 }
+    if px(10, 15) != blue { bad |= 2 }
+    // The picker shows the chosen option only (blue), not every option.
+    let picker = Picker(selection: .constant(2), content: { _PickOptions() }, label: { EmptyView() })
+      .frame(width: 80, height: 30)
+    let pp = render(picker, 80, 30)
+    var reds = 0, blues = 0
+    for x in 0..<80 { for y in 0..<30 { if pp(x, y) == red { reds += 1 }; if pp(x, y) == blue { blues += 1 } } }
+    if reds != 0 { bad |= 4 }
+    if blues == 0 { bad |= 8 }
+    // Options under an environment modifier are still separate options.
+    let modified = Picker(selection: .constant(2), content: { _PickOptions().disabled(false) }, label: { EmptyView() })
+      .frame(width: 80, height: 30)
+    let mp = render(modified, 80, 30)
+    var mreds = 0
+    for x in 0..<80 { for y in 0..<30 where mp(x, y) == red { mreds += 1 } }
+    if mreds != 0 { bad |= 16 }
+    // Options in sections are options too: the chosen one shows alone.
+    let sectioned = Picker(selection: .constant(2), content: {
+      Section { Color(.sRGB, red: 1, green: 0, blue: 0).frame(width: 10, height: 10).tag(1) } header: { EmptyView() }
+      Section { Color(.sRGB, red: 0, green: 0, blue: 1).frame(width: 10, height: 10).tag(2) } header: { EmptyView() }
+    }, label: { EmptyView() }).frame(width: 80, height: 30)
+    let sp = render(sectioned, 80, 30)
+    var sreds = 0, sblues = 0
+    for x in 0..<80 { for y in 0..<30 { if sp(x, y) == red { sreds += 1 }; if sp(x, y) == blue { sblues += 1 } } }
+    if sreds != 0 || sblues == 0 { bad |= 32 }
+    return bad
+  }
+}

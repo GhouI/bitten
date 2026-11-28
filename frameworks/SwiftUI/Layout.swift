@@ -236,8 +236,9 @@ extension ViewModifier where Self: Animatable {
   public static func _makeViewList(modifier: _GraphValue<Self>, inputs: _ViewListInputs,
                                    body: @escaping (_Graph, _ViewListInputs) -> _ViewListOutputs) -> _ViewListOutputs {
     let one = _makeView(modifier: modifier, inputs: inputs.base) { g, i in
-      return _ViewOutputs(_StackNode(axis: .vertical, alignment: .center, spacing: nil, environment: i.environment,
-                                     children: body(g, _ViewListInputs(i)).nodes))
+      let nodes = body(g, _ViewListInputs(i)).nodes
+      return _ViewOutputs(nodes.count == 1 ? nodes[0] : _StackNode(axis: .vertical, alignment: .center, spacing: nil,
+                                                                  environment: i.environment, children: nodes))
     }
     return _ViewListOutputs([one.node])
   }
@@ -267,8 +268,15 @@ extension ModifiedContent: View where Content: View, Modifier: ViewModifier {
       Content._makeView(view: _GraphValue({ v.content }), inputs: i.named("c"))
     }
   }
+  /// The modifier decides: environment and trait modifiers pass the
+  /// content's elements through (a ForEach with `.disabled` in a picker or
+  /// stack is still one element per view), others wrap them.
   public static func _makeViewList(view: _GraphValue<ModifiedContent>, inputs: _ViewListInputs) -> _ViewListOutputs {
-    return _ViewListOutputs([_makeView(view: view, inputs: inputs.base).node])
+    let v = view.value
+    return Modifier._makeViewList(modifier: _GraphValue({ v.modifier }),
+                                  inputs: _ViewListInputs(inputs.base.named("m"))) { _, i in
+      Content._makeViewList(view: _GraphValue({ v.content }), inputs: _ViewListInputs(i.base.named("c")))
+    }
   }
 }
 
@@ -529,6 +537,9 @@ internal final class _StackNode: _ViewNode {
   let alignment: Alignment
   let spacing: CGFloat
   var sizes: [CGSize] = []
+  /// A Section's stack: its content's views (without header and footer),
+  /// which a picker offers as options.
+  var sectionItems: [_ViewNode]?
 
   init(axis: Axis, alignment: Alignment, spacing: CGFloat?, environment: EnvironmentValues, children: [_ViewNode]) {
     self.axis = axis

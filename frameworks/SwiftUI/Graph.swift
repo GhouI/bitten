@@ -363,11 +363,28 @@ extension View {
     return out
   }
 
+  /// A view's elements in a container are its body's: a view whose body
+  /// is a ForEach or several views gives the stack, picker or list around
+  /// it one element per view, as in SwiftUI.
   public static func _makeViewList(view: _GraphValue<Self>, inputs: _ViewListInputs) -> _ViewListOutputs {
-    return _ViewListOutputs([_makeView(view: view, inputs: inputs.base).node])
+    if Body.self == Never.self { return _ViewListOutputs([_makeView(view: view, inputs: inputs.base).node]) }
+    return _bodyViewList(view, inputs)
   }
 
-  public static func _viewListCount(inputs: _ViewListCountInputs) -> Int? { return 1 }
+  public static func _viewListCount(inputs: _ViewListCountInputs) -> Int? {
+    return Body.self == Never.self ? 1 : Body._viewListCount(inputs: inputs)
+  }
+}
+
+/// The view list of a view's body (dynamic properties installed, reads
+/// watched), at the same place in the graph its _makeView builds it.
+internal func _bodyViewList<V: View>(_ view: _GraphValue<V>, _ inputs: _ViewListInputs) -> _ViewListOutputs {
+  var value = view.value
+  _installDynamicProperties(&value, inputs: inputs.base)
+  let body = _withObservation(inputs.base) { value.body }
+  let out = V.Body._makeViewList(view: _GraphValue({ body }), inputs: _ViewListInputs(inputs.base.child(0)))
+  if _debugTree { for n in out.nodes { _debugLabel(n, V.self) } }
+  return out
 }
 
 extension View where Self: Animatable {
@@ -381,7 +398,7 @@ extension View where Self: Animatable {
     return out
   }
   public static func _makeViewList(view: _GraphValue<Self>, inputs: _ViewListInputs) -> _ViewListOutputs {
-    return _ViewListOutputs([_makeView(view: view, inputs: inputs.base).node])
+    return _bodyViewList(view, inputs)
   }
 }
 
