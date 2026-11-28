@@ -393,12 +393,22 @@ static int reported_names(const struct ct_font *f, char *family, char *ps, char 
     }
     const char *style = f->face->style[0] ? f->face->style : "Regular";
     if (!strcasecmp(style, "Book") || !strcasecmp(style, "Roman") || !strcasecmp(style, "Normal")) style = "Regular";
-    char st[64];
-    snprintf(st, sizeof st, "%s", style);
-    for (char *c = st; *c; c++) if (*c == ' ') *c = 0;  /* "Bold Oblique" -> "Bold" */
+    /* Apple's style words: Oblique is Italic ("Bold Oblique" -> "Bold Italic"),
+     * and the PostScript name drops the spaces (Menlo-BoldItalic) */
+    char words[64] = "", st[64];
+    size_t w = 0;
+    for (const char *c = style; *c && w + 7 < sizeof words;) {
+        if (!strncasecmp(c, "Oblique", 7)) { memcpy(words + w, "Italic", 6); w += 6; c += 7; }
+        else words[w++] = *c++;
+    }
+    words[w] = 0;
+    size_t k = 0;
+    for (const char *c = words; *c && k + 1 < sizeof st; c++)
+        if (*c != ' ') st[k++] = *c;
+    st[k] = 0;
     snprintf(family, n, "%s", apple_fonts[a].family);
     snprintf(ps, n, "%s-%s", apple_fonts[a].ps, st);
-    snprintf(full, n, "%s %s", apple_fonts[a].family, style);
+    snprintf(full, n, "%s %s", apple_fonts[a].family, words);
     return 1;
 }
 static Ref d_CTFontCopyPostScriptName(const struct ct_font *f) {
@@ -680,24 +690,77 @@ static Ref matching_faces(const struct ct_desc *const *descs, CFIndex n) {
     return arr;
 }
 
-/* An Apple font asked for by name or family: the stand-in face, described
- * by the Apple font's names (fonts.c maps them to open families). */
+/* A stand-in face described as the Apple font it stands for: the Apple
+ * names (Menlo-Bold, "Menlo Bold"), the face's style and traits. */
+static struct ct_desc *stand_in_desc(struct ttf *face, Ref apple_name) {
+    struct ct_font *f = ct_font_new(face, 12, NULL, apple_name);
+    if (!f) return NULL;
+    Ref ps = d_CTFontCopyPostScriptName(f), fam = d_CTFontCopyFamilyName(f), full = d_CTFontCopyFullName(f);
+    const char *st = face->style[0] ? face->style : "Regular";
+    if (!strcasecmp(st, "Book") || !strcasecmp(st, "Roman") || !strcasecmp(st, "Normal")) st = "Regular";
+    char words[64];
+    size_t w = 0;
+    for (const char *c = st; *c && w + 7 < sizeof words;) {
+        if (!strncasecmp(c, "Oblique", 7)) { memcpy(words + w, "Italic", 6); w += 6; c += 7; }
+        else words[w++] = *c++;
+    }
+    words[w] = 0;
+    Ref style = ct_cfstring(words), traits = d_CTFontCopyTraits(f);
+    const void *keys[] = {d_kCTFontNameAttribute, d_kCTFontFamilyNameAttribute, d_kCTFontStyleNameAttribute,
+                          d_kCTFontDisplayNameAttribute, d_kCTFontTraitsAttribute};
+    const void *vals[] = {ps, fam, style, full, traits};
+    Ref dict = make_dict(keys, vals, traits ? 5 : 4);
+    struct ct_desc *r = desc_new(dict);
+    cg_release(dict); cg_release(ps); cg_release(fam); cg_release(full); cg_release(style);
+    if (traits) cg_release(traits);
+    cg_release(f);
+    return r;
+}
+
+/* An Apple font asked for (fonts.c maps it to an open family): by name,
+ * its stand-in face; by family, every face of the stand-in family, as a
+ * Mac lists Menlo's Regular, Bold, Italic and Bold Italic. All under the
+ * Apple font's names. */
 static Ref apple_stand_in(const struct ct_desc *d) {
     char a[256] = "", b[256] = "";
     cstring(d_CFDictionaryGetValue(d->attributes, d_kCTFontNameAttribute), a, sizeof a);
     cstring(d_CFDictionaryGetValue(d->attributes, d_kCTFontFamilyNameAttribute), b, sizeof b);
     const char *want = a[0] ? a : b;
-    if (!want[0] || apple_index(want) < 0 || !ct_face_for_name(want)) return NULL;
-    struct ct_font *f = d_CTFontCreateWithFontDescriptor(d, 12, NULL);
-    if (!f) return NULL;
-    Ref ps = d_CTFontCopyPostScriptName(f), fam = d_CTFontCopyFamilyName(f);
-    const void *keys[] = {d_kCTFontNameAttribute, d_kCTFontFamilyNameAttribute};
-    const void *vals[] = {ps, fam};
-    Ref dict = make_dict(keys, vals, 2);
-    struct ct_desc *r = desc_new(dict);
-    const void *one[] = {r};
-    Ref arr = make_array(one, 1);
-    cg_release(r); cg_release(dict); cg_release(ps); cg_release(fam); cg_release(f);
+    if (!want[0] || apple_index(want) < 0) return NULL;
+    struct ttf *base = ct_face_for_name(want);
+    if (!base) return NULL;
+    Ref apple = ct_cfstring(want);
+    struct ttf **faces = NULL;
+    int n = 0;
+    if (a[0]) {
+        /* a name: the face it picks (Menlo-Bold: the bold face) */
+        struct ct_font *f = d_CTFontCreateWithFontDescriptor(d, 12, NULL);
+        if (f) {
+            faces = malloc(sizeof *faces);
+            faces[n++] = f->face;
+            cg_release(f);
+        }
+    } else {
+        int count = ct_face_count();
+        faces = calloc((size_t)(count ? count : 1), sizeof *faces);
+        for (int i = 0; i < count; i++) {
+            struct ttf *face = ct_face_at(i);
+            if (!face || strcasecmp(face->family, base->family)) continue;
+            bool dup = false;
+            for (int j = 0; j < n && !dup; j++) dup = !strcmp(faces[j]->postscript, face->postscript);
+            if (!dup) faces[n++] = face;
+        }
+        qsort(faces, (size_t)n, sizeof *faces, face_order);
+    }
+    const void **out = calloc((size_t)(n ? n : 1), sizeof *out);
+    int k = 0;
+    for (int i = 0; i < n; i++)
+        if ((out[k] = stand_in_desc(faces[i], apple))) k++;
+    Ref arr = k ? make_array(out, k) : NULL;
+    for (int i = 0; i < k; i++) cg_release(out[i]);
+    free(out);
+    free(faces);
+    cg_release(apple);
     return arr;
 }
 

@@ -96,7 +96,19 @@ int main(void) {
         Ref d = CTFontDescriptorCreateWithAttributes(CFDictionaryCreate(0, k, v, 1, kCFTypeDictionaryKeyCallBacks,
                                                                         kCFTypeDictionaryValueCallBacks));
         Ref m = CTFontDescriptorCreateMatchingFontDescriptors(d, 0);
-        CHECK(m && CFArrayGetCount(m) == 1);
+        /* an Apple family gives all of its stand-in's faces, under Apple's
+         * names (DejaVu Sans Mono: Book, Bold, Oblique, Bold Oblique) */
+        CHECK(m && CFArrayGetCount(m) >= 4);
+        int bolds = 0, bolditalics = 0;
+        for (long i = 0; i < CFArrayGetCount(m); i++) {
+            Ref font = CTFontCreateWithFontDescriptor(CFArrayGetValueAtIndex(m, i), 12, 0);
+            char ps[64], fm[64];
+            CHECK(CFStringGetCString(CTFontCopyPostScriptName(font), ps, sizeof ps, 0x08000100) && !memcmp(ps, "Menlo-", 6));
+            CHECK(CFStringGetCString(CTFontCopyFamilyName(font), fm, sizeof fm, 0x08000100) && !strcmp(fm, "Menlo"));
+            bolds += !strcmp(ps, "Menlo-Bold");
+            bolditalics += !strcmp(ps, "Menlo-BoldItalic");
+        }
+        CHECK(bolds == 1 && bolditalics == 1);
         v[0] = S("No Such Font Family");
         d = CTFontDescriptorCreateWithAttributes(CFDictionaryCreate(0, k, v, 1, kCFTypeDictionaryKeyCallBacks,
                                                                     kCFTypeDictionaryValueCallBacks));
