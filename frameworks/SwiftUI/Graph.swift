@@ -64,7 +64,7 @@ internal final class _RenderContext {
     trackings = []
   }
   func beginBuild() {
-    seen = []
+    seen = Set(minimumCapacity: live.count)
     generation += 1
     cancelObservation()
   }

@@ -10,20 +10,31 @@ windows no longer leaks.
 
 ## What stands in the way
 
-1. **Speed.** With a viewer connected the target app idles at about 4%
-   CPU, mostly the terminal's Metal fragment path (`cell_bg_fragment`).
-   Settings page switches mostly rebuild SwiftUI trees (each rebuild
-   builds the whole tree; hidden page hosts now wait until shown).
-   `BITTEN_PERF_MAP=1` writes /tmp/perf-<pid>.map with the Mach-O
-   images' symbols for naming `perf script` addresses.
-   With Settings open it idles at about 5% and sends no frames. The
-   first window frame comes about 1.2 s after launch (stopwatch, and the
-   app's own log now agrees).
-   Page switches mostly cost CoreGraphics blending now (`cg_blend_pixel`,
-   `mask_row`, `scan`, transparency layers). A state change rebuilds
-   only its own host. `BITTEN_DISPLAY_DEBUG` logs who asked for each full
-   redraw and each presented window's number. Wait 8 s or more before
-   judging that an animated change didn't happen.
+1. **Speed.** Idle with the main window up: about 9% CPU, nearly all the
+   terminal panes' cursor-blink frames rasterized in software
+   (`cell_bg_fragment`, `raster_triangle`); paused display links no longer
+   wake the process. Eight Settings page switches cost about 6 s of CPU
+   (22 s at the start of the speed work). What is left there is the app's
+   own view bodies on each rebuild (a host still rebuilds its whole tree;
+   incremental re-evaluation is the next large step), CoreGraphics
+   rasterizing (`scan`, `cg_flatten`, `cg_blend_pixel`) and
+   retain/release. The Shortcuts page is the heaviest (~700 ms a build,
+   built twice per visit: once for the navigation change, once when the
+   scene sets its root view). The first window frame comes about 1.2 s
+   after launch.
+   - `BITTEN_PERF_MAP=1` writes /tmp/perf-<pid>.map with the Mach-O
+     images' symbols for naming `perf script` addresses. SwiftUI stacks
+     are deep: raise `/proc/sys/kernel/perf_event_max_stack` (127) and
+     record with `--call-graph fp,1024`. Frames in the app's own code
+     break the chain, so inclusive shares above them are understated.
+   - `BITTEN_REBUILD_DEBUG` logs each host's builds, placements and draws
+     with their times, and why each was invalidated;
+     `BITTEN_OBSERVATION_DEBUG` the property writes that fire;
+     `BITTEN_DISPLAYLINK_DEBUG` ticks sent and skipped per display link;
+     `BITTEN_DISPLAY_DEBUG` who asked for each full redraw.
+   - Wall-clock CPU of a scripted run varies by 10% or more when other
+     builds share the machine; compare profile shares for small changes.
+   Wait 8 s or more before judging that an animated change didn't happen.
 2. **The Terminal settings typography row.** With the window at the
    app's 740-point default, the first column gets about 40 points: the
    three fixed-size columns and 12-point gaps take the rest. Real

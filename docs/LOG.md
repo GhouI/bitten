@@ -5897,3 +5897,11 @@ Debugging aids:
   full functions for anything else. 8 page switches: ~6.4 s -> ~6.0 s of
   CPU.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## NEXT.md: where speed stands; SwiftUI's per-build set sized up front
+
+- NEXT.md's speed item: current numbers, what is left, and the profiling
+  and debug switches added on the way.
+- SwiftUI: the set of views seen in a build starts at the last build's
+  size instead of growing (and rehashing its long path keys) as it fills.
+- Target app (total `^MISSING`): 0 -> 0.
