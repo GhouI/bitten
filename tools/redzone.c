@@ -3,11 +3,15 @@
  * red zone after it. free and realloc check the red zone and, when it has
  * been written, report the block and its allocation site and abort.
  *
- *   cc -O1 -g -shared -fPIC -o build/redzone.so tools/redzone.c -ldl
+ *   cc -O1 -g -fno-omit-frame-pointer -shared -fPIC -o build/redzone.so tools/redzone.c -ldl
  *   LD_PRELOAD=build/redzone.so build/mrun ...
  *
  * REDZONE_SCAN=N also checks every live block each N frees (slow; finds
- * an overflow before the damaged block itself is freed). */
+ * an overflow before the damaged block itself is freed).
+ *
+ * redzone_lookup() finds the live block an address is in, with its call
+ * sites: mrun's BITTEN_FIND_REFS uses it to name the malloc blocks that
+ * hold a reference. */
 #define _GNU_SOURCE
 #include <dlfcn.h>
 #include <execinfo.h>
@@ -28,7 +32,7 @@ struct head {
     size_t size;
     void *site;                /* the caller of malloc */
     struct head *prev, *next;  /* live blocks (for REDZONE_SCAN) */
-    uint64_t pad;
+    void *up[3];               /* its callers (frame pointers) */
 };
 _Static_assert(sizeof(struct head) % 16 == 0, "header keeps 16-byte alignment");
 
@@ -100,12 +104,31 @@ static void scan(void *freer) {
         if (damaged(h)) report("red zone written (scan)", h, freer);
 }
 
+/* The return addresses of the frames above malloc's caller, by following
+ * frame pointers (stops at anything that doesn't look like a frame). */
+static void callers(void *out[3]) {
+    uintptr_t *fp = __builtin_frame_address(0);
+    for (int skip = 0; skip < 2 && fp; skip++) {   /* wrap, then alloc/malloc */
+        uintptr_t *next = (uintptr_t *)fp[0];
+        fp = next > fp && (uintptr_t)(next - fp) < (1 << 20) ? next : NULL;
+    }
+    for (int i = 0; i < 3; i++) {
+        out[i] = NULL;
+        if (!fp) continue;
+        uintptr_t *next = (uintptr_t *)fp[0];
+        if (!(next > fp && (uintptr_t)(next - fp) < (1 << 20))) { fp = NULL; continue; }
+        out[i] = (void *)next[1];
+        fp = next;
+    }
+}
+
 static void *wrap(void *base, size_t pad, size_t n, void *site) {
     struct head *h = (struct head *)((char *)base + pad);
     h->magic = MAGIC;
     h->align_pad = (uint32_t)pad;
     h->size = n;
     h->site = site;
+    callers(h->up);
     memset((char *)(h + 1) + n, FILL, ZONE);
     pthread_mutex_lock(&lock);
     h->prev = NULL;
@@ -205,4 +228,23 @@ void *pvalloc(size_t n) { return aligned_alloc(4096, (n + 4095) & ~(size_t)4095)
 size_t malloc_usable_size(void *p) {
     if (!p || !ours(p)) return 0;
     return ((struct head *)p - 1)->size;
+}
+
+/* The live block `a` falls in: its start, size and up to four call sites
+ * (malloc's caller first). 0 when it is in none. */
+int redzone_lookup(uintptr_t a, uintptr_t *start, size_t *size, void *sites[4]) {
+    int found = 0;
+    pthread_mutex_lock(&lock);
+    for (struct head *h = live; h; h = h->next) {
+        uintptr_t p = (uintptr_t)(h + 1);
+        if (a < p || a >= p + h->size) continue;
+        *start = p;
+        *size = h->size;
+        sites[0] = h->site;
+        for (int i = 0; i < 3; i++) sites[i + 1] = h->up[i];
+        found = 1;
+        break;
+    }
+    pthread_mutex_unlock(&lock);
+    return found;
 }

@@ -1225,8 +1225,9 @@ public struct Picker<Label: View, SelectionValue: Hashable, Content: View>: View
     let tags = options.compactMap(tag)
     let titles = options.filter { tag($0) != nil }.map { _firstText(in: $0) ?? "" }
     let anchor = _WeakNode()
+    // Weakly: the button is in the host's own tree.
     let host = inputs.base.context.hostView
-    let menu = _ButtonNode(label: shown, action: {
+    let menu = _ButtonNode(label: shown, action: { [weak host] in
       guard !tags.isEmpty else { return }
       let i = tags.firstIndex(of: binding.wrappedValue)
       // A menu of the options over the picker, the current one checked
@@ -2033,7 +2034,9 @@ public struct SubscriptionView<PublisherType: Publisher, Content: View>: View wh
     let box = inputs.base.context.store(inputs.base.path + "#sub") { _SubscriptionBox() }
     box.action = { v.action($0 as! PublisherType.Output) }
     if box.cancellable == nil {
-      box.cancellable = v.publisher.sink { value in box.action?(value) }
+      // Weakly: the publisher keeps its subscription, which must not keep
+      // the box (and through it the view's action) after the view is gone.
+      box.cancellable = v.publisher.sink { [weak box] value in box?.action?(value) }
     }
     return Content._makeView(view: _GraphValue({ v.content }), inputs: inputs.named("content"))
   }

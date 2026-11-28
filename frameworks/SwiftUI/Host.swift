@@ -325,6 +325,7 @@ open class _HostingViewBase: NSView {
     let me = _WeakHost(self)
     _context.invalidate = { _GraphHost.invalidate(me) }
     _context.hostView = self
+    _GraphHost.hosts.removeAll { $0.view == nil }
     _GraphHost.hosts.append(_WeakHost(self))
   }
   /// What the tree watched goes with the view.

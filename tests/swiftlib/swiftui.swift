@@ -812,3 +812,92 @@ struct AnyToggleStyleBox {
     return isSwitch ? AnyView(v.toggleStyle(.switch)) : AnyView(v.toggleStyle(.checkbox))
   }
 }
+
+/// A hosting view that goes away takes its representables' coordinators
+/// (and so whatever they hold) with it, and SwiftUI tells the
+/// representable first (dismantleNSView).
+nonisolated(unsafe) var _leakFreed = 0, _leakDismantled = 0
+final class _LeakCoordinator: NSObject, NSTextFieldDelegate {
+  var parent: _LeakField
+  init(_ p: _LeakField) { parent = p }
+  deinit { _leakFreed += 1 }
+}
+struct _LeakField: NSViewRepresentable {
+  @Binding var text: String
+  func makeCoordinator() -> _LeakCoordinator { _LeakCoordinator(self) }
+  func makeNSView(context: Context) -> NSTextField {
+    let f = NSTextField(frame: NSMakeRect(0, 0, 80, 20))
+    f.stringValue = text
+    f.delegate = context.coordinator
+    return f
+  }
+  func updateNSView(_ v: NSTextField, context: Context) { context.coordinator.parent = self }
+  static func dismantleNSView(_ v: NSTextField, coordinator: _LeakCoordinator) { _leakDismantled += 1 }
+}
+struct _LeakPage: View {
+  @State var name = "a"
+  @State var other = "b"
+  var body: some View {
+    VStack {
+      _LeakField(text: $name)
+      _LeakField(text: $other).onAppear {}
+      Text(name)
+    }
+  }
+}
+@_silgen_name("swl_swiftui_leakfree") public func leakFree() -> Int {
+  return MainActor.assumeIsolated {
+    _leakFreed = 0
+    _leakDismantled = 0
+    do {
+      let host = NSHostingView(rootView: _LeakPage())
+      _ = render(_LeakPage(), 100, 60, host: host)
+      _ = render(_LeakPage(), 100, 60, host: host)
+    }
+    for _ in 0..<3 { RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01)) }
+    var bad = (_leakFreed == 2 ? 0 : 1) | (_leakDismantled == 2 ? 0 : 2)
+    // Leaving the tree while the host stays: dismantled once, and a new
+    // one is made when it comes back.
+    _leakFreed = 0
+    _leakDismantled = 0
+    let host = NSHostingView(rootView: _LeakToggle(show: true))
+    @MainActor func frame(_ show: Bool) {
+      host.rootView = _LeakToggle(show: show)
+      _ = render(host.rootView, 100, 60, host: host)
+      for _ in 0..<3 { RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01)) }
+    }
+    frame(true)
+    frame(false)
+    if _leakDismantled != 1 || _leakFreed != 1 { bad |= 4 }
+    frame(true)
+    frame(true)
+    if _leakDismantled != 1 { bad |= 8 }
+    // A host whose tree holds a menu picker is freed too (the picker's
+    // button must not keep its own host).
+    weak var gone: NSHostingView<_LeakPicker>?
+    do {
+      let h = NSHostingView(rootView: _LeakPicker())
+      _ = render(_LeakPicker(), 100, 60, host: h)
+      gone = h
+    }
+    for _ in 0..<3 { RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01)) }
+    if gone != nil { bad |= 16 }
+    return bad
+  }
+}
+struct _LeakPicker: View {
+  @State var pick = 1
+  var body: some View {
+    Picker("P", selection: $pick) { Text("One").tag(1); Text("Two").tag(2) }
+  }
+}
+struct _LeakToggle: View {
+  var show: Bool
+  @State var text = "t"
+  var body: some View {
+    VStack {
+      if show { _LeakField(text: $text) }
+      Text("x")
+    }
+  }
+}

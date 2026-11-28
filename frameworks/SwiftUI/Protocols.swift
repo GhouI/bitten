@@ -390,7 +390,9 @@ extension NSViewRepresentable {
       } else {
         nsView = rep.makeNSView(context: context)
         host.view = nsView
+        host.dismantle = { Self.dismantleNSView(nsView, coordinator: coordinator) }
       }
+      _PlatformViewBox.track(host, key: inputs.base.path + "#nsview", context: inputs.base.context)
       rep.updateNSView(nsView, context: context)
       let sizer: (ProposedViewSize) -> CGSize? = { p in rep.sizeThatFits(p, nsView: nsView, context: context) }
       return _ViewOutputs(_PlatformViewNode(view: nsView, context: inputs.base.context, sizer: sizer,
@@ -449,7 +451,9 @@ extension NSViewControllerRepresentable {
       } else {
         vc = rep.makeNSViewController(context: context)
         host.controller = vc
+        host.dismantle = { Self.dismantleNSViewController(vc, coordinator: coordinator) }
       }
+      _PlatformViewBox.track(host, key: inputs.base.path + "#nsvc", context: inputs.base.context)
       rep.updateNSViewController(vc, context: context)
       let sizer: (ProposedViewSize) -> CGSize? = { p in rep.sizeThatFits(p, nsViewController: vc, context: context) }
       return _ViewOutputs(_PlatformViewNode(view: vc.view, context: inputs.base.context, sizer: sizer,
@@ -470,6 +474,26 @@ final class _PlatformViewBox {
   var view: NSView?
   var controller: NSViewController?
   var coordinator: Any?
+  /// The representable's dismantle call, made once when the view leaves
+  /// the tree or its host goes.
+  var dismantle: (() -> Void)?
+  func dismantleNow() {
+    guard let d = dismantle else { return }
+    dismantle = nil
+    MainActor.assumeIsolated { d() }
+  }
+  /// Watches the box at `key`: once the view is gone from a build, it is
+  /// dismantled and forgotten, so a later one starts afresh.
+  static func track(_ box: _PlatformViewBox, key: String, context: _RenderContext) {
+    let life = key + "-life"
+    context.lifecycle(life, appear: nil, disappear: { [weak context, weak box] in
+      guard let context = context, let box = box, !context.isLive(life),
+            context.storage[key] === box else { return }
+      context.storage[key] = nil
+      box.dismantleNow()
+      MainActor.assumeIsolated { box.view?.removeFromSuperview() }
+    })
+  }
 }
 
 private typealias _DrawInFn = @convention(c) (AnyObject, Selector, CGContext, ObjCBool) -> Void
