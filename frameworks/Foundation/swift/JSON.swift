@@ -320,6 +320,14 @@ internal final class _JSONEncoderImpl: Encoder {
     if s.hasSuffix(".0") { s.removeLast(2) }
     return .number(s)
   }
+  /// A Float written with its own shortest digits (0.1, not the Double
+  /// 0.10000000149011612 it widens to).
+  func boxFloat(_ f: Float) throws -> _JSONValue {
+    if f.isNaN || f.isInfinite { return try boxDouble(Double(f)) }
+    var s = f.description
+    if s.hasSuffix(".0") { s.removeLast(2) }
+    return .number(s)
+  }
 
   /// Encodes any value into a tree, applying the date and data strategies.
   func box<T: Encodable>(_ value: T, at key: (any CodingKey)? = nil) throws -> _JSONValue {
@@ -328,7 +336,7 @@ internal final class _JSONEncoderImpl: Encoder {
     if T.self == Int.self { return .number(String(unsafeBitCast(value, to: Int.self))) }
     if T.self == Bool.self { return .bool(unsafeBitCast(value, to: Bool.self)) }
     if T.self == Double.self { return try boxDouble(unsafeBitCast(value, to: Double.self)) }
-    if T.self == Float.self { return try boxDouble(Double(unsafeBitCast(value, to: Float.self))) }
+    if T.self == Float.self { return try boxFloat(unsafeBitCast(value, to: Float.self)) }
     if T.self == Int64.self { return .number(String(unsafeBitCast(value, to: Int64.self))) }
     if T.self == Int32.self { return .number(String(unsafeBitCast(value, to: Int32.self))) }
     if T.self == UInt.self { return .number(String(unsafeBitCast(value, to: UInt.self))) }
@@ -386,7 +394,7 @@ internal struct _JSONKeyedEncoder<Key: CodingKey>: KeyedEncodingContainerProtoco
   mutating func encode(_ value: Bool, forKey key: Key) throws { node.set(encoder.key(key), _JSONNode(.bool(value))) }
   mutating func encode(_ value: String, forKey key: Key) throws { node.set(encoder.key(key), _JSONNode(.string(value))) }
   mutating func encode(_ value: Double, forKey key: Key) throws { node.set(encoder.key(key), _JSONNode(try encoder.boxDouble(value))) }
-  mutating func encode(_ value: Float, forKey key: Key) throws { node.set(encoder.key(key), _JSONNode(try encoder.boxDouble(Double(value)))) }
+  mutating func encode(_ value: Float, forKey key: Key) throws { node.set(encoder.key(key), _JSONNode(try encoder.boxFloat(value))) }
   mutating func encode(_ value: Int, forKey key: Key) throws { node.set(encoder.key(key), _JSONNode(.number(String(value)))) }
   mutating func encode(_ value: Int8, forKey key: Key) throws { node.set(encoder.key(key), _JSONNode(.number(String(value)))) }
   mutating func encode(_ value: Int16, forKey key: Key) throws { node.set(encoder.key(key), _JSONNode(.number(String(value)))) }
@@ -436,7 +444,7 @@ internal struct _JSONUnkeyedEncoder: UnkeyedEncodingContainer {
   mutating func encode(_ value: Bool) throws { node.append(_JSONNode(.bool(value))) }
   mutating func encode(_ value: String) throws { node.append(_JSONNode(.string(value))) }
   mutating func encode(_ value: Double) throws { node.append(_JSONNode(try encoder.boxDouble(value))) }
-  mutating func encode(_ value: Float) throws { node.append(_JSONNode(try encoder.boxDouble(Double(value)))) }
+  mutating func encode(_ value: Float) throws { node.append(_JSONNode(try encoder.boxFloat(value))) }
   mutating func encode(_ value: Int) throws { node.append(_JSONNode(.number(String(value)))) }
   mutating func encode(_ value: Int8) throws { node.append(_JSONNode(.number(String(value)))) }
   mutating func encode(_ value: Int16) throws { node.append(_JSONNode(.number(String(value)))) }
@@ -489,7 +497,7 @@ internal struct _JSONSingleEncoder: SingleValueEncodingContainer {
   mutating func encode(_ value: Bool) throws { put(.bool(value)) }
   mutating func encode(_ value: String) throws { put(.string(value)) }
   mutating func encode(_ value: Double) throws { put(try encoder.boxDouble(value)) }
-  mutating func encode(_ value: Float) throws { put(try encoder.boxDouble(Double(value))) }
+  mutating func encode(_ value: Float) throws { put(try encoder.boxFloat(value)) }
   mutating func encode(_ value: Int) throws { put(.number(String(value))) }
   mutating func encode(_ value: Int8) throws { put(.number(String(value))) }
   mutating func encode(_ value: Int16) throws { put(.number(String(value))) }
@@ -536,7 +544,7 @@ internal struct _JSONNodeSingleEncoder: SingleValueEncodingContainer {
   mutating func encode(_ value: Bool) throws { put(.bool(value)) }
   mutating func encode(_ value: String) throws { put(.string(value)) }
   mutating func encode(_ value: Double) throws { put(try encoder.boxDouble(value)) }
-  mutating func encode(_ value: Float) throws { put(try encoder.boxDouble(Double(value))) }
+  mutating func encode(_ value: Float) throws { put(try encoder.boxFloat(value)) }
   mutating func encode(_ value: Int) throws { put(.number(String(value))) }
   mutating func encode(_ value: Int8) throws { put(.number(String(value))) }
   mutating func encode(_ value: Int16) throws { put(.number(String(value))) }
