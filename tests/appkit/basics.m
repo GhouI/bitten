@@ -137,6 +137,14 @@ static int left_window, views_freed;
 - (CGContextRef)_bn_backingContext;
 - (void)_bn_drawPending;
 @end
+/* Counts the hide/unhide it hears. */
+@interface HideWatch : NSView
+@property int hid, unhid;
+@end
+@implementation HideWatch
+- (void)viewDidHide { self.hid++; }
+- (void)viewDidUnhide { self.unhid++; }
+@end
 /* Fills whatever it is asked to draw with opaque red. */
 @interface RedFill : NSView
 @end
@@ -471,6 +479,24 @@ int main(void) {
         CHECK(![[label colorWithAlphaComponent:0.5].description isEqualToString:label.description]);
         CHECK([[label colorWithAlphaComponent:0.5] isEqual:[label colorWithAlphaComponent:0.5]]);
         CHECK(![label isEqual:NSColor.secondaryLabelColor]);
+    }
+
+    /* Hiding a view tells it and its shown subviews; a subview hidden on
+     * its own hears nothing from its ancestor's changes. */
+    {
+        HideWatch *outer = [[HideWatch alloc] initWithFrame:NSMakeRect(0, 0, 10, 10)];
+        HideWatch *inner = [[HideWatch alloc] initWithFrame:NSMakeRect(0, 0, 5, 5)];
+        HideWatch *own = [[HideWatch alloc] initWithFrame:NSMakeRect(0, 0, 5, 5)];
+        [outer addSubview:inner];
+        [outer addSubview:own];
+        own.hidden = YES;
+        CHECK(own.hid == 1);
+        outer.hidden = YES;
+        CHECK(outer.hid == 1 && inner.hid == 1 && own.hid == 1);
+        outer.hidden = YES;   /* no change, no message */
+        CHECK(outer.hid == 1);
+        outer.hidden = NO;
+        CHECK(outer.unhid == 1 && inner.unhid == 1 && own.unhid == 0);
     }
 
     puts("AppKit basics ok");

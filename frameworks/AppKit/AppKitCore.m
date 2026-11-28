@@ -220,7 +220,27 @@ static void bn_autoresize_axis(CGFloat delta, BOOL flexLo, BOOL flexLen, BOOL fl
     self.needsDisplay = YES;
 }
 - (BOOL)isHidden { return _hidden; }
-- (void)setHidden:(BOOL)hidden { _hidden = hidden; }
+/* As in AppKit: a view that becomes hidden or shown (itself or by an
+ * ancestor) hears viewDidHide / viewDidUnhide, with its subviews that
+ * aren't hidden themselves. */
+static void bn_tell_hidden(NSView *v, BOOL hidden) {
+    if (hidden) [v viewDidHide];
+    else [v viewDidUnhide];
+    for (NSView *s in v->_subviews)
+        if (!s->_hidden) bn_tell_hidden(s, hidden);
+}
+- (void)setHidden:(BOOL)hidden {
+    if (_hidden == hidden) return;
+    BOOL ancestorHidden = NO;
+    for (NSView *v = _superview; v; v = v->_superview)
+        if (v->_hidden) { ancestorHidden = YES; break; }
+    _hidden = hidden;
+    if (ancestorHidden) return;
+    bn_tell_hidden(self, hidden);
+    /* where it is shows something else now */
+    if (_superview) [_superview setNeedsDisplayInRect:self.frame];
+    if (!hidden) self.needsDisplay = YES;
+}
 - (BOOL)wantsLayer { return _wantsLayer; }
 - (void)setWantsLayer:(BOOL)flag {
     _wantsLayer = flag;

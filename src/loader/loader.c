@@ -1132,6 +1132,7 @@ static struct dx_image *map_image(const char *path, int is_main) {
 
     if (nimages >= MAX_IMAGES) dx_fatal("too many images");
     images[nimages++] = img;
+    { void perf_map_add(struct dx_image *); perf_map_add(img); }
     if (is_main) main_image = img;
     dx_log(1, "mapped %s at %p (slide 0x%lx)", real, base, (unsigned long)img->slide);
 
@@ -1203,6 +1204,45 @@ const struct dx_image *dx_image_for_address(const void *addr, const char **name_
         }
     }
     return NULL;
+}
+
+/* BITTEN_PERF_MAP=1: each image's symbols go to /tmp/perf-<pid>.map,
+ * where `perf report` looks for code it has no ELF symbols for, so
+ * profiles name the functions of the Mach-O images (frameworks and the
+ * program) instead of showing bare addresses. */
+static int by_value(const void *a, const void *b) {
+    uint64_t x = ((const struct nlist_64 *)a)->n_value, y = ((const struct nlist_64 *)b)->n_value;
+    return x < y ? -1 : x > y;
+}
+void perf_map_add(struct dx_image *img);
+void perf_map_add(struct dx_image *img) {
+    static int on = -1;
+    if (on < 0) on = getenv("BITTEN_PERF_MAP") != NULL;
+    if (!on || !img->symtab.nsyms) return;
+    struct nlist_64 *syms = img_off(img, img->symtab.symoff);
+    const char *strs = img_off(img, img->symtab.stroff);
+    if (!syms || !strs) return;
+    struct nlist_64 *list = malloc(img->symtab.nsyms * sizeof *list);
+    if (!list) return;
+    uint32_t n = 0;
+    for (uint32_t i = 0; i < img->symtab.nsyms; i++)
+        if (!(syms[i].n_type & N_STAB) && (syms[i].n_type & N_TYPE) == N_SECT && syms[i].n_strx < img->symtab.strsize)
+            list[n++] = syms[i];
+    qsort(list, n, sizeof *list, by_value);
+    char path[64];
+    snprintf(path, sizeof path, "/tmp/perf-%d.map", (int)getpid());
+    FILE *f = fopen(path, "a");
+    if (f) {
+        for (uint32_t i = 0; i < n; i++) {
+            uint64_t start = list[i].n_value + img->slide;
+            uint64_t end = i + 1 < n ? list[i + 1].n_value + img->slide : start + 16;
+            if (end <= start) continue;
+            const char *name = strs + list[i].n_strx;
+            fprintf(f, "%lx %lx %s\n", (unsigned long)start, (unsigned long)(end - start), name[0] == '_' ? name + 1 : name);
+        }
+        fclose(f);
+    }
+    free(list);
 }
 
 /* Nearest preceding symbol, for dladdr and crash reports. */

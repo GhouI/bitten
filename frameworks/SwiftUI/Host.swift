@@ -383,9 +383,18 @@ open class _HostingViewBase: NSView {
   }
   /// Set when a rebuild is to repaint only where the trees draw.
   var _rebuildRepaint = false
+  /// Shown again: a rebuild put off while hidden happens now.
+  override open func viewDidUnhide() {
+    super.viewDidUnhide()
+    if _rebuildRepaint { needsLayout = true }
+    if _root == nil { _bn_repaintWhole() }
+  }
   override open func layout() {
     super.layout()
     guard _rebuildRepaint else { return }
+    // Hidden (a page kept for later, say): rebuilt when shown, not on
+    // every change to what it watches.
+    if isHiddenOrHasHiddenAncestor { return }
     _rebuildRepaint = false
     let r = _layout()
     var area: CGRect? = nil
@@ -432,7 +441,7 @@ open class _HostingViewBase: NSView {
                                                      })
     if let t = token { ctx.trackings.append(t) }
     _placedIn = bounds.size
-    if _debugTree { _dbg("bitten: swiftui tree in \(bounds.size)"); r._dumpTree() }
+    if _debugTree { _dbg("bitten: swiftui tree in \(bounds.size) host \(UInt(bitPattern: ObjectIdentifier(self).hashValue)) hidden \(isHiddenOrHasHiddenAncestor) window \(window != nil)"); r._dumpTree() }
     _orderPlatformViews(r)
     return r
   }

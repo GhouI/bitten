@@ -5582,3 +5582,20 @@ Debugging aids:
   now remembered per call site. CPU over eight Settings page switches:
   21.6 s -> 21.25 s.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI/AppKit: hidden hosting views wait to rebuild
+
+- The target app keeps a hosting view for each Settings page it has
+  shown, hidden when another page is up. All of them watch the shared
+  navigation model, so each page switch rebuilt every page seen so far,
+  3–4 times each. A hidden host now puts its rebuild off until it is
+  shown again. One switch builds 6 trees instead of 23, and CPU over
+  eight switches went from 21.25 s to 12.0 s.
+- NSView sends `viewDidHide` / `viewDidUnhide` to a view and its shown
+  subviews when it is hidden or shown, and redisplays where it was, as
+  AppKit does.
+- `BITTEN_PERF_MAP=1` writes the Mach-O images' symbols to
+  /tmp/perf-<pid>.map for profiling, and the SwiftUI tree dump names
+  each host and whether it is hidden.
+- Tests: `hiddenhost`, and hide/unhide in `tests/appkit/basics.m`.
+- Target app (total `^MISSING`): 0 -> 0.

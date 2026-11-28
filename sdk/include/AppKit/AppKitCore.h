@@ -81,6 +81,8 @@ typedef NS_ENUM(NSInteger, NSViewLayerContentsPlacement) {
 - (void)drawRect:(NSRect)dirtyRect;
 - (void)layout;
 - (void)viewDidMoveToWindow;
+- (void)viewDidHide;
+- (void)viewDidUnhide;
 - (void)viewWillMoveToWindow:(nullable NSWindow *)window;
 - (NSPoint)convertPoint:(NSPoint)point fromView:(nullable NSView *)view;
 - (NSPoint)convertPoint:(NSPoint)point toView:(nullable NSView *)view;
