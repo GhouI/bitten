@@ -44,6 +44,7 @@ typedef NS_ENUM(NSInteger, SCStreamErrorCode) {
 @interface SCShareableContent : NSObject
 + (void)getShareableContentWithCompletionHandler:(void (^)(SCShareableContent *_Nullable content,
                                                            NSError *_Nullable error))completionHandler;
++ (void)getCurrentProcessShareableContentWithCompletionHandler:(void (^)(SCShareableContent *_Nullable content, NSError *_Nullable error))completionHandler;
 + (void)getShareableContentExcludingDesktopWindows:(BOOL)excludeDesktopWindows
                                onScreenWindowsOnly:(BOOL)onScreenWindowsOnly
                                  completionHandler:(void (^)(SCShareableContent *_Nullable content,
@@ -67,6 +68,8 @@ typedef NS_ENUM(NSInteger, SCStreamErrorCode) {
 @property CGRect sourceRect, destinationRect;
 @property OSType pixelFormat;
 @property (nullable) CGColorRef backgroundColor;
+/* SCCaptureResolutionType: automatic (0), best (1), nominal (2) */
+@property NSInteger captureResolution;
 @end
 
 @interface SCScreenshotManager : NSObject

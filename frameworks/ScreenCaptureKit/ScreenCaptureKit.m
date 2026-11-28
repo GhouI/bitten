@@ -34,6 +34,10 @@ static NSError *declined(void) {
 + (void)getShareableContentWithCompletionHandler:(void (^)(SCShareableContent *, NSError *))handler {
     [self getShareableContentExcludingDesktopWindows:NO onScreenWindowsOnly:NO completionHandler:handler];
 }
+/* The calling process's own windows (macOS 14.4): none to share here either. */
++ (void)getCurrentProcessShareableContentWithCompletionHandler:(void (^)(SCShareableContent *, NSError *))handler {
+    [self getShareableContentExcludingDesktopWindows:NO onScreenWindowsOnly:NO completionHandler:handler];
+}
 /* Nothing is shareable, which is not an error: the lists are empty. */
 + (void)getShareableContentExcludingDesktopWindows:(BOOL)exclude onScreenWindowsOnly:(BOOL)onScreen
                                  completionHandler:(void (^)(SCShareableContent *, NSError *))handler {
@@ -57,7 +61,8 @@ static NSError *declined(void) {
 @implementation SCStreamConfiguration
 @synthesize width = _width, height = _height, showsCursor = _showsCursor, capturesAudio = _capturesAudio,
             scalesToFit = _scalesToFit, ignoreShadowsSingleWindow = _ignoreShadowsSingleWindow,
-            sourceRect = _sourceRect, destinationRect = _destinationRect, pixelFormat = _pixelFormat;
+            sourceRect = _sourceRect, destinationRect = _destinationRect, pixelFormat = _pixelFormat,
+            captureResolution = _captureResolution;
 - (instancetype)init {
     if ((self = [super init])) {
         _width = 1920;

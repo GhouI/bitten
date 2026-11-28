@@ -5,6 +5,8 @@
 #import <AVFAudio/AVFAudio.h>
 #import <ScreenCaptureKit/ScreenCaptureKit.h>
 #include <dispatch/dispatch.h>
+#include <dlfcn.h>
+#import <objc/message.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -121,6 +123,39 @@ int main(void) {
         }];
         CHECK(dispatch_semaphore_wait(got, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)) == 0);
         CHECK(capture.code == SCStreamErrorUserDeclined && [capture.domain isEqualToString:SCStreamErrorDomain]);
+        __block SCShareableContent *mine = nil;
+        [SCShareableContent getCurrentProcessShareableContentWithCompletionHandler:^(SCShareableContent *c, NSError *e) {
+            mine = c;
+            dispatch_semaphore_signal(got);
+        }];
+        CHECK(dispatch_semaphore_wait(got, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)) == 0);
+        CHECK(mine && mine.windows.count == 0);
+        SCStreamConfiguration *cfg = [SCStreamConfiguration new];
+        cfg.captureResolution = 1;
+        CHECK(cfg.captureResolution == 1);
+
+        /* CoreImage from a Metal texture (Metal loaded, not linked) */
+        CHECK(dlopen("/System/Library/Frameworks/Metal.framework/Versions/A/Metal", RTLD_NOW) != NULL);
+        id (*makeDevice)(void) = (id (*)(void))dlsym(RTLD_DEFAULT, "MTLCreateSystemDefaultDevice");
+        id device = makeDevice ? makeDevice() : nil;
+        CHECK(device != nil);
+        id desc = ((id (*)(id, SEL, NSUInteger, NSUInteger, NSUInteger, BOOL))objc_msgSend)(
+            objc_getClass("MTLTextureDescriptor"),
+            sel_registerName("texture2DDescriptorWithPixelFormat:width:height:mipmapped:"), 80, 2, 1, NO);
+        id tex = ((id (*)(id, SEL, id))objc_msgSend)(device, sel_registerName("newTextureWithDescriptor:"), desc);
+        CHECK(tex != nil);
+        const uint8_t bgra[8] = {255, 0, 0, 255, 0, 0, 255, 255};   /* blue, red */
+        typedef struct { NSUInteger x, y, z, w, h, d; } Region;
+        ((void (*)(id, SEL, Region, NSUInteger, const void *, NSUInteger))objc_msgSend)(
+            tex, sel_registerName("replaceRegion:mipmapLevel:withBytes:bytesPerRow:"), (Region){0, 0, 0, 2, 1, 1}, 0, bgra, 8);
+        CIImage *fromTexture = [[CIImage alloc] initWithMTLTexture:tex options:nil];
+        CHECK(CGRectEqualToRect(fromTexture.extent, CGRectMake(0, 0, 2, 1)));
+        CGImageRef texImage = [[CIContext contextWithMTLDevice:device] createCGImage:fromTexture fromRect:fromTexture.extent];
+        uint8_t first[4], second[4];
+        pixel(texImage, 0, 0, first);
+        pixel(texImage, 1, 0, second);
+        CHECK(first[2] > 200 && first[0] < 50 && second[0] > 200 && second[2] < 50);
+        CGImageRelease(texImage);
     }
     printf("media ok\n");
     return 0;
