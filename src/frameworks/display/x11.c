@@ -7,6 +7,7 @@
  * Keys are mapped by position (as the page maps KeyboardEvent.code) to Mac
  * virtual key codes; Super is Command, Alt is Option. */
 #include "display.h"
+#include "dx.h"
 
 #if __has_include(<X11/Xlib.h>)
 #include <X11/Xatom.h>
@@ -20,8 +21,6 @@
 #include <string.h>
 #include <sys/eventfd.h>
 #include <unistd.h>
-
-#include "dx.h"
 
 #define X_FUNCS(F)                                                                                      \
     F(XOpenDisplay) F(XInternAtom) F(XMatchVisualInfo) F(XCreateColormap) F(XCreateWindow)             \
