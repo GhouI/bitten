@@ -71,7 +71,7 @@ id root_retain(id obj) {
     pthread_mutex_lock(&s->lock);
     rc_find(s, obj, 1)->extra++;
     pthread_mutex_unlock(&s->lock);
-    dx_rr_note(obj, 1);
+    if (dx_rr_active) dx_rr_note(obj, 1);
     return obj;
 }
 
@@ -82,12 +82,12 @@ int root_try_retain(id obj) {
     int ok = !e->deallocating;
     if (ok) e->extra++;
     pthread_mutex_unlock(&s->lock);
-    if (ok) dx_rr_note(obj, 1);
+    if (ok && dx_rr_active) dx_rr_note(obj, 1);
     return ok;
 }
 
 void root_release(id obj) {
-    dx_rr_note(obj, -1);
+    if (dx_rr_active) dx_rr_note(obj, -1);
     struct shard *s = shard_for(obj);
     pthread_mutex_lock(&s->lock);
     struct rc_entry *e = rc_find(s, obj, 0);
@@ -433,7 +433,7 @@ void object_dispose_impl(id obj) {
     if (!obj) return;
     dx_alloc_note(obj->isa, -1);
     dx_live_note(obj, -1);
-    dx_rr_forget(obj);
+    if (dx_rr_active) dx_rr_forget(obj);
     d_objc_destructInstance(obj);
     /* BITTEN_HEAP_QUARANTINE=3: keep freed objects' memory, poisoned (debugging) */
     const char *q = getenv("BITTEN_HEAP_QUARANTINE");
@@ -603,7 +603,22 @@ static id d_objc_retainAutoreleasedReturnValue(id obj);
 static id d_objc_unsafeClaimAutoreleasedReturnValue(id obj);
 static __thread int returned_plus_one;
 
+static int caller_accepts_uncached(const uint8_t *ra);
+/* The answer for a call site never changes (code doesn't), and the
+ * image lookup is a walk over every image: remembered per return
+ * address, in one word each (address << 1 | answer), so threads racing
+ * on a slot see an old answer or a new one, never a torn one. */
+static _Atomic uintptr_t accepts_cache[4096];
 static int caller_accepts(const uint8_t *ra) {
+    uintptr_t a = (uintptr_t)ra;
+    _Atomic uintptr_t *slot = &accepts_cache[(a >> 2) & 4095];
+    uintptr_t v = *slot;
+    if (v >> 1 == a) return (int)(v & 1);
+    int ok = caller_accepts_uncached(ra);
+    *slot = a << 1 | (uintptr_t)ok;
+    return ok;
+}
+static int caller_accepts_uncached(const uint8_t *ra) {
     if (!dx_image_for_address(ra, NULL, NULL)) return 0;
     if (ra[0] != 0x48 || ra[1] != 0x89 || ra[2] != 0xc7) return 0;
     const uint8_t *p = ra + 3;

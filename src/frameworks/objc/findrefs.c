@@ -389,6 +389,11 @@ void dx_live_note(const void *obj, int delta) {
 }
 
 /* ---- BITTEN_TRACE_RETAINS ---- */
+int dx_rr_active;
+__attribute__((constructor)) static void rr_boot(void) {
+    const char *e = getenv("BITTEN_TRACE_RETAINS");
+    dx_rr_active = e && *e;
+}
 #define RR_DEPTH 8
 struct rr_site { void *pc[RR_DEPTH]; long count; };
 struct rr_obj { uintptr_t obj; int n, cap; struct rr_site *sites; };

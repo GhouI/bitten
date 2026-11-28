@@ -59,6 +59,9 @@ void dx_live_note(const void *obj, int delta);
 int dx_objc_is_weak_slot(void *referent, void *slot);
 /* BITTEN_TRACE_RETAINS: `obj` retained (+1) or released (-1); freed. */
 void dx_rr_note(void *obj, int delta);
+/* Whether BITTEN_TRACE_RETAINS is on (checked before calling, it being off
+ * on every retain and release). */
+extern int dx_rr_active;
 void dx_rr_forget(void *obj);
 
 #endif

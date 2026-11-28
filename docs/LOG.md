@@ -5571,3 +5571,14 @@ Debugging aids:
   page switches). The tables now have 65,536 buckets with a mixed hash.
   CPU over eight Settings page switches: 22.2 s -> 21.6 s.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## objc: cheaper retains and autoreleased returns
+
+- The retain tracer (`BITTEN_TRACE_RETAINS`) is checked with one flag at
+  each retain and release instead of a call each time.
+- `objc_autoreleaseReturnValue` decides whether the caller takes the
+  object at +1 by reading the code at the return address, and it walked
+  every loaded image to check that address on each call. The answer is
+  now remembered per call site. CPU over eight Settings page switches:
+  21.6 s -> 21.25 s.
+- Target app (total `^MISSING`): 0 -> 0.
