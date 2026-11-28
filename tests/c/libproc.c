@@ -169,6 +169,15 @@ int main(int argc, char **argv) {
     struct bsdinfo full;
     CHECK(proc_pidinfo(self, PROC_PIDTBSDINFO, 0, &full, sizeof full) == sizeof full);
     CHECK(full.pid == small.pid && full.ppid == small.ppid && full.ruid == small.ruid && full.uid == small.uid);
+    /* The start time is exact to a clock tick: just before now, not up to a
+     * second early (programs time their launch from it). */
+    {
+        struct { long sec; int usec; } now;
+        int gettimeofday(void *, void *);
+        CHECK(gettimeofday(&now, NULL) == 0);
+        double start = (double)full.start_sec + full.start_usec / 1e6, at = (double)now.sec + now.usec / 1e6;
+        CHECK(start <= at + 0.02 && at - start < 0.5);
+    }
     struct vnodepathinfo vnode;
     CHECK(proc_pidinfo(self, PROC_PIDVNODEPATHINFO, 0, &vnode, sizeof vnode) == sizeof vnode);
     CHECK(getcwd(cwd, sizeof cwd) && !strcmp(cwd, vnode.cwd.path) && vnode.root.path[0] == '/');

@@ -324,19 +324,19 @@ static uint64_t proc_ticks_ns(uint64_t ticks) {
     return (ticks / hz) * 1000000000 + (ticks % hz) * 1000000000 / hz;
 }
 
+/* A process's start as wall time. Its start is kept in clock ticks since
+ * boot (CLOCK_BOOTTIME); /proc/stat's btime is whole seconds, which made
+ * the start up to a second early: now minus how long ago it started, by
+ * the boot clock, instead. */
 static void proc_start_time(uint64_t ticks, uint64_t *seconds, uint64_t *micros) {
-    FILE *f = fopen("/proc/stat", "re");
-    if (!f) return;
-    char line[256];
-    unsigned long long boot;
-    while (fgets(line, sizeof line, f)) {
-        if (sscanf(line, "btime %llu", &boot) != 1) continue;
-        uint64_t ns = proc_ticks_ns(ticks);
-        *seconds = boot + ns / 1000000000;
-        *micros = ns % 1000000000 / 1000;
-        break;
-    }
-    fclose(f);
+    struct timespec now, boot;
+    if (clock_gettime(CLOCK_REALTIME, &now) || clock_gettime(CLOCK_BOOTTIME, &boot)) return;
+    uint64_t started = proc_ticks_ns(ticks);
+    uint64_t since_boot = (uint64_t)boot.tv_sec * 1000000000ull + (uint64_t)boot.tv_nsec;
+    uint64_t ago = since_boot > started ? since_boot - started : 0;
+    uint64_t wall = (uint64_t)now.tv_sec * 1000000000ull + (uint64_t)now.tv_nsec - ago;
+    *seconds = wall / 1000000000;
+    *micros = wall % 1000000000 / 1000;
 }
 
 static int next_numeric(DIR *dir) {
