@@ -1,6 +1,7 @@
 // AppKit object model: the application and its delegate, windows, views
 // and their hierarchy, hit testing, drawing passes.
 #import <AppKit/AppKit.h>
+#import <objc/message.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <dlfcn.h>
@@ -497,6 +498,27 @@ int main(void) {
         CHECK(outer.hid == 1);
         outer.hidden = NO;
         CHECK(outer.unhid == 1 && inner.unhid == 1 && own.unhid == 0);
+    }
+
+    /* A menu shows no separator at either end or next to another: one
+     * ending in a separator is as tall as the same menu without it. */
+    {
+        NSMenu *plain = [[NSMenu alloc] initWithTitle:@""], *extra = [[NSMenu alloc] initWithTitle:@""];
+        [plain addItemWithTitle:@"A" action:NULL keyEquivalent:@""];
+        [plain addItem:[NSMenuItem separatorItem]];
+        [plain addItemWithTitle:@"B" action:NULL keyEquivalent:@""];
+        [extra addItem:[NSMenuItem separatorItem]];
+        [extra addItemWithTitle:@"A" action:NULL keyEquivalent:@""];
+        [extra addItem:[NSMenuItem separatorItem]];
+        [extra addItem:[NSMenuItem separatorItem]];
+        [extra addItemWithTitle:@"B" action:NULL keyEquivalent:@""];
+        [extra addItem:[NSMenuItem separatorItem]];
+        Class mv = NSClassFromString(@"BNMenuView");
+        CHECK(mv != Nil);
+        NSSize (*size)(id, SEL, id) = (NSSize (*)(id, SEL, id))objc_msgSend;
+        NSSize a = size(mv, NSSelectorFromString(@"sizeForMenu:"), plain);
+        NSSize b = size(mv, NSSelectorFromString(@"sizeForMenu:"), extra);
+        CHECK(a.height == b.height);
     }
 
     puts("AppKit basics ok");
