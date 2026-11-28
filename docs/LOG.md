@@ -5599,3 +5599,14 @@ Debugging aids:
   each host and whether it is hidden.
 - Tests: `hiddenhost`, and hide/unhide in `tests/appkit/basics.m`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: cheaper text measuring
+
+- Text widths were cached under a string key that joined the font name
+  with its size printed as a float. Every measure formatted a float and
+  hashed a long string. The caches are now keyed by a small struct (face
+  name, size, text), and hold 64K widths instead of clearing at 4K. A
+  text node keeps its last line wrapping, which measuring and drawing ask
+  for several times in a pass. CPU over eight Settings page switches:
+  12.0 s -> 11.2 s.
+- Target app (total `^MISSING`): 0 -> 0.
