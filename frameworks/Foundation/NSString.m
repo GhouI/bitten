@@ -166,6 +166,32 @@ char *BNFormatUTF8(NSString *format, va_list args) {
 static NSString *format_string(NSString *format, va_list args, BOOL mutable) {
     char *utf8 = BNFormatUTF8(format, args);
     CFStringRef s = CFStringCreateWithCString(NULL, utf8, kCFStringEncodingUTF8);
+    /* A %s given something not UTF-8 (or not a C string at all): keep the
+     * text, the bad bytes as U+FFFD, rather than nothing. */
+    if (!s) {
+        size_t n = strlen(utf8);
+        char *fixed = malloc(n * 3 + 1), *w = fixed;
+        const unsigned char *r = (const unsigned char *)utf8, *end = r + n;
+        while (r < end) {
+            unsigned c = *r;
+            int len = c < 0x80 ? 1 : (c >> 5) == 6 ? 2 : (c >> 4) == 14 ? 3 : (c >> 3) == 30 ? 4 : 0;
+            int ok = len > 0 && r + len <= end;
+            for (int k = 1; ok && k < len; k++) ok = (r[k] & 0xC0) == 0x80;
+            if (ok && len == 2) ok = c >= 0xC2;
+            if (ok) {
+                memcpy(w, r, (size_t)len);
+                w += len;
+                r += len;
+            } else {
+                memcpy(w, "\xEF\xBF\xBD", 3);
+                w += 3;
+                r++;
+            }
+        }
+        *w = 0;
+        s = CFStringCreateWithCString(NULL, fixed, kCFStringEncodingUTF8);
+        free(fixed);
+    }
     free(utf8);
     if (mutable && s) {
         CFMutableStringRef m = CFStringCreateMutableCopy(NULL, 0, s);

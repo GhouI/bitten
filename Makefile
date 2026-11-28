@@ -585,6 +585,7 @@ SWLIB_MACOS_calendar := 14.0
 swlib_macos = $(or $(SWLIB_MACOS_$(1)),11.0)
 # Frameworks a test links besides the overlays.
 SWLIB_LIBS_foundation := $(FOUNDATION) $(FOUNDATION_COMBINE)
+SWLIB_LIBS_behaviour := $(FOUNDATION) $(FOUNDATION_COMBINE)
 SWLIB_LIBS_coretext := $(FOUNDATION)
 SWLIB_LIBS_handoff := $(FOUNDATION) $(FOUNDATION_COMBINE) $(call overlay_lib,Observation)
 SWLIB_LIBS_urlrequest := $(FOUNDATION) $(FOUNDATION_COMBINE)

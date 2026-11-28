@@ -326,7 +326,13 @@ extension StringProtocol {
         out.append(c)
         atWordStart = true
       } else {
-        out += atWordStart ? c.uppercased() : c.lowercased()
+        // a word's first letter in title case ("ǆ" -> "ǅ", not "Ǆ")
+        if atWordStart, let first = c.unicodeScalars.first {
+          out += first.properties.titlecaseMapping
+          for s in c.unicodeScalars.dropFirst() { out += s.properties.lowercaseMapping }
+        } else {
+          out += c.lowercased()
+        }
         atWordStart = false
       }
     }
