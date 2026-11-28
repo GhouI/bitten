@@ -5547,3 +5547,17 @@ Debugging aids:
   app's resident size was 202 MB, and is now 164 MB.
 - Test: `tests/c/odds.c`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Stand-in fonts report Apple's style names; italic slant is positive
+
+- CoreText (font.c): a font standing in for an Apple font reports its
+  style in Apple's words through CTFontCopyName (style and subfamily keys)
+  and CTFontCopyAttribute (Regular, Italic, Bold, Bold Italic), as its
+  matching descriptors already did; it said "Book" or "Oblique", so a
+  program choosing the Regular face of Menlo among #292's four found none
+  and took another (the target app's terminal text came out italic).
+  CTFontCopyFontDescriptor includes the style and the reported family.
+- kCTFontSlantTrait is positive for italic faces (clockwise, as
+  documented); it was negative.
+- Test: tests/c/coretext.c.
+- Target app (total `^MISSING`): 0 -> 0.

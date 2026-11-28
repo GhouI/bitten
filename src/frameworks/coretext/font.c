@@ -381,6 +381,27 @@ static int apple_index(const char *name) {
 }
 /* The names a font reports: its face's, or the Apple font's it stands in
  * for. Returns 1 when standing in. */
+/* A style in Apple's words: Book, Roman and Normal are Regular, Oblique is
+ * Italic ("Bold Oblique" -> "Bold Italic"). */
+static void apple_style_words(const char *style, char *words, size_t n) {
+    if (!style || !style[0] || !strcasecmp(style, "Book") || !strcasecmp(style, "Roman") || !strcasecmp(style, "Normal"))
+        style = "Regular";
+    size_t w = 0;
+    for (const char *c = style; *c && w + 7 < n;) {
+        if (!strncasecmp(c, "Oblique", 7)) { memcpy(words + w, "Italic", 6); w += 6; c += 7; }
+        else words[w++] = *c++;
+    }
+    words[w] = 0;
+}
+static int reported_names(const struct ct_font *f, char *family, char *ps, char *full, size_t n);
+/* The style a font reports: its face's, or in Apple's words when it stands
+ * in for an Apple font (as its descriptors say). */
+static Ref reported_style(const struct ct_font *f) {
+    char fam[256], ps[256], full[256], words[64];
+    if (!reported_names(f, fam, ps, full, sizeof fam)) return ct_cfstring(f->face->style);
+    apple_style_words(f->face->style, words, sizeof words);
+    return ct_cfstring(words);
+}
 static int reported_names(const struct ct_font *f, char *family, char *ps, char *full, size_t n) {
     char req[256] = "";
     if (f->requested_name) cstring(f->requested_name, req, sizeof req);
@@ -391,17 +412,9 @@ static int reported_names(const struct ct_font *f, char *family, char *ps, char 
         snprintf(full, n, "%s", f->face->full);
         return 0;
     }
-    const char *style = f->face->style[0] ? f->face->style : "Regular";
-    if (!strcasecmp(style, "Book") || !strcasecmp(style, "Roman") || !strcasecmp(style, "Normal")) style = "Regular";
-    /* Apple's style words: Oblique is Italic ("Bold Oblique" -> "Bold Italic"),
-     * and the PostScript name drops the spaces (Menlo-BoldItalic) */
-    char words[64] = "", st[64];
-    size_t w = 0;
-    for (const char *c = style; *c && w + 7 < sizeof words;) {
-        if (!strncasecmp(c, "Oblique", 7)) { memcpy(words + w, "Italic", 6); w += 6; c += 7; }
-        else words[w++] = *c++;
-    }
-    words[w] = 0;
+    /* Apple's style words; the PostScript name drops the spaces (Menlo-BoldItalic) */
+    char words[64], st[64];
+    apple_style_words(f->face->style, words, sizeof words);
     size_t k = 0;
     for (const char *c = words; *c && k + 1 < sizeof st; c++)
         if (*c != ' ') st[k++] = *c;
@@ -438,7 +451,7 @@ DX_FN(CTFontCopyDisplayName);
 static Ref d_CTFontCopyName(const struct ct_font *f, Ref key) {
     if (!f || !key) return NULL;
     if (d_CFEqual(key, d_kCTFontFamilyNameKey)) return d_CTFontCopyFamilyName(f);
-    if (d_CFEqual(key, d_kCTFontSubFamilyNameKey) || d_CFEqual(key, d_kCTFontStyleNameKey)) return ct_cfstring(f->face->style);
+    if (d_CFEqual(key, d_kCTFontSubFamilyNameKey) || d_CFEqual(key, d_kCTFontStyleNameKey)) return reported_style(f);
     if (d_CFEqual(key, d_kCTFontFullNameKey) || d_CFEqual(key, d_kCTFontUniqueNameKey)) return d_CTFontCopyFullName(f);
     if (d_CFEqual(key, d_kCTFontPostScriptNameKey)) return d_CTFontCopyPostScriptName(f);
     return NULL;
@@ -473,7 +486,7 @@ static double weight_trait(int w) {
 static Ref d_CTFontCopyTraits(const struct ct_font *f) {
     if (!f) return NULL;
     Ref sym = number(d_CTFontGetSymbolicTraits(f)), weight = number(weight_trait(f->face->weight));
-    Ref slant = number(f->face->italic ? -0.07 : 0), width = number(0);
+    Ref slant = number(f->face->italic ? 0.07 : 0), width = number(0);  /* clockwise is positive */
     const void *keys[] = {d_kCTFontSymbolicTrait, d_kCTFontWeightTrait, d_kCTFontSlantTrait, d_kCTFontWidthTrait};
     const void *vals[] = {sym, weight, slant, width};
     Ref d = make_dict(keys, vals, 4);
@@ -493,7 +506,7 @@ static Ref d_CTFontCopyAttribute(const struct ct_font *f, Ref key) {
     if (!f || !key) return NULL;
     if (d_CFEqual(key, d_kCTFontNameAttribute)) return d_CTFontCopyPostScriptName(f);
     if (d_CFEqual(key, d_kCTFontFamilyNameAttribute)) return ct_cfstring(f->face->family);
-    if (d_CFEqual(key, d_kCTFontStyleNameAttribute)) return ct_cfstring(f->face->style);
+    if (d_CFEqual(key, d_kCTFontStyleNameAttribute)) return reported_style(f);
     if (d_CFEqual(key, d_kCTFontDisplayNameAttribute)) return ct_cfstring(f->face->full);
     if (d_CFEqual(key, d_kCTFontSizeAttribute)) return number(f->size);
     if (d_CFEqual(key, d_kCTFontTraitsAttribute)) return d_CTFontCopyTraits(f);
@@ -696,16 +709,7 @@ static struct ct_desc *stand_in_desc(struct ttf *face, Ref apple_name) {
     struct ct_font *f = ct_font_new(face, 12, NULL, apple_name);
     if (!f) return NULL;
     Ref ps = d_CTFontCopyPostScriptName(f), fam = d_CTFontCopyFamilyName(f), full = d_CTFontCopyFullName(f);
-    const char *st = face->style[0] ? face->style : "Regular";
-    if (!strcasecmp(st, "Book") || !strcasecmp(st, "Roman") || !strcasecmp(st, "Normal")) st = "Regular";
-    char words[64];
-    size_t w = 0;
-    for (const char *c = st; *c && w + 7 < sizeof words;) {
-        if (!strncasecmp(c, "Oblique", 7)) { memcpy(words + w, "Italic", 6); w += 6; c += 7; }
-        else words[w++] = *c++;
-    }
-    words[w] = 0;
-    Ref style = ct_cfstring(words), traits = d_CTFontCopyTraits(f);
+    Ref style = reported_style(f), traits = d_CTFontCopyTraits(f);
     const void *keys[] = {d_kCTFontNameAttribute, d_kCTFontFamilyNameAttribute, d_kCTFontStyleNameAttribute,
                           d_kCTFontDisplayNameAttribute, d_kCTFontTraitsAttribute};
     const void *vals[] = {ps, fam, style, full, traits};
@@ -821,12 +825,14 @@ DX_FN(CTFontCreateWithFontDescriptor);
 
 static struct ct_desc *d_CTFontCopyFontDescriptor(const struct ct_font *f) {
     if (!f) return NULL;
-    Ref name = d_CTFontCopyPostScriptName(f), family = ct_cfstring(f->face->family), size = number(f->size);
-    const void *keys[] = {d_kCTFontNameAttribute, d_kCTFontFamilyNameAttribute, d_kCTFontSizeAttribute};
-    const void *vals[] = {name, family, size};
-    Ref dict = make_dict(keys, vals, 3);
+    Ref name = d_CTFontCopyPostScriptName(f), family = d_CTFontCopyFamilyName(f), size = number(f->size);
+    Ref style = reported_style(f);
+    const void *keys[] = {d_kCTFontNameAttribute, d_kCTFontFamilyNameAttribute, d_kCTFontSizeAttribute,
+                          d_kCTFontStyleNameAttribute};
+    const void *vals[] = {name, family, size, style};
+    Ref dict = make_dict(keys, vals, 4);
     struct ct_desc *d = desc_new(dict);
-    cg_release(dict); cg_release(name); cg_release(family); cg_release(size);
+    cg_release(dict); cg_release(name); cg_release(family); cg_release(size); cg_release(style);
     return d;
 }
 DX_FN(CTFontCopyFontDescriptor);
