@@ -461,6 +461,25 @@ int main(void) {
         }
     }
 
+    /* The layout manager's per-character answers, and attachment strings. */
+    {
+        NSTextView *tv = [[NSTextView alloc] initWithFrame:NSMakeRect(0, 0, 200, 100)];
+        NSLayoutManager *lm = tv.layoutManager;
+        NSFont *f = [NSFont systemFontOfSize:12];
+        CHECK([lm glyphIndexForCharacterAtIndex:5] == 5);
+        CHECK([lm defaultBaselineOffsetForFont:f] > 0 && [lm defaultBaselineOffsetForFont:f] < [lm defaultLineHeightForFont:f]);
+        tv.string = @"one\n";
+        CHECK(NSHeight(lm.extraLineFragmentRect) > 0);
+        tv.string = @"one";
+        CHECK(NSEqualRects(lm.extraLineFragmentRect, NSZeroRect));
+        tv.usesFindPanel = YES;
+        CHECK(tv.usesFindPanel);
+        NSTextAttachment *att = [NSTextAttachment new];
+        NSAttributedString *as = [NSAttributedString attributedStringWithAttachment:att];
+        CHECK(as.length == 1 && [as.string characterAtIndex:0] == 0xFFFC &&
+              [as attribute:@"NSAttachment" atIndex:0 effectiveRange:NULL] == att);
+    }
+
     /* Menu items write function keys as macOS does. */
     {
         NSString *(^label)(NSString *, NSEventModifierFlags) = ^(NSString *k, NSEventModifierFlags m) {

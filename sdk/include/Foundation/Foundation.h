@@ -1365,6 +1365,9 @@ typedef struct {
 - (instancetype)initWithDouble:(double)value;
 - (instancetype)initWithString:(nullable NSString *)numberValue;
 - (instancetype)initWithMantissa:(unsigned long long)mantissa exponent:(short)exponent isNegative:(BOOL)flag;
+- (instancetype)initWithDecimal:(NSDecimal)dcm;
++ (NSDecimalNumber *)decimalNumberWithDecimal:(NSDecimal)dcm;
+@property (readonly) NSDecimal decimalValue;
 - (NSDecimalNumber *)decimalNumberByAdding:(NSDecimalNumber *)decimalNumber;
 - (NSDecimalNumber *)decimalNumberBySubtracting:(NSDecimalNumber *)decimalNumber;
 - (NSDecimalNumber *)decimalNumberByMultiplyingBy:(NSDecimalNumber *)decimalNumber;

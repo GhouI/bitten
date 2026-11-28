@@ -2,6 +2,7 @@
 // sets, enumerators, process info, files, URLs, JSON, notifications, locks
 // and threads.
 #import <Foundation/Foundation.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -195,6 +196,19 @@ int main(int argc, char **argv) {
         NSDate *before = [NSDate date];
         [NSThread sleepForTimeInterval:0.05];
         CHECK([[NSDate date] timeIntervalSinceDate:before] >= 0.045);
+    }
+    @autoreleasepool {
+        /* NSDecimalNumber to NSDecimal and back */
+        NSDecimalNumber *n = [NSDecimalNumber decimalNumberWithString:@"-12.375"];
+        NSDecimal d = n.decimalValue;
+        CHECK(d._isNegative && d._exponent == -3 && d._length == 1 && d._mantissa[0] == 12375);
+        CHECK([[NSDecimalNumber decimalNumberWithDecimal:d] doubleValue] == -12.375);
+        NSDecimal big = [[NSDecimalNumber alloc] initWithDouble:123456789012.0].decimalValue;
+        CHECK([[[NSDecimalNumber alloc] initWithDecimal:big] doubleValue] == 123456789012.0);
+        NSDecimal nan = [NSDecimalNumber notANumber].decimalValue;
+        CHECK(nan._length == 0 && nan._isNegative && isnan([[NSDecimalNumber decimalNumberWithDecimal:nan] doubleValue]));
+        NSDecimal zero = [NSDecimalNumber zero].decimalValue;
+        CHECK(zero._length == 0 && !zero._isNegative);
     }
     puts("foundation more ok");
     return 0;

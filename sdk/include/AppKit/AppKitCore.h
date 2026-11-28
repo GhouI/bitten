@@ -2097,6 +2097,11 @@ typedef NSString *NSTextInputSourceIdentifier NS_SWIFT_NAME(NSTextInputSourceIde
 @end
 @interface NSLayoutManager : NSObject
 @property (nullable, assign) NSMutableAttributedString *textStorage;
+- (CGFloat)defaultBaselineOffsetForFont:(NSFont *)font;
+- (NSUInteger)glyphIndexForCharacterAtIndex:(NSUInteger)charIndex;
+- (NSUInteger)characterIndexForGlyphAtIndex:(NSUInteger)glyphIndex;
+@property (readonly) NSRect extraLineFragmentRect;
+@property (nullable, readonly) NSTextContainer *extraLineFragmentTextContainer;
 @property (readonly, copy) NSArray<NSTextContainer *> *textContainers;
 - (void)addTextContainer:(NSTextContainer *)container;
 - (void)removeTextContainerAtIndex:(NSUInteger)index;
@@ -2122,6 +2127,9 @@ typedef NSString *NSTextInputSourceIdentifier NS_SWIFT_NAME(NSTextInputSourceIde
 @property NSRect bounds;
 @property (nullable, strong) id fileWrapper;
 @property (nullable, strong) id attachmentCell;
+@end
+@interface NSAttributedString (NSAttributedStringAttachmentConveniences)
++ (NSAttributedString *)attributedStringWithAttachment:(NSTextAttachment *)attachment;
 @end
 @protocol NSTextLocation <NSObject>
 - (NSComparisonResult)compare:(id<NSTextLocation>)location;
@@ -2168,6 +2176,7 @@ typedef NSString *NSTextInputSourceIdentifier NS_SWIFT_NAME(NSTextInputSourceIde
 @property (copy) NSColor *insertionPointColor;
 @property BOOL allowsUndo;
 @property BOOL usesFindBar;
+@property BOOL usesFindPanel;
 @property (getter=isContinuousSpellCheckingEnabled) BOOL continuousSpellCheckingEnabled;
 - (void)setAutomaticQuoteSubstitutionEnabled:(BOOL)flag;
 - (void)setAutomaticDashSubstitutionEnabled:(BOOL)flag;

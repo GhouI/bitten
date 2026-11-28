@@ -707,6 +707,34 @@ static int by_live(const void *a, const void *b) {
     long x = ((const struct alloc_count *)a)->live, y = ((const struct alloc_count *)b)->live;
     return x < y ? 1 : x > y ? -1 : 0;
 }
+/* BITTEN_SELECTOR_DUMP=path: with each report, every method name some
+ * class implements ("-name" for instances, "+name" for classes), one per
+ * line, for comparing with the selectors a program sends
+ * (tools/selector-audit.py). */
+static const char *d_sel_getName(SEL sel);
+static Class d_object_getClass(id obj);
+static Method *d_class_copyMethodList(Class cls, unsigned *count);
+static Class *d_objc_copyClassList(unsigned *count);
+static void selector_dump(void) {
+    const char *path = getenv("BITTEN_SELECTOR_DUMP");
+    if (!path || !*path) return;
+    FILE *f = fopen(path, "w");
+    if (!f) return;
+    unsigned nc = 0;
+    Class *classes = d_objc_copyClassList(&nc);
+    for (unsigned i = 0; classes && i < nc; i++) {
+        for (int meta = 0; meta < 2; meta++) {
+            Class c = meta ? d_object_getClass((id)classes[i]) : classes[i];
+            unsigned nm = 0;
+            Method *ms = d_class_copyMethodList(c, &nm);
+            for (unsigned k = 0; ms && k < nm; k++) fprintf(f, "%c%s\n", meta ? '+' : '-', d_sel_getName(ms[k]->name));
+            free(ms);
+        }
+    }
+    free(classes);
+    fclose(f);
+    fprintf(stderr, "bitten: selector dump: %u classes written to %s\n", nc, path);
+}
 static volatile sig_atomic_t alloc_asked;
 static void alloc_on_signal(int sig) { (void)sig; alloc_asked = 1; }
 static void *alloc_reporter(void *arg) {
@@ -742,6 +770,7 @@ static void *alloc_reporter(void *arg) {
         void (*summary)(int) = (void (*)(int))dlsym(RTLD_DEFAULT, "redzone_summary");
         if (summary) summary((int)top);
         free(copy);
+        selector_dump();
     }
     return NULL;
 }
