@@ -91,24 +91,36 @@ static void validate(NSMenu *menu) {
 @property NSInteger highlighted;
 @end
 
+/* The items a menu shows: not hidden ones, and no separator at either end
+ * or next to another (a menu that ends in one for items the system would
+ * add shows no line with nothing under it). */
+static NSArray<NSMenuItem *> *bn_shown_items(NSMenu *menu) {
+    NSMutableArray<NSMenuItem *> *a = [NSMutableArray array];
+    for (NSMenuItem *i in menu.itemArray) {
+        if (i.isHidden) continue;
+        if (i.isSeparatorItem && (a.count == 0 || a.lastObject.isSeparatorItem)) continue;
+        [a addObject:i];
+    }
+    while (a.count && a.lastObject.isSeparatorItem) [a removeLastObject];
+    return a;
+}
 @implementation BNMenuView
 - (BOOL)isFlipped { return YES; }
 - (BOOL)acceptsFirstResponder { return YES; }
-- (NSArray<NSMenuItem *> *)visibleItems {
-    NSMutableArray *a = [NSMutableArray array];
-    for (NSMenuItem *i in self.menu.itemArray)
-        if (!i.isHidden) [a addObject:i];
-    return a;
-}
+- (NSArray<NSMenuItem *> *)visibleItems { return bn_shown_items(self.menu); }
 static NSDictionary *text_attrs(NSFont *font, NSColor *color) {
     return @{NSFontAttributeName : font, NSForegroundColorAttributeName : color};
 }
 /* The menu's size for its items. */
 + (NSSize)sizeForMenu:(NSMenu *)menu {
+    /* BITTEN_MENU_DEBUG: the items of each menu shown */
+    if (getenv("BITTEN_MENU_DEBUG"))
+        for (NSMenuItem *i in menu.itemArray)
+            fprintf(stderr, "bitten: menu item '%s'%s%s%s\n", i.title.UTF8String ?: "", i.isSeparatorItem ? " separator" : "",
+                    i.isHidden ? " hidden" : "", i.isEnabled ? "" : " disabled");
     NSFont *font = menu.font ?: [NSFont menuFontOfSize:0];
     CGFloat w = menu.minimumWidth, h = 2 * kInset;
-    for (NSMenuItem *i in menu.itemArray) {
-        if (i.isHidden) continue;
+    for (NSMenuItem *i in bn_shown_items(menu)) {
         if (i.isSeparatorItem) { h += kSeparatorHeight; continue; }
         h += kRowHeight;
         CGFloat tw = [i.title sizeWithAttributes:text_attrs(font, NSColor.labelColor)].width;
@@ -346,9 +358,9 @@ static NSDictionary *text_attrs(NSFont *font, NSColor *color) {
     if (item) {
         /* the item's row goes where the menu was asked to put it */
         CGFloat above = kInset;
-        for (NSMenuItem *i in self.itemArray) {
+        for (NSMenuItem *i in bn_shown_items(self)) {
             if (i == item) break;
-            if (!i.isHidden) above += i.isSeparatorItem ? kSeparatorHeight : kRowHeight;
+            above += i.isSeparatorItem ? kSeparatorHeight : kRowHeight;
         }
         p.y += above + (view && !view.isFlipped ? kRowHeight : 0);
     }

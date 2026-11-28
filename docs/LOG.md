@@ -5662,3 +5662,12 @@ Debugging aids:
   slow deallocation when the quarantine was on. Both are read once now.
   The target app's first frame: about 2.3 s -> 2.15 s.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: menus show no stray separators
+
+- A menu no longer shows a separator at its start or end, or one right
+  after another. The target app's pane context menu ends with a
+  separator, for items the system would add below it, and showed an empty
+  line at the bottom. `BITTEN_MENU_DEBUG` lists each shown menu's items.
+- Test: `tests/appkit/basics.m`.
+- Target app (total `^MISSING`): 0 -> 0.
