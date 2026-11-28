@@ -5426,3 +5426,15 @@ Debugging aids:
   tree and with the host; a host with a menu picker is freed) and the
   device ownership check in `tests/metal/descriptors.m`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Observation: registrations belong to the registrar
+
+- What waited on an observable object's properties was kept in one table
+  keyed by the object's address, and never let go when the object went.
+  The change handlers (and what they captured) lived on, and a new object
+  at the same address could fire them. The registrar now carries an
+  identity of its own, as in Observation. Registrations are keyed by it
+  and dropped when it goes.
+- Test: `tests/swiftlib/handoff.swift` (a handler waiting on an object
+  that goes away is released).
+- Target app (total `^MISSING`): 0 -> 0.

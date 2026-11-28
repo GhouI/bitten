@@ -47,15 +47,44 @@ private let _debugObservation = _bitten_getenv("BITTEN_OBSERVATION_DEBUG") != ni
 /// nest).
 nonisolated(unsafe) private var trackingStacks: [UInt: [_Tracking]] = [:]
 
-/// Registrations waiting for a change, by observed property.
+/// Registrations waiting for a change, by observed property (of a
+/// registrar), and the properties waited on per registrar.
 nonisolated(unsafe) private var waiting: [_Key: [_Tracking]] = [:]
+nonisolated(unsafe) private var waitedOn: [ObjectIdentifier: Set<AnyKeyPath>] = [:]
+
+/// A registrar's identity. Registrations belong to it, as in Observation:
+/// when the object (and so its registrar) goes, what waited on its
+/// properties is let go, and a new object at the same address doesn't
+/// fire it.
+final class _RegistrarBox: @unchecked Sendable {
+  deinit {
+    let me = ObjectIdentifier(self)
+    locked {
+      guard let paths = waitedOn.removeValue(forKey: me) else { return }
+      for p in paths { waiting[_Key(object: me, keyPath: p)] = nil }
+    }
+  }
+}
+
+private func _wait(_ t: _Tracking, _ key: _Key) {
+  waiting[key, default: []].append(t)
+  waitedOn[key.object, default: []].insert(key.keyPath)
+}
+private func _unwait(_ t: _Tracking, _ key: _Key) {
+  waiting[key]?.removeAll { $0 === t }
+  if waiting[key]?.isEmpty == true {
+    waiting[key] = nil
+    waitedOn[key.object]?.remove(key.keyPath)
+    if waitedOn[key.object]?.isEmpty == true { waitedOn[key.object] = nil }
+  }
+}
 
 public struct ObservationRegistrar: Sendable {
+  let box = _RegistrarBox()
   public init() {}
 
   public func access<Subject: Observable, Member>(_ subject: Subject, keyPath: KeyPath<Subject, Member>) {
-    guard let object = subject as? AnyObject else { return }
-    let key = _Key(object: ObjectIdentifier(object), keyPath: keyPath)
+    let key = _Key(object: ObjectIdentifier(box), keyPath: keyPath)
     let thread = _bitten_thread()
     locked {
       guard let current = trackingStacks[thread]?.last else { return }
@@ -64,17 +93,15 @@ public struct ObservationRegistrar: Sendable {
   }
 
   public func willSet<Subject: Observable, Member>(_ subject: Subject, keyPath: KeyPath<Subject, Member>) {
-    guard let object = subject as? AnyObject else { return }
-    let key = _Key(object: ObjectIdentifier(object), keyPath: keyPath)
+    let key = _Key(object: ObjectIdentifier(box), keyPath: keyPath)
     let changes: [() -> Void] = locked {
       guard let list = waiting.removeValue(forKey: key) else { return [] }
+      waitedOn[key.object]?.remove(key.keyPath)
+      if waitedOn[key.object]?.isEmpty == true { waitedOn[key.object] = nil }
       var out: [() -> Void] = []
       for t in list {
         // Fire once, and stop listening to the other properties it read.
-        for other in t.observed where other != key {
-          waiting[other]?.removeAll { $0 === t }
-          if waiting[other]?.isEmpty == true { waiting[other] = nil }
-        }
+        for other in t.observed where other != key { _unwait(t, other) }
         if let change = t.onChange { out.append(change) }
         t.onChange = nil
       }
@@ -121,10 +148,7 @@ public func _bitten_withObservationTracking<T>(_ apply: () -> T,
 public func _bitten_cancelObservationTracking(_ token: AnyObject) {
   guard let t = token as? _Tracking else { return }
   locked {
-    for key in t.observed {
-      waiting[key]?.removeAll { $0 === t }
-      if waiting[key]?.isEmpty == true { waiting[key] = nil }
-    }
+    for key in t.observed { _unwait(t, key) }
     t.onChange = nil
   }
 }
@@ -146,7 +170,7 @@ private func _track<T>(_ apply: () -> T, _ onChange: @autoclosure () -> @Sendabl
   let change = onChange()
   locked {
     t.onChange = change
-    for key in observed { waiting[key, default: []].append(t) }
+    for key in observed { _wait(t, key) }
   }
   return (result, t)
 }
