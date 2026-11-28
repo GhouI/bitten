@@ -7,7 +7,13 @@
 
 #include "cf.h"
 
-#define CALL(ret, name, args) ((ret(*) args)dx_registry_lookup("_" #name))
+/* looked up once per use site */
+#define CALL(ret, name, args)                                                  \
+    ((ret(*) args)({                                                           \
+        static void *call_sym_;                                                \
+        if (!call_sym_) call_sym_ = dx_registry_lookup("_" #name);            \
+        call_sym_;                                                             \
+    }))
 #define UTF16LE 0x14000100
 
 typedef const void *Ref;

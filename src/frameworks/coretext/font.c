@@ -464,13 +464,13 @@ static Ref number(double v) {
 
 static Ref make_dict(const void **keys, const void **values, CFIndex n) {
     return CALL(Ref, CFDictionaryCreate, (Ref, const void **, const void **, CFIndex, const void *, const void *))(
-        NULL, keys, values, n, dx_registry_lookup("_kCFTypeDictionaryKeyCallBacks"),
-        dx_registry_lookup("_kCFTypeDictionaryValueCallBacks"));
+        NULL, keys, values, n, CT_LOOKUP("_kCFTypeDictionaryKeyCallBacks"),
+        CT_LOOKUP("_kCFTypeDictionaryValueCallBacks"));
 }
 
 static Ref make_array(const void **values, CFIndex n) {
     return CALL(Ref, CFArrayCreate, (Ref, const void **, CFIndex, const void *))(
-        NULL, values, n, dx_registry_lookup("_kCFTypeArrayCallBacks"));
+        NULL, values, n, CT_LOOKUP("_kCFTypeArrayCallBacks"));
 }
 
 /* kCTFontWeightTrait is -1..1, 0 regular: usWeightClass mapped piecewise. */
@@ -970,14 +970,14 @@ DX_FN(CTFontManagerRegisterFontsForURL);
 /* ---- values from attributed strings ------------------------------------------------- */
 
 static void *msg(void *obj, const char *sel) {
-    void *(*send)(void *, void *) = dx_registry_lookup("_objc_msgSend");
-    void *(*reg)(const char *) = dx_registry_lookup("_sel_registerName");
+    void *(*send)(void *, void *) = CT_LOOKUP("_objc_msgSend");
+    void *(*reg)(const char *) = CT_LOOKUP("_sel_registerName");
     return send(obj, reg(sel));
 }
 
 static bool responds(void *obj, const char *sel) {
-    bool (*send)(void *, void *, void *) = dx_registry_lookup("_objc_msgSend");
-    void *(*reg)(const char *) = dx_registry_lookup("_sel_registerName");
+    bool (*send)(void *, void *, void *) = CT_LOOKUP("_objc_msgSend");
+    void *(*reg)(const char *) = CT_LOOKUP("_sel_registerName");
     return send(obj, reg("respondsToSelector:"), reg(sel));
 }
 
@@ -987,8 +987,8 @@ struct ct_font *ct_font_from_value(Ref v) {
     /* An NSFont: by name and size. */
     if (!responds((void *)v, "fontName") || !responds((void *)v, "pointSize")) return NULL;
     Ref name = msg((void *)v, "fontName");
-    double (*size_of)(void *, void *) = dx_registry_lookup("_objc_msgSend");
-    void *(*reg)(const char *) = dx_registry_lookup("_sel_registerName");
+    double (*size_of)(void *, void *) = CT_LOOKUP("_objc_msgSend");
+    void *(*reg)(const char *) = CT_LOOKUP("_sel_registerName");
     CGFloat size = size_of((void *)v, reg("pointSize"));
     return d_CTFontCreateWithName(name, size, NULL);
 }

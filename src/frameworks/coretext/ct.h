@@ -9,7 +9,15 @@
 #include "../coregraphics/cg.h"
 
 typedef const void *Ref;
-#define CALL(ret, name, args) ((ret(*) args)dx_registry_lookup("_" #name))
+/* A registry symbol, looked up once per use site (the registry never
+ * changes; a race only stores the same value twice). */
+#define CT_LOOKUP(sym)                                         \
+    ({                                                         \
+        static void *ct_sym_;                                  \
+        if (!ct_sym_) ct_sym_ = dx_registry_lookup(sym);       \
+        ct_sym_;                                               \
+    })
+#define CALL(ret, name, args) ((ret(*) args)CT_LOOKUP("_" #name))
 #define UTF8 0x08000100u
 #define UTF16LE 0x14000100u
 

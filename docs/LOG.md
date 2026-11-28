@@ -5791,3 +5791,12 @@ Debugging aids:
   among the bytes, and a format without one is returned as it is.
   SwiftUI's `Text` makes these on every rebuild.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## CoreText resolves its CoreFoundation and runtime calls once
+
+- CoreText (ct.h, line.c, font.c) and CoreFoundation's attributed strings
+  (attributed.c): CALL() and the direct registry lookups (objc_msgSend,
+  sel_registerName, the kCFType callbacks) keep the resolved pointer in a
+  static per call site instead of hashing the name on every call; lines
+  are made and drawn on every page switch.
+- Target app (total `^MISSING`): 0 -> 0.
