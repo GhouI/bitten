@@ -303,3 +303,14 @@ internal final class _LazyStateBox<Value> {
   weak var owner: _RenderContext?
   init(_ v: Value) { value = v }
 }
+/// Shows the value kept (for debugging output such as BITTEN_VIEW_DEBUG).
+extension _LazyStateBox: CustomStringConvertible {
+  @usableFromInline var description: String {
+    let m = Mirror(reflecting: value)
+    if m.displayStyle == .class, !m.children.isEmpty {
+      let fields = m.children.map { "\($0.label ?? "_"): \(String(describing: $0.value).prefix(120))" }
+      return "state(\(type(of: value)) { \(fields.joined(separator: ", ")) })"
+    }
+    return "state(\(String(describing: value)))"
+  }
+}

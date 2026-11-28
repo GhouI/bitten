@@ -5700,3 +5700,20 @@ Debugging aids:
   state (`docs/NEXT.md`).
 - Test: `tests/appkit/basics.m`.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## stdlib: enums print their case
+
+- `print`, `String(describing:)` and interpolation showed only an enum's
+  type name: `InterfaceStyle` for both `.light` and `.dark`. They now show
+  the case (`dark`), and for a single-payload enum the payload too
+  (`value("x")`, `one(5)`). `debugPrint` qualifies it
+  (`printing.Shade.dark`), and Mirror reflects the payload, labelled with
+  the case. A multi-payload enum shows its case without the payload for
+  now.
+- The target app keys its window-surface styles by such descriptions.
+  After switching to dark mode while running, light and dark read alike,
+  and the window chrome kept the light style: a mid-gray title bar and
+  light-gray inactive panes. It now turns fully dark, as a dark launch
+  does. Inactive windows' panes now also fade, as the app's settings ask.
+- Test: `tests/swiftlib/printing.swift` (`enums`).
+- Target app (total `^MISSING`): 0 -> 0.

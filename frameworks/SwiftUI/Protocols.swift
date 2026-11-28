@@ -394,7 +394,8 @@ extension NSViewRepresentable {
       }
       _PlatformViewBox.track(host, key: inputs.base.path + "#nsview", context: inputs.base.context)
       if let want = _debugRepOf, "\(Self.self)".contains(want) {
-        _dbg("bitten: update \(Self.self) dark \(inputs.environment.colorScheme == .dark): \(String(describing: rep).prefix(80))")
+        if getenv("BITTEN_REP_ENV") != nil { for (_, v) in inputs.environment._values { let d = String(describing: v); if d.contains("Interface") || d.contains("Style") || d.contains("ppearance") { _dbg("bitten:   env \(d.prefix(200))") } } }
+        _dbg("bitten: update \(Self.self) dark \(inputs.environment.colorScheme == .dark) drawing \(NSAppearance.currentDrawing.name) app \(NSApp.effectiveAppearance.name): \(String(describing: rep).prefix(80))")
       }
       rep.updateNSView(nsView, context: context)
       let sizer: (ProposedViewSize) -> CGSize? = { p in rep.sizeThatFits(p, nsView: nsView, context: context) }
