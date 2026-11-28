@@ -105,7 +105,10 @@ extension Unicode.Scalar.Properties {
 
   public var lowercaseMapping: String { return String(_scalar).lowercased() }
   public var uppercaseMapping: String { return String(_scalar).uppercased() }
+  /// Title case: upper case but for the letters whose title form differs
+  /// (digraphs, ligatures, Greek letters with a subscript iota).
   public var titlecaseMapping: String {
+    if let t = _titlecaseSpecial(_value) { return t }
     var out = ""
     _appendCaseMapped(_value, upper: true, to: &out)
     return out
@@ -166,5 +169,50 @@ extension Character {
   public var wholeNumberValue: Int? {
     guard _isSingleScalar, _firstScalar.properties.numericType != nil else { return nil }
     return _firstScalar.properties._integerValue
+  }
+}
+
+/// Unicode's title case where it isn't the upper case (UnicodeData's
+/// titlecase column and SpecialCasing.txt's title column).
+internal func _titlecaseSpecial(_ v: UInt32) -> String? {
+  func str(_ scalars: UInt32...) -> String {
+    var s = ""
+    for c in scalars { s.unicodeScalars.append(Unicode.Scalar(c)!) }
+    return s
+  }
+  switch v {
+  case 0x01C4...0x01C6: return str(0x01C5)
+  case 0x01C7...0x01C9: return str(0x01C8)
+  case 0x01CA...0x01CC: return str(0x01CB)
+  case 0x01F1...0x01F3: return str(0x01F2)
+  case 0x00DF: return "Ss"
+  case 0xFB00: return "Ff"
+  case 0xFB01: return "Fi"
+  case 0xFB02: return "Fl"
+  case 0xFB03: return "Ffi"
+  case 0xFB04: return "Ffl"
+  case 0xFB05, 0xFB06: return "St"
+  case 0x0149: return str(0x02BC, 0x004E)
+  case 0x0587: return str(0x0535, 0x0582)
+  case 0xFB13: return str(0x0544, 0x0576)
+  case 0xFB14: return str(0x0544, 0x0565)
+  case 0xFB15: return str(0x0544, 0x056B)
+  case 0xFB16: return str(0x054E, 0x0576)
+  case 0xFB17: return str(0x0544, 0x056D)
+  case 0x1F80...0x1F87, 0x1F90...0x1F97, 0x1FA0...0x1FA7: return str(v + 8)
+  case 0x1F88...0x1F8F, 0x1F98...0x1F9F, 0x1FA8...0x1FAF, 0x1FBC, 0x1FCC, 0x1FFC: return str(v)
+  case 0x1FB3: return str(0x1FBC)
+  case 0x1FC3: return str(0x1FCC)
+  case 0x1FF3: return str(0x1FFC)
+  case 0x1FB2: return str(0x1FBA, 0x0345)
+  case 0x1FB4: return str(0x0386, 0x0345)
+  case 0x1FC2: return str(0x1FCA, 0x0345)
+  case 0x1FC4: return str(0x0389, 0x0345)
+  case 0x1FF2: return str(0x1FFA, 0x0345)
+  case 0x1FF4: return str(0x038F, 0x0345)
+  case 0x1FB7: return str(0x0391, 0x0342, 0x0345)
+  case 0x1FC7: return str(0x0397, 0x0342, 0x0345)
+  case 0x1FF7: return str(0x03A9, 0x0342, 0x0345)
+  default: return nil
   }
 }

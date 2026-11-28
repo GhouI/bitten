@@ -6056,3 +6056,22 @@ Debugging aids:
 - Foundation: `IndexPath` (it was missing); Foundation descriptions
   (Data, URL, UUID, Date, Decimal, IndexPath, NSRange) checked.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Strings, numbers and JSON checked against Swift's own
+
+- New test swiftlib `behaviour`: 60 results of string operations
+  (case mapping, comparison, splitting, trimming, parsing), number
+  printing and arithmetic, String(format:), sorting, and JSON encoding
+  and decoding (sorted keys, pretty printing, slashes, dates, data, key
+  strategies, escapes, errors) against Swift 6.3's standard library and
+  swift-foundation run on Linux. Three differed:
+  - `capitalized` upper-cased a word's first letter instead of title-casing
+    it; Unicode.Scalar's `titlecaseMapping` now has the letters whose title
+    form differs (ǅ, ǈ, ǋ, ǲ, ligatures, ß, Greek with subscript iota).
+  - String(format:) with bytes that aren't UTF-8 (a %s given something not
+    a C string) gave an empty string; the rest of the text is kept, the
+    bad bytes as U+FFFD.
+  - convertToSnakeCase of "URLString": swift-foundation on Linux writes
+    "u_rl_string", Foundation on macOS "url_string", as ours does; the test
+    expects macOS's.
+- Target app (total `^MISSING`): 0 -> 0.
