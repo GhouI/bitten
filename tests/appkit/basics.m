@@ -421,6 +421,21 @@ int main(void) {
     [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.6]];
     CHECK(!w.inLiveResize && rz.started == 1 && rz.ended == 1);
 
+    /* Menu items write function keys as macOS does. */
+    {
+        NSString *(^label)(NSString *, NSEventModifierFlags) = ^(NSString *k, NSEventModifierFlags m) {
+            NSMenuItem *i = [[NSMenuItem alloc] initWithTitle:@"x" action:NULL keyEquivalent:k];
+            i.keyEquivalentModifierMask = m;
+            return (NSString *)((id (*)(id, SEL))objc_msgSend)(i, sel_registerName("_bn_keyEquivalentLabel"));
+        };
+        unichar pgup = 0xF72C, left = 0xF702, f5 = 0xF708;
+        CHECK([label([NSString stringWithCharacters:&pgup length:1],
+                     NSEventModifierFlagControl | NSEventModifierFlagShift) isEqualToString:@"⌃⇧⇞"]);
+        CHECK([label([NSString stringWithCharacters:&left length:1], NSEventModifierFlagCommand) isEqualToString:@"⌘←"]);
+        CHECK([label([NSString stringWithCharacters:&f5 length:1], 0) isEqualToString:@"F5"]);
+        CHECK([label(@"w", NSEventModifierFlagCommand | NSEventModifierFlagOption) isEqualToString:@"⌥⌘W"]);
+    }
+
     /* A view's display link ticks only while the view is on screen. */
     {
         LinkTicker *lt = [LinkTicker new];

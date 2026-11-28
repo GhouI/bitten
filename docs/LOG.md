@@ -5931,4 +5931,12 @@ Debugging aids:
   material (an NSVisualEffectView blending behind the window): the page
   blurs and saturates what shows through a transparent window
   (backdrop-filter), as a Mac does behind popovers and panels.
+## Menus write Page Up, Page Down, Home, End and F-keys as macOS does
+
+- A menu item's key equivalent of a function key other than the arrows
+  and forward delete was drawn as its private-use character (a box): the
+  target app's tab menu has Move Tab Left/Right on ⌃⇧⇞ and ⌃⇧⇟. Home,
+  End, Page Up/Down, Clear, Enter, Back Tab and F1-F35 now have their
+  symbols. `BITTEN_MENU_DEBUG` also prints each item's key equivalent.
+- Test: appkit basics (menu key labels).
 - Target app (total `^MISSING`): 0 -> 0.
