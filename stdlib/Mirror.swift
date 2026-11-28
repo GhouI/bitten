@@ -9,11 +9,43 @@
 internal func _bitten_mirror_display_style(_ type: Any.Type) -> Int32
 @_silgen_name("_bitten_enum_case_name")
 internal func _bitten_enum_case_name(_ value: UnsafeRawPointer, _ type: Any.Type) -> UnsafePointer<CChar>?
+/// The case name of an enum value held in an Any (taken as a parameter, so
+/// a value that is already an Any isn't wrapped a second time).
+internal func _enumCaseNameOf(_ subject: Any) -> String? {
+  // by the dynamic type (an Any holding an Any opens to Any otherwise)
+  func name<T>(_: T.Type) -> String? {
+    guard let v = subject as? T else { return nil }
+    return _enumCaseName(v)
+  }
+  return _openExistential(type(of: subject), do: name)
+}
 /// The name of the case an enum value is in.
 internal func _enumCaseName<T>(_ value: T) -> String? {
   var copy = value
   return withUnsafePointer(to: &copy) { p in
     _bitten_enum_case_name(UnsafeRawPointer(p), T.self).map { String(cString: $0) }
+  }
+}
+@_silgen_name("_bitten_enum_payload_copy")
+internal func _bitten_enum_payload_copy(_ value: UnsafeRawPointer, _ type: Any.Type,
+                                        _ payload: UnsafeMutablePointer<UnsafeRawPointer?>,
+                                        _ payloadType: UnsafeMutablePointer<Any.Type?>,
+                                        _ indirect: UnsafeMutablePointer<Int>) -> UnsafeMutableRawPointer?
+@_silgen_name("_bitten_enum_payload_free")
+internal func _bitten_enum_payload_free(_ buffer: UnsafeMutableRawPointer?, _ payloadType: Any.Type?, _ indirect: Int)
+/// An enum value's payload, labelled with its case (nil for a case without one).
+internal func _enumPayload<T>(_ value: T) -> (label: String?, value: Any)? {
+  var copy = value
+  return withUnsafePointer(to: &copy) { p -> (label: String?, value: Any)? in
+    var payload: UnsafeRawPointer? = nil
+    var payloadType: Any.Type? = nil
+    var indirect = 0
+    guard let buffer = _bitten_enum_payload_copy(UnsafeRawPointer(p), T.self, &payload, &payloadType, &indirect),
+          let at = payload, let t = payloadType else { return nil }
+    let loaded = _loadAny(at, t)
+    _bitten_enum_payload_free(buffer, t, indirect)
+    let name = _bitten_enum_case_name(UnsafeRawPointer(p), T.self).map { String(cString: $0) }
+    return (label: name, value: loaded)
   }
 }
 @_silgen_name("_bitten_mirror_count")
@@ -251,6 +283,13 @@ public struct Mirror {
       // An optional's child is its wrapped value.
       let m = Mirror(subjectType: subjectType, children: [], displayStyle: .optional)
       return m
+    }
+    if style == .enum {
+      func payload<T>(_: T.Type) -> [Child] {
+        guard let p = _enumPayload(subject as! T) else { return [] }
+        return [(label: p.label, value: p.value)]
+      }
+      return Mirror(subjectType: subjectType, children: _openExistential(subjectType, do: payload), displayStyle: style)
     }
     let kids = _openExistential(subjectType, do: children)
     return Mirror(subjectType: subjectType, children: kids, displayStyle: style)

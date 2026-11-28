@@ -6,8 +6,7 @@
 // else its debugDescription, else a form made from its type. Optionals print
 // through their debugDescription ("Optional(1)", "nil"). The last fallback
 // lists a struct's stored properties ("Point(x: 1, y: 2)") and shows an
-// enum's case ("dark", "some(3)"); a multi-payload enum's payload is left
-// out for now.
+// enum's case with any payload ("dark", "some(3)").
 
 public func print(_ items: Any..., separator: String = " ", terminator: String = "\n") {
   var output = _Stdout()
@@ -150,8 +149,7 @@ internal func _adHocPrint_unlocked<T, TargetStream: TextOutputStream>(
     target.write(")")
   case .some(.enum):
     // case, or case(payload) as Swift prints them
-    func name<T>(_ v: T) -> String? { return _enumCaseName(v) }
-    guard let caseName = _openExistential(value as Any, do: name) else {
+    guard let caseName = _enumCaseNameOf(value) else {
       target.write(_typeName(type, qualified: isDebugPrint))
       return
     }
