@@ -49,6 +49,14 @@ on macOS.
   `BITTEN_MONITOR_DEBUG` event monitors, `BITTEN_WINDOW_DEBUG` window
   frames, creation and freeing, `BITTEN_SYMBOL_DEBUG` symbol images.
 - `BITTEN_CRASH_REPORT=stderr` gives a backtrace on a fatal error.
+- Memory: the SIGUSR1 report also gives malloc's bytes in use and held.
+  In use growing means something leaks; only held growing is the
+  allocator keeping freed memory. Under `LD_PRELOAD=build/redzone.so`
+  the report adds live malloc bytes by allocation site, so diff two of
+  them. `BITTEN_FIND_REFS` takes object or block addresses (`0x…`,
+  comma separated), or `BITTEN_FIND_REFS_FILE` names a file of them read
+  at each signal. `BITTEN_IMAGE_DEBUG` logs NSImages rendered to
+  bitmaps; `BITTEN_CACHE_DEBUG` logs NSCache lookups with their keys.
 - `BITTEN_ALLOC_STATS=N` also prints at once on `kill -USR1 <mrun pid>`:
   take one report, repeat an action a few times, take another, and diff
   them.

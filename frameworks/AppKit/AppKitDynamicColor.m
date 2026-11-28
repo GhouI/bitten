@@ -9,6 +9,9 @@
     NSColorName _name;
     NSColor * (^_provider)(NSAppearance *);
     NSColor *_lastResolved;
+    /* made by colorWithAlphaComponent: from this colour, with this alpha */
+    BNDynamicColor *_base;
+    CGFloat _alpha;
 }
 - (instancetype)initWithName:(NSColorName)name provider:(NSColor * (^)(NSAppearance *))provider {
     self = [super init];
@@ -34,13 +37,35 @@
 }
 - (NSColor *)colorWithAlphaComponent:(CGFloat)a {
     NSColor * (^p)(NSAppearance *) = _provider;
-    return [NSColor colorWithName:_name dynamicProvider:^NSColor *(NSAppearance *ap) {
+    BNDynamicColor *c = (BNDynamicColor *)[NSColor colorWithName:_name dynamicProvider:^NSColor *(NSAppearance *ap) {
         return [p(ap) colorWithAlphaComponent:a];
     }];
+    if ([c isKindOfClass:[BNDynamicColor class]]) {
+        c->_base = _base ?: self;
+        c->_alpha = a;
+    }
+    return c;
 }
 - (NSColor *)colorUsingColorSpace:(NSColorSpace *)space { return [self.resolved colorUsingColorSpace:space]; }
 - (NSColorName)colorNameComponent { return _name; }
-- (NSString *)description { return [NSString stringWithFormat:@"Dynamic color %@", _name ?: @"(unnamed)"]; }
+- (NSString *)description {
+    if (_base) return [NSString stringWithFormat:@"%@ alpha %g", _base.description, _alpha];
+    /* with its value now: two different unnamed colours don't read alike */
+    return [NSString stringWithFormat:@"Dynamic color %@ (%@)", _name ?: @"(unnamed)", self.resolved.description];
+}
+/* The same named colour from the same provider (its components depend on
+ * the appearance, not on stored values). */
+- (BOOL)isEqual:(id)other {
+    if (other == self) return YES;
+    if (![other isKindOfClass:[BNDynamicColor class]]) return NO;
+    BNDynamicColor *o = other;
+    if (_base || o->_base) return _base && o->_base && _alpha == o->_alpha && [_base isEqual:o->_base];
+    return o->_provider == _provider && (o->_name == _name || [o->_name isEqual:_name]);
+}
+- (NSUInteger)hash {
+    if (_base) return _base.hash ^ (NSUInteger)(_alpha * 1000);
+    return _name.hash ^ (NSUInteger)(__bridge void *)_provider;
+}
 @end
 
 static BOOL dark(NSAppearance *a) {

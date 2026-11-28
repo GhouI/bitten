@@ -1,4 +1,7 @@
-/* BITTEN_FIND_REFS=Name: who keeps objects alive (leak hunting).
+/* BITTEN_FIND_REFS=Name: who keeps objects alive (leak hunting). Name is
+ * part of a class name, or object addresses (0x…, comma separated);
+ * BITTEN_FIND_REFS_FILE names a file read at each signal instead (for
+ * addresses only known once the program runs).
  *
  * Every Objective-C object and Swift heap object (class instances, boxes,
  * closure contexts) made while this is set is remembered. On SIGUSR2 the
@@ -265,7 +268,31 @@ static void report(uintptr_t target, int level) {
     }
 }
 
+/* Whether an object is one asked for: its class name contains the text,
+ * or (text of 0x addresses, comma separated) it is one of them. Leaves its
+ * name in buf. */
+static int wants(uintptr_t o, char *buf, size_t len) {
+    const char *n = name_of(o, buf, len);
+    if (strncmp(wanted, "0x", 2) != 0) return strstr(n, wanted) != NULL;
+    for (const char *p = wanted; p && *p;) {
+        if (strtoull(p, NULL, 16) == o) return 1;
+        p = strchr(p, ',');
+        if (p) p++;
+    }
+    return 0;
+}
+
 static void scan(void) {
+    const char *file = getenv("BITTEN_FIND_REFS_FILE");
+    static char from_file[4096];
+    if (file) {
+        FILE *f = fopen(file, "r");
+        size_t n = f ? fread(from_file, 1, sizeof from_file - 1, f) : 0;
+        if (f) fclose(f);
+        from_file[n] = 0;
+        while (n && (from_file[n - 1] == '\n' || from_file[n - 1] == ' ')) from_file[--n] = 0;
+        if (n) wanted = from_file;
+    }
     pthread_mutex_lock(&lock);
     objs = malloc((used ? used : 1) * sizeof *objs);
     nobjs = 0;
@@ -280,13 +307,26 @@ static void scan(void) {
         fprintf(stderr, "bitten: refs: %zu live objects, looking for '%s'\n", nobjs, wanted);
         size_t matching = 0;
         for (size_t i = 0; i < nobjs; i++)
-            if (strstr(name_of(objs[i].at, buf, sizeof buf), wanted)) matching++;
+            if (wants(objs[i].at, buf, sizeof buf)) matching++;
         static long limit = -1;
         if (limit < 0) { const char *l = getenv("BITTEN_FIND_REFS_MAX"); limit = l && atol(l) > 0 ? atol(l) : 40; }
         fprintf(stderr, "bitten: refs: %zu instances (the first %ld follow)\n", matching, limit);
+        /* addresses asked for that aren't objects made here (CF objects,
+         * malloc blocks): looked for as they are */
+        if (strncmp(wanted, "0x", 2) == 0)
+            for (const char *p = wanted; p && *p;) {
+                uintptr_t at = (uintptr_t)strtoull(p, NULL, 16);
+                const struct obj *o = containing(at);
+                if (!o || o->at != at) {
+                    fprintf(stderr, "bitten: refs: %#lx (not an object made here)\n", (unsigned long)at);
+                    report(at, 1);
+                }
+                p = strchr(p, ',');
+                if (p) p++;
+            }
         for (size_t i = 0; i < nobjs && shown < limit; i++) {
-            const char *n = name_of(objs[i].at, buf, sizeof buf);
-            if (!strstr(n, wanted)) continue;
+            if (!wants(objs[i].at, buf, sizeof buf)) continue;
+            const char *n = buf;
             shown++;
             uintptr_t isa = *(const uintptr_t *)objs[i].at;
             int objc = isa > 0x7FF && !(*(const uintptr_t *)isa && *(const uintptr_t *)isa <= 0x7FF);
@@ -318,6 +358,7 @@ static void *watcher(void *arg) {
 }
 static void init(void) {
     wanted = getenv("BITTEN_FIND_REFS");
+    if ((!wanted || !*wanted) && getenv("BITTEN_FIND_REFS_FILE")) wanted = "-";
     rr_wanted = getenv("BITTEN_TRACE_RETAINS");
     if (rr_wanted && !*rr_wanted) rr_wanted = NULL;
     if (wanted && !*wanted) wanted = NULL;

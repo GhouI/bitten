@@ -2,7 +2,9 @@
  * caching, categories, protocols, +load/+initialize, and the runtime API.
  * Written against the documented modern Objective-C ABI. */
 #define _GNU_SOURCE
+#include <dlfcn.h>
 #include <stdlib.h>
+#include <malloc.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -725,7 +727,9 @@ static void *alloc_reporter(void *arg) {
         qsort(copy, n, sizeof *copy, by_live);
         long total = 0;
         for (size_t i = 0; i < n; i++) total += copy[i].live;
-        fprintf(stderr, "bitten: alloc stats: %ld live objects in %zu classes\n", total, n);
+        struct mallinfo2 mi = mallinfo2();
+        fprintf(stderr, "bitten: alloc stats: %ld live objects in %zu classes; malloc %zu KB in use, %zu KB held, %zu KB mmapped\n",
+                total, n, mi.uordblks / 1024, (mi.arena + mi.hblkhd) / 1024, mi.hblkhd / 1024);
         static long top = -1;
         if (top < 0) {
             const char *t = getenv("BITTEN_ALLOC_TOP");   /* how many classes (30) */
@@ -734,6 +738,9 @@ static void *alloc_reporter(void *arg) {
         for (size_t i = 0; i < n && i < (size_t)top; i++)
             fprintf(stderr, "bitten:   %8ld live  %+7ld made  %s\n", copy[i].live, copy[i].made,
                     class_name((Class)copy[i].cls));
+        /* under tools/redzone.so: malloc blocks by allocation site too */
+        void (*summary)(int) = (void (*)(int))dlsym(RTLD_DEFAULT, "redzone_summary");
+        if (summary) summary((int)top);
         free(copy);
     }
     return NULL;

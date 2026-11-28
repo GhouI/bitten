@@ -6,6 +6,7 @@
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -97,7 +98,14 @@ static NSString *env_locale(void) {
 - (void)setEvictsObjectsWithDiscardedContent:(BOOL)b { _evicts = b; }
 - (id)objectForKey:(id)key {
     if (!key) return nil;
-    @synchronized(self) { return (__bridge id)CFDictionaryGetValue(_objects, (__bridge const void *)key); }
+    @synchronized(self) {
+        id found = (__bridge id)CFDictionaryGetValue(_objects, (__bridge const void *)key);
+        if (getenv("BITTEN_CACHE_DEBUG"))
+            fprintf(stderr, "bitten: cache %p '%s' %s key %s %s (%lu entries)\n", (__bridge void *)self, _name.UTF8String,
+                    found ? "hit" : "miss", object_getClassName(key), [[key description] UTF8String] ?: "",
+                    (unsigned long)CFDictionaryGetCount(_objects));
+        return found;
+    }
 }
 - (void)setObject:(id)obj forKey:(id)key { [self setObject:obj forKey:key cost:0]; }
 - (void)_bn_forget:(id)key {
