@@ -258,8 +258,9 @@ typedef void (^MTLCommandBufferHandler)(id<MTLCommandBuffer> buffer);
 @end
 
 /* The software device. */
-id<MTLDevice> _Nullable MTLCreateSystemDefaultDevice(void);
-NSArray<id<MTLDevice>> *MTLCopyAllDevices(void);
+/* As in Metal: the caller owns the device it gets (+1). */
+id<MTLDevice> _Nullable MTLCreateSystemDefaultDevice(void) __attribute__((ns_returns_retained));
+NSArray<id<MTLDevice>> *MTLCopyAllDevices(void) __attribute__((ns_returns_retained));
 
 @interface MTLSamplerDescriptor : NSObject <NSCopying>
 @property MTLSamplerMinMagFilter minFilter, magFilter;

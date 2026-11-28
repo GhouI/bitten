@@ -1,3 +1,4 @@
+#include <dlfcn.h>
 // Metal without a GPU: no device; descriptors keep their values and copy.
 #import <Metal/Metal.h>
 #include <stdio.h>
@@ -9,6 +10,16 @@ int main(void) {
     @autoreleasepool {
         CHECK(MTLCreateSystemDefaultDevice() != nil && MTLCreateSystemDefaultDevice() == MTLCreateSystemDefaultDevice());
         CHECK(MTLCopyAllDevices().count == 1);
+        /* The device comes back owned (+1), as programs built against
+         * Metal's header release it: taken and let go many times, it lives. */
+        typedef id (*create_fn)(void) __attribute__((ns_returns_retained));
+        create_fn create = (create_fn)dlsym(RTLD_DEFAULT, "MTLCreateSystemDefaultDevice");
+        CHECK(create != NULL);
+        for (int i = 0; i < 50; i++) {
+            id d = create();
+            CHECK(d != nil);
+        }
+        CHECK(MTLCreateSystemDefaultDevice().name.length > 0);
 
         MTLTextureDescriptor *t = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
                                                                                      width:256 height:64 mipmapped:YES];

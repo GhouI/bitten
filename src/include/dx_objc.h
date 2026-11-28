@@ -54,5 +54,11 @@ void dx_objc_move_weak(void **dst, void **src);
 void dx_objc_object_destroyed(void *obj);
 /* BITTEN_ALLOC_STATS: an instance of `cls` made (+1) or freed (-1). */
 void dx_alloc_note(const void *cls, int delta);
+/* BITTEN_FIND_REFS: object `obj` made (+1) or freed (-1). */
+void dx_live_note(const void *obj, int delta);
+int dx_objc_is_weak_slot(void *referent, void *slot);
+/* BITTEN_TRACE_RETAINS: `obj` retained (+1) or released (-1); freed. */
+void dx_rr_note(void *obj, int delta);
+void dx_rr_forget(void *obj);
 
 #endif

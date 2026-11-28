@@ -5396,3 +5396,33 @@ Debugging aids:
   window after shrinking it by the grip and growing it back, with what
   is known so far.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## SwiftUI: Settings pages are freed; Metal's device is owned by its caller
+
+- Each visit to the target app's Settings ▸ Terminal page left its whole
+  tree alive after Settings closed: about 4,700 objects, including the
+  hosting views, their render contexts and the text fields' coordinators.
+  A menu Picker's button closure held its own hosting view strongly, and
+  the button is in that host's tree, so the host kept itself alive. It now
+  captures the host weakly. After four visits the counts return to where
+  they were before the first.
+- With the pages freed, the app crashed on the third or fourth visit:
+  `MTLCreateSystemDefaultDevice` returned the shared device without a
+  retain. Metal declares it (and `MTLCopyAllDevices`) as returning a
+  retained object, so each caller's release freed the shared device a bit
+  more. The header now says so, and the function returns +1.
+- Representables are told when they go away: `dismantleNSView` and
+  `dismantleNSViewController` run when the view leaves the tree (its box
+  is then forgotten, so a later one starts afresh) or when its host goes.
+  The objectWillChange and onReceive subscriptions hold the host weakly,
+  and dead hosts are pruned from the host list when a new one is made.
+- Leak tools: `BITTEN_FIND_REFS=Class` (who points at live instances, on
+  SIGUSR2), `BITTEN_TRACE_RETAINS=Class` (unbalanced retain stacks),
+  `BITTEN_ALLOC_TOP=N` (how many classes alloc stats print), a zombie
+  report for retains of freed objects under `BITTEN_HEAP_QUARANTINE=3`,
+  and `tools/redzone.c` now records call sites and offers
+  `redzone_lookup`. See `docs/NEXT.md`.
+- Tests: `leakfree` (coordinators freed and dismantled, on leaving the
+  tree and with the host; a host with a menu picker is freed) and the
+  device ownership check in `tests/metal/descriptors.m`.
+- Target app (total `^MISSING`): 0 -> 0.

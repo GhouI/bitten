@@ -115,7 +115,9 @@ final class _ObservedObjectWatch {
     let w = context.store(key + "#watch") { _ObservedObjectWatch() }
     if w.object == ObjectIdentifier(o) { return }
     w.object = ObjectIdentifier(o)
-    w.cancellable = o.objectWillChange.sink { _ in context.invalidate() }
+    // Weakly: the object usually outlives the view, and holding the host's
+    // context from its publisher would keep the whole tree alive.
+    w.cancellable = o.objectWillChange.sink { [weak context] _ in context?.invalidate() }
   }
 }
 extension StateObject: _GraphInstallable {

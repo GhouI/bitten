@@ -918,7 +918,9 @@ static double *geometry_field(void *base, const char *type, NSString *field) {
 }
 - (void)dealloc { set_cg((CFTypeRef *)&_colorspace, NULL); }
 - (id)preferredDevice {
-    id (*create)(void) = (id (*)(void))dlsym(RTLD_DEFAULT, "MTLCreateSystemDefaultDevice");
+    /* returns +1, as Metal's does */
+    typedef id (*create_fn)(void) __attribute__((ns_returns_retained));
+    create_fn create = (create_fn)dlsym(RTLD_DEFAULT, "MTLCreateSystemDefaultDevice");
     return create ? create() : nil;
 }
 - (CGColorSpaceRef)colorspace { return _colorspace; }

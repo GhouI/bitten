@@ -71,6 +71,7 @@ id root_retain(id obj) {
     pthread_mutex_lock(&s->lock);
     rc_find(s, obj, 1)->extra++;
     pthread_mutex_unlock(&s->lock);
+    dx_rr_note(obj, 1);
     return obj;
 }
 
@@ -81,10 +82,12 @@ int root_try_retain(id obj) {
     int ok = !e->deallocating;
     if (ok) e->extra++;
     pthread_mutex_unlock(&s->lock);
+    if (ok) dx_rr_note(obj, 1);
     return ok;
 }
 
 void root_release(id obj) {
+    dx_rr_note(obj, -1);
     struct shard *s = shard_for(obj);
     pthread_mutex_lock(&s->lock);
     struct rc_entry *e = rc_find(s, obj, 0);
@@ -125,6 +128,17 @@ static struct weak_ref *weak_table[WEAK_BUCKETS];
 static pthread_mutex_t weak_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static size_t weak_bucket(id obj) { return ((uintptr_t)obj >> 4) % WEAK_BUCKETS; }
+
+/* Whether `slot` is a __weak variable pointing at `referent` (for
+ * BITTEN_FIND_REFS: a weak reference doesn't keep it alive). */
+int dx_objc_is_weak_slot(void *referent, void *slot) {
+    int found = 0;
+    pthread_mutex_lock(&weak_lock);
+    for (struct weak_ref *w = weak_table[weak_bucket((id)referent)]; w && !found; w = w->next)
+        found = w->slot == (id *)slot && w->referent == (id)referent;
+    pthread_mutex_unlock(&weak_lock);
+    return found;
+}
 
 static void weak_unregister(id referent, id *slot) {
     for (struct weak_ref **pp = &weak_table[weak_bucket(referent)]; *pp; pp = &(*pp)->next)
@@ -414,11 +428,16 @@ void dx_objc_object_destroyed(void *object) {
 void object_dispose_impl(id obj) {
     if (!obj) return;
     dx_alloc_note(obj->isa, -1);
+    dx_live_note(obj, -1);
+    dx_rr_forget(obj);
     d_objc_destructInstance(obj);
     /* BITTEN_HEAP_QUARANTINE=3: keep freed objects' memory, poisoned (debugging) */
     const char *q = getenv("BITTEN_HEAP_QUARANTINE");
     if (q && q[0] == '3') {
+        /* the class stays in the second word, for reporting a zombie */
+        Class was = obj->isa;
         memset(obj, 0xdd, malloc_usable_size(obj));
+        ((Class *)obj)[1] = was;
         return;
     }
     free(obj);
@@ -467,9 +486,15 @@ static int default_rr(Class cls) {
     return rw->rr_state == 1;
 }
 
+/* A retain of an object freed under BITTEN_HEAP_QUARANTINE=3. */
+static void zombie(id obj, const char *what) {
+    fprintf(stderr, "bitten: %s of freed %s %p\n", what, class_name(((Class *)obj)[1]), (void *)obj);
+    abort();
+}
 static id d_objc_retain(id obj) {
     if (!obj || ((uintptr_t)obj & 1)) return obj;
     Class c = obj->isa;
+    if ((uintptr_t)c == 0xddddddddddddddddull) zombie(obj, "retain");
     if (class_realized(c) && default_rr(c)) return root_retain(obj);
     return MSG(id, id, SEL)(obj, SEL_retain);
 }

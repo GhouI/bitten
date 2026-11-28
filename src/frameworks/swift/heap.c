@@ -85,6 +85,7 @@ static const void *counted_class(const sw_metadata *m) {
 }
 static void heap_free(sw_heap_object *o) {
     dx_alloc_note(counted_class(o->metadata), -1);
+    dx_live_note(o, -1);
     if (trace_obj_name) obj_trace("freed", o);
     if (quarantine < 0) quarantine = getenv("BITTEN_HEAP_QUARANTINE") != NULL;
     if (quarantine) {
@@ -205,6 +206,7 @@ sw_heap_object *sw_alloc_object(const sw_metadata *m, size_t size, size_t align_
     o->metadata = m;
     o->refcounts = RC_INITIAL;
     dx_alloc_note(counted_class(m), 1);
+    dx_live_note(o, 1);
     if (trace_obj_name || !trace_obj_inited) obj_trace("made", o);
     if (watch_obj_name || !watch_obj_inited) obj_watch(o);
     return o;

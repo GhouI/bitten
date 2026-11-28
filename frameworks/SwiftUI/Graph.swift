@@ -81,6 +81,12 @@ internal final class _RenderContext {
     pendingAppear = []
     for a in appear { DispatchQueue.main.async { a() } }
   }
+  /// Whether the view `key` names was in the last build.
+  func isLive(_ key: String) -> Bool { return live[key] != nil }
+  /// Representables still here when the host goes are told (dismantle).
+  deinit {
+    for case let b as _PlatformViewBox in storage.values { b.dismantleNow() }
+  }
   func store<T: AnyObject>(_ key: String, _ make: () -> T) -> T {
     if let s = storage[key] as? T { return s }
     let s = make()

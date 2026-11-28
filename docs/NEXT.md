@@ -54,6 +54,17 @@ on macOS.
   `BITTEN_MONITOR_DEBUG` event monitors, `BITTEN_WINDOW_DEBUG` window
   frames, creation and freeing, `BITTEN_SYMBOL_DEBUG` symbol images.
 - `BITTEN_CRASH_REPORT=stderr` gives a backtrace on a fatal error.
+- Leaks: `BITTEN_FIND_REFS=Class` then `kill -USR2 <mrun pid>` lists what
+  points at each live instance (object class and offset, or the mapping),
+  a few levels up; `(weak)` marks `__weak` slots. Under
+  `LD_PRELOAD=build/redzone.so` (built with `-fno-omit-frame-pointer`),
+  malloc blocks are named by their call sites and freed memory is
+  skipped. A cycle shows as holders inside the object's own tree (a
+  closure in a node capturing the host). When nothing outside holds an
+  object with a retain count above one, `BITTEN_TRACE_RETAINS=Class` with
+  the same signal prints the call stacks whose retains and releases don't
+  balance. `BITTEN_HEAP_QUARANTINE=3` makes a retain of a freed
+  Objective-C object stop and name its class.
 - Heap corruption ("corrupted size vs. prev_size" and friends):
   `cc -O1 -g -shared -fPIC -o build/redzone.so tools/redzone.c -ldl`, then
   run with `LD_PRELOAD=build/redzone.so`. It names the overrun block, its

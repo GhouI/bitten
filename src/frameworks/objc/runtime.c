@@ -721,7 +721,12 @@ static void *alloc_reporter(void *arg) {
         long total = 0;
         for (size_t i = 0; i < n; i++) total += copy[i].live;
         fprintf(stderr, "bitten: alloc stats: %ld live objects in %zu classes\n", total, n);
-        for (size_t i = 0; i < n && i < 30; i++)
+        static long top = -1;
+        if (top < 0) {
+            const char *t = getenv("BITTEN_ALLOC_TOP");   /* how many classes (30) */
+            top = t && atol(t) > 0 ? atol(t) : 30;
+        }
+        for (size_t i = 0; i < n && i < (size_t)top; i++)
             fprintf(stderr, "bitten:   %8ld live  %+7ld made  %s\n", copy[i].live, copy[i].made,
                     class_name((Class)copy[i].cls));
         free(copy);
@@ -794,6 +799,7 @@ id class_create_instance(Class cls, size_t extra) {
     if (!obj) return NULL;
     obj->isa = cls;
     dx_alloc_note(cls, 1);
+    dx_live_note(obj, 1);
     /* C++ instance variables: constructors run from the root class down */
     Class chain[64];
     int n = 0;
