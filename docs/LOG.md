@@ -5519,3 +5519,21 @@ Debugging aids:
   ("Bold Oblique" was reported as Menlo-Bold).
 - Test: tests/c/coretext.c.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit: colours describe and compare by value
+
+- NSColor's description was NSObject's, with the object's address in it.
+  The target app keys a cache of rendered pane titles by a string built
+  from colours' descriptions. Every new colour object made a new key, so
+  each visit to Settings rendered and kept more title images, about
+  0.6 MB of image memory per visit. Colours now describe themselves by
+  value as AppKit's do ("sRGB IEC61966-2.1 colorspace r g b a"), and
+  compare and hash by value. Dynamic colours compare by name and
+  provider, and their description carries their current value. Colours
+  made from them with another alpha say so. Malloc's bytes in use now
+  stay flat across Settings visits (about 30 KB each, down from 600 KB).
+- Found with the new tools: malloc totals and per-site summaries in the
+  SIGUSR1 report, address targets for `BITTEN_FIND_REFS`, and
+  `BITTEN_IMAGE_DEBUG` / `BITTEN_CACHE_DEBUG` (see `docs/NEXT.md`).
+- Test: `tests/appkit/basics.m`.
+- Target app (total `^MISSING`): 0 -> 0.

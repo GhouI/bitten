@@ -937,6 +937,21 @@ static const struct { unsigned short code; char plain, shifted; } bn_us_keys[] =
 - (CGFloat)blueComponent { return _b; }
 - (CGFloat)alphaComponent { return _a; }
 - (NSColor *)colorWithAlphaComponent:(CGFloat)a { return [NSColor colorWithSRGBRed:_r green:_g blue:_b alpha:a]; }
+/* By value, as AppKit's: programs key caches by a colour's description
+ * (an address in it would make every colour object a new key). */
+- (NSString *)description {
+    return [NSString stringWithFormat:@"sRGB IEC61966-2.1 colorspace %g %g %g %g", _r, _g, _b, _a];
+}
+- (BOOL)isEqual:(id)other {
+    if (other == self) return YES;
+    if (![other isKindOfClass:[NSColor class]] || [other class] != [self class]) return NO;
+    NSColor *o = other;
+    return o->_r == _r && o->_g == _g && o->_b == _b && o->_a == _a;
+}
+- (NSUInteger)hash {
+    return (NSUInteger)(_r * 255) * 16777619u ^ (NSUInteger)(_g * 255) * 65599u ^ (NSUInteger)(_b * 255) * 257u ^
+           (NSUInteger)(_a * 255);
+}
 /* The fixed named colours (the system colours that change with the
  * appearance are in AppKitDynamicColor.m). */
 + (NSColor *)blackColor { return [self colorWithWhite:0 alpha:1]; }

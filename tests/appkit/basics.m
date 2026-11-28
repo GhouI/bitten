@@ -456,6 +456,23 @@ int main(void) {
         [clear orderOut:nil];
     }
 
+    /* Colours describe and compare by value: programs key caches by a
+     * colour's description, so two equal colours must read alike (no
+     * object address), and differing ones apart. */
+    {
+        NSColor *a = [NSColor colorWithSRGBRed:1 green:0.5 blue:0 alpha:1];
+        NSColor *b = [NSColor colorWithSRGBRed:1 green:0.5 blue:0 alpha:1];
+        NSColor *c = [NSColor colorWithSRGBRed:1 green:0.5 blue:0 alpha:0.5];
+        CHECK([a.description isEqualToString:b.description] && ![a.description isEqualToString:c.description]);
+        CHECK([a.description rangeOfString:@"0x"].location == NSNotFound);
+        CHECK([a isEqual:b] && a.hash == b.hash && ![a isEqual:c]);
+        NSColor *label = NSColor.labelColor;
+        CHECK([label.description isEqualToString:NSColor.labelColor.description]);
+        CHECK(![[label colorWithAlphaComponent:0.5].description isEqualToString:label.description]);
+        CHECK([[label colorWithAlphaComponent:0.5] isEqual:[label colorWithAlphaComponent:0.5]]);
+        CHECK(![label isEqual:NSColor.secondaryLabelColor]);
+    }
+
     puts("AppKit basics ok");
     return 0;
 }

@@ -3,6 +3,7 @@
  * which have no glyphs here: a symbol image is a small rounded square in
  * the current text colour, at the symbol's size, so layouts keep their
  * shape. */
+#include <stdio.h>
 #import <AppKit/AppKit.h>
 #include <ctype.h>
 #include <math.h>
@@ -581,6 +582,9 @@ static NSMutableSet<NSString *> *missing_images;
         if (img) return img;
     }
     size_t w = (size_t)(_size.width > 0 ? _size.width : 1), h = (size_t)(_size.height > 0 ? _size.height : 1);
+    if (getenv("BITTEN_IMAGE_DEBUG"))
+        fprintf(stderr, "bitten: image %p (%s) rendered %zux%zu, %lu reps\n", (__bridge void *)self,
+                self.name.UTF8String ?: "-", w, h, (unsigned long)_reps.count);
     CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
     CGContextRef c = CGBitmapContextCreate(NULL, w, h, 8, 0, space, kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little);
     CGColorSpaceRelease(space);
@@ -595,6 +599,8 @@ static NSMutableSet<NSString *> *missing_images;
     NSBitmapImageRep *rep = [[NSBitmapImageRep alloc] initWithCGImage:img];
     CGImageRelease(img);
     [_reps addObject:rep];
+    if (getenv("BITTEN_IMAGE_DEBUG"))
+        fprintf(stderr, "bitten: image %p's CGImage %p\n", (__bridge void *)self, (void *)rep.CGImage);
     return rep.CGImage;
 }
 - (NSData *)TIFFRepresentation { return nil; }

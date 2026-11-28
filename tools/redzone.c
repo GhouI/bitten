@@ -248,3 +248,41 @@ int redzone_lookup(uintptr_t a, uintptr_t *start, size_t *size, void *sites[4]) 
     pthread_mutex_unlock(&lock);
     return found;
 }
+
+/* Live blocks summed by where they were allocated (malloc's caller and
+ * the three frames above), the largest totals first: two summaries taken
+ * around a repeated action show what it leaves behind. mrun prints one
+ * with each BITTEN_ALLOC_STATS report. */
+struct site_sum { void *pc[4]; size_t bytes, blocks; };
+static int by_bytes(const void *a, const void *b) {
+    size_t x = ((const struct site_sum *)a)->bytes, y = ((const struct site_sum *)b)->bytes;
+    return x < y ? 1 : x > y ? -1 : 0;
+}
+void redzone_summary(int top) {
+    size_t cap = 1 << 16, used = 0;
+    struct site_sum *t = real_malloc ? real_malloc(cap * sizeof *t) : NULL;
+    if (!t) return;
+    memset(t, 0, cap * sizeof *t);
+    pthread_mutex_lock(&lock);
+    for (struct head *h = live; h; h = h->next) {
+        void *pc[4] = {h->site, h->up[0], h->up[1], h->up[2]};
+        size_t j = ((uintptr_t)pc[0] ^ ((uintptr_t)pc[1] << 3) ^ ((uintptr_t)pc[2] << 7) ^ ((uintptr_t)pc[3] << 11)) % cap;
+        size_t probes = 0;
+        while (t[j].blocks && memcmp(t[j].pc, pc, sizeof pc) && probes++ < cap) j = (j + 1) % cap;
+        if (probes >= cap) break;
+        if (!t[j].blocks) { memcpy(t[j].pc, pc, sizeof pc); used++; }
+        t[j].bytes += h->size;
+        t[j].blocks++;
+        if (used * 2 > cap) break;   /* (enough for a summary) */
+    }
+    pthread_mutex_unlock(&lock);
+    qsort(t, cap, sizeof *t, by_bytes);
+    char buf[512], w[4][160];
+    for (int i = 0; i < top && t[i].blocks; i++) {
+        int n = snprintf(buf, sizeof buf, "redzone: %9zu bytes %6zu blocks  %s < %s < %s < %s\n", t[i].bytes, t[i].blocks,
+                         where(t[i].pc[0], w[0], sizeof w[0]), where(t[i].pc[1], w[1], sizeof w[1]),
+                         where(t[i].pc[2], w[2], sizeof w[2]), where(t[i].pc[3], w[3], sizeof w[3]));
+        if (write(2, buf, (size_t)n) < 0) {}
+    }
+    real_free(t);
+}
