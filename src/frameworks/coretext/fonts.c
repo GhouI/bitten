@@ -4,7 +4,7 @@
  * CTFontManager. No Apple font ships with bitten; Apple's names map to
  * open families (DejaVu, Noto, Liberation, FreeFont...):
  *   the system font (.AppleSystemUIFont, .SFNS, SF Pro), Helvetica, Arial,
- *     Lucida Grande  -> a sans-serif family
+ *     Lucida Grande  -> a sans-serif family (Liberation Sans first)
  *   Menlo, Monaco, SF Mono, Courier             -> a monospaced family
  *   Times, New York, Georgia                    -> a serif family
  * A weight or slant in the name (Bold, Semibold, Light, Italic...) picks
@@ -125,7 +125,11 @@ static bool contains(const char *s, const char *word) {
     return false;
 }
 
-static const char *const SANS[] = {"Noto Sans", "DejaVu Sans", "Liberation Sans", "FreeSans", "Nimbus Sans", NULL};
+/* Sans-serif stands in for the system font (San Francisco), Helvetica,
+ * Arial and Lucida Grande: Arial/Helvetica-metric families first, as their
+ * widths are close to San Francisco's (DejaVu Sans runs 10-15% wider, and
+ * tight macOS layouts overflow); missing glyphs still fall back. */
+static const char *const SANS[] = {"Liberation Sans", "Arimo", "Nimbus Sans", "Noto Sans", "DejaVu Sans", "FreeSans", NULL};
 static const char *const MONO[] = {"DejaVu Sans Mono", "Noto Sans Mono", "Liberation Mono", "FreeMono", NULL};
 static const char *const SERIF[] = {"DejaVu Serif", "Noto Serif", "Liberation Serif", "FreeSerif", NULL};
 
