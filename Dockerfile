@@ -35,8 +35,9 @@ RUN make -j"$(nproc)" BUILD=/out && test -f /out/root/System/Library/Frameworks/
 
 # Optional: build and run the test suite (docker build --target test .)
 FROM build AS test
-# fonts-dejavu-core: open TrueType fonts for CoreText (tests/c/coretext).
+# fonts-dejavu-core, fonts-liberation: open TrueType fonts for CoreText (tests/c/coretext).
 RUN apt-get update && apt-get install -y --no-install-recommends golang-go python3 ca-certificates fonts-dejavu-core \
+    fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 # the Go tests' go.mod wants Go 1.24, newer than Ubuntu 24.04's golang-go
 ENV GOTOOLCHAIN=go1.24.0
@@ -50,7 +51,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         # (it reads Apple's AIR) into a shared object on first use
         clang libc6-dev binutils \
         # open fonts: CoreText maps Apple's font names to these
-        fonts-dejavu-core fonts-noto-core \
+        fonts-dejavu-core fonts-noto-core fonts-liberation \
     && rm -rf /var/lib/apt/lists/* \
     # the places macOS programs expect to exist
     && mkdir -p /Applications /Users/Shared /Library /System/Library /Volumes /private /dmg \

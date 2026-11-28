@@ -5619,3 +5619,14 @@ Debugging aids:
   They are spinlocks now, since nothing under them calls out or blocks.
   CPU over eight switches: 11.2 s -> 10.5 s.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## The system font maps to Liberation Sans
+
+- CoreText (fonts.c): the sans-serif stand-in for the system font (San
+  Francisco), Helvetica, Arial and Lucida Grande prefers Arial/Helvetica-
+  metric families (Liberation Sans, Arimo, Nimbus Sans) before Noto Sans
+  and DejaVu Sans. DejaVu Sans runs 9-12% wider at UI sizes ("Typography"
+  at 13 pt: 77.6 against 68.6 pt), so tight macOS layouts overflowed;
+  missing glyphs still fall back to the other fonts.
+- Dockerfile: fonts-liberation in the test stage and the runtime image.
+- Target app (total `^MISSING`): 0 -> 0.
