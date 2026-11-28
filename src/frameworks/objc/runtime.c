@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <signal.h>
 #include <string.h>
 
 #include "objc_internal.h"
@@ -692,7 +693,8 @@ void add_method(Class cls, const char *sel, IMP imp, const char *types) {
 /* ---- BITTEN_ALLOC_STATS=N ----
  * Live instances per class (Objective-C objects and Swift class instances):
  * every N seconds, the classes with the most live instances are printed,
- * with how many were made since the last report (leak hunting). */
+ * with how many were made since the last report (leak hunting). SIGUSR1
+ * prints a report at once. */
 struct alloc_count { const void *cls; long live, made; };
 static struct alloc_count *alloc_table;
 static size_t alloc_cap, alloc_used;
@@ -703,10 +705,13 @@ static int by_live(const void *a, const void *b) {
     long x = ((const struct alloc_count *)a)->live, y = ((const struct alloc_count *)b)->live;
     return x < y ? 1 : x > y ? -1 : 0;
 }
+static volatile sig_atomic_t alloc_asked;
+static void alloc_on_signal(int sig) { (void)sig; alloc_asked = 1; }
 static void *alloc_reporter(void *arg) {
     (void)arg;
     for (;;) {
-        sleep((unsigned)alloc_period);
+        for (int waited = 0; waited < alloc_period * 5 && !alloc_asked; waited++) usleep(200000);
+        alloc_asked = 0;
         pthread_mutex_lock(&alloc_lock);
         size_t n = 0;
         struct alloc_count *copy = malloc((alloc_used ? alloc_used : 1) * sizeof *copy);
@@ -743,6 +748,7 @@ static void alloc_init(void) {
     const char *e = getenv("BITTEN_ALLOC_STATS");
     alloc_period = e ? atoi(e) : 0;
     if (alloc_period <= 0) return;
+    signal(SIGUSR1, alloc_on_signal);
     pthread_t t;
     pthread_create(&t, NULL, alloc_reporter, NULL);
     pthread_detach(t);

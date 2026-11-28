@@ -49,9 +49,13 @@ on macOS.
   `BITTEN_MONITOR_DEBUG` event monitors, `BITTEN_WINDOW_DEBUG` window
   frames, creation and freeing, `BITTEN_SYMBOL_DEBUG` symbol images.
 - `BITTEN_CRASH_REPORT=stderr` gives a backtrace on a fatal error.
+- `BITTEN_ALLOC_STATS=N` also prints at once on `kill -USR1 <mrun pid>`:
+  take one report, repeat an action a few times, take another, and diff
+  them.
 - Leaks: `BITTEN_FIND_REFS=Class` then `kill -USR2 <mrun pid>` lists what
   points at each live instance (object class and offset, or the mapping),
-  a few levels up; `(weak)` marks `__weak` slots. Under
+  a few levels up (`BITTEN_FIND_REFS_DEPTH`, 3), for the first
+  `BITTEN_FIND_REFS_MAX` instances (40); `(weak)` marks `__weak` slots. Under
   `LD_PRELOAD=build/redzone.so` (built with `-fno-omit-frame-pointer`),
   malloc blocks are named by their call sites and freed memory is
   skipped. A cycle shows as holders inside the object's own tree (a
