@@ -305,7 +305,7 @@ internal final class _JSONEncoderImpl: Encoder {
     return _JSONUnkeyedEncoder(encoder: self, node: node, explicitPath: nil)
   }
   func singleValueContainer() -> any SingleValueEncodingContainer {
-    return _JSONSingleEncoder(encoder: self, codingPath: codingPath)
+    return _JSONSingleEncoder(encoder: self)
   }
 
   func boxDouble(_ d: Double) throws -> _JSONValue {
@@ -482,7 +482,7 @@ internal struct _JSONUnkeyedEncoder: UnkeyedEncodingContainer {
 
 internal struct _JSONSingleEncoder: SingleValueEncodingContainer {
   let encoder: _JSONEncoderImpl
-  var codingPath: [any CodingKey]
+  var codingPath: [any CodingKey] { return encoder.codingPath }
 
   func put(_ v: _JSONValue) { encoder.node.kind = .value(v) }
   mutating func encodeNil() throws { put(.null) }
@@ -867,11 +867,19 @@ internal final class _JSONDecoderImpl: Decoder {
   private let parent: _JSONDecoderImpl?
   private let key: (any CodingKey)?
   private var given: [any CodingKey]
+  /// Made once when first asked for (programs that try one type after
+  /// another ask on every mismatch); a decoder's place never changes.
+  private var madePath: [any CodingKey]?
   var codingPath: [any CodingKey] {
-    get {
-      guard let p = parent else { return key.map { given + [$0] } ?? given }
-      return key.map { p.codingPath + [$0] } ?? p.codingPath
+    if let m = madePath { return m }
+    let made: [any CodingKey]
+    if let p = parent {
+      made = key.map { p.codingPath + [$0] } ?? p.codingPath
+    } else {
+      made = key.map { given + [$0] } ?? given
     }
+    madePath = made
+    return made
   }
   var userInfo: [CodingUserInfoKey: Any] { return _anyUserInfo(options.userInfo) }
 
@@ -1013,7 +1021,14 @@ internal struct _JSONMembers {
     return nil
   }
   var keys: [String] {
-    var seen = Set<String>()
+    // a repeated key counts once (rare: checked directly when small)
+    if index == nil {
+      var out: [String] = []
+      out.reserveCapacity(list.count)
+      for (k, _) in list where !out.contains(k) { out.append(k) }
+      return out
+    }
+    var seen = Set<String>(minimumCapacity: list.count)
     return list.compactMap { seen.insert($0.0).inserted ? $0.0 : nil }
   }
 }
