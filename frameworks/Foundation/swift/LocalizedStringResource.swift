@@ -163,10 +163,15 @@ extension String {
 
   /// "%" in a literal is written "%%" in the key.
   fileprivate func replacingPercents() -> String {
-    guard contains("%") else { return self }
-    var out = ""
-    for c in self { out += c == "%" ? "%%" : String(c) }
-    return out
+    // by bytes: "%" is ASCII, and walking characters is slow
+    guard utf8.contains(37) else { return self }
+    var out: [UInt8] = []
+    out.reserveCapacity(utf8.count + 4)
+    for b in utf8 {
+      out.append(b)
+      if b == 37 { out.append(37) }
+    }
+    return String(decoding: out, as: UTF8.self)
   }
 }
 
@@ -197,6 +202,8 @@ internal enum _LocalizationArgument: Hashable, @unchecked Sendable {
   /// positional "%n$" one) takes the next argument; "%@" takes text,
   /// numeric specifiers their value.
   static func format(_ format: String, _ args: [_LocalizationArgument]) -> String {
+    // nothing to put in or unescape: most strings
+    if !format.utf8.contains(37) { return format }
     var out = ""
     var next = 0
     var chars = Array(format)
