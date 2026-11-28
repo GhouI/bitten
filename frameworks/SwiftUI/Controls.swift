@@ -683,6 +683,16 @@ public struct Label<Title: View, Icon: View>: View {
   nonisolated public static func _makeView(view: _GraphValue<Label>, inputs: _ViewInputs) -> _ViewOutputs {
     let v = view.value
     let style = inputs.environment._labelStyle
+    if style == .stacked {
+      var icon = inputs
+      icon.environment.font = .system(size: 40)
+      icon.environment._foregroundStyle = AnyShapeStyle(HierarchicalShapeStyle.secondary)
+      var title = inputs
+      title.environment._labelStyle = .titleAndIcon
+      return _ViewOutputs(_StackNode(axis: .vertical, alignment: .center, spacing: 10, environment: inputs.environment,
+                                     children: [_makeNode(v.icon, inputs: icon.named("icon")),
+                                                _makeNode(v.title, inputs: title.named("title"))]))
+    }
     var children: [_ViewNode] = []
     if style != .titleOnly { children.append(_makeNode(v.icon, inputs: inputs.named("icon"))) }
     if style != .iconOnly { children.append(_makeNode(v.title, inputs: inputs.named("title"))) }
@@ -707,7 +717,9 @@ extension Label where Title == Text, Icon == Image {
   }
 }
 
-internal enum _LabelAppearance { case titleAndIcon, iconOnly, titleOnly }
+/// (`stacked`: the icon large above the title, as ContentUnavailableView
+/// shows its label.)
+internal enum _LabelAppearance { case titleAndIcon, iconOnly, titleOnly, stacked }
 struct _LabelsHiddenKey: EnvironmentKey { static let defaultValue = false }
 struct _FormGroupedKey: EnvironmentKey { static let defaultValue = false }
 extension EnvironmentValues {
@@ -904,6 +916,9 @@ public struct ContentUnavailableView<Label: View, Description: View, Actions: Vi
     var title = inputs
     title.environment.font = .title2.bold()
     title.environment.multilineTextAlignment = .center
+    // A Label shows its icon large above its title (unless a style says
+    // otherwise).
+    if title.environment._labelStyle == .titleAndIcon { title.environment._labelStyle = .stacked }
     var secondary = inputs
     secondary.environment._foregroundStyle = AnyShapeStyle(HierarchicalShapeStyle.secondary)
     // The description's lines are centred under the title, as on macOS.
@@ -911,8 +926,13 @@ public struct ContentUnavailableView<Label: View, Description: View, Actions: Vi
     let children = [_makeNode(v.label, inputs: title.named("label")),
                     _makeNode(v.description, inputs: secondary.named("description")),
                     _makeNode(v.actions, inputs: inputs.named("actions"))]
-    return _ViewOutputs(_StackNode(axis: .vertical, alignment: .center, spacing: 8, environment: inputs.environment,
-                                   children: children))
+    // Centred in the space it is given, with a margin around it.
+    let stack = _StackNode(axis: .vertical, alignment: .center, spacing: 8, environment: inputs.environment,
+                           children: children)
+    let padded = _PaddingNode(insets: EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16),
+                              environment: inputs.environment, children: [stack])
+    return _ViewOutputs(_FrameNode(minW: nil, idealW: nil, maxW: .infinity, minH: nil, idealH: nil, maxH: .infinity,
+                                   alignment: .center, environment: inputs.environment, children: [padded]))
   }
 }
 extension ContentUnavailableView where Label == SwiftUI.Label<Text, Image>, Description == Text?, Actions == EmptyView {

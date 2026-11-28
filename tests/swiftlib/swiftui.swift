@@ -1064,3 +1064,27 @@ struct _PickOptions: View {
     return bad
   }
 }
+
+/// ContentUnavailableView: the label's icon above its title, and a margin
+/// inside the view (programs that pull it in with negative padding don't
+/// end up drawing outside their row).
+@_silgen_name("swl_swiftui_unavailable") public func unavailable() -> Int {
+  return MainActor.assumeIsolated {
+    var bad = 0
+    let plain = NSHostingView(rootView: Text("No Items").font(.title2.bold())).fittingContentSize
+    let view = ContentUnavailableView {
+      Label("No Items", systemImage: "globe")
+    } description: {
+      Text("Add one.")
+    }
+    let size = NSHostingView(rootView: view).fittingContentSize
+    // stacked: taller than title + description by at least the icon, and
+    // no wider than the title plus the margin
+    if size.height < plain.height * 2 + 32 { bad |= 1 }
+    if size.width > plain.width + 40 { bad |= 2 }
+    // pulled in by 10 points top and bottom it still fits its own frame
+    let tight = NSHostingView(rootView: view.padding(.vertical, -10)).fittingContentSize
+    if tight.height < size.height - 21 || tight.height <= 0 { bad |= 4 }
+    return bad
+  }
+}
