@@ -1061,7 +1061,16 @@ internal final class _TextNode: _ViewNode {
   var lineHeight: CGFloat { return _TextRenderer.metrics(font).lineHeight }
   func width(of s: Substring) -> CGFloat { return _TextRenderer.width(String(s), font: font) }
   /// Greedy word wrapping into `width`.
+  /// The last wrapping asked for (measuring and drawing ask for the same
+  /// one several times in a pass).
+  private var _linesMemo: (width: CGFloat?, limited: Bool, lines: [Substring])?
   func lines(in width: CGFloat?, limited: Bool = true) -> [Substring] {
+    if let m = _linesMemo, m.width == width, m.limited == limited { return m.lines }
+    let out = _wrap(in: width, limited: limited)
+    _linesMemo = (width, limited, out)
+    return out
+  }
+  private func _wrap(in width: CGFloat?, limited: Bool) -> [Substring] {
     var out: [Substring] = []
     for para in string.split(separator: "\n", omittingEmptySubsequences: false) {
       guard let w = width, self.width(of: para) > w else {
@@ -1139,9 +1148,14 @@ internal enum _TextRenderer {
     let ascent: CGFloat, descent: CGFloat, leading: CGFloat
     var lineHeight: CGFloat { return (ascent + descent + leading).rounded(.up) }
   }
-  nonisolated(unsafe) static var fonts: [String: CTFont] = [:]
-  nonisolated(unsafe) static var widths: [String: CGFloat] = [:]
-  nonisolated(unsafe) static var metricsCache: [String: Metrics] = [:]
+  /// A font as the caches know it: its face and size (cheap to make and
+  /// hash, unlike a string with the size printed in it).
+  struct FontKey: Hashable { let name: String; let size: CGFloat }
+  struct WidthKey: Hashable { let font: FontKey; let text: String }
+  nonisolated(unsafe) static var fonts: [FontKey: CTFont] = [:]
+  nonisolated(unsafe) static var widths: [WidthKey: CGFloat] = [:]
+  nonisolated(unsafe) static var metricsCache: [FontKey: Metrics] = [:]
+  static func key(_ font: Font) -> FontKey { return FontKey(name: name(font), size: font._size) }
 
   static func name(_ font: Font) -> String {
     let w = font.provider.weight.value
@@ -1150,7 +1164,8 @@ internal enum _TextRenderer {
     case .monospaced: return bold || semibold ? "Menlo-Bold" : "Menlo-Regular"
     case .serif: return bold || semibold ? "Times-Bold" : "Times-Roman"
     default:
-      return ".AppleSystemUIFont" + (bold ? "-Bold" : semibold ? "-Semibold" : light ? "-Light" : "")
+      return bold ? ".AppleSystemUIFont-Bold" : semibold ? ".AppleSystemUIFont-Semibold" :
+        light ? ".AppleSystemUIFont-Light" : ".AppleSystemUIFont"
     }
   }
   static func cfString(_ s: String) -> CFString {
@@ -1158,9 +1173,9 @@ internal enum _TextRenderer {
       CFStringCreateWithCString(nil, "", CFStringEncoding(kCFStringEncodingUTF8))!
   }
   static func ctFont(_ font: Font) -> CTFont {
-    let key = name(font) + "@\(font._size)"
+    let key = key(font)
     if let f = fonts[key] { return f }
-    let f = CTFontCreateWithName(cfString(name(font)), font._size, nil)
+    let f = CTFontCreateWithName(cfString(key.name), font._size, nil)
     fonts[key] = f
     return f
   }
@@ -1185,7 +1200,7 @@ internal enum _TextRenderer {
     return CTLineCreateWithAttributedString(attributed)
   }
   static func metrics(_ font: Font) -> Metrics {
-    let key = name(font) + "@\(font._size)"
+    let key = key(font)
     if let m = metricsCache[key] { return m }
     var a: CGFloat = 0, d: CGFloat = 0, l: CGFloat = 0
     _ = CTLineGetTypographicBounds(line("Hg", font: font, color: nil), &a, &d, &l)
@@ -1195,10 +1210,10 @@ internal enum _TextRenderer {
   }
   static func width(_ s: String, font: Font) -> CGFloat {
     if s.isEmpty { return 0 }
-    let key = name(font) + "@\(font._size)|" + s
+    let key = WidthKey(font: key(font), text: s)
     if let w = widths[key] { return w }
     let w = CGFloat(CTLineGetTypographicBounds(line(s, font: font, color: nil), nil, nil, nil)).rounded(.up)
-    if widths.count > 4096 { widths.removeAll() }
+    if widths.count > 65536 { widths.removeAll() }
     widths[key] = w
     return w
   }
