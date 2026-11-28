@@ -1,5 +1,6 @@
 #import "FoundationInternal.h"
 #include <fcntl.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 
 static inline CFDataRef CFDT(NSData *d) { return (__bridge CFDataRef)d; }
@@ -130,7 +131,27 @@ static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0
 + (instancetype)dataWithContentsOfURL:(NSURL *)url options:(NSDataReadingOptions)options error:(NSError **)error {
     return [[self alloc] initWithContentsOfURL:url options:options error:error];
 }
+/* A regular file mapped read-only (NSDataReadingMapped…): its pages are
+ * the file's, read as touched, not a malloc'd copy. NULL to read it. */
+static void *map_file(const char *path, size_t *length) {
+    int fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) return NULL;
+    struct stat st;
+    void *p = NULL;
+    if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode) && st.st_size > 0) {
+        p = mmap(NULL, (size_t)st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+        if (p == MAP_FAILED) p = NULL;
+        else *length = (size_t)st.st_size;
+    }
+    close(fd);
+    return p;
+}
 - (instancetype)initWithContentsOfFile:(NSString *)path options:(NSDataReadingOptions)options error:(NSError **)error {
+    if (path && (options & (NSDataReadingMappedIfSafe | NSDataReadingMappedAlways)) && !wants_mutable(self)) {
+        size_t mlen = 0;
+        void *m = map_file(path.fileSystemRepresentation, &mlen);
+        if (m) return make_no_copy(self, m, mlen, ^(void *b, NSUInteger n) { munmap(b, n); });
+    }
     size_t length = 0;
     void *bytes = path ? BNReadFile(path.fileSystemRepresentation, &length) : NULL;
     if (!bytes) {
