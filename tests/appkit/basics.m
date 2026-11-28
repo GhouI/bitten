@@ -421,6 +421,29 @@ int main(void) {
     [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.6]];
     CHECK(!w.inLiveResize && rz.started == 1 && rz.ended == 1);
 
+    /* A window showing a behind-window material says so (the display
+     * blurs behind it); hidden or within-window ones don't count. */
+    {
+        NSWindow *pw = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 40, 40) styleMask:NSWindowStyleMaskBorderless
+                                                     backing:NSBackingStoreBuffered defer:NO];
+        pw.opaque = NO;
+        BOOL (^has)(void) = ^BOOL {
+            return ((BOOL (*)(id, SEL))objc_msgSend)(pw, sel_registerName("_bn_hasBehindWindowMaterial"));
+        };
+        CHECK(!has());
+        NSVisualEffectView *fx = [[NSVisualEffectView alloc] initWithFrame:NSMakeRect(0, 0, 40, 40)];
+        fx.blendingMode = NSVisualEffectBlendingModeWithinWindow;
+        [pw.contentView addSubview:fx];
+        CHECK(!has());
+        fx.blendingMode = NSVisualEffectBlendingModeBehindWindow;
+        CHECK(has());
+        fx.hidden = YES;
+        CHECK(!has());
+        fx.hidden = NO;
+        [fx removeFromSuperview];
+        CHECK(!has());
+    }
+
     /* Menu items write function keys as macOS does. */
     {
         NSString *(^label)(NSString *, NSEventModifierFlags) = ^(NSString *k, NSEventModifierFlags m) {

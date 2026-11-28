@@ -891,6 +891,24 @@ static const char kDrawingKey;
  * under it, see-through when it is not opaque, and stacked by its
  * level (floating panels above normal windows). Sent when it changes. */
 static const char kStyleKey;
+/* Whether a behind-window material (an NSVisualEffectView blending with
+ * what is behind the window) shows in it: the display blurs behind such
+ * windows (flag 256) where they are see-through. */
+- (BOOL)_bn_hasBehindWindowMaterial {
+    NSHashTable *views = objc_getAssociatedObject(self, @selector(_bn_hasBehindWindowMaterial));
+    for (NSVisualEffectView *v in views)
+        if (v.window == self && v.blendingMode == NSVisualEffectBlendingModeBehindWindow && !v.isHiddenOrHasHiddenAncestor)
+            return YES;
+    return NO;
+}
+- (void)_bn_noteEffectView:(NSView *)v {
+    NSHashTable *views = objc_getAssociatedObject(self, @selector(_bn_hasBehindWindowMaterial));
+    if (!views) {
+        views = [NSHashTable weakObjectsHashTable];
+        objc_setAssociatedObject(self, @selector(_bn_hasBehindWindowMaterial), views, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    [views addObject:v];
+}
 - (void)_bn_sendStyle {
     uint32_t flags = 0;
     if (!(self.styleMask & NSWindowStyleMaskTitled)) flags |= 1;
@@ -903,6 +921,7 @@ static const char kStyleKey;
     if (titled && (self.styleMask & NSWindowStyleMaskResizable)) flags |= 16 | 64;
     if (titled && (self.styleMask & NSWindowStyleMaskMiniaturizable)) flags |= 32;
     if (self.isMiniaturized) flags |= 128;
+    if ((flags & 2) && [self _bn_hasBehindWindowMaterial]) flags |= 256;
     int32_t level = (int32_t)self.level;
     uint64_t packed = (uint64_t)flags << 32 | (uint32_t)level;
     NSNumber *sent = objc_getAssociatedObject(self, &kStyleKey);
