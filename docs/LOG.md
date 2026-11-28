@@ -5782,3 +5782,12 @@ Debugging aids:
   now. CPU over eight Settings page switches: about 10.5 s -> 9.9 s
   (with the JSON changes before it).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Foundation: localized strings without per-character work
+
+- `String(localized:)` and `LocalizedStringResource` escaped "%" by walking
+  a string's characters, and formatted every localized string by splitting
+  it into characters, even one with nothing to put in. "%" is now found
+  among the bytes, and a format without one is returned as it is.
+  SwiftUI's `Text` makes these on every rebuild.
+- Target app (total `^MISSING`): 0 -> 0.
