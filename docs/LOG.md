@@ -5940,3 +5940,16 @@ Debugging aids:
   symbols. `BITTEN_MENU_DEBUG` also prints each item's key equivalent.
 - Test: appkit basics (menu key labels).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## AppKit asks the display to blur behind materials and menus
+
+- A see-through window showing a behind-window NSVisualEffectView (the
+  target app's command palette) now sends the display's style flag 256,
+  and the page blurs what is behind it (#328). There the material's tint
+  is as light as macOS's (at most 80%) instead of nearly opaque. Menus
+  are the same kind of window and are blurred behind too; terminal text
+  no longer shows through either.
+- Menus follow the appearance: dark background, stroke and separators in
+  dark mode (their text was already dynamic, so it was white on light).
+- Test: appkit basics (which windows have a behind-window material).
+- Target app (total `^MISSING`): 0 -> 0.

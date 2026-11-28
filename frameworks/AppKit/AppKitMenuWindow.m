@@ -42,7 +42,14 @@ static BNMenuSession *current_session;
 @end
 @implementation BNMenuWindow
 - (BOOL)canBecomeKeyWindow { return YES; }
+/* Menus are a material over what is behind them: the display blurs it. */
+- (BOOL)_bn_hasBehindWindowMaterial { return YES; }
 @end
+
+static BOOL menu_dark(NSView *v) {
+    return [[v.effectiveAppearance bestMatchFromAppearancesWithNames:@[ NSAppearanceNameAqua, NSAppearanceNameDarkAqua ]]
+        isEqualToString:NSAppearanceNameDarkAqua];
+}
 
 /* A menu's key equivalent as macOS writes it: ⌃⌥⇧⌘ then the key. */
 static NSString *key_label(NSMenuItem *item) {
@@ -172,9 +179,12 @@ static NSDictionary *text_attrs(NSFont *font, NSColor *color) {
 - (void)drawRect:(NSRect)dirty {
     NSRect b = self.bounds;
     NSBezierPath *bg = [NSBezierPath bezierPathWithRoundedRect:NSInsetRect(b, 0.5, 0.5) xRadius:7 yRadius:7];
-    [[NSColor colorWithWhite:0.97 alpha:0.98] setFill];
+    /* Light or dark as the menu's appearance; translucent over the blur
+     * the display draws behind it. */
+    BOOL dark = menu_dark(self);
+    [[NSColor colorWithWhite:dark ? 0.17 : 0.97 alpha:0.86] setFill];
     [bg fill];
-    [[NSColor colorWithWhite:0 alpha:0.18] setStroke];
+    [[NSColor colorWithWhite:dark ? 1 : 0 alpha:dark ? 0.16 : 0.18] setStroke];
     bg.lineWidth = 1;
     [bg stroke];
     NSFont *font = self.menu.font ?: [NSFont menuFontOfSize:0];
@@ -185,7 +195,7 @@ static NSDictionary *text_attrs(NSFont *font, NSColor *color) {
         NSMenuItem *i = items[k];
         NSRect r = [rows[k] rectValue];
         if (i.isSeparatorItem) {
-            [[NSColor colorWithWhite:0 alpha:0.12] setFill];
+            [[NSColor colorWithWhite:dark ? 1 : 0 alpha:dark ? 0.14 : 0.12] setFill];
             NSRectFill(NSMakeRect(r.origin.x + 6, NSMidY(r) - 0.5, r.size.width - 12, 1));
             continue;
         }
