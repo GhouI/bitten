@@ -17,13 +17,21 @@ struct rc_entry {
     uintptr_t extra; /* retain count minus one */
     unsigned deallocating : 1, weakly_referenced : 1, has_assoc : 1;
 };
+/* A shard's lock is held only for a probe of its table (no calls out), so
+ * a spinlock: every retain and release takes one, and an uncontended
+ * pthread mutex costs several times as much. */
 struct shard {
-    pthread_mutex_t lock;
+    _Atomic int lock;
     struct rc_entry *e;
     size_t cap, used, live;
 } shards[SHARDS];
 
 static struct shard *shard_for(id obj) { return &shards[((uintptr_t)obj >> 4) % SHARDS]; }
+static inline void shard_lock(struct shard *s) {
+    while (__atomic_exchange_n(&s->lock, 1, __ATOMIC_ACQUIRE))
+        while (__atomic_load_n(&s->lock, __ATOMIC_RELAXED)) __builtin_ia32_pause();
+}
+static inline void shard_unlock(struct shard *s) { __atomic_store_n(&s->lock, 0, __ATOMIC_RELEASE); }
 
 static struct rc_entry *rc_find(struct shard *s, id obj, int create) {
     if (!s->cap) {
@@ -68,20 +76,20 @@ static void rc_remove(struct shard *s, struct rc_entry *e) {
 
 id root_retain(id obj) {
     struct shard *s = shard_for(obj);
-    pthread_mutex_lock(&s->lock);
+    shard_lock(s);
     rc_find(s, obj, 1)->extra++;
-    pthread_mutex_unlock(&s->lock);
+    shard_unlock(s);
     if (dx_rr_active) dx_rr_note(obj, 1);
     return obj;
 }
 
 int root_try_retain(id obj) {
     struct shard *s = shard_for(obj);
-    pthread_mutex_lock(&s->lock);
+    shard_lock(s);
     struct rc_entry *e = rc_find(s, obj, 1);
     int ok = !e->deallocating;
     if (ok) e->extra++;
-    pthread_mutex_unlock(&s->lock);
+    shard_unlock(s);
     if (ok && dx_rr_active) dx_rr_note(obj, 1);
     return ok;
 }
@@ -89,30 +97,30 @@ int root_try_retain(id obj) {
 void root_release(id obj) {
     if (dx_rr_active) dx_rr_note(obj, -1);
     struct shard *s = shard_for(obj);
-    pthread_mutex_lock(&s->lock);
+    shard_lock(s);
     struct rc_entry *e = rc_find(s, obj, 0);
     if (e && e->extra > 0) {
         e->extra--;
         if (!e->extra && !e->weakly_referenced && !e->has_assoc && !e->deallocating) rc_remove(s, e);
-        pthread_mutex_unlock(&s->lock);
+        shard_unlock(s);
         return;
     }
     if (e && e->deallocating) { /* over-release during dealloc: ignore */
-        pthread_mutex_unlock(&s->lock);
+        shard_unlock(s);
         return;
     }
     if (!e) e = rc_find(s, obj, 1);
     e->deallocating = 1;
-    pthread_mutex_unlock(&s->lock);
+    shard_unlock(s);
     MSG(void, id, SEL)(obj, SEL_dealloc);
 }
 
 unsigned long root_retain_count(id obj) {
     struct shard *s = shard_for(obj);
-    pthread_mutex_lock(&s->lock);
+    shard_lock(s);
     struct rc_entry *e = rc_find(s, obj, 0);
     unsigned long n = e ? e->extra + 1 : 1;
-    pthread_mutex_unlock(&s->lock);
+    shard_unlock(s);
     return n;
 }
 
@@ -174,10 +182,10 @@ static int is_deallocating(id obj) {
     int allowed = ask_custom_weak(obj, SEL_allowsWeakReference);
     if (allowed >= 0) return !allowed;
     struct shard *s = shard_for(obj);
-    pthread_mutex_lock(&s->lock);
+    shard_lock(s);
     struct rc_entry *e = rc_find(s, obj, 0);
     int d = e && e->deallocating;
-    pthread_mutex_unlock(&s->lock);
+    shard_unlock(s);
     return d;
 }
 
@@ -196,9 +204,9 @@ static id store_weak(id *location, id obj) {
         w->next = weak_table[b];
         weak_table[b] = w;
         struct shard *s = shard_for(obj);
-        pthread_mutex_lock(&s->lock);
+        shard_lock(s);
         rc_find(s, obj, 1)->weakly_referenced = 1;
-        pthread_mutex_unlock(&s->lock);
+        shard_unlock(s);
         /* Objects that count their own references (CF's) die without
          * NSObject's dealloc; they clear their weak references through
          * dx_objc_weak_referent_dying. */
@@ -227,11 +235,11 @@ int dx_objc_weak_custom_rr;
  * the weak references to them. */
 void dx_objc_weak_referent_dying(void *obj) {
     struct shard *s = shard_for(obj);
-    pthread_mutex_lock(&s->lock);
+    shard_lock(s);
     struct rc_entry *e = rc_find(s, obj, 0);
     int weak = e && e->weakly_referenced;
     if (e) rc_remove(s, e);
-    pthread_mutex_unlock(&s->lock);
+    shard_unlock(s);
     if (weak) weak_clear(obj);
 }
 
@@ -339,9 +347,9 @@ static void d_objc_setAssociatedObject(id object, const void *key, id value, uin
         a->next = assoc_table[weak_bucket(object)];
         assoc_table[weak_bucket(object)] = a;
         struct shard *s = shard_for(object);
-        pthread_mutex_lock(&s->lock);
+        shard_lock(s);
         rc_find(s, object, 1)->has_assoc = 1;
-        pthread_mutex_unlock(&s->lock);
+        shard_unlock(s);
     }
     pthread_mutex_unlock(&assoc_lock);
     if (old && (old_policy & 0xff)) d_objc_release(old);
@@ -411,22 +419,22 @@ DX_FN(objc_destructInstance);
 void dx_objc_object_destroyed(void *object) {
     id obj = object;
     struct shard *s = shard_for(obj);
-    pthread_mutex_lock(&s->lock);
+    shard_lock(s);
     struct rc_entry *e = rc_find(s, obj, 0);
     int weak = e && e->weakly_referenced, assoc = e && e->has_assoc;
     if (!weak && !assoc) {
         /* Most objects: nothing to clear but the entry, under one lock. */
         if (e) rc_remove(s, e);
-        pthread_mutex_unlock(&s->lock);
+        shard_unlock(s);
         return;
     }
-    pthread_mutex_unlock(&s->lock);
+    shard_unlock(s);
     if (assoc) d_objc_removeAssociatedObjects(obj);
     if (weak) weak_clear(obj);
-    pthread_mutex_lock(&s->lock);
+    shard_lock(s);
     e = rc_find(s, obj, 0);
     if (e) rc_remove(s, e);
-    pthread_mutex_unlock(&s->lock);
+    shard_unlock(s);
 }
 
 void object_dispose_impl(id obj) {
@@ -996,7 +1004,6 @@ void *dx_os_object_class(const char *name, const char *super_name, void *(*retai
 }
 
 void dx_objc_arc_init(void) {
-    for (int i = 0; i < SHARDS; i++) pthread_mutex_init(&shards[i].lock, NULL);
     for (int i = 0; i < PROP_LOCKS; i++) pthread_mutex_init(&prop_locks[i], NULL);
     pthread_key_create(&pool_key, pool_thread_exit);
 
