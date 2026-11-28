@@ -5963,3 +5963,19 @@ Debugging aids:
   `+[NSColor colorWithCIColor:]` goes the other way.
 - Test: appkit basics (CIColor round trip).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## Selector audit; NSDecimal, layout-manager and attachment gaps filled
+
+- `BITTEN_SELECTOR_DUMP=path` writes every method name loaded classes
+  implement with each SIGUSR1 report, and `tools/selector-audit.py`
+  compares that with a program's `__objc_selrefs`: the target app sends
+  39 selectors nothing implements (after a crash on one, #331).
+- Filled: `-[NSDecimalNumber initWithDecimal:]`, `+decimalNumberWithDecimal:`
+  and `decimalValue` (NSDecimal is Swift's Decimal); NSLayoutManager's
+  `glyphIndexForCharacterAtIndex:`, `characterIndexForGlyphAtIndex:`,
+  `defaultBaselineOffsetForFont:`, `extraLineFragmentRect`(and its
+  container); NSTextView's `usesFindPanel`; NSAttributedString's
+  `attributedStringWithAttachment:`; NSView's Look Up
+  (`showDefinitionForAttributedString:…`, no panel).
+- Tests: foundation more (NSDecimal round trips, NaN, zero), appkit basics.
+- Target app (total `^MISSING`): 0 -> 0.

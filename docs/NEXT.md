@@ -60,6 +60,14 @@ on macOS.
 
 ## Finding problems
 
+- `tools/selector-audit.py PROGRAM DUMP` lists the selectors a program
+  sends that no loaded class implements (run it with
+  `BITTEN_ALLOC_STATS=600 BITTEN_SELECTOR_DUMP=path`, then `kill -USR1`).
+  Most of what is left for the target app is selectors it only compares
+  (text commands) or sends after availability checks (macOS 26 corner
+  and tint APIs); CoreImage's QR code generator and ScreenCaptureKit's
+  remaining setters are real gaps.
+
 - `BITTEN_EVENT_DEBUG` routes, `BITTEN_HIT_DEBUG` SwiftUI hits,
   `BITTEN_VIEW_TREE` / `BITTEN_SWIFTUI_TREE` trees, `BITTEN_DRAW_PROFILE`
   paint time, `BITTEN_METHODS=Class` a class's methods and ivars.

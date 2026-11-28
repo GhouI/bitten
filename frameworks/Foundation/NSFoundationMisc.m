@@ -331,6 +331,47 @@ NSValueTransformerName const NSSecureUnarchiveFromDataTransformerName = @"NSSecu
 - (instancetype)initWithMantissa:(unsigned long long)m exponent:(short)e isNegative:(BOOL)neg {
     return [self initWithDouble:(neg ? -1.0 : 1.0) * (double)m * pow(10, e)];
 }
+/* From and to NSDecimal (Swift's Decimal): its mantissa is up to eight
+ * 16-bit words, least significant first, times ten to its exponent; a
+ * negative one of length zero is NaN. */
+static double decimal_to_double(const NSDecimal *d) {
+    if (d->_length == 0) return d->_isNegative ? NAN : 0;
+    double m = 0;
+    for (int i = d->_length - 1; i >= 0; i--) m = m * 65536.0 + d->_mantissa[i];
+    double v = m * pow(10.0, d->_exponent);
+    return d->_isNegative ? -v : v;
+}
+static NSDecimal decimal_from_double(double v) {
+    NSDecimal d;
+    memset(&d, 0, sizeof d);
+    d._isCompact = 1;
+    if (isnan(v)) { d._isNegative = 1; return d; }
+    if (v == 0 || isinf(v)) return d;
+    d._isNegative = v < 0;
+    /* the shortest digits that read back as v, then the exponent */
+    char buf[40];
+    for (int prec = 1; prec <= 17; prec++) {
+        snprintf(buf, sizeof buf, "%.*e", prec - 1, fabs(v));
+        if (strtod(buf, NULL) == fabs(v)) break;
+    }
+    unsigned long long m = 0;
+    int digits = 0, exp10 = 0;
+    char *p = buf;
+    for (; *p && *p != 'e'; p++)
+        if (*p >= '0' && *p <= '9') { m = m * 10 + (unsigned)(*p - '0'); digits++; }
+    if (*p == 'e') exp10 = atoi(p + 1);
+    int e = exp10 - (digits - 1);
+    while (m && m % 10 == 0) { m /= 10; e++; }
+    if (e < -128 || e > 127) return decimal_from_double(0);
+    d._exponent = e;
+    int len = 0;
+    while (m) { d._mantissa[len++] = (unsigned short)(m & 0xFFFF); m >>= 16; }
+    d._length = len;
+    return d;
+}
+- (instancetype)initWithDecimal:(NSDecimal)dcm { return [self initWithDouble:decimal_to_double(&dcm)]; }
++ (NSDecimalNumber *)decimalNumberWithDecimal:(NSDecimal)dcm { return [[self alloc] initWithDecimal:dcm]; }
+- (NSDecimal)decimalValue { return decimal_from_double(_value); }
 - (double)doubleValue { return _value; }
 - (float)floatValue { return (float)_value; }
 - (long long)longLongValue { return (long long)_value; }

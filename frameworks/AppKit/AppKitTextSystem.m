@@ -250,10 +250,42 @@ static NSTextInputContext *current_context;
     return [self usedRectForTextContainer:c];
 }
 - (CGFloat)defaultLineHeightForFont:(NSFont *)font { return ceil(font.ascender - font.descender + font.leading); }
+- (CGFloat)defaultBaselineOffsetForFont:(NSFont *)font { return ceil(font.ascender); }
+/* One glyph per character here. */
+- (NSUInteger)glyphIndexForCharacterAtIndex:(NSUInteger)i { return i; }
+- (NSUInteger)characterIndexForGlyphAtIndex:(NSUInteger)i { return i; }
+/* The empty line after a final newline (or none): below the text. */
+- (NSRect)extraLineFragmentRect {
+    NSAttributedString *s = _textStorage;
+    NSTextContainer *c = _containers.firstObject;
+    if (!c || (s.length && ![[NSCharacterSet newlineCharacterSet] characterIsMember:[s.string characterAtIndex:s.length - 1]]))
+        return NSZeroRect;
+    NSFont *font = s.length ? [s attribute:NSFontAttributeName atIndex:s.length - 1 effectiveRange:NULL] : nil;
+    CGFloat h = [self defaultLineHeightForFont:font ?: [NSFont systemFontOfSize:0]];
+    return NSMakeRect(0, NSMaxY([self usedRectForTextContainer:c]), c.size.width, h);
+}
+- (NSTextContainer *)extraLineFragmentTextContainer { return NSEqualRects(self.extraLineFragmentRect, NSZeroRect) ? nil : _containers.firstObject; }
 - (void)invalidateLayoutForCharacterRange:(NSRange)r actualCharacterRange:(NSRangePointer)actual {
     if (actual) *actual = r;
 }
 - (void)invalidateDisplayForCharacterRange:(NSRange)r {}
+@end
+
+/* A string of the attachment character carrying the attachment (as
+ * AppKit's NSAttributedString addition makes one). */
+@implementation NSAttributedString (BittenAttachment)
++ (NSAttributedString *)attributedStringWithAttachment:(NSTextAttachment *)attachment {
+    unichar c = 0xFFFC;
+    NSString *s = [NSString stringWithCharacters:&c length:1];
+    return [[NSAttributedString alloc] initWithString:s attributes:attachment ? @{ @"NSAttachment" : attachment } : @{}];
+}
+@end
+
+/* The Look Up panel: there is none here. */
+@implementation NSView (BittenDefinition)
+- (void)showDefinitionForAttributedString:(NSAttributedString *)s atPoint:(NSPoint)p {}
+- (void)showDefinitionForAttributedString:(NSAttributedString *)s range:(NSRange)r options:(NSDictionary *)o
+            baselineOriginProvider:(NSPoint (^)(NSRange))provider {}
 @end
 
 @implementation NSTextAttachment {
@@ -429,6 +461,9 @@ static NSTextInputContext *current_context;
 - (void)setAllowsUndo:(BOOL)b { _allowsUndo = b; }
 - (BOOL)usesFindBar { return _usesFindBar; }
 - (void)setUsesFindBar:(BOOL)b { _usesFindBar = b; }
+/* The old find panel: no panel here, so only remembered. */
+- (BOOL)usesFindPanel { return [objc_getAssociatedObject(self, @selector(usesFindPanel)) boolValue]; }
+- (void)setUsesFindPanel:(BOOL)b { objc_setAssociatedObject(self, @selector(usesFindPanel), @(b), OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
 - (BOOL)isContinuousSpellCheckingEnabled { return _continuousSpellChecking; }
 - (void)setContinuousSpellCheckingEnabled:(BOOL)b { _continuousSpellChecking = b; }
 - (void)setAutomaticQuoteSubstitutionEnabled:(BOOL)b {}
