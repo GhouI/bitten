@@ -40,7 +40,13 @@ Ref CTFontCopyFamilyName(Ref);
 Ref CTFontCopyPostScriptName(Ref);
 Ref CTFontDescriptorCreateWithAttributes(Ref);
 Ref CTFontDescriptorCreateMatchingFontDescriptors(Ref, Ref);
-extern Ref kCTFontFamilyNameAttribute, kCTFontTraitsAttribute, kCTFontSymbolicTrait;
+extern Ref kCTFontFamilyNameAttribute, kCTFontTraitsAttribute, kCTFontSymbolicTrait, kCTFontSlantTrait;
+extern Ref kCTFontStyleNameAttribute, kCTFontStyleNameKey;
+Ref CTFontDescriptorCopyAttribute(Ref, Ref);
+Ref CTFontCopyName(Ref, Ref);
+Ref CTFontCopyTraits(Ref);
+Ref CFDictionaryGetValue(Ref, Ref);
+unsigned char CFNumberGetValue(Ref, long, void *);
 Ref CTFontCollectionCreateWithFontDescriptors(Ref, Ref);
 Ref CTFontCollectionCreateFromAvailableFonts(Ref);
 Ref CTFontCollectionCreateMatchingFontDescriptors(Ref);
@@ -106,6 +112,16 @@ int main(void) {
             CHECK(CFStringGetCString(CTFontCopyPostScriptName(font), ps, sizeof ps, 0x08000100) && !memcmp(ps, "Menlo-", 6));
             CHECK(CFStringGetCString(CTFontCopyFamilyName(font), fm, sizeof fm, 0x08000100) && !strcmp(fm, "Menlo"));
             bolds += !strcmp(ps, "Menlo-Bold");
+            /* the font says the same style as its descriptor, in Apple's words */
+            char ds[64], fs[64];
+            CHECK(CFStringGetCString(CTFontDescriptorCopyAttribute(CFArrayGetValueAtIndex(m, i), kCTFontStyleNameAttribute), ds,
+                                     sizeof ds, 0x08000100));
+            CHECK(CFStringGetCString(CTFontCopyName(font, kCTFontStyleNameKey), fs, sizeof fs, 0x08000100) && !strcmp(ds, fs));
+            if (!strcmp(ps, "Menlo-Regular")) CHECK(!strcmp(fs, "Regular"));
+            /* italics slant clockwise: a positive slant */
+            double slant = 0;
+            CHECK(CFNumberGetValue(CFDictionaryGetValue(CTFontCopyTraits(font), kCTFontSlantTrait), 13, &slant));
+            CHECK((CTFontGetSymbolicTraits(font) & 1) ? slant > 0 : slant == 0);
             bolditalics += !strcmp(ps, "Menlo-BoldItalic");
         }
         CHECK(bolds == 1 && bolditalics == 1);
