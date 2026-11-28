@@ -6008,3 +6008,10 @@ Debugging aids:
 - All sent by the target app (selector audit).
 - Test: media (texture to image, both calls).
 - Target app (total `^MISSING`): 0 -> 0.
+
+## NEXT.md: what the selector audit leaves
+
+- The selectors the target app sends that nothing implements are now all
+  compare-only, behind `#available(macOS 26/27)` or respondsToSelector:,
+  or sent to TextKit 2 objects it never gets; NEXT.md says so.
+- Target app (total `^MISSING`): 0 -> 0.
