@@ -15,6 +15,8 @@ int getpid(void);
 int renamex_np(const char *, const char *, unsigned);
 int mkpath_np(const char *, unsigned short);
 int memset_s(void *, size_t, int, size_t);
+void *malloc_default_zone(void);
+size_t malloc_zone_pressure_relief(void *, size_t);
 unsigned qos_class_main(void);
 int notify_register_dispatch(const char *, int *, void *, void *);
 int __fpclassifyd(double);
@@ -114,6 +116,18 @@ int main(void) {
     void *al = cxx_new_aligned(100, 64);
     CHECK(al && ((unsigned long)al & 63) == 0);
     cxx_delete_aligned(al, 64);
+
+    /* memory freed goes back to the system on request: after freeing many
+     * small blocks, relief hands some back (glibc keeps it otherwise) */
+    {
+        enum { N = 20000 };
+        static void *blocks[N];
+        for (int i = 0; i < N; i++) blocks[i] = malloc(200);
+        for (int i = 0; i < N; i++) free(blocks[i]);
+        size_t back = malloc_zone_pressure_relief(malloc_default_zone(), 0);
+        (void)back;   /* how much depends on the heap's shape; it returns */
+        CHECK(malloc_zone_pressure_relief(0, 0) < ((size_t)1 << 40));
+    }
 
     puts("odds ok");
     return 0;

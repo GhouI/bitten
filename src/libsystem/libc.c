@@ -303,7 +303,18 @@ static void *zone_memalign(struct d_malloc_zone *z, size_t a, size_t n) {
     return posix_memalign(&p, a < sizeof(void *) ? sizeof(void *) : a, n) ? NULL : p;
 }
 static void zone_free_sized(struct d_malloc_zone *z, void *p, size_t n) { (void)z; (void)n; free(p); }
-static size_t zone_pressure_relief(struct d_malloc_zone *z, size_t goal) { (void)z; (void)goal; return 0; }
+/* Freed memory the allocator keeps goes back to the system (glibc keeps
+ * it in its arenas; programs ask for this after dropping a lot, and
+ * AppKit does when a window closes). Returns how much RSS dropped. */
+static size_t zone_pressure_relief(struct d_malloc_zone *z, size_t goal) {
+    (void)z;
+    (void)goal;
+    struct mallinfo2 before = mallinfo2();
+    malloc_trim(0);
+    struct mallinfo2 after = mallinfo2();
+    size_t held0 = before.arena + before.hblkhd, held1 = after.arena + after.hblkhd;
+    return held0 > held1 ? held0 - held1 : 0;
+}
 static int zone_claimed(struct d_malloc_zone *z, void *p) { (void)z; return p != NULL; }
 static struct d_malloc_zone default_zone_s = {
     NULL, NULL, zone_size, zone_malloc, zone_calloc, zone_valloc, zone_free, zone_realloc,
@@ -336,6 +347,8 @@ static void d_malloc_zone_free(void *z, void *p) { (void)z; free(p); }
 DX_FN(malloc_zone_free);
 static void *d_malloc_zone_from_ptr(const void *p) { (void)p; return default_zone; }
 DX_FN(malloc_zone_from_ptr);
+static size_t d_malloc_zone_pressure_relief(void *z, size_t goal) { return zone_pressure_relief(z, goal); }
+DX_FN(malloc_zone_pressure_relief);
 
 /* ---- strings ----------------------------------------------------------- */
 

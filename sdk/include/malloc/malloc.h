@@ -17,5 +17,6 @@ void *malloc_zone_realloc(malloc_zone_t *, void *, size_t);
 void *malloc_zone_memalign(malloc_zone_t *, size_t, size_t);
 void malloc_zone_free(malloc_zone_t *, void *);
 void malloc_set_zone_name(malloc_zone_t *, const char *);
+size_t malloc_zone_pressure_relief(malloc_zone_t *, size_t);
 __END_DECLS
 #endif
