@@ -138,6 +138,17 @@ actor Library {
       _ = withObservationTracking({ nested.n }, onChange: { inner.fired = true })
     }, onChange: { outer.fired = true })
     nested.n += 1
+    // An observed object that goes away takes what waited on it along:
+    // the change handler is let go, not kept for an object long gone.
+    final class Held: @unchecked Sendable { var freed: UnsafeMutablePointer<Bool>; init(_ p: UnsafeMutablePointer<Bool>) { freed = p }; deinit { freed.pointee = true } }
+    let heldFreed = UnsafeMutablePointer<Bool>.allocate(capacity: 1)
+    heldFreed.initialize(to: false)
+    do {
+      let gone = Counter()
+      let held = Held(heldFreed)
+      _ = withObservationTracking({ gone.n }, onChange: { _ = held })
+    }
+    check(heldFreed.pointee, #line)
     check(inner.fired && outer.fired, #line)
     var more = 0
     let lib = Library()
