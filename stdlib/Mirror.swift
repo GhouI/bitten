@@ -7,6 +7,15 @@
 
 @_silgen_name("_bitten_mirror_display_style")
 internal func _bitten_mirror_display_style(_ type: Any.Type) -> Int32
+@_silgen_name("_bitten_enum_case_name")
+internal func _bitten_enum_case_name(_ value: UnsafeRawPointer, _ type: Any.Type) -> UnsafePointer<CChar>?
+/// The name of the case an enum value is in.
+internal func _enumCaseName<T>(_ value: T) -> String? {
+  var copy = value
+  return withUnsafePointer(to: &copy) { p in
+    _bitten_enum_case_name(UnsafeRawPointer(p), T.self).map { String(cString: $0) }
+  }
+}
 @_silgen_name("_bitten_mirror_count")
 internal func _bitten_mirror_count(_ value: UnsafeRawPointer, _ type: Any.Type) -> Int
 @_silgen_name("_bitten_mirror_child")

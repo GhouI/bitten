@@ -2,7 +2,9 @@
  * the elements of tuples, from the field descriptors and field offsets the
  * compiler emits. The standard library's Mirror (stdlib/Mirror.swift) calls
  * these private entry points and builds `Any` values from the address and
- * type they return. Enum payloads are not reflected yet. */
+ * type they return. An enum's case comes from its tag; the payload of a
+ * single-payload enum's payload case is reflected (it sits unchanged at the
+ * start of the value), a multi-payload enum's is not yet. */
 #include <string.h>
 
 #include "swift_internal.h"
@@ -32,9 +34,42 @@ static int is_swift_class(const sw_metadata *type) {
     return sw_class_is_swift((const sw_class_metadata *)type);
 }
 
+/* An enum value's case: its field record (records are in tag order,
+ * payload cases first), or NULL. */
+static const sw_field_record *enum_case(const void *value, const sw_metadata *type) {
+    if (sw_kind(type) != SW_KIND_ENUM) return NULL;
+    const sw_vwt *w = sw_vwt_of(type);
+    if (!(w->flags & SW_VW_HAS_ENUM_WITNESSES)) return NULL;
+    const sw_field_descriptor *fd = fields_of(type);
+    if (!fd) return NULL;
+    unsigned tag = ((const sw_enum_vwt *)w)->getEnumTag(value, type);
+    if (tag >= fd->num_fields) return NULL;
+    return (const sw_field_record *)((const char *)fd->fields + (size_t)tag * fd->field_record_size);
+}
+
+/* The name of the case an enum value is in (print and Mirror show it). */
+static const char *d__bitten_enum_case_name(const void *value, const sw_metadata *type) {
+    const sw_field_record *r = enum_case(value, type);
+    return r ? sw_rel(&r->field_name) : NULL;
+}
+DX_FN(_bitten_enum_case_name);
+
+/* The payload's type when it can be read in place: a direct (not
+ * indirect) payload case of an enum with a single payload case. */
+static const sw_metadata *enum_payload_type(const void *value, const sw_metadata *type) {
+    const sw_field_record *r = enum_case(value, type);
+    const sw_field_descriptor *fd = fields_of(type);
+    if (!r || !fd || fd->kind != 2 || (r->flags & 1)) return NULL;
+    const char *mangled = sw_rel(&r->mangled_type);
+    if (!mangled) return NULL;
+    const sw_type_context_descriptor *ctx = sw_type_descriptor(type);
+    return sw_type_by_mangled_name(mangled, sw_mangled_name_length(mangled), (const sw_context_descriptor *)ctx,
+                                   sw_generic_args(type));
+}
+
 static intptr_t d__bitten_mirror_count(const void *value, const sw_metadata *type) {
-    (void)value;
     switch (sw_kind(type)) {
+    case SW_KIND_ENUM: return enum_payload_type(value, type) ? 1 : 0;
     case SW_KIND_TUPLE: return (intptr_t)((const sw_tuple_metadata *)type)->num_elements;
     case SW_KIND_STRUCT: {
         const sw_field_descriptor *fd = fields_of(type);
@@ -81,6 +116,14 @@ static const void *d__bitten_mirror_child(const void *value, const sw_metadata *
         *name = tuple_label(t, index, label, sizeof label);
         *child_type = t->elements[index].type;
         return (const char *)value + t->elements[index].offset;
+    }
+    if (sw_kind(type) == SW_KIND_ENUM) {
+        /* the payload, labelled with the case's name */
+        const sw_metadata *pt = index == 0 ? enum_payload_type(value, type) : NULL;
+        if (!pt) return NULL;
+        *name = d__bitten_enum_case_name(value, type);
+        *child_type = pt;
+        return value;
     }
     const sw_field_descriptor *fd = fields_of(type);
     if (!fd || index < 0 || (uint32_t)index >= fd->num_fields) return NULL;

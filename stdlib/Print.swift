@@ -5,8 +5,9 @@
 // A value prints as: its TextOutputStreamable text, else its description,
 // else its debugDescription, else a form made from its type. Optionals print
 // through their debugDescription ("Optional(1)", "nil"). The last fallback
-// should list a struct's stored properties ("Point(x: 1, y: 2)") and an
-// enum's case; until reflection (Mirror) exists it shows the type's name.
+// lists a struct's stored properties ("Point(x: 1, y: 2)") and shows an
+// enum's case ("dark", "some(3)"); a multi-payload enum's payload is left
+// out for now.
 
 public func print(_ items: Any..., separator: String = " ", terminator: String = "\n") {
   var output = _Stdout()
@@ -147,6 +148,24 @@ internal func _adHocPrint_unlocked<T, TargetStream: TextOutputStream>(
       _debugPrint_unlocked(child.value, &target)
     }
     target.write(")")
+  case .some(.enum):
+    // case, or case(payload) as Swift prints them
+    func name<T>(_ v: T) -> String? { return _enumCaseName(v) }
+    guard let caseName = _openExistential(value as Any, do: name) else {
+      target.write(_typeName(type, qualified: isDebugPrint))
+      return
+    }
+    if isDebugPrint {
+      target.write(_typeName(type, qualified: true))
+      target.write(".")
+    }
+    target.write(caseName)
+    if let payload = mirror.children.first {
+      let tuple = Mirror(reflecting: payload.value).displayStyle == .tuple
+      if !tuple { target.write("(") }
+      _debugPrint_unlocked(payload.value, &target)
+      if !tuple { target.write(")") }
+    }
   default:
     target.write(_typeName(type, qualified: isDebugPrint))
   }

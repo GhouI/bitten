@@ -117,3 +117,29 @@ var failures = 0
   print("printed", opaque(42), [true], separator: " ")
   return bad
 }
+
+/// Enums print their case, and a single-payload case its payload, as Swift
+/// does; Mirror shows the payload labelled with the case.
+enum Shade { case light, dark }
+enum Load { case none, some(Int), pair(a: Int, b: String) }
+enum OnePayload { case empty, value(String) }
+enum Wrapped<T> { case nothing, one(T) }
+@_silgen_name("swl_printing_enums") public func enums() -> Int {
+  var bad = 0
+  expect("\(opaque(Shade.dark)) \(opaque(Shade.light))", "dark light", 1, &bad)
+  expect(String(describing: opaque(OnePayload.value("x"))), "value(\"x\")", 2, &bad)
+  expect(String(describing: opaque(OnePayload.empty)), "empty", 4, &bad)
+  expect(String(reflecting: opaque(Shade.dark)), "printing.Shade.dark", 8, &bad)
+  let m = Mirror(reflecting: opaque(OnePayload.value("y")))
+  if m.displayStyle != .enum || m.children.count != 1 || m.children.first?.label != "value"
+    || (m.children.first?.value as? String) != "y" { bad |= 16 }
+  if Mirror(reflecting: opaque(Shade.dark)).children.count != 0 { bad |= 32 }
+  expect("\(opaque(Wrapped<Int>.one(5)))", "one(5)", 64, &bad)
+  // light and dark must not read alike (programs key caches with them)
+  if "\(opaque(Shade.light))" == "\(opaque(Shade.dark))" { bad |= 128 }
+  // a multi-payload enum still shows its case
+  let pairText = "\(opaque(Load.pair(a: 1, b: "z")))"
+  if !pairText.hasPrefix("pair") { bad |= 256; print("  got <\(pairText)>") }
+  if "\(opaque(Load.none))" != "none" { bad |= 512 }
+  return bad
+}
