@@ -5610,3 +5610,12 @@ Debugging aids:
   for several times in a pass. CPU over eight Settings page switches:
   12.0 s -> 11.2 s.
 - Target app (total `^MISSING`): 0 -> 0.
+
+## objc: side-table shards use spinlocks
+
+- Every Objective-C retain and release locks a shard of the reference
+  count side table for one hash probe. Those were pthread mutexes, and
+  locking and unlocking them was about 5% of Settings page switches.
+  They are spinlocks now, since nothing under them calls out or blocks.
+  CPU over eight switches: 11.2 s -> 10.5 s.
+- Target app (total `^MISSING`): 0 -> 0.
